@@ -47,8 +47,7 @@ openssl rand -base64 48
 
 Start with pm2:
 ```bash
-pm2 start dist/index.js --name gharpayy-api
-pm2 start dist/workers/index.js --name gharpayy-worker
+pm2 start ecosystem.config.cjs
 pm2 save && pm2 startup    # auto-start on reboot
 ```
 
@@ -99,7 +98,7 @@ pm2 logs gharpayy-worker                     # automation worker logging events
 ## 7. Operate
 
 - **Logs**: `pm2 logs`. Add Datadog/Honeycomb later via OTel.
-- **Update**: `git pull && cd server && npm i && npm run build && pm2 restart gharpayy-api gharpayy-worker`
+- **Update**: `git pull && cd server && npm i && npm run build && pm2 startOrRestart ecosystem.config.cjs`
 - **Backups**: Atlas → Backup → enable continuous (M10+).
 - **Indexes** are created on first boot (see `server/src/db/mongo.ts`).
 - **Rate limit**: 300 req/min per IP via `@fastify/rate-limit`. Tighten in prod.
