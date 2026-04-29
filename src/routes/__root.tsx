@@ -79,18 +79,18 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
-  const hydrate = useAuthUser((s) => s.hydrate);
-  useEffect(() => { hydrate(); }, [hydrate]);
   return (
     <QueryClientProvider client={queryClient}>
       <MYTSettingsProvider>
         <MYTTourDataProvider>
           <MYTAppProvider>
             <OwnerProvider>
-              <Outlet />
+              <AuthGate>
+                <Outlet />
+                <KeyboardShortcuts />
+                <OnboardingWalkthrough />
+              </AuthGate>
               <Toaster />
-              <KeyboardShortcuts />
-              <OnboardingWalkthrough />
             </OwnerProvider>
           </MYTAppProvider>
         </MYTTourDataProvider>
