@@ -164,7 +164,7 @@ export const api = {
     get: (id: string) => request<ManagedUser>(`/api/users/${id}`),
     create: (b: {
       fullName: string; email: string; phone?: string; password: string;
-      role: ManagedRole; zones?: string[]; managerId?: string | null; adminId?: string | null;
+      role: ManagedRole; zones?: string[];
     }) => request<ManagedUser>("/api/users", { method: "POST", body: JSON.stringify(b) }),
     update: (id: string, b: Record<string, unknown>) =>
       request<ManagedUser>(`/api/users/${id}`, { method: "PUT", body: JSON.stringify(b) }),
@@ -185,6 +185,12 @@ export const api = {
   },
   zones: {
     list: () => request<{ id: string; name: string }[]>("/api/zones"),
+    create: (name: string) =>
+      request<{ id: string; name: string }>("/api/zones", { method: "POST", body: JSON.stringify({ name }) }),
+    update: (id: string, name: string) =>
+      request<{ id: string; name: string }>(`/api/zones/${id}`, { method: "PUT", body: JSON.stringify({ name }) }),
+    remove: (id: string) =>
+      request<{ ok: true }>(`/api/zones/${id}`, { method: "DELETE" }),
   },
 
   activity: {
