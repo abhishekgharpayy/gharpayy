@@ -88,16 +88,10 @@ export function registerAuthRoutes(app: FastifyInstance) {
       });
 
       // Audit
-      const evtId = newEventId();
-      await emit({
-        _id: evtId,
+      await auditAuthEvent({
         type: "evt.user.login",
-        occurredAt: new Date().toISOString(),
         actor: claims.sub,
         tenantId: claims.tenantId,
-        correlationId: evtId,
-        causationId: null,
-        version: 1,
         payload: {
           userId: claims.sub,
           email: claims.email,
