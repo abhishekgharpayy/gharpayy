@@ -136,9 +136,16 @@ export function ProfileMenu() {
             try {
               const { useAuthUser } = await import("@/lib/auth-store");
               await useAuthUser.getState().signOut();
-              navigate({ to: "/login", search: { redirect: "/" } });
             } catch {
-              navigate({ to: "/login", search: { redirect: "/" } });
+              // ignore — fall through to redirect
+            } finally {
+              toast.success("Signed out");
+              // Hard reload to clear all in-memory state (sockets, stores, caches)
+              if (typeof window !== "undefined") {
+                window.location.href = "/login?redirect=%2F";
+              } else {
+                navigate({ to: "/login", search: { redirect: "/" } });
+              }
             }
           }}
         >
