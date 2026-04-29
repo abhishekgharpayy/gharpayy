@@ -27,6 +27,7 @@ import { VpsConnectionStatus } from "./VpsConnectionStatus";
 import { ClientOnly } from "./ClientOnly";
 import { QuickCreateMenu } from "./QuickCreateMenu";
 import { LiveLeadsBridge } from "./LiveLeadsBridge";
+import { useAuthUser } from "@/lib/auth-store";
 
 function PipRouteSyncBridge() {
   const { active } = usePip();
@@ -69,6 +70,16 @@ function PersonaPulse({ role, persona, queueCount, overdueCount, bookingsCount }
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { role, setRole, currentTcmId, setCurrentTcmId, tcms, leads, tours, followUps, handoffs, bookings } = useApp();
+  const authUser = useAuthUser((s) => s.user);
+  const hydrateAuth = useAuthUser((s) => s.hydrate);
+  // On mount, hydrate the real user, and if they are super_admin, switch the
+  // sidebar persona to "super-admin" so Settings + admin nav appear.
+  useEffect(() => { if (!authUser) hydrateAuth(); }, [authUser, hydrateAuth]);
+  useEffect(() => {
+    if (authUser?.role === "super_admin" && role !== "super-admin") {
+      setRole("super-admin");
+    }
+  }, [authUser, role, setRole]);
   const router = useRouterState();
   const path = router.location.pathname;
   const [now, mounted] = useMountedNow();
