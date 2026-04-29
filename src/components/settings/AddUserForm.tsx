@@ -7,42 +7,31 @@ import { Label } from "@/components/ui/label";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { api, type ManagedRole, type ManagedUser } from "@/lib/api/client";
+import { api, type ManagedRole } from "@/lib/api/client";
 
 export function AddUserForm({ onSuccess }: { onSuccess: () => void }) {
   const [form, setForm] = useState({
     fullName: "", email: "", phone: "", password: "",
     role: "" as ManagedRole | "",
-    managerId: "", adminId: "",
   });
   const [zones, setZones] = useState<{ id: string; name: string }[]>([]);
-  const [selectedZones, setSelectedZones] = useState<string[]>([]);
-  const [managers, setManagers] = useState<ManagedUser[]>([]);
-  const [admins, setAdmins] = useState<ManagedUser[]>([]);
+  const [zoneName, setZoneName] = useState<string>("");
   const [showPw, setShowPw] = useState(false);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     api.zones.list().then(setZones).catch(() => undefined);
-    api.managers.list().then((m) => setManagers(m)).catch(() => undefined);
-    api.admins.list().then(setAdmins).catch(() => undefined);
   }, []);
+
+  const needsZone = form.role === "admin" || form.role === "member";
 
   const submit = async () => {
     if (!form.fullName || !form.email || !form.password || !form.role) {
       toast.error("Name, email, password, role are required");
       return;
     }
-    if ((form.role === "admin" || form.role === "member") && selectedZones.length === 0) {
-      toast.error("Assign at least one zone");
-      return;
-    }
-    if (form.role === "admin" && !form.managerId) {
-      toast.error("Select a parent manager");
-      return;
-    }
-    if (form.role === "member" && !form.adminId) {
-      toast.error("Select a parent admin");
+    if (needsZone && !zoneName) {
+      toast.error("Select a zone");
       return;
     }
     setBusy(true);
@@ -53,9 +42,7 @@ export function AddUserForm({ onSuccess }: { onSuccess: () => void }) {
         phone: form.phone,
         password: form.password,
         role: form.role,
-        zones: selectedZones,
-        managerId: form.managerId || null,
-        adminId: form.adminId || null,
+        zones: needsZone ? [zoneName] : [],
       });
       toast.success("User created");
       onSuccess();
@@ -115,55 +102,22 @@ export function AddUserForm({ onSuccess }: { onSuccess: () => void }) {
         </Select>
       </div>
 
-      {form.role === "admin" && (
+      {needsZone && (
         <div className="space-y-1.5">
-          <Label className="text-xs">Parent Manager *</Label>
-          <Select value={form.managerId} onValueChange={(v) => setForm({ ...form, managerId: v })}>
-            <SelectTrigger><SelectValue placeholder="Pick manager…" /></SelectTrigger>
+          <Label className="text-xs flex items-center gap-1.5"><MapPin size={12} /> Zone *</Label>
+          <Select value={zoneName} onValueChange={setZoneName}>
+            <SelectTrigger><SelectValue placeholder="Select zone…" /></SelectTrigger>
             <SelectContent>
-              {managers.map((m) => (
-                <SelectItem key={m.id} value={m.id}>{m.fullName} · {m.email}</SelectItem>
+              {zones.map((z) => (
+                <SelectItem key={z.id} value={z.name}>{z.name}</SelectItem>
               ))}
-              {managers.length === 0 && <div className="px-3 py-2 text-xs text-muted-foreground">No managers yet</div>}
+              {zones.length === 0 && (
+                <div className="px-3 py-2 text-xs text-muted-foreground">
+                  No zones yet — add zones in Settings → Zones
+                </div>
+              )}
             </SelectContent>
           </Select>
-        </div>
-      )}
-
-      {form.role === "member" && (
-        <div className="space-y-1.5">
-          <Label className="text-xs">Parent Admin *</Label>
-          <Select value={form.adminId} onValueChange={(v) => setForm({ ...form, adminId: v })}>
-            <SelectTrigger><SelectValue placeholder="Pick admin…" /></SelectTrigger>
-            <SelectContent>
-              {admins.map((a) => (
-                <SelectItem key={a.id} value={a.id}>{a.fullName} · {a.email}</SelectItem>
-              ))}
-              {admins.length === 0 && <div className="px-3 py-2 text-xs text-muted-foreground">No admins yet</div>}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
-
-      {(form.role === "admin" || form.role === "member") && (
-        <div className="space-y-1.5">
-          <Label className="text-xs flex items-center gap-1.5"><MapPin size={12} /> Assign Zones *</Label>
-          <div className="grid grid-cols-2 gap-2">
-            {zones.map((z) => (
-              <label key={z.id} className="flex items-center gap-2 text-xs cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={selectedZones.includes(z.name)}
-                  onChange={(e) => {
-                    if (e.target.checked) setSelectedZones([...selectedZones, z.name]);
-                    else setSelectedZones(selectedZones.filter((x) => x !== z.name));
-                  }}
-                  className="rounded"
-                />
-                {z.name}
-              </label>
-            ))}
-          </div>
         </div>
       )}
 
