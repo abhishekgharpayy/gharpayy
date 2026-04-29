@@ -47,6 +47,19 @@ async function main() {
 
   await connectMongo();
 
+  // Root status — quick visual confirmation that the server is up.
+  app.get("/", async (_req, reply) => {
+    reply.type("text/html").send(
+      `<!doctype html><html><head><meta charset="utf-8"><title>Gharpayy API</title>
+<style>body{font-family:ui-sans-serif,system-ui,sans-serif;background:#0f172a;color:#e2e8f0;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}
+.card{background:#1e293b;padding:2rem 2.5rem;border-radius:12px;border:1px solid #334155;text-align:center}
+h1{margin:0 0 .5rem;font-size:1.5rem;color:#34d399}p{margin:.25rem 0;color:#94a3b8}code{color:#fbbf24}</style>
+</head><body><div class="card"><h1>✓ Backend is running</h1>
+<p>Gharpayy API on port <code>${env.PORT}</code></p>
+<p>${new Date().toISOString()}</p></div></body></html>`
+    );
+  });
+
   // Health/metrics first — MUST work even before everything else is wired.
   registerHealthRoutes(app);
   app.get("/api/health", async () => ({ ok: true, ts: new Date().toISOString() }));
