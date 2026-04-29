@@ -50,6 +50,7 @@ export function SuperAdminSettingsPanel() {
       </div>
 
       {active === "users" && <UsersTab />}
+      {active === "zones" && <ZonesTab />}
       {active === "roles" && <RolesTab />}
       {active === "profile" && <ProfileTab />}
       {active === "activity" && <ActivityTab />}
