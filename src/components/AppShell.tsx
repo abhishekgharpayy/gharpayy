@@ -37,36 +37,6 @@ function PipRouteSyncBridge() {
 
 type NavItem = { to: string; label: string; icon: typeof Target; badge?: number; accent?: boolean };
 
-function PersonaPulse({ role, persona, queueCount, overdueCount, bookingsCount }: {
-  role: string;
-  persona: ReturnType<typeof activePersona>;
-  queueCount: number;
-  overdueCount: number;
-  bookingsCount: number;
-}) {
-  const roleCopy = role === "hr"
-    ? `People watch: ${persona.arc}`
-    : role === "flow-ops"
-      ? `Flow control: ${queueCount} actions waiting · ${persona.signature}`
-      : role === "tcm"
-        ? `Next best action: ${persona.weakSpots[0] ? `protect against ${persona.weakSpots[0]}` : persona.signature}`
-        : `Owner control: approve what is blocking sellable inventory.`;
-  const metric = role === "hr" ? `${bookingsCount} bookings` : role === "tcm" ? `${overdueCount} overdue` : `${queueCount} live tasks`;
-  return (
-    <div className="border-b border-border bg-card/35 px-4 md:px-6 py-2">
-      <div className="mx-auto max-w-[1400px] flex flex-wrap items-center justify-between gap-2 text-xs">
-        <div className="min-w-0">
-          <span className="font-medium text-foreground">{persona.name.split(" ")[0]}</span>
-          <span className="text-muted-foreground"> · {roleCopy}</span>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <span className="rounded-full border border-border bg-background px-2 py-0.5 text-[10px] text-muted-foreground">{persona.focus}</span>
-          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] text-primary">{metric}</span>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { role, setRole, currentTcmId, setCurrentTcmId, tcms, leads, tours, followUps, handoffs, bookings } = useApp();
