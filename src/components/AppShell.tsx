@@ -298,6 +298,11 @@ export function AppShell({ children }: { children: ReactNode }) {
               </Select>
             );
           })()}
+          {(authUser?.fullName || authUser?.username || authUser?.email) && (
+            <div className="px-1 text-[11px] text-sidebar-foreground/80 truncate">
+              {authUser?.fullName || authUser?.username || authUser?.email}
+            </div>
+          )}
           {role === "tcm" && allowed.includes("tcm") && (
             <Select value={currentTcmId} onValueChange={setCurrentTcmId}>
               <SelectTrigger className="bg-sidebar-accent border-sidebar-border text-sidebar-accent-foreground h-8 text-xs">
