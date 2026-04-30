@@ -172,6 +172,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       { to: "/myt/war-room", label: "War Room", icon: Swords },
       { to: "/myt/team", label: "Team", icon: Users },
       { to: "/revenue", label: "Revenue", icon: IndianRupee },
+      { to: "/zones", label: "Zones", icon: MapPin },
       { to: "/settings", label: "Settings", icon: Settings, accent: true },
     ],
   };

@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ZonesRouteImport } from './routes/zones'
 import { Route as ZoneBrainRouteImport } from './routes/zone-brain'
 import { Route as ToursRouteImport } from './routes/tours'
 import { Route as TodayRouteImport } from './routes/today'
@@ -73,6 +74,11 @@ import { Route as MytTcmActionsRouteImport } from './routes/myt/tcm.actions'
 import { Route as MytFeedbackIdRouteImport } from './routes/myt/feedback.$id'
 import { Route as MytTourIdReportRouteImport } from './routes/myt/tour.$id.report'
 
+const ZonesRoute = ZonesRouteImport.update({
+  id: '/zones',
+  path: '/zones',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ZoneBrainRoute = ZoneBrainRouteImport.update({
   id: '/zone-brain',
   path: '/zone-brain',
@@ -415,6 +421,7 @@ export interface FileRoutesByFullPath {
   '/today': typeof TodayRoute
   '/tours': typeof ToursRoute
   '/zone-brain': typeof ZoneBrainRoute
+  '/zones': typeof ZonesRoute
   '/leads/add': typeof LeadsAddRoute
   '/myt/bookings': typeof MytBookingsRoute
   '/myt/calendar': typeof MytCalendarRoute
@@ -480,6 +487,7 @@ export interface FileRoutesByTo {
   '/today': typeof TodayRoute
   '/tours': typeof ToursRoute
   '/zone-brain': typeof ZoneBrainRoute
+  '/zones': typeof ZonesRoute
   '/leads/add': typeof LeadsAddRoute
   '/myt/bookings': typeof MytBookingsRoute
   '/myt/calendar': typeof MytCalendarRoute
@@ -546,6 +554,7 @@ export interface FileRoutesById {
   '/today': typeof TodayRoute
   '/tours': typeof ToursRoute
   '/zone-brain': typeof ZoneBrainRoute
+  '/zones': typeof ZonesRoute
   '/leads/add': typeof LeadsAddRoute
   '/myt/bookings': typeof MytBookingsRoute
   '/myt/calendar': typeof MytCalendarRoute
@@ -613,6 +622,7 @@ export interface FileRouteTypes {
     | '/today'
     | '/tours'
     | '/zone-brain'
+    | '/zones'
     | '/leads/add'
     | '/myt/bookings'
     | '/myt/calendar'
@@ -678,6 +688,7 @@ export interface FileRouteTypes {
     | '/today'
     | '/tours'
     | '/zone-brain'
+    | '/zones'
     | '/leads/add'
     | '/myt/bookings'
     | '/myt/calendar'
@@ -743,6 +754,7 @@ export interface FileRouteTypes {
     | '/today'
     | '/tours'
     | '/zone-brain'
+    | '/zones'
     | '/leads/add'
     | '/myt/bookings'
     | '/myt/calendar'
@@ -809,6 +821,7 @@ export interface RootRouteChildren {
   TodayRoute: typeof TodayRoute
   ToursRoute: typeof ToursRoute
   ZoneBrainRoute: typeof ZoneBrainRoute
+  ZonesRoute: typeof ZonesRoute
   MytBookingsRoute: typeof MytBookingsRoute
   MytCalendarRoute: typeof MytCalendarRoute
   MytDraftsRoute: typeof MytDraftsRoute
@@ -847,6 +860,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/zones': {
+      id: '/zones'
+      path: '/zones'
+      fullPath: '/zones'
+      preLoaderRoute: typeof ZonesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/zone-brain': {
       id: '/zone-brain'
       path: '/zone-brain'
@@ -1352,6 +1372,7 @@ const rootRouteChildren: RootRouteChildren = {
   TodayRoute: TodayRoute,
   ToursRoute: ToursRoute,
   ZoneBrainRoute: ZoneBrainRoute,
+  ZonesRoute: ZonesRoute,
   MytBookingsRoute: MytBookingsRoute,
   MytCalendarRoute: MytCalendarRoute,
   MytDraftsRoute: MytDraftsRoute,
