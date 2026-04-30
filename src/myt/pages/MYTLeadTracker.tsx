@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useAppState } from '@/myt/lib/app-context';
 import { zones, teamMembers } from '@/myt/lib/mock-data';
 import { Lead } from '@/myt/lib/types';
@@ -6,13 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { CheckCircle, XCircle, Plus, Phone, ArrowRight, Sparkles, PictureInPicture2, FlaskConical, Zap, Info } from 'lucide-react';
+import { CheckCircle, XCircle, Plus, Phone, ArrowRight, Sparkles, Zap } from 'lucide-react';
 import { useNavigate } from '@/shims/react-router-dom';
 import { RequestAccessSheet } from '@/components/leads/RequestAccessSheet';
 import { useIdentityStore } from '@/lib/lead-identity/store';
-import { ParserTestModal } from '@/components/leads/ParserTestModal';
 import { QuickAddLeadPanel } from '@/components/leads/QuickAddLeadPanel';
-import { usePip } from '@/components/pip/PipProvider';
 
 export default function MYTLeadTracker() {
   const { leads, setLeads, currentMemberId } = useAppState();
@@ -20,13 +18,7 @@ export default function MYTLeadTracker() {
   const [mode, setMode] = useState<'quick' | 'manual' | 'requests'>('quick');
   const identityLeadCount = useIdentityStore((s) => s.leads.length);
   const [showForm, setShowForm] = useState(false);
-  const [showParserTest, setShowParserTest] = useState(false);
   const [showQuickAdd, setShowQuickAdd] = useState(false);
-  const { open: openPip, close: closePip, active: pipActive, supported: pipSupportedRaw } = usePip();
-  const [pipMounted, setPipMounted] = useState(false);
-  useEffect(() => { setPipMounted(true); }, []);
-  // SSR-safe: assume supported until mounted, so server + first-client paint match.
-  const pipSupported = pipMounted ? pipSupportedRaw : true;
   const [form, setForm] = useState({
     name: '', phone: '', area: '', budget: '10000',
     moveInDate: '', dateConfirmed: false,
