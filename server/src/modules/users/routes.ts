@@ -102,6 +102,11 @@ export function registerUserRoutes(app: FastifyInstance) {
     return reply.send(list.map(userOut));
   });
 
+  app.get("/api/owners", { preHandler: [requireAuth, requireScope("user.read")] }, async (req, reply) => {
+    const list = await roleList(req, "owner");
+    return reply.send(list.map(userOut));
+  });
+
   // ---------- CREATE USER (super_admin) ----------
   app.post("/api/users", { preHandler: [requireAuth, requireScope("user.admin")] }, async (req, reply) => {
     try {
