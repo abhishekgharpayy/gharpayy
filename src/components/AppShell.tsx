@@ -276,19 +276,35 @@ export function AppShell({ children }: { children: ReactNode }) {
             </kbd>
           </div>
           <div className="text-[10px] uppercase tracking-wider text-sidebar-foreground px-1">View as</div>
-          <Select value={role} onValueChange={(v) => setRole(v as typeof role)}>
-            <SelectTrigger className="bg-sidebar-accent border-sidebar-border text-sidebar-accent-foreground h-8 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="flow-ops">Flow Ops</SelectItem>
-              <SelectItem value="tcm">TCM</SelectItem>
-              <SelectItem value="hr">HR / Leadership</SelectItem>
-              <SelectItem value="owner">Property Owner</SelectItem>
-              <SelectItem value="super-admin">Super Admin</SelectItem>
-            </SelectContent>
-          </Select>
-          {role === "tcm" && (
+          {(() => {
+            const labels: Record<string, string> = {
+              "flow-ops": "Flow Ops",
+              tcm: "TCM",
+              hr: "HR / Leadership",
+              owner: "Property Owner",
+              "super-admin": "Super Admin",
+            };
+            if (allowed.length <= 1) {
+              return (
+                <div className="bg-sidebar-accent border border-sidebar-border text-sidebar-accent-foreground h-8 text-xs rounded-md px-3 flex items-center">
+                  {labels[role] ?? role}
+                </div>
+              );
+            }
+            return (
+              <Select value={role} onValueChange={(v) => setRole(v as typeof role)}>
+                <SelectTrigger className="bg-sidebar-accent border-sidebar-border text-sidebar-accent-foreground h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {allowed.map((p) => (
+                    <SelectItem key={p} value={p}>{labels[p] ?? p}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            );
+          })()}
+          {role === "tcm" && allowed.includes("tcm") && (
             <Select value={currentTcmId} onValueChange={setCurrentTcmId}>
               <SelectTrigger className="bg-sidebar-accent border-sidebar-border text-sidebar-accent-foreground h-8 text-xs">
                 <SelectValue />
