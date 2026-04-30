@@ -138,7 +138,6 @@ export function RolesTab() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge variant="secondary" className="text-[10px]">{m.admins?.length ?? 0} Admins</Badge>
                   <ChevronRight size={16} className={"transition-transform " + (expandedId === m.id ? "rotate-90" : "")} />
                 </div>
               </button>
@@ -205,7 +204,7 @@ export function RolesTab() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    {a.zones?.length > 0 && <Badge variant="outline" className="text-[10px]">{a.zones.length} Zones</Badge>}
+                    {a.zones?.length > 0 && <Badge variant="outline" className="text-[10px]">{a.zones.join(", ")}</Badge>}
                     <Badge variant="secondary" className="text-[10px]">{matchingMembers.length} Members</Badge>
                     <ChevronRight size={16} className={"transition-transform " + (expandedId === a.id ? "rotate-90" : "")} />
                   </div>
