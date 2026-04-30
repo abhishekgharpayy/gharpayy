@@ -67,6 +67,22 @@ export interface ManagedUser {
   createdAt: string;
 }
 
+export interface Zone {
+  id: string;
+  name: string;
+  city: string;
+  areas: string[];
+  color: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+export interface ZoneInput {
+  name: string;
+  city?: string;
+  areas?: string[];
+  color?: string;
+}
+
 export interface AuthUser {
   id: string;
   username: string;
@@ -184,11 +200,11 @@ export const api = {
     list: () => request<ManagedUser[]>("/api/members"),
   },
   zones: {
-    list: () => request<{ id: string; name: string }[]>("/api/zones"),
-    create: (name: string) =>
-      request<{ id: string; name: string }>("/api/zones", { method: "POST", body: JSON.stringify({ name }) }),
-    update: (id: string, name: string) =>
-      request<{ id: string; name: string }>(`/api/zones/${id}`, { method: "PUT", body: JSON.stringify({ name }) }),
+    list: () => request<Zone[]>("/api/zones"),
+    create: (input: ZoneInput) =>
+      request<Zone>("/api/zones", { method: "POST", body: JSON.stringify(input) }),
+    update: (id: string, input: ZoneInput) =>
+      request<Zone>(`/api/zones/${id}`, { method: "PUT", body: JSON.stringify(input) }),
     remove: (id: string) =>
       request<{ ok: true }>(`/api/zones/${id}`, { method: "DELETE" }),
   },
