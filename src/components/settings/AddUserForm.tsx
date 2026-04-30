@@ -98,6 +98,7 @@ export function AddUserForm({ onSuccess }: { onSuccess: () => void }) {
             <SelectItem value="manager">Manager</SelectItem>
             <SelectItem value="admin">Admin</SelectItem>
             <SelectItem value="member">Member</SelectItem>
+            <SelectItem value="owner">Property Owner</SelectItem>
           </SelectContent>
         </Select>
       </div>
