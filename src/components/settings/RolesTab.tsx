@@ -302,9 +302,53 @@ export function RolesTab() {
             </div>
           ))}
 
+          {/* Owners */}
+          {roleTab === "owners" && owners.map((own) => (
+            <div key={own.id} className="border rounded-xl bg-card overflow-hidden">
+              <button
+                onClick={() => setExpandedId(expandedId === own.id ? null : own.id)}
+                className="w-full flex items-center justify-between p-4 hover:bg-secondary/30 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center">
+                    <span className="text-amber-500 font-semibold text-sm">{own.fullName?.charAt(0)?.toUpperCase()}</span>
+                  </div>
+                  <div className="text-left">
+                    <p className="text-sm font-medium">{own.fullName}</p>
+                    <p className="text-xs text-muted-foreground">{own.email}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="text-[10px]">Property Owner</Badge>
+                  <ChevronRight size={16} className={"transition-transform " + (expandedId === own.id ? "rotate-90" : "")} />
+                </div>
+              </button>
+
+              {expandedId === own.id && (
+                <div className="border-t p-4 space-y-4 bg-secondary/10">
+                  {editingId === own.id ? (
+                    <EditForm form={editForm} setForm={setEditForm} zones={zones} onSave={saveEdit} onCancel={() => setEditingId(null)} saving={updating} />
+                  ) : (
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground">Phone: <span className="text-foreground">{own.phone || "N/A"}</span></p>
+                        <p className="text-xs text-muted-foreground">Username: <span className="text-foreground">{own.username}</span></p>
+                      </div>
+                      <div className="flex gap-1">
+                        <Button size="sm" variant="ghost" onClick={() => startEdit(own, "owner")}><Pencil size={12} /></Button>
+                        <Button size="sm" variant="ghost" onClick={() => resetPassword(own.id, own.fullName)}><KeyRound size={12} /></Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+
           {roleTab === "managers" && managers.length === 0 && <p className="text-center text-muted-foreground text-sm py-8">No managers yet</p>}
           {roleTab === "admins" && admins.length === 0 && <p className="text-center text-muted-foreground text-sm py-8">No admins yet</p>}
           {roleTab === "members" && members.length === 0 && <p className="text-center text-muted-foreground text-sm py-8">No members yet</p>}
+          {roleTab === "owners" && owners.length === 0 && <p className="text-center text-muted-foreground text-sm py-8">No property owners yet</p>}
         </div>
       )}
     </div>
