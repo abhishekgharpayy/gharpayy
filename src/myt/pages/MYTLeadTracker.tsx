@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useAppState } from '@/myt/lib/app-context';
 import { zones, teamMembers } from '@/myt/lib/mock-data';
 import { Lead } from '@/myt/lib/types';
@@ -6,13 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { CheckCircle, XCircle, Plus, Phone, ArrowRight, Sparkles, PictureInPicture2, FlaskConical, Zap, Info } from 'lucide-react';
+import { CheckCircle, XCircle, Plus, Phone, ArrowRight, Sparkles, Zap } from 'lucide-react';
 import { useNavigate } from '@/shims/react-router-dom';
 import { RequestAccessSheet } from '@/components/leads/RequestAccessSheet';
 import { useIdentityStore } from '@/lib/lead-identity/store';
-import { ParserTestModal } from '@/components/leads/ParserTestModal';
 import { QuickAddLeadPanel } from '@/components/leads/QuickAddLeadPanel';
-import { usePip } from '@/components/pip/PipProvider';
 
 export default function MYTLeadTracker() {
   const { leads, setLeads, currentMemberId } = useAppState();
@@ -20,13 +18,7 @@ export default function MYTLeadTracker() {
   const [mode, setMode] = useState<'quick' | 'manual' | 'requests'>('quick');
   const identityLeadCount = useIdentityStore((s) => s.leads.length);
   const [showForm, setShowForm] = useState(false);
-  const [showParserTest, setShowParserTest] = useState(false);
   const [showQuickAdd, setShowQuickAdd] = useState(false);
-  const { open: openPip, close: closePip, active: pipActive, supported: pipSupportedRaw } = usePip();
-  const [pipMounted, setPipMounted] = useState(false);
-  useEffect(() => { setPipMounted(true); }, []);
-  // SSR-safe: assume supported until mounted, so server + first-client paint match.
-  const pipSupported = pipMounted ? pipSupportedRaw : true;
   const [form, setForm] = useState({
     name: '', phone: '', area: '', budget: '10000',
     moveInDate: '', dateConfirmed: false,
@@ -79,107 +71,48 @@ export default function MYTLeadTracker() {
   const selectClass = "w-full h-10 bg-surface-2 border border-border rounded-md px-3 text-sm text-foreground";
 
   return (
-    <div className="space-y-4 animate-slide-up">
-      {/* Toolbar */}
-      <div className="flex items-start justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-xl md:text-2xl font-heading font-bold text-foreground">MYT Lead Tracker</h1>
-          <p className="text-xs text-muted-foreground">
+    <div className="space-y-3 animate-slide-up">
+      {/* Compact header */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="min-w-0">
+          <h1 className="text-lg md:text-xl font-heading font-bold text-foreground leading-tight">MYT Lead Tracker</h1>
+          <p className="text-[11px] text-muted-foreground">
             Paste any format · auto-dedup against {identityLeadCount} unified leads
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            size="sm"
-            variant={pipActive ? "secondary" : "default"}
-            onClick={() => (pipActive ? closePip() : openPip("dashboard"))}
-            disabled={!pipSupported && !pipActive}
-            className="h-8 text-xs gap-1.5"
-            title={pipSupported ? "Pop dashboard out as a floating window over WhatsApp" : "Document Picture-in-Picture not supported in this browser"}
-          >
-            <PictureInPicture2 className="h-3.5 w-3.5" />
-            {pipActive ? "Exit PiP" : "Open PiP"}
-          </Button>
-          <Button
-            size="sm"
-            variant="default"
-            onClick={async () => { if (pipSupported) await openPip("capture"); else setShowQuickAdd(true); }}
-            disabled={!pipSupported && !pipActive}
-            className="h-8 text-xs gap-1.5 bg-accent text-accent-foreground hover:bg-accent/90"
-            title="Open PiP and immediately start adding a lead inside the floating window"
-          >
-            <PictureInPicture2 className="h-3.5 w-3.5" /> PiP Add Lead
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => openPip("manage")}
-            disabled={!pipSupported}
-            className="h-8 text-xs gap-1.5"
-            title="Open compact lead management PiP for new, old, future, and past leads"
-          >
-            <PictureInPicture2 className="h-3.5 w-3.5" /> PiP Manage
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => setShowQuickAdd(true)} className="h-8 text-xs gap-1.5">
-            <Zap className="h-3.5 w-3.5" /> Quick Add
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => setShowParserTest(true)} className="h-8 text-xs gap-1.5">
-            <FlaskConical className="h-3.5 w-3.5" /> Run Parser Test
-          </Button>
-        </div>
       </div>
 
-      {/* PiP fallback (only after mount to avoid SSR hydration mismatch) */}
-      {pipMounted && !pipSupported && (
-        <div className="rounded-lg border border-border bg-muted/30 p-3 text-xs flex items-start gap-2">
-          <Info className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-          <div>
-            <div className="font-medium text-foreground">Picture-in-Picture isn't available in this browser.</div>
-            <div className="text-muted-foreground">
-              For the floating dashboard, open this site in <strong>Chrome, Edge, Brave or Opera</strong> on
-              desktop. Alternative: use split-screen (Windows: <kbd className="px-1 rounded border border-border">Win</kbd>+<kbd className="px-1 rounded border border-border">←</kbd> · macOS: drag tab into a Stage Manager group).
-            </div>
-          </div>
+      {/* Mode tabs + inline KPIs */}
+      <div className="flex items-center justify-between flex-wrap gap-3 border-b border-border pb-2">
+        <div className="flex gap-1 rounded-lg border border-border p-0.5 bg-surface-2/50">
+          <button onClick={() => setMode('quick')} className={`px-3 py-1 text-[11px] rounded-md inline-flex items-center gap-1 ${mode === 'quick' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
+            <Sparkles className="h-3 w-3" />Quick Add
+          </button>
+          <button onClick={() => setMode('manual')} className={`px-3 py-1 text-[11px] rounded-md ${mode === 'manual' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
+            Manual
+          </button>
+          <button onClick={() => setMode('requests')} className={`px-3 py-1 text-[11px] rounded-md ${mode === 'requests' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
+            Requests
+          </button>
         </div>
-      )}
-
-      {/* Mode tabs */}
-      <div className="flex gap-1 rounded-lg border border-border p-0.5 bg-surface-2/50 w-fit">
-        <button onClick={() => setMode('quick')} className={`px-2.5 py-1 text-[11px] rounded-md ${mode === 'quick' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}>
-          <Sparkles className="h-3 w-3 inline mr-1" />Quick Add
-        </button>
-        <button onClick={() => setMode('manual')} className={`px-2.5 py-1 text-[11px] rounded-md ${mode === 'manual' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}>
-          Manual
-        </button>
-        <button onClick={() => setMode('requests')} className={`px-2.5 py-1 text-[11px] rounded-md ${mode === 'requests' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}>
-          Requests
-        </button>
-      </div>
-
-      <div className="grid grid-cols-2 gap-2">
-        <div className="glass-card p-3 flex items-center gap-3">
-          <CheckCircle className="h-5 w-5 text-role-tcm" />
-          <div>
-            <p className="text-lg font-heading font-bold text-foreground">{qualified.length}</p>
-            <p className="text-[10px] text-muted-foreground">MYT Qualified</p>
-          </div>
-        </div>
-        <div className="glass-card p-3 flex items-center gap-3">
-          <XCircle className="h-5 w-5 text-danger" />
-          <div>
-            <p className="text-lg font-heading font-bold text-foreground">{unqualified.length}</p>
-            <p className="text-[10px] text-muted-foreground">Not Qualified</p>
-          </div>
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-role-tcm/30 bg-role-tcm/10 px-2.5 py-1 text-[11px] text-role-tcm">
+            <CheckCircle className="h-3 w-3" />
+            <span className="font-semibold">{qualified.length}</span> MYT Qualified
+          </span>
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-danger/30 bg-danger/10 px-2.5 py-1 text-[11px] text-danger">
+            <XCircle className="h-3 w-3" />
+            <span className="font-semibold">{unqualified.length}</span> Not Qualified
+          </span>
         </div>
       </div>
 
       {mode === 'quick' && (
-        <div className="glass-card p-4 space-y-3">
-          <div>
-            <h3 className="font-heading font-semibold text-sm text-foreground">Unified Quick Add</h3>
-            <p className="text-xs text-muted-foreground">All pasted leads now go through Quick Add questions only, so paste/manual/dedup data stays one object.</p>
-          </div>
-          <Button onClick={() => setShowQuickAdd(true)} className="w-full gap-1.5">
+        <div className="rounded-lg border border-border bg-surface-2/40 p-3 flex items-center justify-between gap-3">
+          <p className="text-xs text-muted-foreground">
+            Unified Quick Add — paste, manual, and dedup all flow through the same questions.
+          </p>
+          <Button size="sm" onClick={() => setShowQuickAdd(true)} className="h-8 text-xs gap-1.5 shrink-0">
             <Zap className="h-3.5 w-3.5" /> Open Quick Add
           </Button>
         </div>
@@ -233,7 +166,7 @@ export default function MYTLeadTracker() {
 
       {/* Qualified Leads */}
       <div className="glass-card p-3 md:p-5">
-        <h3 className="font-heading font-semibold text-xs md:text-sm mb-3 text-role-tcm">✅ MYT Qualified — Push to Tour</h3>
+        <h3 className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider font-semibold mb-3 text-role-tcm"><CheckCircle className="h-3.5 w-3.5" /> MYT Qualified — Push to Tour</h3>
         <div className="space-y-2">
           {qualified.length === 0 && <p className="text-xs text-muted-foreground text-center py-4">No qualified leads yet</p>}
           {qualified.map(l => (
@@ -263,7 +196,7 @@ export default function MYTLeadTracker() {
 
       {/* Unqualified */}
       <div className="glass-card p-3 md:p-5">
-        <h3 className="font-heading font-semibold text-xs md:text-sm mb-3 text-danger">❌ Not Qualified</h3>
+        <h3 className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider font-semibold mb-3 text-danger"><XCircle className="h-3.5 w-3.5" /> Not Qualified</h3>
         <div className="space-y-2">
           {unqualified.length === 0 && <p className="text-xs text-muted-foreground text-center py-4">All leads are qualified!</p>}
           {unqualified.map(l => (
@@ -282,7 +215,7 @@ export default function MYTLeadTracker() {
         </div>
       </div>
 
-      <ParserTestModal open={showParserTest} onClose={() => setShowParserTest(false)} />
+      
       <QuickAddLeadPanel open={showQuickAdd} onClose={() => setShowQuickAdd(false)} />
     </div>
   );

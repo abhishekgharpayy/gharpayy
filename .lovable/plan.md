@@ -1,67 +1,41 @@
 ## Goal
-
-Tie the bottom-left **"View as"** dropdown in the sidebar to the **real logged-in role** so each role only sees the personas they're allowed to use, and add a brand-new **`owner` (Property Owner)** top-level role that Super Admin can create credentials for.
-
-## Role → "View as" visibility matrix
-
-| Logged-in DB role | Dropdown options shown                  | Default selection |
-|-------------------|------------------------------------------|-------------------|
-| `super_admin`     | Super Admin only (dropdown hidden / locked) | Super Admin       |
-| `manager`         | HR / Leadership only                     | HR / Leadership   |
-| `admin`           | HR / Leadership only                     | HR / Leadership   |
-| `member`          | Flow Ops, TCM                            | Flow Ops          |
-| `owner` (NEW)     | Property Owner only                      | Property Owner    |
-
-The dropdown becomes a plain label whenever there is only one option.
+Make `/myt/leads` look like a clean production CRM, and remove the global persona-pulse strip across the whole app.
 
 ## Changes
 
-### 1. Add `owner` as a 4th top-level DB role
+### 1. Remove global persona pulse strip (everywhere)
+File: `src/components/AppShell.tsx`
+- Delete the `PersonaPulse` component (lines ~40–69) and its render call inside `AppShell`.
+- Drop now-unused props/derivations only used for it (`bookingsCount` if unused elsewhere, etc. — keep `queueCount`/`overdueCount` if still consumed by other UI; verify before removing).
+- Result: the "super-admin · Owner control: approve what is blocking sellable inventory · generalist · 0 live tasks" strip disappears on every page.
 
-- `src/contracts/roles.ts` — add `"owner"` to the `TopRole` enum and give it a sensible scope set (read-only on inventory/tours for their own property; no lead/user admin).
-- `server/src/modules/users/routes.ts` — accept `"owner"` in the `CreateBody.role` enum and the `roleList` helper so `/api/users` create + filter works.
-- `server/src/auth/auth.ts` — make sure `createManagedUser` accepts `owner` and `DEFAULT_SCOPES` covers it (no special zone requirement).
-- `src/components/settings/AddUserForm.tsx` — add `<SelectItem value="owner">Property Owner</SelectItem>`. Owner does **not** require a zone (skip the zone block for `role === "owner"`).
-- `src/components/settings/RolesTab.tsx` — add an "Owners" section/tab listing all owner accounts (same card style as Admins/Members, no zone chip).
-- `src/components/settings/UsersTab.tsx` — render `owner` in the role filter / badge.
+### 2. Trim toolbar on `/myt/leads`
+File: `src/myt/pages/MYTLeadTracker.tsx`
+- Remove the entire right-side button cluster: **Open PiP**, **PiP Add Lead**, **PiP Manage**, **Quick Add**, **Run Parser Test**.
+- Keep the title + subtitle on the left, but compact them.
+- Remove the PiP "not supported" info banner (no longer relevant once PiP buttons are gone).
 
-### 2. Wire the sidebar persona switcher to the real role
+### 3. Merge mode tabs + KPIs into one row
+Replace the separate "mode tabs" block and the 2-card stats grid with a single horizontal bar:
 
-File: `src/components/AppShell.tsx` (the `View as` Select around line 268-292).
+```text
+[ Quick Add | Manual | Requests ]            ✅ 0 MYT Qualified   ❌ 0 Not Qualified
+```
 
-- Read `authUser.role` from `useAuthUser`.
-- Compute `allowedPersonas` from the matrix above:
-  ```ts
-  const allowed: Record<DbRole, PersonaRole[]> = {
-    super_admin: ["super-admin"],
-    manager:     ["hr"],
-    admin:       ["hr"],
-    member:      ["flow-ops", "tcm"],
-    owner:       ["owner"],
-  };
-  ```
-- On hydrate, if current `role` is not in `allowed[authUser.role]`, call `setRole(allowed[authUser.role][0])`. Replace the existing super-admin-only effect with this generic one.
-- Render the `<Select>` only when `allowed[...]` has length > 1. Otherwise show a static read-only chip with the persona label (same styling as the current "View as" hint).
-- Same treatment in the mobile version (`MobileNavContent` in `src/myt/components/AppSidebar.tsx`) — gate the role buttons by the same `allowed` set.
+- Left: segmented control (Quick Add / Manual / Requests) — reuse existing `mode` state, restyled as a clean pill group.
+- Right: two inline stat chips (qualified count in success tone, not-qualified in danger tone) — same numbers, just inline instead of cards.
+- One row, border-bottom separator, no glass cards needed for the stats.
 
-### 3. Login + routing for owner
+### 4. General polish on the page
+- Consistent spacing: change top-level `space-y-4` to `space-y-3`, unify card padding (`p-4`).
+- The "Unified Quick Add" hint card: shrink to a slim helper row only when `mode === 'quick'` and no leads — otherwise hidden, since the segmented control already exposes it.
+- Qualified / Not-qualified list cards: keep, but tighten header sizing to `text-xs uppercase tracking-wide` for a CRM feel; remove emojis from headers, use the existing `CheckCircle` / `XCircle` icons inline.
+- Keep `QuickAddLeadPanel` and `ParserTestModal` mounted (they still open from the segmented control + from existing flows elsewhere).
 
-- `src/routes/login.tsx` — no change needed; existing JWT login already returns `user.role`.
-- `src/components/AuthGate.tsx` — confirm it allows `owner` through (no role-based redirect that bounces them).
-- When an `owner` lands on `/`, default them into the existing `/owner` route (the owner persona's nav already exists in `AppShell.navByRole.owner`).
+## Non-goals
+- No data model or routing changes.
+- Other pages keep their existing toolbars; only the global pulse strip is removed.
 
-### 4. Memory
-
-Update `mem://index.md` Core line to record the 5 top-level DB roles (`super_admin, manager, admin, member, owner`) and the View-as visibility matrix so future sessions don't regress this.
-
-## Technical notes
-
-- The legacy `Role` type in `src/lib/types.ts` (`"flow-ops" | "tcm" | "hr" | "owner" | "super-admin"`) is the **persona/view** enum used by mock data, NOT the DB role. We keep it as-is — the matrix maps DB `TopRole` → persona `Role`.
-- Persona registry already has `OWNERS` entries in `src/lib/personas.ts`, so the owner view works out of the box.
-- Backend: existing `requireScope` middleware stays; we just extend `DEFAULT_SCOPES` for `owner`.
-- No DB migration needed — `users.role` is a free string in Mongo; adding `"owner"` is purely a schema-validation change in zod.
-
-## Out of scope
-
-- Building the owner-facing property dashboard data flows (the routes exist; data is mock). Only auth + sidebar wiring is in this change.
-- Per-property scoping for owner accounts (which property they own) — can be a follow-up; for now the owner sees the same `/owner/*` routes as the persona view.
+## Files touched
+- `src/components/AppShell.tsx`
+- `src/myt/pages/MYTLeadTracker.tsx`
