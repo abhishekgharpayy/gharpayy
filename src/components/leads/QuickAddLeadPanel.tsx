@@ -18,7 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useIdentityStore } from "@/lib/lead-identity/store";
 import { detectZone, parseLead } from "@/lib/lead-identity/parser";
-import { teamMembers } from "@/myt/lib/mock-data";
+import { useOrgMembers, useOrgZones } from "@/hooks/useOrgDirectory";
 import { toast } from "sonner";
 import { Save, Repeat2, Phone, MapPin, Sparkles, X, CalendarPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -32,11 +32,6 @@ interface Props { open: boolean; onClose: () => void; }
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
 
-const ZONE_BUCKETS = [
-  "CENTRAL STUDENTS", "CU YPR / STUDENTS / WORKING", "HOMES KORA", "HOMES MWB",
-  "KORA CORE", "MTECH HUB", "MWB MORE", "OTHERS COLLEGE STUDENTS",
-  "YPR MAJOR MAIN", "OTHERS",
-] as const;
 
 const STAGES = [
   "MYT [TENANT]",
@@ -70,6 +65,8 @@ export function QuickAddLeadPanel({ open, onClose }: Props) {
   const create = useIdentityStore((s) => s.createLead);
   const { rooms, blocks, tours } = useAppState();
   const navigate = useNavigate();
+  const { members: orgMembers } = useOrgMembers();
+  const { zones: orgZones } = useOrgZones();
 
   // Core
   const [name, setName] = useState("");
@@ -163,8 +160,25 @@ export function QuickAddLeadPanel({ open, onClose }: Props) {
   };
 
   const save = (keepOpen: boolean) => {
-    if (!name.trim() || !phone.replace(/\D/g, "").match(/^[6-9]\d{9}$/)) {
-      toast.error("Need a name and a valid 10-digit phone");
+    const phoneClean = phone.replace(/\D/g, "");
+    const missing: string[] = [];
+    if (!name.trim()) missing.push("Name");
+    if (!phoneClean.match(/^[6-9]\d{9}$/)) missing.push("Valid 10-digit phone");
+    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) missing.push("Email");
+    if (!areasText.trim()) missing.push("Areas");
+    if (!fullAddress.trim()) missing.push("Full address");
+    if (!budget.trim()) missing.push("Budget");
+    if (!moveIn) missing.push("Move-in date");
+    if (!type) missing.push("Type");
+    if (!room) missing.push("Room");
+    if (!need) missing.push("Need");
+    if (inBLR === null) missing.push("In Bangalore?");
+    if (!quality) missing.push("Lead Quality");
+    if (!zoneBucket) missing.push("Zone");
+    if (!assigneeId) missing.push("Assigned member");
+    if (!stage) missing.push("Lead stage");
+    if (missing.length) {
+      toast.error(`Fill all required fields: ${missing.slice(0, 3).join(", ")}${missing.length > 3 ? "…" : ""}`);
       return;
     }
     const dup = checkDup({ name, phone, email, location: areasText });
@@ -178,7 +192,7 @@ export function QuickAddLeadPanel({ open, onClose }: Props) {
       return;
     }
     const areasArr = areasText.split(",").map((a) => a.trim()).filter(Boolean);
-    const assignee = teamMembers.find((m) => m.id === assigneeId);
+    const assignee = orgMembers.find((m) => m.id === assigneeId);
     const lead = create(
       {
         name: name.trim(),
@@ -383,27 +397,29 @@ export function QuickAddLeadPanel({ open, onClose }: Props) {
             />
           </Field>
 
-          {/* Zone bucket */}
+          {/* Zone */}
           <Field label="Zone *">
             <select
               value={zoneBucket}
               onChange={(e) => setZoneBucket(e.target.value)}
               className="w-full h-9 bg-background border border-border rounded-md px-2 text-xs"
             >
-              <option value="">Select zone bucket…</option>
-              {ZONE_BUCKETS.map((z) => <option key={z} value={z}>{z}</option>)}
+              <option value="">{orgZones.length ? "Select zone…" : "No zones configured"}</option>
+              {orgZones.map((z) => <option key={z.id} value={z.name}>{z.name}</option>)}
             </select>
           </Field>
 
           {/* Assignee */}
-          <Field label="Assign Member">
+          <Field label="Assign Member *">
             <select
               value={assigneeId}
               onChange={(e) => setAssigneeId(e.target.value)}
               className="w-full h-9 bg-background border border-border rounded-md px-2 text-xs"
             >
-              <option value="">Unassigned</option>
-              {teamMembers.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+              <option value="">{orgMembers.length ? "Select member…" : "No members yet"}</option>
+              {orgMembers.map((m) => (
+                <option key={m.id} value={m.id}>{m.name} · {m.role}</option>
+              ))}
             </select>
           </Field>
 
