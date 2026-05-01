@@ -410,13 +410,13 @@ export function LeadPasteParser({ onDone }: Props) {
 
         {blocking && (
           <ul className="text-[11px] text-destructive list-disc list-inside">
-            {errors.map((e) => <li key={e}>{e}</li>)}
+            {errors.map((e) => <li key={e}>{e} is required</li>)}
           </ul>
         )}
 
         <div className="flex justify-end gap-2 pt-2 border-t">
-          <Button variant="ghost" onClick={reset}>Clear</Button>
-          <Button disabled={blocking} onClick={save}>Save lead</Button>
+          <Button variant="ghost" onClick={reset} disabled={saving}>Clear</Button>
+          <Button disabled={blocking || saving} onClick={save}>{saving ? "Saving…" : "Save lead"}</Button>
         </div>
       </Card>
     </div>
