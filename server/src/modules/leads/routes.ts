@@ -52,7 +52,7 @@ export function registerLeadsRoutes(app: FastifyInstance) {
     return reply.send(result);
   });
 
-  // GET /api/leads — list + filter.
+  // GET /api/leads — list + filter, with role-based visibility.
   app.get("/api/leads", { preHandler: [requireAuth, requireScope("lead.read")] }, async (req, reply) => {
     const q = ListQuery.parse(req.query);
     const filter: Record<string, unknown> = { tenantId: req.user!.tenantId };
@@ -60,6 +60,35 @@ export function registerLeadsRoutes(app: FastifyInstance) {
     if (q.assignedTcmId) filter.assignedTcmId = q.assignedTcmId;
     if (q.zoneId) filter.zoneId = q.zoneId;
     if (q.cursor) filter._id = { $lt: q.cursor };
+
+    // Role-based visibility:
+    //  - super_admin / manager: see everything in tenant
+    //  - admin: see leads inside any of their zones (zoneId or zoneCategory match users.zones[])
+    //  - member: see leads they created OR are assigned to
+    //  - owner: not allowed (no lead.read scope) — handled by requireScope above
+    const role = req.user!.role;
+    const myId = req.user!.sub;
+    const myZones = req.user!.zones ?? [];
+    if (role === "admin") {
+      if (myZones.length === 0) {
+        return reply.send({ items: [], nextCursor: null });
+      }
+      filter.$or = [
+        { zoneId: { $in: myZones } },
+        { zoneCategory: { $in: myZones } },
+        { assignedTcmId: myId },
+        { assigneeId: myId },
+        { createdBy: myId },
+      ];
+    } else if (role === "member") {
+      filter.$or = [
+        { assignedTcmId: myId },
+        { assigneeId: myId },
+        { createdBy: myId },
+      ];
+    }
+    // super_admin and manager fall through with no extra filter.
+
     const items = await col<Lead>("leads")
       .find(filter)
       .sort({ _id: -1 })
@@ -72,6 +101,17 @@ export function registerLeadsRoutes(app: FastifyInstance) {
     const { id } = req.params as { id: string };
     const lead = await col<Lead>("leads").findOne({ _id: id, tenantId: req.user!.tenantId });
     if (!lead) return reply.code(404).send({ code: "NOT_FOUND", message: "Lead not found" });
+    // Re-apply visibility — return 404 (not 403) so id-enumeration leaks nothing.
+    const role = req.user!.role;
+    const myId = req.user!.sub;
+    const myZones = req.user!.zones ?? [];
+    const isMine = lead.createdBy === myId || lead.assignedTcmId === myId || lead.assigneeId === myId;
+    const inMyZone = myZones.includes(lead.zoneId ?? "") || myZones.includes(lead.zoneCategory ?? "");
+    const allowed =
+      role === "super_admin" || role === "manager" ||
+      (role === "admin" && (inMyZone || isMine)) ||
+      (role === "member" && isMine);
+    if (!allowed) return reply.code(404).send({ code: "NOT_FOUND", message: "Lead not found" });
     return reply.send(lead);
   });
 }

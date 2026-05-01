@@ -44,6 +44,20 @@ export const CreateLeadCmd = Base.extend({
   }).extend({
     intent: Intent.optional(),
     tags: z.array(z.string()).max(10).optional(),
+    // Extended Quick-Add fields — all optional, server fills defaults.
+    email: z.string().max(160).optional(),
+    areas: z.array(z.string().max(80)).max(20).optional(),
+    fullAddress: z.string().max(1000).optional(),
+    type: z.string().max(60).optional(),
+    room: z.string().max(60).optional(),
+    need: z.string().max(60).optional(),
+    inBLR: z.boolean().nullable().optional(),
+    quality: z.enum(["hot", "good", "bad"]).nullable().optional(),
+    specialReqs: z.string().max(2000).optional(),
+    notes: z.string().max(2000).optional(),
+    zoneCategory: z.string().max(80).optional(),
+    assigneeId: z.string().nullable().optional(),
+    stageLabel: z.string().max(120).optional(),
   }),
 });
 

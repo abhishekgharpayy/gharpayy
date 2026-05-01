@@ -12,6 +12,9 @@ export const LeadStage = z.enum([
 
 export const Intent = z.enum(["hot", "warm", "cold"]);
 
+export const LeadQuality = z.enum(["hot", "good", "bad"]);
+export type LeadQuality = z.infer<typeof LeadQuality>;
+
 export const Lead = z.object({
   _id: z.string(),                       // ULID
   name: z.string().min(1).max(120),
@@ -28,6 +31,20 @@ export const Lead = z.object({
   tags: z.array(z.string().max(30)).max(10).default([]),
   nextFollowUpAt: z.string().nullable().default(null),
   responseSpeedMins: z.number().int().min(0).default(0),
+  // ---- Extended Quick-Add fields (additive, all optional with defaults) ----
+  email: z.string().max(160).default(""),
+  areas: z.array(z.string().max(80)).max(20).default([]),
+  fullAddress: z.string().max(1000).default(""),
+  type: z.string().max(60).default(""),         // student / working / family ...
+  room: z.string().max(60).default(""),         // single / double / triple ...
+  need: z.string().max(60).default(""),         // boys / girls / coliving ...
+  inBLR: z.boolean().nullable().default(null),
+  quality: LeadQuality.nullable().default(null),
+  specialReqs: z.string().max(2000).default(""),
+  notes: z.string().max(2000).default(""),
+  zoneCategory: z.string().max(80).default(""), // bucket label
+  assigneeId: z.string().nullable().default(null), // mirror of assignedTcmId for UI
+  stageLabel: z.string().max(120).default(""),  // long stage label e.g. "MYT [TENANT]"
   createdAt: z.string(),
   updatedAt: z.string(),
   // Audit

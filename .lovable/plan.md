@@ -1,41 +1,72 @@
-## Goal
-Make `/myt/leads` look like a clean production CRM, and remove the global persona-pulse strip across the whole app.
+## What's broken (root causes)
 
-## Changes
+1. **Validation bypass on Paste flow**: `LeadPasteParser.tsx` only requires Name + Phone + Zone. Lead Quality, Type, Full Address, Room, Need, In-BLR, Move-in, Email, Areas, Budget, Assignee, Stage are all optional → that's why your incomplete lead saved. `QuickAddLeadPanel.tsx` already validates everything; Paste must mirror it.
 
-### 1. Remove global persona pulse strip (everywhere)
-File: `src/components/AppShell.tsx`
-- Delete the `PersonaPulse` component (lines ~40–69) and its render call inside `AppShell`.
-- Drop now-unused props/derivations only used for it (`bookingsCount` if unused elsewhere, etc. — keep `queueCount`/`overdueCount` if still consumed by other UI; verify before removing).
-- Result: the "super-admin · Owner control: approve what is blocking sellable inventory · generalist · 0 live tasks" strip disappears on every page.
+2. **New leads invisible everywhere**: Quick Add / Paste / Direct write to a browser-only zustand store (`useIdentityStore`, persisted in localStorage). They never hit your VPS Mongo. Meanwhile `/leads`, `/myt/leads`, `/live-leads` each read from a *different* store. So you literally cannot see a lead you just added — not on another tab, not on another device, not as another user.
 
-### 2. Trim toolbar on `/myt/leads`
-File: `src/myt/pages/MYTLeadTracker.tsx`
-- Remove the entire right-side button cluster: **Open PiP**, **PiP Add Lead**, **PiP Manage**, **Quick Add**, **Run Parser Test**.
-- Keep the title + subtitle on the left, but compact them.
-- Remove the PiP "not supported" info banner (no longer relevant once PiP buttons are gone).
+3. **No role-based visibility**: backend `GET /api/leads` filters only by `tenantId`. Every signed-in user in the tenant sees every lead.
 
-### 3. Merge mode tabs + KPIs into one row
-Replace the separate "mode tabs" block and the 2-card stats grid with a single horizontal bar:
+## Fix plan
 
-```text
-[ Quick Add | Manual | Requests ]            ✅ 0 MYT Qualified   ❌ 0 Not Qualified
-```
+### A. Make backend the single source of truth for leads
 
-- Left: segmented control (Quick Add / Manual / Requests) — reuse existing `mode` state, restyled as a clean pill group.
-- Right: two inline stat chips (qualified count in success tone, not-qualified in danger tone) — same numbers, just inline instead of cards.
-- One row, border-bottom separator, no glass cards needed for the stats.
+1. **Extend `Lead` entity** (`src/contracts/entities.ts`) with the rest of the Quick Add fields:
+   - `email`, `areas: string[]`, `fullAddress`, `type`, `room`, `need`, `inBLR: boolean | null`, `quality: "hot"|"good"|"bad"|null`, `specialReqs`, `notes`, `zoneCategory`, `assigneeId`, `stageLabel` (long stage name like "MYT [TENANT]")
+   - Keep `stage` enum + `assignedTcmId` for legacy compatibility; new fields are additive and optional with sensible defaults.
 
-### 4. General polish on the page
-- Consistent spacing: change top-level `space-y-4` to `space-y-3`, unify card padding (`p-4`).
-- The "Unified Quick Add" hint card: shrink to a slim helper row only when `mode === 'quick'` and no leads — otherwise hidden, since the segmented control already exposes it.
-- Qualified / Not-qualified list cards: keep, but tighten header sizing to `text-xs uppercase tracking-wide` for a CRM feel; remove emojis from headers, use the existing `CheckCircle` / `XCircle` icons inline.
-- Keep `QuickAddLeadPanel` and `ParserTestModal` mounted (they still open from the segmented control + from existing flows elsewhere).
+2. **Extend `cmd.lead.create` payload** (`src/contracts/commands.ts`) to accept the new fields. Server `applyCommand` (`server/src/modules/leads/command-handlers.ts`) writes them straight to Mongo and emits the existing `evt.lead.created`.
 
-## Non-goals
-- No data model or routing changes.
-- Other pages keep their existing toolbars; only the global pulse strip is removed.
+3. **Rewire the three save paths** to dispatch `cmd.lead.create` instead of `useIdentityStore.createLead`:
+   - `QuickAddLeadPanel.tsx`
+   - `LeadPasteParser.tsx`
+   - `DirectLeadForm.tsx`
 
-## Files touched
-- `src/components/AppShell.tsx`
-- `src/myt/pages/MYTLeadTracker.tsx`
+   On success, show toast + refresh (`useLiveLeads.refresh()` runs automatically via socket `evt.lead.created`).
+
+### B. Enforce ALL required fields on Paste + Direct flows
+
+4. Replace `LeadPasteParser`'s 3-field check with the full Quick Add validator (Name, valid 10-digit Phone, Email, Areas, Full Address, Budget, Move-in, Type, Room, Need, In-BLR, Quality, Zone, Assignee, Stage). Same toast format as Quick Add.
+
+5. Update `DirectLeadForm.tsx` to require the same fields (currently only Name/Phone are required). Show inline errors on blur and a "Fill all required fields: …" toast on submit.
+
+### C. Role-based visibility (server-authoritative)
+
+Backend rule:
+- **member** → leads where `assignedTcmId == self.id` OR `createdBy == self.id`
+- **admin** → leads where `zoneId` ∈ admin's `zones[]` (any lead inside any zone the admin owns), regardless of who created it
+- **manager** → all leads in tenant
+- **super_admin** → all leads in tenant
+
+6. **`GET /api/leads`** (`server/src/modules/leads/routes.ts`):
+   - Read `req.user.role` and `req.user.zones` from JWT.
+   - Apply the visibility filter above on top of the existing `tenantId` filter.
+   - Same filter applies to the `lead.read` scope check on `GET /api/leads/:id` (404 if not visible, not 403, to avoid id-enumeration).
+
+7. **JWT claims**: confirm `zones` is on the token (verify `server/src/auth/auth.ts`). If not, add it so the server can filter without a second DB hit.
+
+8. **Frontend** keeps using `useLiveLeads` — no client-side role filter; the server is the truth. The list will simply only show what the user is allowed to see.
+
+### D. Listing pages converge on `/api/leads`
+
+9. `/myt/leads` qualified/not-qualified panels switch from `useAppState().leads` (mock) to `useLiveLeads()`, so a freshly-saved lead shows up immediately for the saver and for everyone else who's allowed to see it.
+
+10. `/leads` (legacy mock) — leave the existing mock leads view alone for now but add a banner "Showing demo data — go to /live-leads for live data" so it's not confusing. (Or kill the page; ask after this lands.)
+
+### E. Cleanup
+
+11. Mark `useIdentityStore` as **client-only cache for dedup hints** (we still use it for `checkDuplicates` against currently-loaded leads). It no longer creates leads; backend dedup (existing `lead_phone_index` collection) is the real guard.
+
+## Technical notes
+
+- Phone normalization (`toE164`) on the backend already rejects bad numbers — we keep that.
+- Backend dedup via `lead_phone_index` already returns the existing leadId on E11000 — Quick Add will surface that as "Duplicate detected" using the same toast UX it already has.
+- Socket `evt.lead.created` already updates `useLiveLeads` for every connected client → live cross-user visibility is automatic.
+- No DB migration needed; Mongo accepts additive fields. We just bump the entity zod schema.
+- The "5 sub-stages" long stage names (`"MYT [TENANT]"`, `"4A. Visit Scheduled in BLR"` etc.) live in `stageLabel`. The narrow `LeadStage` enum (`new`, `contacted`, …) stays for funnel logic; we map long → short on save.
+
+## Out of scope (call out separately if you want)
+
+- Tour saving still uses local mock state — separate ticket.
+- Manager / Admin org-tree UI (assigning members to admins by zone in Settings) — backend zone-based filter works today off existing `users.zones[]`, but a UI to verify is its own task.
+
+Once approved I'll implement A → B → C → D in one pass.

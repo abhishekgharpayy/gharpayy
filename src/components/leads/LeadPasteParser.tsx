@@ -14,8 +14,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { AlertCircle, CheckCircle2, MapPin, Sparkles, Wand2 } from "lucide-react";
 import { parseLead, detectZone } from "@/lib/lead-identity/parser";
 import { useIdentityStore } from "@/lib/lead-identity/store";
-import { teamMembers } from "@/myt/lib/mock-data";
-import { QUICKAD_NEED_OPTIONS, QUICKAD_ROOM_OPTIONS, QUICKAD_TYPE_OPTIONS } from "@/lib/quickad-shared";
+import { useOrgMembers, useOrgZones } from "@/hooks/useOrgDirectory";
+import { dispatch } from "@/lib/api/command-bus";
+import { QUICKAD_NEED_OPTIONS, QUICKAD_ROOM_OPTIONS, QUICKAD_TYPE_OPTIONS, parseBudgetAmount } from "@/lib/quickad-shared";
 import type { ParsedLeadDraft } from "@/lib/lead-identity/types";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -29,11 +30,7 @@ Move in: 30/04/2026
 Working professional, private room, boys
 Currently in Bangalore`;
 
-const ZONE_BUCKETS = [
-  "CENTRAL STUDENTS", "CU YPR / STUDENTS / WORKING", "HOMES KORA", "HOMES MWB",
-  "KORA CORE", "MTECH HUB", "MWB MORE", "OTHERS COLLEGE STUDENTS",
-  "YPR MAJOR MAIN", "OTHERS",
-] as const;
+// Zone bucket options come from the org's real zones (live from /api/zones).
 
 const STAGES = [
   "MYT [TENANT]",
@@ -68,6 +65,8 @@ interface Props {
 export function LeadPasteParser({ onDone }: Props) {
   const checkDup = useIdentityStore((s) => s.checkDuplicates);
   const create = useIdentityStore((s) => s.createLead);
+  const { members: orgMembers } = useOrgMembers();
+  const { zones: orgZones } = useOrgZones();
 
   const [raw, setRaw] = useState("");
   const [parsedOnce, setParsedOnce] = useState(false);
@@ -90,6 +89,7 @@ export function LeadPasteParser({ onDone }: Props) {
   const [assigneeId, setAssigneeId] = useState<string>("");
   const [stage, setStage] = useState<string>(STAGES[0]);
   const [notes, setNotes] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const textRef = useRef<HTMLTextAreaElement>(null);
 
@@ -134,16 +134,32 @@ export function LeadPasteParser({ onDone }: Props) {
     setAssigneeId(""); setStage(STAGES[0]); setNotes("");
   };
 
-  // Validation matching Quick Add
-  const phoneValid = /^[6-9]\d{9}$/.test(phone.replace(/\D/g, ""));
+  // Validation matching Quick Add — every field is required.
+  const phoneClean = phone.replace(/\D/g, "");
+  const phoneValid = /^[6-9]\d{9}$/.test(phoneClean);
   const errors: string[] = [];
-  if (!name.trim()) errors.push("Name is required");
-  if (!phoneValid) errors.push("Valid 10-digit phone is required");
-  if (!zoneBucket) errors.push("Zone is required");
+  if (!name.trim()) errors.push("Name");
+  if (!phoneValid) errors.push("Valid 10-digit phone");
+  if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) errors.push("Email");
+  if (!areasText.trim()) errors.push("Areas");
+  if (!fullAddress.trim()) errors.push("Full address");
+  if (!budget.trim()) errors.push("Budget");
+  if (!moveIn) errors.push("Move-in date");
+  if (!type) errors.push("Type");
+  if (!room) errors.push("Room");
+  if (!need) errors.push("Need");
+  if (inBLR === null) errors.push("In Bangalore?");
+  if (!quality) errors.push("Lead Quality");
+  if (!zoneBucket) errors.push("Zone");
+  if (!assigneeId) errors.push("Assigned member");
+  if (!stage) errors.push("Lead stage");
   const blocking = errors.length > 0;
 
-  const save = () => {
-    if (blocking) { toast.error(errors[0]); return; }
+  const save = async () => {
+    if (blocking) {
+      toast.error(`Fill all required fields: ${errors.slice(0, 3).join(", ")}${errors.length > 3 ? "…" : ""}`);
+      return;
+    }
     const dup = checkDup({ name, phone, email, location: areasText });
     if (dup.type === "exact" || dup.type === "strong") {
       const existing = dup.candidates[0]?.lead;
@@ -151,8 +167,41 @@ export function LeadPasteParser({ onDone }: Props) {
       return;
     }
     const areasArr = areasText.split(",").map((a) => a.trim()).filter(Boolean);
-    const assignee = teamMembers.find((m) => m.id === assigneeId);
-    const lead = create(
+    const assignee = orgMembers.find((m) => m.id === assigneeId);
+    const zoneObj = orgZones.find((z) => z.name === zoneBucket);
+    const budgetNum = parseBudgetAmount(budget);
+
+    setSaving(true);
+    const result = await dispatch({
+      type: "cmd.lead.create",
+      payload: {
+        name: name.trim(),
+        phone: `+91${phoneClean}`,
+        source: "paste",
+        budget: budgetNum,
+        moveInDate: moveIn,
+        preferredArea: areasArr[0] ?? areasText.trim(),
+        zoneId: zoneObj?.id ?? null,
+        email: email.trim(),
+        areas: areasArr,
+        fullAddress: fullAddress.trim(),
+        type, room, need,
+        inBLR,
+        quality,
+        specialReqs: specialReqs.trim(),
+        notes: notes.trim(),
+        zoneCategory: zoneBucket,
+        assigneeId: assignee?.id ?? null,
+        stageLabel: stage,
+      },
+    });
+    setSaving(false);
+    if (!result.ok) {
+      toast.error(`Could not save: ${result.error}`);
+      return;
+    }
+    // Mirror into the local identity store so dedup hints stay current.
+    create(
       {
         name: name.trim(),
         phone: phone.trim(),
@@ -179,7 +228,7 @@ export function LeadPasteParser({ onDone }: Props) {
         assigneeName: assignee?.name ?? null,
       },
     );
-    toast.success(`Lead saved · ${lead.name}`);
+    toast.success(`Lead saved · ${name.trim()}`);
     reset();
     onDone?.();
   };
@@ -323,19 +372,19 @@ export function LeadPasteParser({ onDone }: Props) {
             onChange={(e) => setZoneBucket(e.target.value)}
             className="w-full h-9 bg-background border border-border rounded-md px-2 text-xs"
           >
-            <option value="">Select zone bucket…</option>
-            {ZONE_BUCKETS.map((z) => <option key={z} value={z}>{z}</option>)}
+            <option value="">{orgZones.length ? "Select zone…" : "No zones configured"}</option>
+            {orgZones.map((z) => <option key={z.id} value={z.name}>{z.name}</option>)}
           </select>
         </Field>
 
-        <Field label="Assign Member">
+        <Field label="Assign Member *">
           <select
             value={assigneeId}
             onChange={(e) => setAssigneeId(e.target.value)}
             className="w-full h-9 bg-background border border-border rounded-md px-2 text-xs"
           >
-            <option value="">Unassigned</option>
-            {teamMembers.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+            <option value="">{orgMembers.length ? "Select member…" : "No members yet"}</option>
+            {orgMembers.map((m) => <option key={m.id} value={m.id}>{m.name} · {m.role}</option>)}
           </select>
         </Field>
 
@@ -361,13 +410,13 @@ export function LeadPasteParser({ onDone }: Props) {
 
         {blocking && (
           <ul className="text-[11px] text-destructive list-disc list-inside">
-            {errors.map((e) => <li key={e}>{e}</li>)}
+            {errors.map((e) => <li key={e}>{e} is required</li>)}
           </ul>
         )}
 
         <div className="flex justify-end gap-2 pt-2 border-t">
-          <Button variant="ghost" onClick={reset}>Clear</Button>
-          <Button disabled={blocking} onClick={save}>Save lead</Button>
+          <Button variant="ghost" onClick={reset} disabled={saving}>Clear</Button>
+          <Button disabled={blocking || saving} onClick={save}>{saving ? "Saving…" : "Save lead"}</Button>
         </div>
       </Card>
     </div>

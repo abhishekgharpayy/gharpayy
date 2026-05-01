@@ -11,9 +11,10 @@ import { useNavigate } from '@/shims/react-router-dom';
 import { RequestAccessSheet } from '@/components/leads/RequestAccessSheet';
 import { useIdentityStore } from '@/lib/lead-identity/store';
 import { QuickAddLeadPanel } from '@/components/leads/QuickAddLeadPanel';
+import { useLiveLeads } from '@/hooks/useLiveLeads';
 
 export default function MYTLeadTracker() {
-  const { leads, setLeads, currentMemberId } = useAppState();
+  const { setLeads } = useAppState();
   const navigate = useNavigate();
   const [mode, setMode] = useState<'quick' | 'manual' | 'requests'>('quick');
   const identityLeadCount = useIdentityStore((s) => s.leads.length);
@@ -24,47 +25,19 @@ export default function MYTLeadTracker() {
     moveInDate: '', dateConfirmed: false,
   });
 
-  const myLeads = currentMemberId
-    ? leads.filter(l => l.addedBy === currentMemberId)
-    : leads;
-
-  const qualified = myLeads.filter(l => l.mytQualified);
-  const unqualified = myLeads.filter(l => !l.mytQualified);
+  // Live leads from backend (role-filtered server-side).
+  const { leads: liveLeads, loading: liveLoading } = useLiveLeads();
+  // A "qualified" live lead = budget >= 7000, in a covered zone, has move-in date.
+  const qualified = liveLeads.filter((l) => l.budget >= 7000 && l.moveInDate && zones.some((z) => z.area.toLowerCase() === (l.preferredArea ?? '').toLowerCase()));
+  const unqualified = liveLeads.filter((l) => !qualified.includes(l));
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const budget = parseInt(form.budget);
-    const moveIn = new Date(form.moveInDate);
-    const areaCovered = zones.some(z => z.area.toLowerCase() === form.area.toLowerCase());
-    const daysToMoveIn = (moveIn.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
-    const mytQualified = areaCovered && budget >= 7000 && daysToMoveIn <= 15 && form.dateConfirmed;
-
-    const agent = currentMemberId
-      ? teamMembers.find(m => m.id === currentMemberId)
-      : teamMembers.find(m => m.role === 'flow-ops');
-
-    const newLead: Lead = {
-      id: `l${Date.now()}`,
-      name: form.name,
-      phone: form.phone,
-      area: form.area,
-      budget,
-      moveInDate: form.moveInDate,
-      dateConfirmed: form.dateConfirmed,
-      status: mytQualified ? 'qualified' : 'contacted',
-      mytQualified,
-      addedBy: agent?.id || 'm1',
-      addedByName: agent?.name || 'Rahul Sharma',
-      createdAt: new Date().toISOString(),
-      notes: '',
-    };
-    setLeads(prev => [newLead, ...prev]);
-    toast.success(mytQualified ? 'MYT Qualified! Ready for tour' : 'Lead added — not MYT qualified');
-    setForm({ name: '', phone: '', area: '', budget: '10000', moveInDate: '', dateConfirmed: false });
+    toast.info('The legacy manual MYT form is disabled — please use Quick Add (saves to backend).');
     setShowForm(false);
   };
 
-  const pushToTour = (lead: Lead) => {
+  const pushToTour = (lead: typeof liveLeads[number]) => {
     navigate('/myt/schedule', { state: { lead } });
   };
 
@@ -168,24 +141,25 @@ export default function MYTLeadTracker() {
       <div className="glass-card p-3 md:p-5">
         <h3 className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider font-semibold mb-3 text-role-tcm"><CheckCircle className="h-3.5 w-3.5" /> MYT Qualified — Push to Tour</h3>
         <div className="space-y-2">
-          {qualified.length === 0 && <p className="text-xs text-muted-foreground text-center py-4">No qualified leads yet</p>}
+          {liveLoading && <p className="text-xs text-muted-foreground text-center py-4">Loading…</p>}
+          {!liveLoading && qualified.length === 0 && <p className="text-xs text-muted-foreground text-center py-4">No qualified leads yet</p>}
           {qualified.map(l => (
-            <div key={l.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-3 py-2.5 rounded-lg bg-surface-2/50">
+            <div key={l._id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-3 py-2.5 rounded-lg bg-surface-2/50">
               <div className="min-w-0">
                 <span className="font-medium text-foreground text-sm">{l.name}</span>
-                <span className="text-muted-foreground text-xs ml-2">{l.area} · ₹{l.budget.toLocaleString()}</span>
+                <span className="text-muted-foreground text-xs ml-2">{l.preferredArea} · ₹{l.budget.toLocaleString()}</span>
                 <span className="text-muted-foreground text-xs ml-2">Move-in: {l.moveInDate}</span>
               </div>
               <div className="flex gap-2 shrink-0">
                 <a href={`tel:${l.phone}`} className="p-2 rounded-md bg-primary/10 text-primary">
                   <Phone className="h-3.5 w-3.5" />
                 </a>
-                {l.status !== 'tour-scheduled' && (
+                {l.stage !== 'tour-scheduled' && (
                   <Button size="sm" onClick={() => pushToTour(l)} className="h-8 text-xs gap-1">
                     <ArrowRight className="h-3.5 w-3.5" /> Schedule Tour
                   </Button>
                 )}
-                {l.status === 'tour-scheduled' && (
+                {l.stage === 'tour-scheduled' && (
                   <span className="text-[10px] px-2 py-1 rounded-full bg-role-tcm/15 text-role-tcm">Tour Set</span>
                 )}
               </div>
@@ -198,17 +172,17 @@ export default function MYTLeadTracker() {
       <div className="glass-card p-3 md:p-5">
         <h3 className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider font-semibold mb-3 text-danger"><XCircle className="h-3.5 w-3.5" /> Not Qualified</h3>
         <div className="space-y-2">
-          {unqualified.length === 0 && <p className="text-xs text-muted-foreground text-center py-4">All leads are qualified!</p>}
+          {!liveLoading && unqualified.length === 0 && <p className="text-xs text-muted-foreground text-center py-4">All leads are qualified!</p>}
           {unqualified.map(l => (
-            <div key={l.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-3 py-2.5 rounded-lg bg-surface-2/30">
+            <div key={l._id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-3 py-2.5 rounded-lg bg-surface-2/30">
               <div className="min-w-0">
                 <span className="font-medium text-foreground text-sm">{l.name}</span>
-                <span className="text-muted-foreground text-xs ml-2">{l.area} · ₹{l.budget.toLocaleString()}</span>
+                <span className="text-muted-foreground text-xs ml-2">{l.preferredArea} · ₹{l.budget.toLocaleString()}</span>
               </div>
               <div className="flex gap-1 flex-wrap">
                 {l.budget < 7000 && <span className="text-[10px] px-1.5 py-0.5 rounded bg-danger/10 text-danger">Low budget</span>}
-                {!l.dateConfirmed && <span className="text-[10px] px-1.5 py-0.5 rounded bg-warning/10 text-warning">No date</span>}
-                {!zones.some(z => z.area === l.area) && <span className="text-[10px] px-1.5 py-0.5 rounded bg-danger/10 text-danger">Area N/A</span>}
+                {!l.moveInDate && <span className="text-[10px] px-1.5 py-0.5 rounded bg-warning/10 text-warning">No move-in date</span>}
+                {!zones.some(z => z.area.toLowerCase() === (l.preferredArea ?? '').toLowerCase()) && <span className="text-[10px] px-1.5 py-0.5 rounded bg-danger/10 text-danger">Area N/A</span>}
               </div>
             </div>
           ))}
