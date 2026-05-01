@@ -160,7 +160,7 @@ export function QuickAddLeadPanel({ open, onClose }: Props) {
     });
   };
 
-  const save = (keepOpen: boolean) => {
+  const save = async (keepOpen: boolean) => {
     const phoneClean = phone.replace(/\D/g, "");
     const missing: string[] = [];
     if (!name.trim()) missing.push("Name");
@@ -194,7 +194,41 @@ export function QuickAddLeadPanel({ open, onClose }: Props) {
     }
     const areasArr = areasText.split(",").map((a) => a.trim()).filter(Boolean);
     const assignee = orgMembers.find((m) => m.id === assigneeId);
-    const lead = create(
+    const zoneObj = orgZones.find((z) => z.name === zoneBucket);
+    const budgetNum = parseBudgetAmount(budget);
+
+    // Dispatch to backend (Mongo). Server validates, dedups by phone, and
+    // emits evt.lead.created → useLiveLeads picks it up everywhere.
+    const result = await dispatch({
+      type: "cmd.lead.create",
+      payload: {
+        name: name.trim(),
+        phone: `+91${phoneClean}`,
+        source: "quick-add",
+        budget: budgetNum,
+        moveInDate: moveIn,
+        preferredArea: areasArr[0] ?? areasText.trim(),
+        zoneId: zoneObj?.id ?? null,
+        email: email.trim(),
+        areas: areasArr,
+        fullAddress: fullAddress.trim(),
+        type, room, need,
+        inBLR,
+        quality,
+        specialReqs: specialReqs.trim(),
+        notes: notes.trim(),
+        zoneCategory: zoneBucket,
+        assigneeId: assignee?.id ?? null,
+        stageLabel: stage,
+      },
+    });
+    if (!result.ok) {
+      toast.error(`Could not save: ${result.error}`);
+      return;
+    }
+    // Mirror into the local identity store so dedup hints stay current
+    // for the rest of this session.
+    create(
       {
         name: name.trim(),
         phone: phone.trim(),
@@ -221,7 +255,7 @@ export function QuickAddLeadPanel({ open, onClose }: Props) {
         assigneeName: assignee?.name ?? null,
       },
     );
-    toast.success(`Lead saved · ${lead.name}`);
+    toast.success(`Lead saved · ${name.trim()}`);
     if (keepOpen) reset(); else onClose();
   };
 
