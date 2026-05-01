@@ -1,3 +1,6 @@
+// Direct Lead Form — full schema, every field mandatory, persists to the
+// backend (Mongo) via cmd.lead.create so it shows up in /myt/leads everywhere
+// and respects role-based visibility on the server.
 import { useEffect, useMemo, useState } from "react";
 import { detectZone } from "@/lib/lead-identity/parser";
 import { useIdentityStore } from "@/lib/lead-identity/store";
@@ -10,41 +13,73 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   CheckCircle2, AlertCircle, User, Phone, Mail, MapPin, Wallet,
-  CalendarDays, Briefcase, BedDouble, Sparkles, Loader2,
+  CalendarDays, Briefcase, BedDouble, Sparkles, Loader2, Flame, UserCheck, Tag,
 } from "lucide-react";
 import { toast } from "sonner";
 import { DuplicateModal } from "./DuplicateModal";
-import { QUICKAD_NEED_OPTIONS, QUICKAD_ROOM_OPTIONS, QUICKAD_TYPE_OPTIONS } from "@/lib/quickad-shared";
+import { QUICKAD_NEED_OPTIONS, QUICKAD_ROOM_OPTIONS, QUICKAD_TYPE_OPTIONS, parseBudgetAmount } from "@/lib/quickad-shared";
+import { useOrgMembers, useOrgZones } from "@/hooks/useOrgDirectory";
+import { dispatch } from "@/lib/api/command-bus";
 
 interface Props {
   onCreated?: (lead: UnifiedLead) => void;
 }
 
-const emptyDraft = (): ParsedLeadDraft => ({
+type Quality = "hot" | "good" | "bad";
+
+interface Draft extends ParsedLeadDraft {
+  quality: Quality | "";
+  zoneBucket: string;
+  assigneeId: string;
+  stage: string;
+}
+
+const STAGES = [
+  "MYT [TENANT]",
+  "2A. Options Shared – BLR",
+  "2B. Options Shared – Non-BLR",
+  "3A. Visit Intent Confirmed",
+  "3B. try.prebook / virtual tour Intent",
+  "4A. Visit Scheduled in BLR",
+  "5A. Visit Done",
+  "Finalizing",
+  "WON 🏆",
+  "LOST 😭",
+] as const;
+
+const QUALITY_OPTS: { v: Quality; label: string }[] = [
+  { v: "hot", label: "🔥 Hot" },
+  { v: "good", label: "✅ Good" },
+  { v: "bad", label: "❌ Bad" },
+];
+
+const emptyDraft = (): Draft => ({
   name: "", phone: "", email: "", location: "", areas: [], fullAddress: "",
   budget: "", moveIn: "",
   type: "", room: "", need: "", specialReqs: "", inBLR: null, zone: "", rawSource: "",
+  quality: "", zoneBucket: "", assigneeId: "", stage: "",
 });
 
 const TYPE_OPTIONS = QUICKAD_TYPE_OPTIONS;
 const ROOM_OPTIONS = QUICKAD_ROOM_OPTIONS;
 const NEED_OPTIONS = QUICKAD_NEED_OPTIONS;
 
-// Light validators
-const phoneOk = (v: string) => v.replace(/\D/g, "").length >= 10;
-const emailOk = (v: string) => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+const phoneOk = (v: string) => /^[6-9]\d{9}$/.test(v.replace(/\D/g, ""));
+const emailOk = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
 
 export function DirectLeadForm({ onCreated }: Props) {
   const checkDuplicates = useIdentityStore((s) => s.checkDuplicates);
   const createLead = useIdentityStore((s) => s.createLead);
+  const orgMembers = useOrgMembers();
+  const orgZones = useOrgZones();
 
-  const [draft, setDraft] = useState<ParsedLeadDraft>(emptyDraft());
+  const [draft, setDraft] = useState<Draft>(emptyDraft());
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [match, setMatch] = useState<MatchResult | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  // Auto-detect zone when location changes
+  // Auto-detect zone (informational) when location changes
   useEffect(() => {
     if (!draft.location) return;
     const zone = detectZone(draft.location);
@@ -53,45 +88,102 @@ export function DirectLeadForm({ onCreated }: Props) {
     }
   }, [draft.location]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const update = <K extends keyof ParsedLeadDraft>(k: K, v: ParsedLeadDraft[K]) =>
+  const update = <K extends keyof Draft>(k: K, v: Draft[K]) =>
     setDraft((d) => ({ ...d, [k]: v }));
 
   const errors = useMemo(() => {
-    const e: Partial<Record<keyof ParsedLeadDraft, string>> = {};
+    const e: Partial<Record<keyof Draft, string>> = {};
     if (!draft.name.trim()) e.name = "Name is required";
     if (!draft.phone.trim()) e.phone = "Phone is required";
     else if (!phoneOk(draft.phone)) e.phone = "Enter a valid 10-digit phone";
-    if (!emailOk(draft.email)) e.email = "Invalid email";
+    if (!draft.email.trim()) e.email = "Email is required";
+    else if (!emailOk(draft.email)) e.email = "Invalid email";
+    if (!draft.location.trim()) e.location = "Areas are required";
+    if (!draft.fullAddress.trim()) e.fullAddress = "Full address is required";
+    if (!draft.budget.trim()) e.budget = "Budget is required";
+    if (!draft.moveIn) e.moveIn = "Move-in date is required";
+    if (!draft.type) e.type = "Type is required";
+    if (!draft.room) e.room = "Room preference is required";
+    if (!draft.need) e.need = "Need is required";
+    if (draft.inBLR === null) e.inBLR = "Specify In-Bangalore";
+    if (!draft.specialReqs.trim()) e.specialReqs = "Special requirements are required";
+    if (!draft.quality) e.quality = "Quality is required";
+    if (!draft.zoneBucket) e.zoneBucket = "Zone is required";
+    if (!draft.assigneeId) e.assigneeId = "Assignee is required";
+    if (!draft.stage) e.stage = "Stage is required";
     return e;
   }, [draft]);
 
-  const filled = useMemo(() => {
-    const fields: (keyof ParsedLeadDraft)[] = ["name", "phone", "email", "location", "budget", "moveIn", "type", "room"];
-    return fields.filter((f) => String(draft[f] ?? "").trim().length > 0).length;
-  }, [draft]);
-  const completion = Math.round((filled / 8) * 100);
+  const totalRequired = 17;
+  const filledCount = totalRequired - Object.keys(errors).length;
+  const completion = Math.round((filledCount / totalRequired) * 100);
 
   const submit = () => {
-    setTouched({ name: true, phone: true, email: true });
+    setTouched(Object.keys(emptyDraft()).reduce((a, k) => ({ ...a, [k]: true }), {}));
     if (Object.keys(errors).length > 0) {
-      toast.error("Fix the highlighted fields first");
+      const first = Object.values(errors)[0];
+      toast.error(`Fix the highlighted fields: ${first}`);
       return;
     }
-    setSubmitting(true);
     const result = checkDuplicates(draft);
-    setMatch(result);
-    setShowModal(true);
-    setSubmitting(false);
+    if (result.type === "exact" || result.type === "strong") {
+      setMatch(result);
+      setShowModal(true);
+      return;
+    }
+    void persist();
   };
 
-  const onForceCreate = () => {
+  const persist = async () => {
+    setSubmitting(true);
+    const phoneClean = draft.phone.replace(/\D/g, "");
+    const areasArr = draft.location.split(",").map((a) => a.trim()).filter(Boolean);
+    const assignee = orgMembers.find((m) => m.id === draft.assigneeId);
+    const zoneObj = orgZones.find((z) => z.name === draft.zoneBucket);
+    const budgetNum = parseBudgetAmount(draft.budget);
+
+    const result = await dispatch({
+      type: "cmd.lead.create",
+      payload: {
+        name: draft.name.trim(),
+        phone: `+91${phoneClean}`,
+        source: "direct-form",
+        budget: budgetNum,
+        moveInDate: draft.moveIn,
+        preferredArea: areasArr[0] ?? draft.location.trim(),
+        zoneId: zoneObj?.id ?? null,
+        email: draft.email.trim(),
+        areas: areasArr,
+        fullAddress: draft.fullAddress.trim(),
+        type: draft.type,
+        room: draft.room,
+        need: draft.need,
+        inBLR: draft.inBLR,
+        quality: draft.quality as Quality,
+        specialReqs: draft.specialReqs.trim(),
+        notes: "",
+        zoneCategory: draft.zoneBucket,
+        assigneeId: assignee?.id ?? null,
+        stageLabel: draft.stage,
+      },
+    });
+    setSubmitting(false);
+    if (!result.ok) {
+      toast.error(`Could not save: ${result.error}`);
+      return;
+    }
+    // Mirror locally so dedup hints stay current this session
     const lead = createLead(draft);
-    toast.success(`Lead created · ULID ${lead.ulid.slice(0, 12)}…`);
-    setShowModal(false);
+    toast.success(`Lead saved · ${draft.name.trim()}`);
     setDraft(emptyDraft());
     setTouched({});
     setMatch(null);
     onCreated?.(lead);
+  };
+
+  const onForceCreate = () => {
+    setShowModal(false);
+    void persist();
   };
 
   const onUseExisting = (lead: UnifiedLead) => {
@@ -100,7 +192,7 @@ export function DirectLeadForm({ onCreated }: Props) {
     onCreated?.(lead);
   };
 
-  const showError = (k: keyof ParsedLeadDraft) => touched[k as string] && errors[k];
+  const showError = (k: keyof Draft) => touched[k as string] && errors[k];
 
   return (
     <div className="space-y-4">
@@ -112,7 +204,7 @@ export function DirectLeadForm({ onCreated }: Props) {
           </div>
           <div>
             <h3 className="font-semibold text-sm">New lead</h3>
-            <p className="text-[11px] text-muted-foreground">Direct entry · auto zone detect · live dedup</p>
+            <p className="text-[11px] text-muted-foreground">All fields are required · saves to backend</p>
           </div>
         </div>
         <div className="text-right">
@@ -130,43 +222,26 @@ export function DirectLeadForm({ onCreated }: Props) {
       <Section title="Identity" subtitle="Required for safe deduplication">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <FormField icon={User} label="Full name *" error={showError("name") ? errors.name : undefined}>
-            <Input
-              value={draft.name}
-              onChange={(e) => update("name", e.target.value)}
+            <Input value={draft.name} onChange={(e) => update("name", e.target.value)}
               onBlur={() => setTouched((t) => ({ ...t, name: true }))}
-              placeholder="Rahul Sharma"
-              className="h-10 text-sm"
-              autoFocus
-            />
+              placeholder="Rahul Sharma" className="h-10 text-sm" autoFocus />
           </FormField>
           <FormField icon={Phone} label="Phone *" error={showError("phone") ? errors.phone : undefined}>
-            <Input
-              value={draft.phone}
-              onChange={(e) => update("phone", e.target.value)}
+            <Input value={draft.phone} onChange={(e) => update("phone", e.target.value)}
               onBlur={() => setTouched((t) => ({ ...t, phone: true }))}
-              placeholder="+91 98xxxxxxxx"
-              inputMode="tel"
-              className="h-10 text-sm"
-            />
+              placeholder="98xxxxxxxx" inputMode="tel" className="h-10 text-sm" />
           </FormField>
-          <FormField icon={Mail} label="Email" error={showError("email") ? errors.email : undefined}>
-            <Input
-              value={draft.email}
-              onChange={(e) => update("email", e.target.value)}
+          <FormField icon={Mail} label="Email *" error={showError("email") ? errors.email : undefined}>
+            <Input value={draft.email} onChange={(e) => update("email", e.target.value)}
               onBlur={() => setTouched((t) => ({ ...t, email: true }))}
-              placeholder="rahul@example.com"
-              type="email"
-              className="h-10 text-sm"
-            />
+              placeholder="rahul@example.com" type="email" className="h-10 text-sm" />
           </FormField>
-          <FormField icon={MapPin} label="Preferred area / location">
+          <FormField icon={MapPin} label="Preferred areas * (comma-separated)"
+            error={showError("location") ? errors.location : undefined}>
             <div className="relative">
-              <Input
-                value={draft.location}
-                onChange={(e) => update("location", e.target.value)}
-                placeholder="Koramangala"
-                className="h-10 text-sm pr-20"
-              />
+              <Input value={draft.location} onChange={(e) => update("location", e.target.value)}
+                onBlur={() => setTouched((t) => ({ ...t, location: true }))}
+                placeholder="Koramangala, HSR" className="h-10 text-sm pr-20" />
               {draft.zone && (
                 <Badge variant="secondary" className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px]">
                   {draft.zone}
@@ -174,29 +249,28 @@ export function DirectLeadForm({ onCreated }: Props) {
               )}
             </div>
           </FormField>
+          <FormField icon={MapPin} label="Full address / map link *"
+            error={showError("fullAddress") ? errors.fullAddress : undefined}>
+            <Textarea value={draft.fullAddress} onChange={(e) => update("fullAddress", e.target.value)}
+              onBlur={() => setTouched((t) => ({ ...t, fullAddress: true }))}
+              placeholder="Door no, street, landmark or Google Maps link" className="min-h-16 text-sm" />
+          </FormField>
         </div>
       </Section>
 
       {/* Requirements */}
-      <Section title="Requirements" subtitle="The more you fill, the better the match">
+      <Section title="Requirements" subtitle="All fields required">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <FormField icon={Wallet} label="Budget (₹/month)">
-            <Input
-              value={draft.budget}
-              onChange={(e) => update("budget", e.target.value)}
-              placeholder="8000-12000"
-              className="h-10 text-sm"
-            />
+          <FormField icon={Wallet} label="Budget (₹/month) *" error={showError("budget") ? errors.budget : undefined}>
+            <Input value={draft.budget} onChange={(e) => update("budget", e.target.value)}
+              onBlur={() => setTouched((t) => ({ ...t, budget: true }))}
+              placeholder="8000-12000" className="h-10 text-sm" />
           </FormField>
-          <FormField icon={CalendarDays} label="Move-in">
-            <Input
-              type="date"
-              value={draft.moveIn}
-              onChange={(e) => update("moveIn", e.target.value)}
-              className="h-10 text-sm"
-            />
+          <FormField icon={CalendarDays} label="Move-in *" error={showError("moveIn") ? errors.moveIn : undefined}>
+            <Input type="date" value={draft.moveIn} onChange={(e) => update("moveIn", e.target.value)}
+              onBlur={() => setTouched((t) => ({ ...t, moveIn: true }))} className="h-10 text-sm" />
           </FormField>
-          <FormField icon={Briefcase} label="Type">
+          <FormField icon={Briefcase} label="Type *" error={showError("type") ? errors.type : undefined}>
             <Select value={draft.type} onValueChange={(v) => update("type", v)}>
               <SelectTrigger className="h-10 text-sm"><SelectValue placeholder="Select" /></SelectTrigger>
               <SelectContent>
@@ -204,7 +278,7 @@ export function DirectLeadForm({ onCreated }: Props) {
               </SelectContent>
             </Select>
           </FormField>
-          <FormField icon={BedDouble} label="Room preference">
+          <FormField icon={BedDouble} label="Room preference *" error={showError("room") ? errors.room : undefined}>
             <Select value={draft.room} onValueChange={(v) => update("room", v)}>
               <SelectTrigger className="h-10 text-sm"><SelectValue placeholder="Select" /></SelectTrigger>
               <SelectContent>
@@ -212,7 +286,7 @@ export function DirectLeadForm({ onCreated }: Props) {
               </SelectContent>
             </Select>
           </FormField>
-          <FormField label="Cohort / need">
+          <FormField label="Cohort / need *" error={showError("need") ? errors.need : undefined}>
             <Select value={draft.need} onValueChange={(v) => update("need", v)}>
               <SelectTrigger className="h-10 text-sm"><SelectValue placeholder="Select" /></SelectTrigger>
               <SelectContent>
@@ -220,11 +294,9 @@ export function DirectLeadForm({ onCreated }: Props) {
               </SelectContent>
             </Select>
           </FormField>
-          <FormField label="Currently in Bangalore?">
-            <Select
-              value={draft.inBLR === null ? "" : draft.inBLR ? "yes" : "no"}
-              onValueChange={(v) => update("inBLR", v === "" ? null : v === "yes")}
-            >
+          <FormField label="Currently in Bangalore? *" error={showError("inBLR") ? errors.inBLR : undefined}>
+            <Select value={draft.inBLR === null ? "" : draft.inBLR ? "yes" : "no"}
+              onValueChange={(v) => update("inBLR", v === "yes")}>
               <SelectTrigger className="h-10 text-sm"><SelectValue placeholder="Select" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="yes">Yes</SelectItem>
@@ -234,31 +306,66 @@ export function DirectLeadForm({ onCreated }: Props) {
           </FormField>
         </div>
 
-        <FormField label="Special requirements / notes">
-          <Textarea
-            value={draft.specialReqs}
-            onChange={(e) => update("specialReqs", e.target.value)}
-            placeholder="e.g. needs parking, food preferences, family visiting…"
-            className="min-h-20 text-sm"
-          />
+        <FormField label="Special requirements / notes *" error={showError("specialReqs") ? errors.specialReqs : undefined}>
+          <Textarea value={draft.specialReqs} onChange={(e) => update("specialReqs", e.target.value)}
+            onBlur={() => setTouched((t) => ({ ...t, specialReqs: true }))}
+            placeholder="e.g. needs parking, food preferences, family visiting…" className="min-h-20 text-sm" />
         </FormField>
+      </Section>
+
+      {/* Routing & Stage */}
+      <Section title="Routing & Stage" subtitle="Required for assignment and visibility">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <FormField icon={Flame} label="Lead quality *" error={showError("quality") ? errors.quality : undefined}>
+            <Select value={draft.quality} onValueChange={(v) => update("quality", v as Quality)}>
+              <SelectTrigger className="h-10 text-sm"><SelectValue placeholder="Select" /></SelectTrigger>
+              <SelectContent>
+                {QUALITY_OPTS.map((q) => <SelectItem key={q.v} value={q.v}>{q.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </FormField>
+          <FormField icon={MapPin} label="Zone *" error={showError("zoneBucket") ? errors.zoneBucket : undefined}>
+            <Select value={draft.zoneBucket} onValueChange={(v) => update("zoneBucket", v)}>
+              <SelectTrigger className="h-10 text-sm"><SelectValue placeholder="Select zone" /></SelectTrigger>
+              <SelectContent>
+                {orgZones.map((z) => <SelectItem key={z.id} value={z.name}>{z.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </FormField>
+          <FormField icon={UserCheck} label="Assign member *" error={showError("assigneeId") ? errors.assigneeId : undefined}>
+            <Select value={draft.assigneeId} onValueChange={(v) => update("assigneeId", v)}>
+              <SelectTrigger className="h-10 text-sm"><SelectValue placeholder="Select member" /></SelectTrigger>
+              <SelectContent>
+                {orgMembers.map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </FormField>
+          <FormField icon={Tag} label="Lead stage *" error={showError("stage") ? errors.stage : undefined}>
+            <Select value={draft.stage} onValueChange={(v) => update("stage", v)}>
+              <SelectTrigger className="h-10 text-sm"><SelectValue placeholder="Select stage" /></SelectTrigger>
+              <SelectContent>
+                {STAGES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </FormField>
+        </div>
       </Section>
 
       {/* Footer */}
       <div className="sticky bottom-0 -mx-1 px-1 pt-2 pb-1 bg-gradient-to-t from-background via-background/95 to-background/0">
         <div className="rounded-xl border border-border bg-card p-3 flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-            {filled >= 4 ? (
-              <><CheckCircle2 className="h-3.5 w-3.5 text-primary" /> Strong signals — ready to dedup & save</>
+            {Object.keys(errors).length === 0 ? (
+              <><CheckCircle2 className="h-3.5 w-3.5 text-primary" /> All required fields filled — ready to save</>
             ) : (
-              <><AlertCircle className="h-3.5 w-3.5 text-amber-500" /> Add a few more fields for confident dedup</>
+              <><AlertCircle className="h-3.5 w-3.5 text-amber-500" /> {Object.keys(errors).length} field(s) remaining</>
             )}
           </div>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" className="h-9" onClick={() => { setDraft(emptyDraft()); setTouched({}); }}>
               Reset
             </Button>
-            <Button onClick={submit} disabled={submitting || Object.keys(errors).length > 0} size="sm" className="h-9 gap-2 min-w-36">
+            <Button onClick={submit} disabled={submitting} size="sm" className="h-9 gap-2 min-w-36">
               {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
               Save lead
             </Button>
