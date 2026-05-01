@@ -70,8 +70,8 @@ const emailOk = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
 export function DirectLeadForm({ onCreated }: Props) {
   const checkDuplicates = useIdentityStore((s) => s.checkDuplicates);
   const createLead = useIdentityStore((s) => s.createLead);
-  const orgMembers = useOrgMembers();
-  const orgZones = useOrgZones();
+  const { members: orgMembers } = useOrgMembers();
+  const { zones: orgZones } = useOrgZones();
 
   const [draft, setDraft] = useState<Draft>(emptyDraft());
   const [touched, setTouched] = useState<Record<string, boolean>>({});
