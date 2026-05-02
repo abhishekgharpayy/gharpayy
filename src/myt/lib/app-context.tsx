@@ -31,7 +31,29 @@ interface AppState {
 const AppContext = createContext<AppState | null>(null);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const [tours, setTours] = useState<Tour[]>(initialTours);
+  // Initialize tours from localStorage or empty array
+  const [tours, setToursState] = useState<Tour[]>(() => {
+    try {
+      const stored = localStorage.getItem('myt:tours');
+      return stored ? JSON.parse(stored) : initialTours;
+    } catch {
+      return initialTours;
+    }
+  });
+  
+  // Wrap setTours to also persist to localStorage
+  const setTours = (updater: React.SetStateAction<Tour[]>) => {
+    setToursState((prev) => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      try {
+        localStorage.setItem('myt:tours', JSON.stringify(next));
+      } catch (e) {
+        console.warn('[AppProvider] Failed to persist tours:', (e as Error).message);
+      }
+      return next;
+    });
+  };
+
   const [leads, setLeads] = useState<Lead[]>(initialLeads);
   const [bookings, setBookings] = useState<Booking[]>(initialBookings);
   const [rooms, setRooms] = useState<Room[]>([]);

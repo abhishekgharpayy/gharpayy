@@ -63,14 +63,14 @@ export function AppShell({ children }: { children: ReactNode }) {
     if (!allowed.includes(role)) setRole(allowed[0]);
   }, [dbRole, role, setRole]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Set currentMemberId for members so notifications work correctly
+  // Set currentMemberId for all logged-in users so tours and notifications work correctly
   useEffect(() => {
-    if (authUser && dbRole === "member") {
+    if (authUser) {
       setCurrentMemberId(authUser.id);
-    } else if (!authUser) {
+    } else {
       setCurrentMemberId(null);
     }
-  }, [authUser, dbRole, setCurrentMemberId]);
+  }, [authUser, setCurrentMemberId]);
   const router = useRouterState();
   const path = router.location.pathname;
   const [now, mounted] = useMountedNow();

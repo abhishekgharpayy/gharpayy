@@ -27,7 +27,9 @@ export default function ScheduleTour() {
   const { role, currentTcmId } = useApp();
   const [tab, setTab] = useState<FilterTab>("all");
 
-  const actorId = currentMemberId ?? (role === "tcm" ? currentTcmId : null);
+  // Use currentMemberId as primary identifier (set for all logged-in users)
+  // Fall back to currentTcmId only if currentMemberId is not available (shouldn't happen normally)
+  const actorId = currentMemberId || (role === "tcm" ? currentTcmId : null);
 
   const visibleTours = useMemo(() => {
     if (!actorId) return [];
