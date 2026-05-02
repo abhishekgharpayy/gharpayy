@@ -11,17 +11,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Target, ListTodo, Activity as ActivityIcon, CalendarPlus, FileText, MessageSquare } from "lucide-react";
+import { Plus, Target, ListTodo, Activity as ActivityIcon, CalendarPlus, FileText, MessageSquare, Zap } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { LeadPasteParser } from "@/components/leads/LeadPasteParser";
+import { QuickAddLeadPanel } from "@/components/leads/QuickAddLeadPanel";
 import { useTodos } from "@/hooks/useTodos";
 import { toast } from "sonner";
 
-type DialogKey = null | "lead" | "todo" | "note";
+type DialogKey = null | "lead" | "quicklead" | "todo" | "note";
 
 export function QuickCreateMenu() {
   const [open, setOpen] = useState(false);
   const [dialog, setDialog] = useState<DialogKey>(null);
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
   const navigate = useNavigate();
 
   // Global ⌘N / Ctrl+N — open menu (or skip if a Lovable input is focused with modifier)
@@ -51,6 +53,10 @@ export function QuickCreateMenu() {
           <DropdownMenuItem onSelect={() => setDialog("lead")}>
             <Target className="h-4 w-4 mr-2 text-primary" /> Lead from paste
             <DropdownMenuShortcut>L</DropdownMenuShortcut>
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => { setOpen(false); setQuickAddOpen(true); }}>
+            <Zap className="h-4 w-4 mr-2 text-accent" /> Quick Add Lead
+            <DropdownMenuShortcut>Q</DropdownMenuShortcut>
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => setDialog("todo")}>
             <ListTodo className="h-4 w-4 mr-2" /> Personal todo
@@ -97,6 +103,9 @@ export function QuickCreateMenu() {
           <QuickTodoForm onDone={() => setDialog(null)} placeholder="What just happened? (becomes a personal task)" />
         </DialogContent>
       </Dialog>
+
+      {/* Quick Add Lead panel */}
+      <QuickAddLeadPanel open={quickAddOpen} onClose={() => setQuickAddOpen(false)} />
     </>
   );
 }

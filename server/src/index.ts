@@ -15,6 +15,7 @@ import { registerTodosRoutes } from "./modules/todos/routes.js";
 import { registerActivitiesRoutes } from "./modules/activities/routes.js";
 import { registerUserRoutes } from "./modules/users/routes.js";
 import { registerZoneRoutes } from "./modules/zones/routes.js";
+import { registerPropertyRoutes } from "./modules/properties/routes.js";
 import { registerActivityFeedRoutes } from "./modules/activity/feed-routes.js";
 import { ensureDefaultSuperAdmin } from "./auth/auth.js";
 
@@ -77,6 +78,7 @@ h1{margin:0 0 .5rem;font-size:1.5rem;color:#34d399}p{margin:.25rem 0;color:#94a3
   registerActivitiesRoutes(app);
   registerUserRoutes(app);
   registerZoneRoutes(app);
+  registerPropertyRoutes(app);
   registerActivityFeedRoutes(app);
 
   // Idempotent — bootstraps the canonical Super Admin if missing.

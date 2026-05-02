@@ -2,7 +2,7 @@
 // backend and keeps it in sync via Socket.IO events. Mount once near the
 // top of the app (AppShell). Every legacy page that reads `leads` from the
 // store now sees real data without any per-page refactor.
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useApp } from "@/lib/store";
 import { api } from "@/lib/api/client";
 import { onEvent, getSocket } from "@/lib/api/socket";
@@ -27,21 +27,39 @@ function toLegacy(w: WireLead, fallbackTcmId = ""): LegacyLead {
     responseSpeedMins: w.responseSpeedMins ?? 0,
     createdAt: w.createdAt,
     updatedAt: w.updatedAt,
+    // Extended
+    email: w.email,
+    areas: w.areas,
+    fullAddress: w.fullAddress,
+    type: w.type,
+    room: w.room,
+    need: w.need,
+    inBLR: w.inBLR,
+    quality: w.quality,
+    specialReqs: w.specialReqs,
+    notes: w.notes,
+    zoneCategory: w.zoneCategory,
+    stageLabel: w.stageLabel,
   };
 }
 
 export function LiveLeadsBridge() {
   const setLeads = useApp((s) => s.setLeads);
   const tcms = useApp((s) => s.tcms);
+  // Keep a ref so the effect closure always reads the latest tcms
+  // without needing tcms in the dependency array (which would re-trigger
+  // the full fetch every time tcms loads and discard in-flight results).
+  const tcmsRef = useRef(tcms);
+  useEffect(() => { tcmsRef.current = tcms; }, [tcms]);
 
   useEffect(() => {
     let cancelled = false;
-    const fallbackTcm = tcms[0]?.id ?? "";
 
     void (async () => {
       try {
-        const r = await api.leads.list({ limit: 500 });
+        const r = await api.leads.list({ limit: 200 });
         if (cancelled) return;
+        const fallbackTcm = tcmsRef.current[0]?.id ?? "";
         setLeads((r.items as WireLead[]).map((l) => toLegacy(l, fallbackTcm)));
       } catch (e) {
         console.warn("[LiveLeadsBridge] initial load failed:", (e as Error).message);
@@ -52,6 +70,7 @@ export function LiveLeadsBridge() {
     getSocket();
     const off = onEvent((e: DomainEvent) => {
       const cur = useApp.getState().leads;
+      const fallbackTcm = tcmsRef.current[0]?.id ?? "";
       if (e.type === "evt.lead.created") {
         const lead = toLegacy(e.payload.lead as WireLead, fallbackTcm);
         if (!cur.some((l) => l.id === lead.id)) setLeads([lead, ...cur]);
@@ -73,7 +92,8 @@ export function LiveLeadsBridge() {
     });
 
     return () => { cancelled = true; off(); };
-  }, [setLeads, tcms]);
+  }, [setLeads]); // ← only setLeads (stable zustand ref), not tcms
 
   return null;
 }
+

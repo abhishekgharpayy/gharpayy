@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { useIdentityStore } from "@/lib/lead-identity/store";
 import { detectZone, parseLead } from "@/lib/lead-identity/parser";
 import { useOrgMembers, useOrgZones } from "@/hooks/useOrgDirectory";
+import { useAuthUser } from "@/lib/auth-store";
 import { dispatch } from "@/lib/api/command-bus";
 import { toast } from "sonner";
 import { Save, Repeat2, Phone, MapPin, Sparkles, X, CalendarPlus } from "lucide-react";
@@ -34,17 +35,19 @@ interface Props { open: boolean; onClose: () => void; }
 const todayIso = () => new Date().toISOString().slice(0, 10);
 
 
+import { useApp } from "@/lib/store";
+import type { LeadStage, Intent } from "@/lib/types";
+
 const STAGES = [
-  "MYT [TENANT]",
-  "2A. Options Shared – BLR",
-  "2B. Options Shared – Non-BLR",
-  "3A. Visit Intent Confirmed",
-  "3B. try.prebook / virtual tour Intent",
-  "4A. Visit Scheduled in BLR",
-  "5A. Visit Done",
-  "Finalizing",
-  "WON 🏆",
-  "LOST 😭",
+  "new",
+  "contacted",
+  "tour-scheduled",
+  "tour-done",
+  "negotiation",
+  "booked",
+  "dropped",
+  "not-responding-3d",
+  "not-responding-7d",
 ] as const;
 
 const TYPE_OPTS = QUICKAD_TYPE_OPTIONS;
@@ -66,6 +69,7 @@ export function QuickAddLeadPanel({ open, onClose }: Props) {
   const create = useIdentityStore((s) => s.createLead);
   const { rooms, blocks, tours } = useAppState();
   const navigate = useNavigate();
+  const addLead = useApp((s) => s.addLead);
   const { members: orgMembers } = useOrgMembers();
   const { zones: orgZones } = useOrgZones();
 
@@ -82,10 +86,12 @@ export function QuickAddLeadPanel({ open, onClose }: Props) {
   const [need, setNeed] = useState("");
   const [specialReqs, setSpecialReqs] = useState("");
   // Editorial
-  const [inBLR, setInBLR] = useState<boolean | null>(null);
+  const [inBLR, setInBLR] = useState<boolean | null | undefined>(undefined);
   const [quality, setQuality] = useState<"hot" | "good" | "bad" | null>(null);
   const [zoneBucket, setZoneBucket] = useState<string>("");
-  const [assigneeId, setAssigneeId] = useState<string>("");
+  const authUser = useAuthUser((s) => s.user);
+  const defaultAssigneeId = (authUser?.role === "member") ? authUser.id : "";
+  const [assigneeId, setAssigneeId] = useState<string>(defaultAssigneeId);
   const [stage, setStage] = useState<string>(STAGES[0]);
   const [notes, setNotes] = useState("");
   const [lastParsed, setLastParsed] = useState<ParsedLeadDraft | null>(null);
@@ -112,7 +118,7 @@ export function QuickAddLeadPanel({ open, onClose }: Props) {
     setBudget(""); setMoveIn(todayIso());
     setType(""); setRoom(""); setNeed(""); setSpecialReqs("");
     setInBLR(null); setQuality(null); setZoneBucket("");
-    setAssigneeId(""); setStage(STAGES[0]); setNotes("");
+    setAssigneeId(defaultAssigneeId); setStage(STAGES[0]); setNotes("");
     setLastParsed(null);
     setTimeout(() => nameRef.current?.focus(), 30);
   };
@@ -173,7 +179,7 @@ export function QuickAddLeadPanel({ open, onClose }: Props) {
     if (!type) missing.push("Type");
     if (!room) missing.push("Room");
     if (!need) missing.push("Need");
-    if (inBLR === null) missing.push("In Bangalore?");
+    if (inBLR === undefined) missing.push("In Bangalore?");
     if (!quality) missing.push("Lead Quality");
     if (!zoneBucket) missing.push("Zone");
     if (!assigneeId) missing.push("Assigned member");
@@ -213,7 +219,7 @@ export function QuickAddLeadPanel({ open, onClose }: Props) {
         areas: areasArr,
         fullAddress: fullAddress.trim(),
         type, room, need,
-        inBLR,
+        inBLR: inBLR === undefined ? null : inBLR,
         quality,
         specialReqs: specialReqs.trim(),
         notes: notes.trim(),
@@ -226,9 +232,12 @@ export function QuickAddLeadPanel({ open, onClose }: Props) {
       toast.error(`Could not save: ${result.error}`);
       return;
     }
+    
+    const newLeadId = (result as any).data?.leadId;
+
     // Mirror into the local identity store so dedup hints stay current
     // for the rest of this session.
-    create(
+    const identityLead = create(
       {
         name: name.trim(),
         phone: phone.trim(),
@@ -243,7 +252,7 @@ export function QuickAddLeadPanel({ open, onClose }: Props) {
         extraContent: notes.trim(),
         budgets: budget.split(/\s*(?:,|\/|\bor\b)\s*/i).filter(Boolean),
         links: fullAddress.match(/https?:\/\/\S+/g) ?? [],
-        inBLR,
+        inBLR: inBLR === undefined ? null : inBLR,
         zone: detectedZone,
         rawSource: `[QuickAdd] ${name} ${phone}`,
       },
@@ -255,6 +264,38 @@ export function QuickAddLeadPanel({ open, onClose }: Props) {
         assigneeName: assignee?.name ?? null,
       },
     );
+
+    // Optimistically add to the main app store for immediate visibility
+    const now = new Date().toISOString();
+    addLead({
+      id: newLeadId || identityLead.ulid,
+      name: name.trim(),
+      phone: `+91${phoneClean}`,
+      source: "quick-add",
+      budget: budgetNum,
+      moveInDate: moveIn,
+      preferredArea: areasArr[0] ?? areasText.trim(),
+      assignedTcmId: assignee?.id ?? "",
+      stage: (stage as LeadStage) || "new",
+      intent: (quality === "hot" ? "hot" : quality === "bad" ? "cold" : "warm") as Intent,
+      confidence: quality === "hot" ? 90 : quality === "good" ? 70 : quality === "bad" ? 30 : 50,
+      tags: [],
+      nextFollowUpAt: null,
+      responseSpeedMins: 0,
+      createdAt: now,
+      updatedAt: now,
+      email: email.trim(),
+      areas: areasArr,
+      fullAddress: fullAddress.trim(),
+      type, room, need,
+      inBLR: inBLR === undefined ? null : inBLR,
+      quality: quality || "good",
+      specialReqs: specialReqs.trim(),
+      notes: notes.trim(),
+      zoneCategory: zoneBucket,
+      stageLabel: stage,
+    });
+
     toast.success(`Lead saved · ${name.trim()}`);
     if (keepOpen) reset(); else onClose();
   };
@@ -316,7 +357,7 @@ export function QuickAddLeadPanel({ open, onClose }: Props) {
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Area Inventory Fit</div>
-          <div className="text-sm font-semibold text-foreground">{areaFit.zone.area} · {areaFit.fits[0]?.availableBeds ?? 0} Supply Hub beds live</div>
+          <div className="text-sm font-semibold text-foreground">{areaFit.zone.areas[0] || ''} · {areaFit.fits[0]?.availableBeds ?? 0} Supply Hub beds live</div>
                 </div>
                 <Button type="button" size="sm" variant="secondary" className="h-7 text-[11px]" onClick={scheduleDraft} disabled={!areaFit.fits[0]}>
                   <CalendarPlus className="h-3 w-3 mr-1" /> Best Tour
@@ -419,7 +460,10 @@ export function QuickAddLeadPanel({ open, onClose }: Props) {
             <ChipGroup
               options={BLR_OPTS.map((o) => o.label)}
               value={BLR_OPTS.find((o) => o.v === inBLR)?.label ?? ""}
-              onChange={(label) => setInBLR(BLR_OPTS.find((o) => o.label === label)?.v ?? null)}
+              onChange={(label) => {
+                const opt = BLR_OPTS.find((o) => o.label === label);
+                if (opt !== undefined) setInBLR(opt.v);
+              }}
             />
           </Field>
 
@@ -452,7 +496,7 @@ export function QuickAddLeadPanel({ open, onClose }: Props) {
               className="w-full h-9 bg-background border border-border rounded-md px-2 text-xs"
             >
               <option value="">{orgMembers.length ? "Select member…" : "No members yet"}</option>
-              {orgMembers.map((m) => (
+              {orgMembers.filter(m => m.role === 'member' || m.role === 'tcm').map((m) => (
                 <option key={m.id} value={m.id}>{m.name} · {m.role}</option>
               ))}
             </select>

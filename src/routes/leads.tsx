@@ -4,15 +4,16 @@ import { useApp } from "@/lib/store";
 import { ConfidenceBar, IntentChip, StageBadge } from "@/components/atoms";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Wand2 } from "lucide-react";
+import {
+  Flame, AlertTriangle, TrendingUp, CheckCircle2,
+  ChevronDown, ChevronRight, Telescope, Moon,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import { formatDistanceToNow } from "date-fns";
-import type { LeadStage } from "@/lib/types";
+import type { Lead, LeadStage } from "@/lib/types";
 import { useMountedNow } from "@/hooks/use-now";
-import { LeadPasteParser } from "@/components/leads/LeadPasteParser";
-import { toast } from "sonner";
+import { useUserMap } from "@/hooks/useUserMap";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/leads")({
   head: () => ({
@@ -21,114 +22,324 @@ export const Route = createFileRoute("/leads")({
   component: LeadsPage,
 });
 
-function LeadsPage() {
-  const { leads, tcms, selectLead, addLead } = useApp();
-  const [, mounted] = useMountedNow();
-  const [q, setQ] = useState("");
-  const [stage, setStage] = useState<string>("all");
-  const [sortBy, setSortBy] = useState<"confidence" | "moveIn" | "updated">("confidence");
-  const [pasteOpen, setPasteOpen] = useState(false);
+// ─── Stage max-day timers (matches old CRM) ──────────────────────
+const STAGE_MAX_DAYS: Record<string, number> = {
+  new: 1,
+  contacted: 2,
+  "tour-scheduled": 2,
+  "tour-done": 2,
+  negotiation: 5,
+};
 
+type BandKey = "fire" | "stuck" | "active" | "future" | "dormant" | "closed";
+
+interface BandConfig {
+  label: string;
+  subtitle: string;
+  icon: React.ElementType;
+  color: string;          // text colour token
+  bg: string;             // header bg token
+  ring: string;           // border/ring token
+  defaultOpen: boolean;
+}
+
+const BANDS: Record<BandKey, BandConfig> = {
+  fire: {
+    label: "🔥 Urgent — Move-in ≤ 7 days",
+    subtitle: "Close or lose this week.",
+    icon: Flame,
+    color: "text-destructive",
+    bg: "bg-destructive/10",
+    ring: "border-destructive/25",
+    defaultOpen: true,
+  },
+  stuck: {
+    label: "🚨 Stuck — Stage Expired",
+    subtitle: "Days exceeded. Unblock today.",
+    icon: AlertTriangle,
+    color: "text-warning",
+    bg: "bg-warning/10",
+    ring: "border-warning/25",
+    defaultOpen: true,
+  },
+  active: {
+    label: "⚡ In Progress",
+    subtitle: "Moving. Sorted by move-in date.",
+    icon: TrendingUp,
+    color: "text-success",
+    bg: "bg-success/10",
+    ring: "border-success/25",
+    defaultOpen: true,
+  },
+  future: {
+    label: "🔭 Future — Move-in 45+ Days",
+    subtitle: "Qualified. Set a trigger.",
+    icon: Telescope,
+    color: "text-info",
+    bg: "bg-info/10",
+    ring: "border-info/25",
+    defaultOpen: false,
+  },
+  dormant: {
+    label: "😴 Dormant — 30+ Days Silent",
+    subtitle: "Final attempt then mark lost.",
+    icon: Moon,
+    color: "text-muted-foreground",
+    bg: "bg-muted/60",
+    ring: "border-border",
+    defaultOpen: false,
+  },
+  closed: {
+    label: "✅ Closed",
+    subtitle: "Booked or dropped.",
+    icon: CheckCircle2,
+    color: "text-muted-foreground",
+    bg: "bg-muted/40",
+    ring: "border-border",
+    defaultOpen: false,
+  },
+};
+
+const BAND_ORDER: BandKey[] = ["fire", "stuck", "active", "future", "dormant", "closed"];
+
+// ─── Helpers ─────────────────────────────────────────────────────
+function daysUntil(iso: string | null | undefined): number | null {
+  if (!iso) return null;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const target = new Date(iso); target.setHours(0, 0, 0, 0);
+  const diff = (target.getTime() - today.getTime()) / 86_400_000;
+  return Number.isNaN(diff) ? null : Math.floor(diff);
+}
+
+function daysSince(iso: string | null | undefined): number | null {
+  if (!iso) return null;
+  const diff = (Date.now() - new Date(iso).getTime()) / 86_400_000;
+  return Number.isNaN(diff) ? null : Math.floor(diff);
+}
+
+function getBand(l: Lead): BandKey {
+  const closed = ["booked", "dropped"];
+  if (closed.includes(l.stage)) return "closed";
+
+  const moveInDays = daysUntil(l.moveInDate);
+  if (moveInDays !== null && moveInDays >= 0 && moveInDays <= 7) return "fire";
+  if (moveInDays !== null && moveInDays < 0) return "fire"; // missed move-in
+
+  // Stuck: stage timer exceeded OR nextFollowUpAt overdue
+  const maxDays = STAGE_MAX_DAYS[l.stage];
+  const stageAgeDays = daysSince(l.updatedAt) ?? 0;
+  if (maxDays && stageAgeDays > maxDays) return "stuck";
+  if (l.nextFollowUpAt && (daysUntil(l.nextFollowUpAt) ?? 0) < 0) return "stuck";
+
+  const lastUpdate = daysSince(l.updatedAt) ?? 0;
+  if (lastUpdate > 30) return "dormant";
+  if (moveInDays !== null && moveInDays > 45) return "future";
+
+  return "active";
+}
+
+function getStuckReason(l: Lead): string {
+  const maxDays = STAGE_MAX_DAYS[l.stage];
+  const stageAgeDays = daysSince(l.updatedAt) ?? 0;
+  if (maxDays && stageAgeDays > maxDays) {
+    const over = stageAgeDays - maxDays;
+    return `${over}d over limit in '${l.stage}'`;
+  }
+  const fup = l.nextFollowUpAt ? daysUntil(l.nextFollowUpAt) : null;
+  if (fup !== null && fup < 0) return `Follow-up ${Math.abs(fup)}d overdue`;
+  return "Stage expired";
+}
+
+function getMoveInLabel(iso: string | null | undefined): string {
+  const d = daysUntil(iso);
+  if (d === null) return "—";
+  if (d < 0) return `${Math.abs(d)}d overdue`;
+  if (d === 0) return "TODAY";
+  if (d === 1) return "Tomorrow";
+  return `in ${d}d`;
+}
+
+// ─── Page ────────────────────────────────────────────────────────
+function LeadsPage() {
+  const { leads, selectLead } = useApp();
+  const [, mounted] = useMountedNow();
+  const userMap = useUserMap();
+
+  const [q, setQ] = useState("");
+  const [stageFilter, setStageFilter] = useState<string>("all");
+  const [openBands, setOpenBands] = useState<Record<BandKey, boolean>>(
+    Object.fromEntries(BAND_ORDER.map((k) => [k, BANDS[k].defaultOpen])) as Record<BandKey, boolean>
+  );
+
+  const toggleBand = (band: BandKey) =>
+    setOpenBands((prev) => ({ ...prev, [band]: !prev[band] }));
+
+  // Filter
   const filtered = useMemo(() => {
-    const list = leads.filter((l) => {
+    return leads.filter((l) => {
       if (q && !l.name.toLowerCase().includes(q.toLowerCase()) && !l.phone.includes(q)) return false;
-      if (stage !== "all" && l.stage !== stage) return false;
+      if (stageFilter !== "all" && l.stage !== stageFilter) return false;
       return true;
     });
-    list.sort((a, b) => {
-      if (sortBy === "confidence") return b.confidence - a.confidence;
-      if (sortBy === "moveIn") return +new Date(a.moveInDate) - +new Date(b.moveInDate);
-      return +new Date(b.updatedAt) - +new Date(a.updatedAt);
-    });
-    return list;
-  }, [leads, q, stage, sortBy]);
+  }, [leads, q, stageFilter]);
+
+  // Group into bands
+  const grouped = useMemo(() => {
+    const groups: Record<BandKey, Lead[]> = { fire: [], stuck: [], active: [], future: [], dormant: [], closed: [] };
+    for (const l of filtered) groups[getBand(l)].push(l);
+    // Sort each band by move-in date ascending (nulls last)
+    for (const band of BAND_ORDER) {
+      groups[band].sort((a, b) => {
+        const da = a.moveInDate ? new Date(a.moveInDate).getTime() : Infinity;
+        const db = b.moveInDate ? new Date(b.moveInDate).getTime() : Infinity;
+        return da - db;
+      });
+    }
+    return groups;
+  }, [filtered]);
+
+  const totalLeads = leads.length;
+  const shownLeads = filtered.length;
 
   return (
     <AppShell>
       <div className="space-y-4">
-        <header className="flex items-end justify-between flex-wrap gap-3">
-          <div>
+        {/* Header */}
+        <header className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-baseline gap-2">
             <h1 className="font-display text-2xl font-semibold tracking-tight">Leads</h1>
-            <p className="text-sm text-muted-foreground">{filtered.length} of {leads.length} · ranked by deal probability</p>
+            <span className="text-sm text-muted-foreground">{shownLeads} of {totalLeads}</span>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            <Dialog open={pasteOpen} onOpenChange={setPasteOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm" className="gap-1.5 h-9"><Wand2 className="h-3.5 w-3.5" /> Paste lead</Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl">
-                <DialogHeader><DialogTitle>Paste a lead — auto-extract fields</DialogTitle></DialogHeader>
-                <LeadPasteParser onDone={() => setPasteOpen(false)} />
-              </DialogContent>
-            </Dialog>
-            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name or phone…" className="h-9 w-56 text-sm" />
-            <Select value={stage} onValueChange={setStage}>
-              <SelectTrigger className="h-9 w-44 text-sm"><SelectValue /></SelectTrigger>
+            <Input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search name or phone…"
+              className="h-9 w-52 text-sm"
+            />
+            <Select value={stageFilter} onValueChange={setStageFilter}>
+              <SelectTrigger className="h-9 w-40 text-sm"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All stages</SelectItem>
-                {(["new","contacted","tour-scheduled","tour-done","negotiation","booked","dropped"] as LeadStage[]).map((s) => (
+                {(["new", "contacted", "tour-scheduled", "tour-done", "negotiation", "booked", "dropped", "not-responding-3d", "not-responding-7d"] as LeadStage[]).map((s) => (
                   <SelectItem key={s} value={s} className="capitalize">{s.replace("-", " ")}</SelectItem>
                 ))}
-              </SelectContent>
-            </Select>
-            <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
-              <SelectTrigger className="h-9 w-44 text-sm"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="confidence">Sort: Confidence</SelectItem>
-                <SelectItem value="moveIn">Sort: Move-in date</SelectItem>
-                <SelectItem value="updated">Sort: Last updated</SelectItem>
               </SelectContent>
             </Select>
           </div>
         </header>
 
-        <div className="rounded-xl border border-border bg-card overflow-hidden">
-          <div className="grid grid-cols-12 px-4 py-2 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold border-b border-border bg-muted/40">
-            <div className="col-span-3">Lead</div>
-            <div className="col-span-2">Stage</div>
-            <div className="col-span-2">Intent · score</div>
-            <div className="col-span-2">Area · budget</div>
-            <div className="col-span-2">Assigned</div>
-            <div className="col-span-1 text-right">Updated</div>
-          </div>
-          <div className="divide-y divide-border">
-            {filtered.map((l) => {
-              const tcm = tcms.find((t) => t.id === l.assignedTcmId);
-              return (
-                <div key={l.id}>
-                  <button
-                    onClick={() => selectLead(l.id)}
-                    className="w-full text-left grid grid-cols-12 px-4 py-3 items-center hover:bg-accent/5 transition-colors"
-                  >
-                    <div className="col-span-3">
-                      <div className="font-medium text-sm">{l.name}</div>
-                      <div className="text-[11px] text-muted-foreground">{l.phone} · {l.source}</div>
-                    </div>
-                    <div className="col-span-2"><StageBadge stage={l.stage} /></div>
-                    <div className="col-span-2 flex items-center gap-2">
-                      <IntentChip intent={l.intent} />
-                      <ConfidenceBar value={l.confidence} />
-                    </div>
-                    <div className="col-span-2 text-xs">
-                      <div>{l.preferredArea}</div>
-                      <div className="text-muted-foreground">₹{(l.budget / 1000).toFixed(0)}k</div>
-                    </div>
-                    <div className="col-span-2 text-xs">
-                      <div>{tcm?.name ?? "—"}</div>
-                      <div className="text-muted-foreground">{tcm?.zone ?? "—"}</div>
-                    </div>
-                    <div className="col-span-1 text-right text-[11px] text-muted-foreground">
-                      {mounted ? formatDistanceToNow(new Date(l.updatedAt), { addSuffix: true }) : "—"}
-                    </div>
-                  </button>
+        {/* Band sections */}
+        {BAND_ORDER.map((band) => {
+          const items = grouped[band];
+          if (items.length === 0) return null;
+          const cfg = BANDS[band];
+          const isOpen = openBands[band];
+
+          return (
+            <section key={band} id={`band-${band}`} className={cn("rounded-xl border overflow-hidden", cfg.ring)}>
+              {/* Section header */}
+              <button
+                onClick={() => toggleBand(band)}
+                className={cn(
+                  "w-full flex items-center gap-3 px-4 py-3 text-left transition-colors",
+                  cfg.bg,
+                )}
+              >
+                <cfg.icon className={cn("h-4 w-4 shrink-0", cfg.color)} />
+                <div className="flex-1 min-w-0">
+                  <div className={cn("text-sm font-semibold", cfg.color)}>{cfg.label}</div>
+                  <div className="text-[11px] text-muted-foreground">{cfg.subtitle}</div>
                 </div>
-              );
-            })}
-            {filtered.length === 0 && (
-              <div className="text-center py-12 text-sm text-muted-foreground">No leads match.</div>
-            )}
+                <span className={cn("text-xs font-mono font-bold px-2 py-0.5 rounded-full border", cfg.ring, cfg.color)}>
+                  {items.length}
+                </span>
+                {isOpen
+                  ? <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                  : <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />}
+              </button>
+
+              {/* Column headers */}
+              {isOpen && (
+                <>
+                  <div className="grid grid-cols-12 px-4 py-2 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold border-t border-b border-border bg-muted/20">
+                    <div className="col-span-3">Lead</div>
+                    <div className="col-span-2">Stage</div>
+                    <div className="col-span-2">Intent · score</div>
+                    <div className="col-span-2">Area · budget</div>
+                    <div className="col-span-2">Move-in · assigned</div>
+                    <div className="col-span-1 text-right">Updated</div>
+                  </div>
+
+                  <div className="divide-y divide-border bg-card">
+                    {items.map((l) => {
+                      const assignee = l.assignedTcmId ? userMap.get(l.assignedTcmId) : null;
+                      const moveInLabel = getMoveInLabel(l.moveInDate);
+                      const stuckReason = band === "stuck" ? getStuckReason(l) : null;
+                      const isFire = band === "fire";
+                      const daysToMoveIn = daysUntil(l.moveInDate);
+
+                      return (
+                        <button
+                          key={l.id}
+                          onClick={() => selectLead(l.id)}
+                          className="w-full text-left grid grid-cols-12 px-4 py-3 items-center hover:bg-accent/5 transition-colors group"
+                        >
+                          {/* Lead name + phone */}
+                          <div className="col-span-3 min-w-0 pr-2">
+                            <div className="font-medium text-sm truncate">{l.name}</div>
+                            <div className="text-[11px] text-muted-foreground">{l.phone} · {l.source}</div>
+                            {stuckReason && (
+                              <div className="text-[10px] text-warning mt-0.5">{stuckReason}</div>
+                            )}
+                          </div>
+
+                          {/* Stage */}
+                          <div className="col-span-2"><StageBadge stage={l.stage} /></div>
+
+                          {/* Intent + confidence */}
+                          <div className="col-span-2 flex items-center gap-2">
+                            <IntentChip intent={l.intent} />
+                            <ConfidenceBar value={l.confidence} />
+                          </div>
+
+                          {/* Area + budget */}
+                          <div className="col-span-2 text-xs">
+                            <div className="truncate">{l.preferredArea || "—"}</div>
+                            <div className="text-muted-foreground">₹{(l.budget / 1000).toFixed(0)}k</div>
+                          </div>
+
+                          {/* Move-in + assigned */}
+                          <div className="col-span-2 text-xs">
+                            <div className={cn(
+                              "font-medium",
+                              isFire && daysToMoveIn !== null && daysToMoveIn <= 3 ? "text-destructive" :
+                              isFire ? "text-warning" : "text-foreground"
+                            )}>
+                              {moveInLabel}
+                            </div>
+                            <div className="text-muted-foreground truncate">{assignee?.name ?? "—"}</div>
+                          </div>
+
+                          {/* Updated */}
+                          <div className="col-span-1 text-right text-[11px] text-muted-foreground">
+                            {mounted ? formatDistanceToNow(new Date(l.updatedAt), { addSuffix: true }) : "—"}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </section>
+          );
+        })}
+
+        {filtered.length === 0 && (
+          <div className="text-center py-16 text-sm text-muted-foreground">
+            No leads match your filters.
           </div>
-        </div>
+        )}
       </div>
     </AppShell>
   );

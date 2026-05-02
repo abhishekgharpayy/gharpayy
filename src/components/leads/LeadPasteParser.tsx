@@ -15,11 +15,15 @@ import { AlertCircle, CheckCircle2, MapPin, Sparkles, Wand2 } from "lucide-react
 import { parseLead, detectZone } from "@/lib/lead-identity/parser";
 import { useIdentityStore } from "@/lib/lead-identity/store";
 import { useOrgMembers, useOrgZones } from "@/hooks/useOrgDirectory";
+import { useAuthUser } from "@/lib/auth-store";
 import { dispatch } from "@/lib/api/command-bus";
 import { QUICKAD_NEED_OPTIONS, QUICKAD_ROOM_OPTIONS, QUICKAD_TYPE_OPTIONS, parseBudgetAmount } from "@/lib/quickad-shared";
 import type { ParsedLeadDraft } from "@/lib/lead-identity/types";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+
+import { useApp } from "@/lib/store";
+import type { LeadStage, Intent } from "@/lib/types";
 
 const SAMPLE = `Hi team, new lead 👇
 Rahul Sharma 9876543210
@@ -33,16 +37,15 @@ Currently in Bangalore`;
 // Zone bucket options come from the org's real zones (live from /api/zones).
 
 const STAGES = [
-  "MYT [TENANT]",
-  "2A. Options Shared – BLR",
-  "2B. Options Shared – Non-BLR",
-  "3A. Visit Intent Confirmed",
-  "3B. try.prebook / virtual tour Intent",
-  "4A. Visit Scheduled in BLR",
-  "5A. Visit Done",
-  "Finalizing",
-  "WON 🏆",
-  "LOST 😭",
+  "new",
+  "contacted",
+  "tour-scheduled",
+  "tour-done",
+  "negotiation",
+  "booked",
+  "dropped",
+  "not-responding-3d",
+  "not-responding-7d",
 ] as const;
 
 const QUALITY_OPTS = [
@@ -67,6 +70,7 @@ export function LeadPasteParser({ onDone }: Props) {
   const create = useIdentityStore((s) => s.createLead);
   const { members: orgMembers } = useOrgMembers();
   const { zones: orgZones } = useOrgZones();
+  const addLead = useApp((s) => s.addLead);
 
   const [raw, setRaw] = useState("");
   const [parsedOnce, setParsedOnce] = useState(false);
@@ -83,10 +87,12 @@ export function LeadPasteParser({ onDone }: Props) {
   const [room, setRoom] = useState("");
   const [need, setNeed] = useState("");
   const [specialReqs, setSpecialReqs] = useState("");
-  const [inBLR, setInBLR] = useState<boolean | null>(null);
+  const [inBLR, setInBLR] = useState<boolean | null | undefined>(undefined);
   const [quality, setQuality] = useState<"hot" | "good" | "bad" | null>(null);
   const [zoneBucket, setZoneBucket] = useState<string>("");
-  const [assigneeId, setAssigneeId] = useState<string>("");
+  const authUser = useAuthUser((s) => s.user);
+  const defaultAssigneeId = (authUser?.role === "member") ? authUser.id : "";
+  const [assigneeId, setAssigneeId] = useState<string>(defaultAssigneeId);
   const [stage, setStage] = useState<string>(STAGES[0]);
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
@@ -131,7 +137,7 @@ export function LeadPasteParser({ onDone }: Props) {
     setBudget(""); setMoveIn(todayIso());
     setType(""); setRoom(""); setNeed(""); setSpecialReqs("");
     setInBLR(null); setQuality(null); setZoneBucket("");
-    setAssigneeId(""); setStage(STAGES[0]); setNotes("");
+    setAssigneeId(defaultAssigneeId); setStage(STAGES[0]); setNotes("");
   };
 
   // Validation matching Quick Add — every field is required.
@@ -148,7 +154,7 @@ export function LeadPasteParser({ onDone }: Props) {
   if (!type) errors.push("Type");
   if (!room) errors.push("Room");
   if (!need) errors.push("Need");
-  if (inBLR === null) errors.push("In Bangalore?");
+  if (inBLR === undefined) errors.push("In Bangalore?");
   if (!quality) errors.push("Lead Quality");
   if (!zoneBucket) errors.push("Zone");
   if (!assigneeId) errors.push("Assigned member");
@@ -186,7 +192,7 @@ export function LeadPasteParser({ onDone }: Props) {
         areas: areasArr,
         fullAddress: fullAddress.trim(),
         type, room, need,
-        inBLR,
+        inBLR: inBLR === undefined ? null : inBLR,
         quality,
         specialReqs: specialReqs.trim(),
         notes: notes.trim(),
@@ -200,8 +206,11 @@ export function LeadPasteParser({ onDone }: Props) {
       toast.error(`Could not save: ${result.error}`);
       return;
     }
+
+    const newLeadId = (result as any).data?.leadId;
+
     // Mirror into the local identity store so dedup hints stay current.
-    create(
+    const identityLead = create(
       {
         name: name.trim(),
         phone: phone.trim(),
@@ -216,7 +225,7 @@ export function LeadPasteParser({ onDone }: Props) {
         extraContent: notes.trim(),
         budgets: budget.split(/\s*(?:,|\/|\bor\b)\s*/i).filter(Boolean),
         links: fullAddress.match(/https?:\/\/\S+/g) ?? [],
-        inBLR,
+        inBLR: inBLR === undefined ? null : inBLR,
         zone: detectedZone,
         rawSource: raw || `[Paste] ${name} ${phone}`,
       },
@@ -228,6 +237,37 @@ export function LeadPasteParser({ onDone }: Props) {
         assigneeName: assignee?.name ?? null,
       },
     );
+
+    // Optimistically add to the main app store for immediate visibility
+    const now = new Date().toISOString();
+    addLead({
+      id: newLeadId || identityLead.ulid,
+      name: name.trim(),
+      phone: `+91${phoneClean}`,
+      source: "paste",
+      budget: budgetNum,
+      moveInDate: moveIn,
+      preferredArea: areasArr[0] ?? areasText.trim(),
+      assignedTcmId: assignee?.id ?? "",
+      stage: (stage as LeadStage) || "new",
+      intent: (quality === "hot" ? "hot" : quality === "bad" ? "cold" : "warm") as Intent,
+      confidence: quality === "hot" ? 90 : quality === "good" ? 70 : quality === "bad" ? 30 : 50,
+      tags: [],
+      nextFollowUpAt: null,
+      responseSpeedMins: 0,
+      createdAt: now,
+      updatedAt: now,
+      email: email.trim(),
+      areas: areasArr,
+      fullAddress: fullAddress.trim(),
+      type, room, need,
+      inBLR: inBLR === undefined ? null : inBLR,
+      quality: quality || "good",
+      specialReqs: specialReqs.trim(),
+      notes: notes.trim(),
+      zoneCategory: zoneBucket,
+      stageLabel: stage,
+    });
     toast.success(`Lead saved · ${name.trim()}`);
     reset();
     onDone?.();
@@ -354,7 +394,10 @@ export function LeadPasteParser({ onDone }: Props) {
           <ChipGroup
             options={BLR_OPTS.map((o) => o.label)}
             value={BLR_OPTS.find((o) => o.v === inBLR)?.label ?? ""}
-            onChange={(label) => setInBLR(BLR_OPTS.find((o) => o.label === label)?.v ?? null)}
+            onChange={(label) => {
+              const opt = BLR_OPTS.find((o) => o.label === label);
+              if (opt !== undefined) setInBLR(opt.v);
+            }}
           />
         </Field>
 
@@ -384,7 +427,7 @@ export function LeadPasteParser({ onDone }: Props) {
             className="w-full h-9 bg-background border border-border rounded-md px-2 text-xs"
           >
             <option value="">{orgMembers.length ? "Select member…" : "No members yet"}</option>
-            {orgMembers.map((m) => <option key={m.id} value={m.id}>{m.name} · {m.role}</option>)}
+            {orgMembers.filter(m => m.role === 'member' || m.role === 'tcm').map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
           </select>
         </Field>
 

@@ -147,12 +147,12 @@ async function applyCommand(cmd: Command, user: JwtClaims): Promise<LedgerDoc["r
         _id: leadId,
         ...p,
         phone: phoneE164,                  // store the canonical form
-        intent: p.intent ?? "warm",
+        intent: p.intent ?? (p.quality === "hot" ? "hot" : p.quality === "bad" ? "cold" : "warm"),
         tags: p.tags ?? [],
         zoneId: p.zoneId ?? null,
         assignedTcmId: p.assigneeId ?? null,
         stage: "new",
-        confidence: 50,
+        confidence: p.quality === "hot" ? 90 : p.quality === "good" ? 70 : p.quality === "bad" ? 30 : 50,
         nextFollowUpAt: null,
         responseSpeedMins: 0,
         email: p.email ?? "",
@@ -188,7 +188,7 @@ async function applyCommand(cmd: Command, user: JwtClaims): Promise<LedgerDoc["r
         meta: { source: lead.source, intent: lead.intent },
         user, correlationId,
       });
-      return { ok: true, eventIds: [evtId] };
+      return { ok: true, eventIds: [evtId], data: { leadId } };
     }
 
     case "cmd.lead.update": {

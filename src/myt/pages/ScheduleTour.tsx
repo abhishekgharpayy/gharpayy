@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAppState } from '@/myt/lib/app-context';
 import { useApp } from '@/lib/store';
-import { zones, teamMembers } from '@/myt/lib/mock-data';
+import { useOrgZones, useOrgMembers, useOrgProperties } from '@/hooks/useOrgDirectory';
 import { Tour, BookingSource, TourType, WillBookToday, DecisionMaker, TourQualification } from '@/myt/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,7 +19,7 @@ import { cn } from '@/lib/utils';
 import { sendTourMessage, logTourEvent } from '@/myt/lib/tour-messages';
 import { useLocation } from '@/shims/react-router-dom';
 import { useIdentityStore } from '@/lib/lead-identity/store';
-import { availableBedsForProperty, bestInventoryFits, detectAreaZone, supplyHubProperties } from '@/myt/lib/inventory-intelligence';
+import { availableBedsForProperty, bestInventoryFits, detectAreaZone } from '@/myt/lib/inventory-intelligence';
 import type { InventoryFit } from '@/myt/lib/inventory-intelligence';
 import { QUICKAD_QUESTIONS, normalizeRoomForTour, parseBudgetAmount } from '@/lib/quickad-shared';
 
@@ -42,6 +42,10 @@ export default function ScheduleTour({ onScheduled }: ScheduleTourProps = {}) {
   const pastedLead = routeState?.pastedLead;
   const incomingFit = routeState?.inventoryFit;
 
+  const { zones } = useOrgZones();
+  const { members: teamMembers } = useOrgMembers();
+  const { properties } = useOrgProperties();
+
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [form, setForm] = useState({
     // customer
@@ -62,12 +66,18 @@ export default function ScheduleTour({ onScheduled }: ScheduleTourProps = {}) {
     keyConcern: '',
     // tour
     tourType: 'physical' as TourType,
-    zoneId: zones[0].id,
+    zoneId: '',
     propertyName: '',
     tourDate: todayStr(),
     tourTime: '',
     assignedTo: '', // empty = auto
   });
+
+  useEffect(() => {
+    if (zones.length > 0 && !form.zoneId) {
+      setForm(f => ({ ...f, zoneId: zones[0].id }));
+    }
+  }, [zones]);
 
   // When the current user is a TCM, default-assign them as the host.
   useEffect(() => {
@@ -124,7 +134,7 @@ export default function ScheduleTour({ onScheduled }: ScheduleTourProps = {}) {
   );
   const confirmationStrength = useMemo(() => inferConfirmationStrength(qualification), [qualification]);
 
-  const tcmsInZone = teamMembers.filter(m => m.role === 'tcm' && m.zoneId === form.zoneId);
+  const tcmsInZone = teamMembers.filter(m => m.role === 'tcm' && m.zones.includes(form.zoneId));
   const effectiveTcm = form.assignedTo
     ? teamMembers.find(m => m.id === form.assignedTo)
     : autoAssignTcm(tours, form.zoneId, intent);
@@ -148,7 +158,7 @@ export default function ScheduleTour({ onScheduled }: ScheduleTourProps = {}) {
       assignedTo: effectiveTcm.id,
       assignedToName: effectiveTcm.name,
       propertyName: form.propertyName,
-      area: zone.area,
+      area: zone.areas[0] || '',
       zoneId: form.zoneId,
       tourDate: form.tourDate,
       tourTime: form.tourTime,
@@ -183,7 +193,7 @@ export default function ScheduleTour({ onScheduled }: ScheduleTourProps = {}) {
     if (ulid) setLifecycleState(ulid, 'visit-scheduled');
 
     // Auto room block based on intent
-    const matchingProp = supplyHubProperties.find(p => p.name === form.propertyName && p.zoneId === form.zoneId);
+    const matchingProp = properties.find(p => p.name === form.propertyName && p.zoneId === form.zoneId);
     if (matchingProp) {
       const tourWithProp = { ...newTour, propertyId: matchingProp.id };
       const block = createBlockForTour(tourWithProp, rooms, blocks);
@@ -215,7 +225,7 @@ export default function ScheduleTour({ onScheduled }: ScheduleTourProps = {}) {
   const debugAreaText = String(pastedLead?.area ?? pastedLead?.location ?? pastedLead?.fullAddress ?? incomingLead?.area ?? incomingLead?.location ?? form.workLocation ?? '');
   const detectedArea = debugAreaText ? detectAreaZone(debugAreaText) : zones.find((z) => z.id === form.zoneId);
   const debugBudget = parseBudgetAmount(pastedLead?.budget ?? incomingLead?.budget ?? form.budget);
-  const selectedProperty = supplyHubProperties.find((p) => p.name === form.propertyName || p.id === incomingFit?.propertyId);
+  const selectedProperty = properties.find((p) => p.name === form.propertyName || p.id === incomingFit?.propertyId);
   const selectedInventory = selectedProperty ? availableBedsForProperty(selectedProperty.id, rooms, blocks) : null;
   const calculatedFits = useMemo(() => (
     debugAreaText ? bestInventoryFits({ areaText: debugAreaText, budget: debugBudget, room: String(pastedLead?.room ?? incomingLead?.room ?? form.roomType), rooms, blocks, limit: 3 }) : []
@@ -280,7 +290,7 @@ export default function ScheduleTour({ onScheduled }: ScheduleTourProps = {}) {
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-[11px]">
           <DebugMetric label="Area input" value={debugAreaText || '—'} />
-          <DebugMetric label="Detected area" value={detectedArea?.area ?? '—'} />
+          <DebugMetric label="Detected area" value={detectedArea?.areas[0] ?? '—'} />
           <DebugMetric label="Budget" value={debugBudget ? `₹${debugBudget.toLocaleString('en-IN')}` : '—'} />
           <DebugMetric label="Available beds" value={String(incomingFit?.availableBeds ?? selectedInventory?.beds ?? calculatedFits[0]?.availableBeds ?? 0)} />
         </div>
@@ -503,8 +513,8 @@ export default function ScheduleTour({ onScheduled }: ScheduleTourProps = {}) {
               <Label className={labelCls}>Property</Label>
               <select value={form.propertyName} onChange={e => setForm(f => ({ ...f, propertyName: e.target.value }))} className={select}>
                 <option value="">Select property…</option>
-                {supplyHubProperties.filter(p => p.zoneId === form.zoneId).map(p => (
-                  <option key={p.id} value={p.name}>{p.name} · ₹{(p.basePrice/1000).toFixed(0)}k</option>
+                {properties.filter(p => p.zoneId === form.zoneId).map(p => (
+                  <option key={p.id} value={p.name}>{p.name} · ₹{((p.pricePerBed||0)/1000).toFixed(0)}k</option>
                 ))}
               </select>
             </div>
@@ -539,7 +549,7 @@ export default function ScheduleTour({ onScheduled }: ScheduleTourProps = {}) {
 
           <div className="flex gap-2 pt-2">
             <Button variant="outline" onClick={() => setStep(2)} className="flex-1">← Back</Button>
-            <Button onClick={handleSubmit} disabled={!canSubmit} className="flex-[2]">
+            <Button onClick={handleSubmit} disabled={!canSubmit} className="flex-2">
               Schedule {intent.toUpperCase()} Tour
             </Button>
           </div>

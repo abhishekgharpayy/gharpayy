@@ -45,13 +45,15 @@ export function StageChip({ lead }: { lead: Lead }) {
 export function IntentChip({ lead }: { lead: Lead }) {
   const v: "destructive" | "outline" | "secondary" =
     lead.intent === "hot" ? "destructive" : lead.intent === "warm" ? "secondary" : "outline";
+  const labelMap = { hot: "Hot", warm: "Good", cold: "Bad" };
+  const label = labelMap[lead.intent as keyof typeof labelMap] || lead.intent;
   return (
     <HoverCard openDelay={150}>
       <HoverCardTrigger asChild>
-        <Badge variant={v} className="cursor-help capitalize">{lead.intent}</Badge>
+        <Badge variant={v} className="cursor-help">{label}</Badge>
       </HoverCardTrigger>
       <HoverCardContent className="w-64 text-xs space-y-1">
-        <div className="font-semibold text-sm capitalize">Intent · {lead.intent}</div>
+        <div className="font-semibold text-sm">Intent · {label}</div>
         <p className="text-muted-foreground">{INTENT_DESCRIPTIONS[lead.intent] ?? "—"}</p>
       </HoverCardContent>
     </HoverCard>

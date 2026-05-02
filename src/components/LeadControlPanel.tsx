@@ -182,13 +182,6 @@ export function LeadControlPanel() {
                 {lead.phone} · via {lead.source}
               </SheetDescription>
             </div>
-            <button
-              onClick={() => selectLead(null)}
-              className="h-7 w-7 rounded-md hover:bg-muted flex items-center justify-center"
-              aria-label="Close"
-            >
-              <X className="h-4 w-4" />
-            </button>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <StageBadge stage={lead.stage} />
@@ -201,7 +194,6 @@ export function LeadControlPanel() {
             <Meta icon={Wallet} label="Budget" value={`₹${(lead.budget / 1000).toFixed(0)}k`} />
             <Meta icon={MapPin} label="Area" value={lead.preferredArea} />
           </div>
-          <div className="text-[11px] text-muted-foreground">Assigned · {tcm?.name ?? "—"} ({tcm?.zone ?? "—"})</div>
         </SheetHeader>
 
         {/* CRM 10x — commitment banner + 48h post-visit gate */}
@@ -225,18 +217,19 @@ export function LeadControlPanel() {
         {/* Body */}
         <div className="flex-1 overflow-y-auto scrollbar-thin">
           <Tabs value={tab} onValueChange={setTab} className="px-5 py-4">
-            <TabsList className="grid h-auto w-full grid-cols-4 gap-1 sm:grid-cols-9">
-              <TabsTrigger value="activity" className="text-xs">Activity</TabsTrigger>
-              <TabsTrigger value="tasks" className="text-xs">Tasks</TabsTrigger>
-              <TabsTrigger value="best-fit" className="text-xs">Best Fit</TabsTrigger>
-              <TabsTrigger value="dossier" className="text-xs">Dossier</TabsTrigger>
-              <TabsTrigger value="control" className="text-xs">Control</TabsTrigger>
-              <TabsTrigger value="tour" className="text-xs">Tour</TabsTrigger>
-              <TabsTrigger value="post" className="text-xs">
+            <TabsList className="flex h-auto w-full overflow-x-auto gap-1 scrollbar-micro justify-start">
+              <TabsTrigger value="activity" className="text-xs shrink-0 whitespace-nowrap">Activity</TabsTrigger>
+              <TabsTrigger value="best-fit" className="text-xs shrink-0 whitespace-nowrap">Best Fit</TabsTrigger>
+              <TabsTrigger value="control" className="text-xs shrink-0 whitespace-nowrap">Control</TabsTrigger>
+              <TabsTrigger value="details" className="text-xs shrink-0 whitespace-nowrap">Details</TabsTrigger>
+              <TabsTrigger value="dossier" className="text-xs shrink-0 whitespace-nowrap">Dossier</TabsTrigger>
+              <TabsTrigger value="handoff" className="text-xs shrink-0 whitespace-nowrap">Handoff</TabsTrigger>
+              <TabsTrigger value="log" className="text-xs shrink-0 whitespace-nowrap">Log</TabsTrigger>
+              <TabsTrigger value="post" className="text-xs shrink-0 whitespace-nowrap">
                 Post {pendingPostTour && <span className="ml-1 h-1.5 w-1.5 rounded-full bg-destructive" />}
               </TabsTrigger>
-              <TabsTrigger value="handoff" className="text-xs">Handoff</TabsTrigger>
-              <TabsTrigger value="log" className="text-xs">Log</TabsTrigger>
+              <TabsTrigger value="tasks" className="text-xs shrink-0 whitespace-nowrap">Tasks</TabsTrigger>
+              <TabsTrigger value="tour" className="text-xs shrink-0 whitespace-nowrap">Tour</TabsTrigger>
             </TabsList>
 
             <TabsContent value="activity" className="space-y-3 pt-4">
@@ -245,6 +238,45 @@ export function LeadControlPanel() {
 
             <TabsContent value="tasks" className="pt-4">
               <TodoPanel entityType="lead" entityId={lead.id} />
+            </TabsContent>
+
+            <TabsContent value="details" className="pt-4 space-y-4">
+              <Section title="Lead Details (from creation)">
+                <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+                  {lead.email && <div className="space-y-1"><Label className="text-[10px] uppercase text-muted-foreground">Email</Label><div>{lead.email}</div></div>}
+                  {lead.type && <div className="space-y-1"><Label className="text-[10px] uppercase text-muted-foreground">Type</Label><div className="capitalize">{lead.type}</div></div>}
+                  {lead.room && <div className="space-y-1"><Label className="text-[10px] uppercase text-muted-foreground">Room preference</Label><div className="capitalize">{lead.room}</div></div>}
+                  {lead.need && <div className="space-y-1"><Label className="text-[10px] uppercase text-muted-foreground">Gender need</Label><div className="capitalize">{lead.need}</div></div>}
+                  {lead.quality && <div className="space-y-1"><Label className="text-[10px] uppercase text-muted-foreground">Quality</Label><div className="capitalize">{lead.quality}</div></div>}
+                  {lead.inBLR !== null && lead.inBLR !== undefined && <div className="space-y-1"><Label className="text-[10px] uppercase text-muted-foreground">In BLR</Label><div>{lead.inBLR ? "Yes" : "No"}</div></div>}
+                  {lead.zoneCategory && <div className="space-y-1"><Label className="text-[10px] uppercase text-muted-foreground">Zone Category</Label><div>{lead.zoneCategory}</div></div>}
+                  <div className="space-y-1"><Label className="text-[10px] uppercase text-muted-foreground">Current Stage</Label><div className="capitalize">{lead.stage.replace("-", " ")}</div></div>
+                </div>
+                {lead.areas && lead.areas.length > 0 && (
+                  <div className="space-y-1 mt-3">
+                    <Label className="text-[10px] uppercase text-muted-foreground">Areas</Label>
+                    <div className="text-sm">{lead.areas.join(", ")}</div>
+                  </div>
+                )}
+                {lead.fullAddress && (
+                  <div className="space-y-1 mt-3">
+                    <Label className="text-[10px] uppercase text-muted-foreground">Full Address</Label>
+                    <div className="text-sm text-muted-foreground bg-muted/30 p-2 rounded-md">{lead.fullAddress}</div>
+                  </div>
+                )}
+                {lead.specialReqs && (
+                  <div className="space-y-1 mt-3">
+                    <Label className="text-[10px] uppercase text-muted-foreground">Special Requirements</Label>
+                    <div className="text-sm text-muted-foreground bg-muted/30 p-2 rounded-md whitespace-pre-wrap">{lead.specialReqs}</div>
+                  </div>
+                )}
+                {lead.notes && (
+                  <div className="space-y-1 mt-3">
+                    <Label className="text-[10px] uppercase text-muted-foreground">Original Notes</Label>
+                    <div className="text-sm text-muted-foreground bg-muted/30 p-2 rounded-md whitespace-pre-wrap">{lead.notes}</div>
+                  </div>
+                )}
+              </Section>
             </TabsContent>
 
             <TabsContent value="dossier" className="space-y-4 pt-4">
@@ -298,7 +330,7 @@ export function LeadControlPanel() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {(["new","contacted","tour-scheduled","tour-done","negotiation","booked","dropped"] as LeadStage[]).map((s) => (
+                    {(["new","contacted","tour-scheduled","tour-done","negotiation","not-responding-3d","not-responding-7d","booked","dropped"] as LeadStage[]).map((s) => (
                       <SelectItem key={s} value={s} className="text-sm capitalize">{s.replace("-", " ")}</SelectItem>
                     ))}
                   </SelectContent>
@@ -611,7 +643,7 @@ export function LeadControlPanel() {
                       <input
                         type="range" min={0} max={100} value={pt.confidence}
                         onChange={(e) => updatePostTour(target.id, { confidence: +e.target.value })}
-                        className="w-full accent-[var(--color-accent)]"
+                        className="w-full accent-(--color-accent)"
                       />
                     </Section>
 

@@ -23,7 +23,7 @@ import { PictureInPictureProvider, PipMount, usePip } from "./pip/PipProvider";
 import { PipButton } from "./pip/PipButton";
 import { usePipRouteSync } from "./pip/usePipSync";
 
-import { VpsConnectionStatus } from "./VpsConnectionStatus";
+
 import { ClientOnly } from "./ClientOnly";
 import { QuickCreateMenu } from "./QuickCreateMenu";
 import { LiveLeadsBridge } from "./LiveLeadsBridge";
@@ -106,7 +106,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const navByRole: Record<typeof role, NavItem[]> = {
     hr: [
       { to: "/today", label: "Today", icon: Sun, badge: queue.length },
-      { to: "/myt/war-room", label: "War Room", icon: Swords, accent: true },
+      { to: "/leads", label: "Leads", icon: Target, accent: true },
+      { to: "/myt/war-room", label: "War Room", icon: Swords },
       { to: "/myt/team", label: "Team", icon: Users },
       { to: "/revenue", label: "Revenue", icon: IndianRupee },
       { to: "/myt/funnel", label: "Funnel", icon: Activity },
@@ -118,7 +119,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     "flow-ops": [
       { to: "/today", label: "Today", icon: Sun, badge: queue.length },
       { to: "/inbox", label: "Inbox", icon: Inbox },
-      { to: "/myt/leads", label: "Leads", icon: Target, accent: true },
+      { to: "/leads", label: "Leads", icon: Target, accent: true },
       { to: "/myt/schedule", label: "Schedule", icon: CalendarPlus },
       { to: "/calendar", label: "Calendar", icon: Calendar },
       { to: "/myt/marketplace", label: "Marketplace", icon: Store },
@@ -148,7 +149,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     ],
     "super-admin": [
       { to: "/today", label: "Today", icon: Sun, badge: queue.length },
-      { to: "/myt/leads", label: "Leads", icon: Target, accent: true },
+      { to: "/leads", label: "Leads", icon: Target, accent: true },
       { to: "/myt/war-room", label: "War Room", icon: Swords },
       { to: "/myt/team", label: "Team", icon: Users },
       { to: "/revenue", label: "Revenue", icon: IndianRupee },
@@ -311,7 +312,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </button>
           <div className="ml-auto flex items-center gap-2">
             <ClientOnly><QuickCreateMenu /></ClientOnly>
-            <ClientOnly><VpsConnectionStatus /></ClientOnly>
+
             <PipButton mode="capture" label="PiP Add" className="hidden sm:inline-flex" />
             <PipButton mode="manage" label="PiP Manage" className="hidden sm:inline-flex" />
             <PipButton />

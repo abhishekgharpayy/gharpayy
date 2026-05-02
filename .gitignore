@@ -30,3 +30,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Legacy CRM reference (local only — do not commit)
+gharpayy_dashboard/

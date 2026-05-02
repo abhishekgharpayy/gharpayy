@@ -7,11 +7,11 @@ export function IntentChip({ intent, className }: { intent: Intent; className?: 
     warm: "bg-warning/15 text-warning-foreground border-warning/30",
     cold: "bg-info/10 text-info border-info/20",
   } as const;
-  const label = { hot: "Hot", warm: "Warm", cold: "Cold" }[intent];
+  const label = { hot: "Hot", warm: "Good", cold: "Bad" }[intent];
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+        "inline-flex items-center justify-center gap-1 w-[58px] rounded-md border py-0.5 text-[10px] font-semibold uppercase tracking-wide",
         map[intent],
         className,
       )}
@@ -29,6 +29,8 @@ export function StageBadge({ stage }: { stage: LeadStage }) {
     "tour-scheduled": "bg-accent/10 text-accent border-accent/30",
     "tour-done": "bg-success/10 text-success border-success/20",
     "negotiation": "bg-warning/15 text-warning-foreground border-warning/30",
+    "not-responding-3d": "bg-warning/10 text-warning border-warning/20",
+    "not-responding-7d": "bg-destructive/10 text-destructive border-destructive/20",
     "booked": "bg-success text-success-foreground border-transparent",
     "dropped": "bg-muted text-muted-foreground border-border",
   };
@@ -38,6 +40,8 @@ export function StageBadge({ stage }: { stage: LeadStage }) {
     "tour-scheduled": "Tour Scheduled",
     "tour-done": "Tour Done",
     "negotiation": "Negotiation",
+    "not-responding-3d": "Not Responding (3d)",
+    "not-responding-7d": "Not Responding (7d)",
     "booked": "Booked",
     "dropped": "Dropped",
   };

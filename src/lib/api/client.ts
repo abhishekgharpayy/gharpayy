@@ -211,6 +211,15 @@ export const api = {
     remove: (id: string) =>
       request<{ ok: true }>(`/api/zones/${id}`, { method: "DELETE" }),
   },
+  properties: {
+    list: () => request<import("@/lib/types").Property[]>("/api/properties"),
+    create: (input: any) =>
+      request<import("@/lib/types").Property>("/api/properties", { method: "POST", body: JSON.stringify(input) }),
+    update: (id: string, input: any) =>
+      request<import("@/lib/types").Property>(`/api/properties/${id}`, { method: "PUT", body: JSON.stringify(input) }),
+    remove: (id: string) =>
+      request<{ ok: true }>(`/api/properties/${id}`, { method: "DELETE" }),
+  },
 
   activity: {
     login: (limit = 100) =>

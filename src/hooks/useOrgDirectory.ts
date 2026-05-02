@@ -7,6 +7,7 @@ export interface DirectoryMember {
   id: string;
   name: string;
   role: string;
+  zones: string[];
 }
 
 export function useOrgMembers() {
@@ -18,7 +19,7 @@ export function useOrgMembers() {
       try {
         const r = await api.users.listLite();
         if (cancelled) return;
-        setMembers(r.items.map((u) => ({ id: u._id, name: u.name, role: u.role })));
+        setMembers(r.items.map((u: any) => ({ id: u._id, name: u.name, role: u.role, zones: u.zones || [] })));
       } catch {
         if (!cancelled) setMembers([]);
       } finally {
@@ -48,4 +49,24 @@ export function useOrgZones() {
     return () => { cancelled = true; };
   }, []);
   return { zones, loading };
+}
+
+export function useOrgProperties() {
+  const [properties, setProperties] = useState<import("@/lib/types").Property[]>([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const list = await api.properties.list();
+        if (!cancelled) setProperties(list);
+      } catch {
+        if (!cancelled) setProperties([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+  return { properties, loading };
 }

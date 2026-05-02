@@ -3,7 +3,9 @@ export type Role = 'flow-ops' | 'tcm' | 'hr';
 export interface Zone {
   id: string;
   name: string;
-  area: string;
+  city?: string;
+  areas: string[];
+  color?: string;
 }
 
 export type TeamMemberRole = 'flow-ops' | 'tcm';

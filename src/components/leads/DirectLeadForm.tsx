@@ -19,7 +19,10 @@ import { toast } from "sonner";
 import { DuplicateModal } from "./DuplicateModal";
 import { QUICKAD_NEED_OPTIONS, QUICKAD_ROOM_OPTIONS, QUICKAD_TYPE_OPTIONS, parseBudgetAmount } from "@/lib/quickad-shared";
 import { useOrgMembers, useOrgZones } from "@/hooks/useOrgDirectory";
+import { useAuthUser } from "@/lib/auth-store";
 import { dispatch } from "@/lib/api/command-bus";
+import { useApp } from "@/lib/store";
+import type { LeadStage, Intent } from "@/lib/types";
 
 interface Props {
   onCreated?: (lead: UnifiedLead) => void;
@@ -35,16 +38,15 @@ interface Draft extends ParsedLeadDraft {
 }
 
 const STAGES = [
-  "MYT [TENANT]",
-  "2A. Options Shared – BLR",
-  "2B. Options Shared – Non-BLR",
-  "3A. Visit Intent Confirmed",
-  "3B. try.prebook / virtual tour Intent",
-  "4A. Visit Scheduled in BLR",
-  "5A. Visit Done",
-  "Finalizing",
-  "WON 🏆",
-  "LOST 😭",
+  "new",
+  "contacted",
+  "tour-scheduled",
+  "tour-done",
+  "negotiation",
+  "booked",
+  "dropped",
+  "not-responding-3d",
+  "not-responding-7d",
 ] as const;
 
 const QUALITY_OPTS: { v: Quality; label: string }[] = [
@@ -72,8 +74,12 @@ export function DirectLeadForm({ onCreated }: Props) {
   const createLead = useIdentityStore((s) => s.createLead);
   const { members: orgMembers } = useOrgMembers();
   const { zones: orgZones } = useOrgZones();
+  const authUser = useAuthUser((s) => s.user);
+  const addLead = useApp((s) => s.addLead);
 
-  const [draft, setDraft] = useState<Draft>(emptyDraft());
+  const defaultAssigneeId = (authUser?.role === "member") ? authUser.id : "";
+
+  const [draft, setDraft] = useState<Draft>(() => ({ ...emptyDraft(), assigneeId: defaultAssigneeId }));
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [match, setMatch] = useState<MatchResult | null>(null);
   const [showModal, setShowModal] = useState(false);
@@ -105,7 +111,7 @@ export function DirectLeadForm({ onCreated }: Props) {
     if (!draft.type) e.type = "Type is required";
     if (!draft.room) e.room = "Room preference is required";
     if (!draft.need) e.need = "Need is required";
-    if (draft.inBLR === null) e.inBLR = "Specify In-Bangalore";
+    if (draft.inBLR === undefined) e.inBLR = "Specify In-Bangalore";
     if (!draft.specialReqs.trim()) e.specialReqs = "Special requirements are required";
     if (!draft.quality) e.quality = "Quality is required";
     if (!draft.zoneBucket) e.zoneBucket = "Zone is required";
@@ -172,13 +178,50 @@ export function DirectLeadForm({ onCreated }: Props) {
       toast.error(`Could not save: ${result.error}`);
       return;
     }
+
+    const newLeadId = (result as any).data?.leadId;
+
     // Mirror locally so dedup hints stay current this session
-    const lead = createLead(draft);
+    const identityLead = createLead(draft);
+
+    // Optimistically add to the main app store for immediate visibility
+    const now = new Date().toISOString();
+    addLead({
+      id: newLeadId || identityLead.ulid,
+      name: draft.name.trim(),
+      phone: `+91${phoneClean}`,
+      source: "direct-form",
+      budget: budgetNum,
+      moveInDate: draft.moveIn,
+      preferredArea: areasArr[0] ?? draft.location.trim(),
+      assignedTcmId: assignee?.id ?? "",
+      stage: (draft.stage as LeadStage) || "new",
+      intent: (draft.quality === "hot" ? "hot" : draft.quality === "bad" ? "cold" : "warm") as Intent,
+      confidence: draft.quality === "hot" ? 90 : draft.quality === "good" ? 70 : draft.quality === "bad" ? 30 : 50,
+      tags: [],
+      nextFollowUpAt: null,
+      responseSpeedMins: 0,
+      createdAt: now,
+      updatedAt: now,
+      email: draft.email.trim(),
+      areas: areasArr,
+      fullAddress: draft.fullAddress.trim(),
+      type: draft.type,
+      room: draft.room,
+      need: draft.need,
+      inBLR: draft.inBLR,
+      quality: draft.quality as Quality,
+      specialReqs: draft.specialReqs.trim(),
+      notes: "",
+      zoneCategory: draft.zoneBucket,
+      stageLabel: draft.stage,
+    });
+
     toast.success(`Lead saved · ${draft.name.trim()}`);
-    setDraft(emptyDraft());
+    setDraft({ ...emptyDraft(), assigneeId: defaultAssigneeId });
     setTouched({});
     setMatch(null);
-    onCreated?.(lead);
+    onCreated?.(identityLead);
   };
 
   const onForceCreate = () => {
@@ -295,12 +338,13 @@ export function DirectLeadForm({ onCreated }: Props) {
             </Select>
           </FormField>
           <FormField label="Currently in Bangalore? *" error={showError("inBLR") ? errors.inBLR : undefined}>
-            <Select value={draft.inBLR === null ? "" : draft.inBLR ? "yes" : "no"}
-              onValueChange={(v) => update("inBLR", v === "yes")}>
+            <Select value={draft.inBLR === undefined ? "" : draft.inBLR === null ? "unknown" : draft.inBLR ? "yes" : "no"}
+              onValueChange={(v) => update("inBLR", v === "unknown" ? null : v === "yes")}>
               <SelectTrigger className="h-10 text-sm"><SelectValue placeholder="Select" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="yes">Yes</SelectItem>
                 <SelectItem value="no">No</SelectItem>
+                <SelectItem value="unknown">Unknown</SelectItem>
               </SelectContent>
             </Select>
           </FormField>
@@ -336,7 +380,7 @@ export function DirectLeadForm({ onCreated }: Props) {
             <Select value={draft.assigneeId} onValueChange={(v) => update("assigneeId", v)}>
               <SelectTrigger className="h-10 text-sm"><SelectValue placeholder="Select member" /></SelectTrigger>
               <SelectContent>
-                {orgMembers.map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                {orgMembers.filter(m => m.role === 'member' || m.role === 'tcm').map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
               </SelectContent>
             </Select>
           </FormField>
@@ -352,7 +396,7 @@ export function DirectLeadForm({ onCreated }: Props) {
       </Section>
 
       {/* Footer */}
-      <div className="sticky bottom-0 -mx-1 px-1 pt-2 pb-1 bg-gradient-to-t from-background via-background/95 to-background/0">
+      <div className="sticky bottom-0 -mx-1 px-1 pt-2 pb-1 bg-linear-to-t from-background via-background/95 to-background/0">
         <div className="rounded-xl border border-border bg-card p-3 flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
             {Object.keys(errors).length === 0 ? (

@@ -8,6 +8,8 @@ export type LeadStage =
   | "tour-scheduled"
   | "tour-done"
   | "negotiation"
+  | "not-responding-3d"
+  | "not-responding-7d"
   | "booked"
   | "dropped";
 
@@ -23,7 +25,9 @@ export interface TCM {
 export interface Property {
   id: string;
   name: string;
+  zoneId: string;
   area: string;
+  address: string;
   totalBeds: number;
   vacantBeds: number;
   daysSinceLastBooking: number;
@@ -47,6 +51,19 @@ export interface Lead {
   responseSpeedMins: number; // first response time
   createdAt: string;
   updatedAt: string;
+  // Extended fields
+  email?: string;
+  areas?: string[];
+  fullAddress?: string;
+  type?: string;
+  room?: string;
+  need?: string;
+  inBLR?: boolean | null;
+  quality?: "hot" | "good" | "bad" | null;
+  specialReqs?: string;
+  notes?: string;
+  zoneCategory?: string;
+  stageLabel?: string;
 }
 
 export interface PostTourUpdate {

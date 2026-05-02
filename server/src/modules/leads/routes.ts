@@ -73,12 +73,21 @@ export function registerLeadsRoutes(app: FastifyInstance) {
       if (myZones.length === 0) {
         return reply.send({ items: [], nextCursor: null });
       }
+      
+      // Find all members who share a zone with this admin
+      const subordinates = await col("users")
+        .find({ tenantId: req.user!.tenantId, zones: { $in: myZones } })
+        .project({ _id: 1 })
+        .toArray();
+      const subordinateIds = subordinates.map((u) => u._id);
+      subordinateIds.push(myId); // include self
+
       filter.$or = [
         { zoneId: { $in: myZones } },
         { zoneCategory: { $in: myZones } },
-        { assignedTcmId: myId },
-        { assigneeId: myId },
-        { createdBy: myId },
+        { assignedTcmId: { $in: subordinateIds } },
+        { assigneeId: { $in: subordinateIds } },
+        { createdBy: { $in: subordinateIds } },
       ];
     } else if (role === "member") {
       filter.$or = [

@@ -42,10 +42,10 @@ export interface AreaOperatingRow {
 
 export function detectAreaZone(areaText: string) {
   const text = norm(areaText);
-  const exact = zones.find((z) => text.includes(norm(z.area)) || norm(z.area).includes(text));
+  const exact = zones.find((z) => z.areas.some(a => text.includes(norm(a)) || norm(a).includes(text)));
   if (exact) return exact;
   const pg = PGS.find((p) => text.includes(norm(p.area)) || norm(p.area).includes(text) || norm(p.locality).includes(text));
-  return zones.find((z) => norm(z.area) === norm(pg?.area ?? '')) ?? zones[0];
+  return zones.find((z) => z.areas.some(a => norm(a) === norm(pg?.area ?? ''))) ?? zones[0];
 }
 
 export const supplyHubProperties = PGS.map((pg) => ({
@@ -121,7 +121,7 @@ export function bestInventoryFits(input: {
         reason: `${inv.beds} Supply Hub beds · ${m.bedLabel} · ${m.commuteKm !== null ? `${m.commuteKm} km` : p.area} · ${priceFit === 'inside' ? 'budget fit' : priceFit === 'stretch' ? 'slight stretch' : 'under budget'}`,
         distanceKm: m.commuteKm,
         distanceFromHere: m.commuteKm !== null ? `${p.name} → lead: ${m.commuteKm} km` : `${p.name} → lead: area estimate pending`,
-        distanceFromThere: distanceBetweenAreas(p.area, zone.area),
+        distanceFromThere: distanceBetweenAreas(p.area, zone.areas[0] || ''),
         source: 'supply-hub' as const,
       };
     })
@@ -158,7 +158,7 @@ export function buildAreaOperatingRows(input: { leads: Lead[]; tours: Tour[]; ro
     const availableBeds = zoneProps.reduce((sum, p) => sum + supplyBedsForPg(p, input.blocks).beds, 0);
     const leads = input.leads.filter((l) => detectAreaZone(l.area).id === z.id);
     const toursToday = input.tours.filter((t) => t.zoneId === z.id && t.tourDate === today && t.status !== 'cancelled').length;
-    const bookings = input.bookings.filter((b) => norm(b.area) === norm(z.area)).length;
+    const bookings = input.bookings.filter((b) => z.areas.some(a => norm(b.area) === norm(a))).length;
     const tcmCapacity = Math.max(0, teamMembers.filter((m) => m.role === 'tcm' && m.zoneId === z.id).length * 8 - toursToday);
     const signal: AreaOperatingRow['signal'] = availableBeds >= 8 && leads.length < 3 ? 'push-demand' : leads.length >= 3 && toursToday < Math.min(leads.length, 4) ? 'push-tours' : tcmCapacity < 2 ? 'protect-capacity' : 'balanced';
     const nextAction = signal === 'push-demand'
@@ -168,6 +168,6 @@ export function buildAreaOperatingRows(input: { leads: Lead[]; tours: Tour[]; ro
         : signal === 'protect-capacity'
           ? 'Move soft Tours to another slot or TCM'
           : 'Keep matching leads to available rooms';
-    return { zoneId: z.id, area: z.area, leads: leads.length, qualifiedLeads: leads.filter((l) => l.mytQualified).length, availableBeds, toursToday, bookings, tcmCapacity, signal, nextAction };
+    return { zoneId: z.id, area: z.areas[0] || '', leads: leads.length, qualifiedLeads: leads.filter((l) => l.mytQualified).length, availableBeds, toursToday, bookings, tcmCapacity, signal, nextAction };
   });
 }

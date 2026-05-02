@@ -64,6 +64,10 @@ export function ProfileMenu() {
       .join("") || "U";
   const initials = tcm?.initials ?? computeInitials(personName);
 
+  const roleDisplay = authUser?.role 
+    ? authUser.role.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+    : "Member";
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -81,37 +85,10 @@ export function ProfileMenu() {
             {initials}
           </div>
           <div className="min-w-0">
-            <div className="text-[11px] text-muted-foreground">{meta.label}</div>
+            <div className="text-[11px] text-muted-foreground">{roleDisplay}</div>
             <div className="truncate text-sm font-medium">{personName}</div>
           </div>
         </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-
-        <DropdownMenuItem onSelect={() => navigate({ to: "/leads/add" })}>
-          <UserPlus className="mr-2 h-4 w-4" /> Add lead
-          <span className="ml-auto text-[10px] text-muted-foreground">N</span>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link to="/leads"><Target className="mr-2 h-4 w-4" /> All leads</Link>
-        </DropdownMenuItem>
-
-        <DropdownMenuSeparator />
-
-        <DropdownMenuSub>
-          <DropdownMenuSubTrigger>
-            <RefreshCw className="mr-2 h-4 w-4" /> Switch role
-          </DropdownMenuSubTrigger>
-          <DropdownMenuSubContent className="w-48">
-            <DropdownMenuRadioGroup value={role} onValueChange={(v) => { setRole(v as typeof role); toast.success(`Now viewing as ${ROLE_META[v as typeof role].label}`); }}>
-              {(Object.keys(ROLE_META) as Array<keyof typeof ROLE_META>).map((r) => (
-                <DropdownMenuRadioItem key={r} value={r}>
-                  <span className={cn("mr-2 h-1.5 w-1.5 rounded-full", ROLE_META[r].dot)} />
-                  {ROLE_META[r].label}
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
-          </DropdownMenuSubContent>
-        </DropdownMenuSub>
 
         {role === "tcm" && tcms.length > 0 && (
           <DropdownMenuSub>

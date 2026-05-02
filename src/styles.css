@@ -155,6 +155,10 @@
   }
   .scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
   .scrollbar-thin::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 999px; }
+  .scrollbar-micro::-webkit-scrollbar { width: 2px; height: 2px; }
+  .scrollbar-micro::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 999px; }
+  .scrollbar-none::-webkit-scrollbar { display: none; }
+  .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
 }
 
 @layer utilities {
