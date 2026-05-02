@@ -222,6 +222,7 @@ export function LeadControlPanel() {
       leadName: lead.name,
       senderId: scheduler?.id ?? tcmId,
       senderName: scheduler?.name ?? selectedMember?.name ?? "You",
+      assigneeName: assignee?.name ?? selectedMember?.name ?? "Member",
       recipientIds: [
         { id: tcmId, name: assignee?.name ?? selectedMember?.name ?? "Member" },
         ...(scheduler?.id && scheduler.id !== tcmId ? [{ id: scheduler.id, name: scheduler.name }] : []),
