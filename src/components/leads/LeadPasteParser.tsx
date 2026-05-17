@@ -149,15 +149,14 @@ export function LeadPasteParser({ onDone }: Props) {
     setAssigneeId(defaultAssigneeId); setStage(STAGES[0]); setNotes("");
   };
 
-  // Validation matching Quick Add — every field is required.
+  // Validation matching Quick Add — Email and Full Address are optional.
   const phoneClean = phone.replace(/\D/g, "");
   const phoneValid = /^[6-9]\d{9}$/.test(phoneClean);
   const errors: string[] = [];
   if (!name.trim()) errors.push("Name");
   if (!phoneValid) errors.push("Valid 10-digit phone");
-  if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) errors.push("Email");
+  if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) errors.push("Valid email");
   if (!areasText.trim()) errors.push("Areas");
-  if (!fullAddress.trim()) errors.push("Full address");
   if (!budget.trim()) errors.push("Budget");
   if (!moveIn) errors.push("Move-in date");
   if (!type) errors.push("Type");

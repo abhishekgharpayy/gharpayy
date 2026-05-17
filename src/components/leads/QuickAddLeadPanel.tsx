@@ -171,9 +171,8 @@ export function QuickAddLeadPanel({ open, onClose }: Props) {
     const missing: string[] = [];
     if (!name.trim()) missing.push("Name");
     if (!phoneClean.match(/^[6-9]\d{9}$/)) missing.push("Valid 10-digit phone");
-    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) missing.push("Email");
+    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) missing.push("Valid email");
     if (!areasText.trim()) missing.push("Areas");
-    if (!fullAddress.trim()) missing.push("Full address");
     if (!budget.trim()) missing.push("Budget");
     if (!moveIn) missing.push("Move-in date");
     if (!type) missing.push("Type");

@@ -1,4 +1,5 @@
-// Direct Lead Form — full schema, every field mandatory, persists to the
+// Direct Lead Form — full schema, with Email and Full Address optional,
+// persists to the
 // backend (Mongo) via cmd.lead.create so it shows up in /myt/leads everywhere
 // and respects role-based visibility on the server.
 import { useEffect, useMemo, useState } from "react";
@@ -102,10 +103,8 @@ export function DirectLeadForm({ onCreated }: Props) {
     if (!draft.name.trim()) e.name = "Name is required";
     if (!draft.phone.trim()) e.phone = "Phone is required";
     else if (!phoneOk(draft.phone)) e.phone = "Enter a valid 10-digit phone";
-    if (!draft.email.trim()) e.email = "Email is required";
-    else if (!emailOk(draft.email)) e.email = "Invalid email";
+    if (draft.email.trim() && !emailOk(draft.email)) e.email = "Invalid email";
     if (!draft.location.trim()) e.location = "Areas are required";
-    if (!draft.fullAddress.trim()) e.fullAddress = "Full address is required";
     if (!draft.budget.trim()) e.budget = "Budget is required";
     if (!draft.moveIn) e.moveIn = "Move-in date is required";
     if (!draft.type) e.type = "Type is required";
@@ -120,7 +119,7 @@ export function DirectLeadForm({ onCreated }: Props) {
     return e;
   }, [draft]);
 
-  const totalRequired = 17;
+  const totalRequired = 15;
   const filledCount = totalRequired - Object.keys(errors).length;
   const completion = Math.round((filledCount / totalRequired) * 100);
 
@@ -247,7 +246,7 @@ export function DirectLeadForm({ onCreated }: Props) {
           </div>
           <div>
             <h3 className="font-semibold text-sm">New lead</h3>
-            <p className="text-[11px] text-muted-foreground">All fields are required · saves to backend</p>
+            <p className="text-[11px] text-muted-foreground">Email and full address are optional · saves to backend</p>
           </div>
         </div>
         <div className="text-right">
@@ -262,7 +261,7 @@ export function DirectLeadForm({ onCreated }: Props) {
       </div>
 
       {/* Identity */}
-      <Section title="Identity" subtitle="Required for safe deduplication">
+      <Section title="Identity" subtitle="Name and phone required for safe deduplication">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <FormField icon={User} label="Full name *" error={showError("name") ? errors.name : undefined}>
             <Input value={draft.name} onChange={(e) => update("name", e.target.value)}
@@ -274,7 +273,7 @@ export function DirectLeadForm({ onCreated }: Props) {
               onBlur={() => setTouched((t) => ({ ...t, phone: true }))}
               placeholder="98xxxxxxxx" inputMode="tel" className="h-10 text-sm" />
           </FormField>
-          <FormField icon={Mail} label="Email *" error={showError("email") ? errors.email : undefined}>
+          <FormField icon={Mail} label="Email (optional)" error={showError("email") ? errors.email : undefined}>
             <Input value={draft.email} onChange={(e) => update("email", e.target.value)}
               onBlur={() => setTouched((t) => ({ ...t, email: true }))}
               placeholder="rahul@example.com" type="email" className="h-10 text-sm" />
@@ -292,7 +291,7 @@ export function DirectLeadForm({ onCreated }: Props) {
               )}
             </div>
           </FormField>
-          <FormField icon={MapPin} label="Full address / map link *"
+          <FormField icon={MapPin} label="Full address / map link (optional)"
             error={showError("fullAddress") ? errors.fullAddress : undefined}>
             <Textarea value={draft.fullAddress} onChange={(e) => update("fullAddress", e.target.value)}
               onBlur={() => setTouched((t) => ({ ...t, fullAddress: true }))}
