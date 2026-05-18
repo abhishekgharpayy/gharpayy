@@ -127,25 +127,59 @@ async function applyCommand(cmd: Command, user: JwtClaims): Promise<LedgerDoc["r
       // the same lead arrives from 5 sources within milliseconds.
       const leadId = ulid();
       const phoneKey = `${user.tenantId}:${phoneE164}`;
-      try {
-        await col<PhoneIndexDoc>(PHONE_INDEX).insertOne({
-          _id: phoneKey, tenantId: user.tenantId, phoneE164, leadId, createdAt: now,
-        });
-      } catch (e) {
-        if (isMongoConflict(e)) {
-          const claim = await col<PhoneIndexDoc>(PHONE_INDEX).findOne({ _id: phoneKey });
-          const evtId = newEventId();
-          await emit({
-            _id: evtId, type: "evt.lead.created", occurredAt: now,
-            actor: user.sub, tenantId: user.tenantId, correlationId, causationId: null, version: 1,
-            // Re-emit using the existing leadId so downstream consumers (sequence
-            // engine, automation rules) can run their "duplicate attempted" hooks
-            // — but we DO NOT insert another lead doc.
-            payload: { lead: { _id: claim?.leadId ?? "" } } as unknown as { lead: Lead },
-          });
-          return { ok: true, eventIds: [evtId], data: { duplicate: true, leadId: claim?.leadId } };
+      const phoneIndex = col<PhoneIndexDoc>(PHONE_INDEX);
+
+      // Atomic claim acquisition without insert races: if key doesn't exist we
+      // create it for this leadId, otherwise we get the existing claim back.
+      const existingClaim = await phoneIndex.findOneAndUpdate(
+        { _id: phoneKey },
+        {
+          $setOnInsert: {
+            _id: phoneKey,
+            tenantId: user.tenantId,
+            phoneE164,
+            leadId,
+            createdAt: now,
+          },
+        },
+        { upsert: true, returnDocument: "before" },
+      );
+
+      if (existingClaim) {
+        const existingLeadId = existingClaim.leadId;
+        if (existingLeadId) {
+          const existingLead = await col(LEADS).findOne({ _id: existingLeadId, tenantId: user.tenantId });
+          if (existingLead) {
+            const evtId = newEventId();
+            await emit({
+              _id: evtId, type: "evt.lead.created", occurredAt: now,
+              actor: user.sub, tenantId: user.tenantId, correlationId, causationId: null, version: 1,
+              payload: { lead: { _id: existingLeadId } } as unknown as { lead: Lead },
+            });
+            return { ok: true, eventIds: [evtId], data: { duplicate: true, leadId: existingLeadId } };
+          }
+
+          // Orphaned claim: steal it only if no one changed it after we read it.
+          const reclaimed = await phoneIndex.updateOne(
+            { _id: phoneKey, leadId: existingLeadId },
+            { $set: { leadId, tenantId: user.tenantId, phoneE164, createdAt: now } },
+          );
+          if (reclaimed.matchedCount === 0) {
+            throw Object.assign(new Error("Stale phone-index claim could not be reclaimed"), { code: "CONFLICT" });
+          }
+        } else {
+          // Legacy/malformed claim with missing leadId.
+          const reclaimed = await phoneIndex.updateOne(
+            {
+              _id: phoneKey,
+              $or: [{ leadId: { $exists: false } }, { leadId: null }, { leadId: "" }],
+            },
+            { $set: { leadId, tenantId: user.tenantId, phoneE164, createdAt: now } },
+          );
+          if (reclaimed.matchedCount === 0) {
+            throw Object.assign(new Error("Malformed phone-index claim could not be reclaimed"), { code: "CONFLICT" });
+          }
         }
-        throw e;
       }
 
       const lead = Lead.parse({
@@ -285,8 +319,11 @@ async function applyCommand(cmd: Command, user: JwtClaims): Promise<LedgerDoc["r
       if (r.deletedCount === 0) throw Object.assign(new Error("Lead not found"), { code: "NOT_FOUND" });
       // Release the phone-index claim so the same number can be re-onboarded.
       if (before?.phone) {
-        await col<PhoneIndexDoc>(PHONE_INDEX).deleteOne({ _id: `${user.tenantId}:${before.phone}` });
+        const normalizedPhone = toE164(before.phone) ?? before.phone;
+        await col<PhoneIndexDoc>(PHONE_INDEX).deleteOne({ _id: `${user.tenantId}:${normalizedPhone}` });
       }
+      // Best-effort cleanup if phone format changed over time.
+      await col<PhoneIndexDoc>(PHONE_INDEX).deleteOne({ tenantId: user.tenantId, leadId: p.leadId });
       const evtId = newEventId();
       await emit({
         _id: evtId, type: "evt.lead.deleted", occurredAt: now,

@@ -24,10 +24,14 @@ export async function withRetry<T>(
 }
 
 export function isMongoConflict(e: unknown): boolean {
-  const err = e as { code?: number; codeName?: string; message?: string };
+  const err = e as { code?: number | string; codeName?: string; message?: string; errmsg?: string };
   if (!err) return false;
-  if (err.code === 11000) return true; // duplicate key (unique seq race)
+  const codeNum = typeof err.code === "string" ? Number(err.code) : err.code;
+  if (codeNum === 11000) return true; // duplicate key (unique seq race)
   if (err.code === 112) return true;   // WriteConflict (transactions)
   if (err.codeName === "WriteConflict") return true;
+  if (err.codeName === "DuplicateKey") return true;
+  const msg = `${err.message ?? ""} ${err.errmsg ?? ""}`;
+  if (/\bE11000\b|duplicate key/i.test(msg)) return true;
   return false;
 }

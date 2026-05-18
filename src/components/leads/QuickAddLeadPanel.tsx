@@ -203,7 +203,6 @@ export function QuickAddLeadPanel({ open, onClose }: Props) {
           ? { label: "Schedule tour", onClick: () => scheduleExisting(existing) }
           : undefined,
       });
-      return;
     }
     const areasArr = areasText.split(",").map((a) => a.trim()).filter(Boolean);
     const assignee = orgMembers.find((m) => m.id === assigneeId);
@@ -237,6 +236,14 @@ export function QuickAddLeadPanel({ open, onClose }: Props) {
     });
     if (!result.ok) {
       toast.error(`Could not save: ${result.error}`);
+      return;
+    }
+
+    const isServerDuplicate = Boolean((result as any).data?.duplicate);
+    if (isServerDuplicate) {
+      const existingLeadId = (result as any).data?.leadId;
+      toast.warning(`Lead already exists${existingLeadId ? ` (ID: ${existingLeadId})` : ""}. No new lead was created.`);
+      if (!keepOpen) onClose();
       return;
     }
     

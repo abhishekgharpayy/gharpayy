@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 import { useApp } from "@/lib/store";
+import { usePipSafe } from "@/components/pip/PipProvider";
 import type { LeadStage, Intent } from "@/lib/types";
 
 const SAMPLE = `Hi team, new lead 👇
@@ -185,8 +186,7 @@ export function LeadPasteParser({ onDone }: Props) {
     const dup = checkDup({ name, phone, email, location: areasText });
     if (dup.type === "exact" || dup.type === "strong") {
       const existing = dup.candidates[0]?.lead;
-      toast.warning(`Duplicate detected: ${existing?.name ?? "existing lead"}`);
-      return;
+      toast.warning(`Possible duplicate: ${existing?.name ?? "existing lead"}. Verifying with server...`);
     }
     const areasArr = areasText.split(",").map((a) => a.trim()).filter(Boolean);
     const assignee = orgMembers.find((m) => m.id === assigneeId);
@@ -220,6 +220,13 @@ export function LeadPasteParser({ onDone }: Props) {
     setSaving(false);
     if (!result.ok) {
       toast.error(`Could not save: ${result.error}`);
+      return;
+    }
+
+    const isServerDuplicate = Boolean((result as any).data?.duplicate);
+    if (isServerDuplicate) {
+      const existingLeadId = (result as any).data?.leadId;
+      toast.warning(`Lead already exists${existingLeadId ? ` (ID: ${existingLeadId})` : ""}. No new lead was created.`);
       return;
     }
 
@@ -439,38 +446,65 @@ export function LeadPasteParser({ onDone }: Props) {
         </Field>
 
         <Field label="Zone *">
-          <Select value={zoneBucket} onValueChange={(v) => setZoneBucket(v)}>
-            <SelectTrigger className="w-full h-9 text-xs">
-              <SelectValue placeholder={orgZones.length ? "Select zone…" : "No zones configured"} />
-            </SelectTrigger>
-            <SelectContent>
-              {sortedZones.map((z) => <SelectItem key={z.id} value={z.name}>{z.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          {usePipSafe() ? (
+            <select
+              value={zoneBucket}
+              onChange={(e) => setZoneBucket(e.target.value)}
+              className="w-full h-9 text-sm rounded-md border px-3"
+            >
+              <option value="">{orgZones.length ? "Select zone…" : "No zones configured"}</option>
+              {sortedZones.map((z) => <option key={z.id} value={z.name}>{z.name}</option>)}
+            </select>
+          ) : (
+            <Select value={zoneBucket} onValueChange={(v) => setZoneBucket(v)}>
+              <SelectTrigger className="w-full h-9 text-xs">
+                <SelectValue placeholder={orgZones.length ? "Select zone…" : "No zones configured"} />
+              </SelectTrigger>
+              <SelectContent>
+                {sortedZones.map((z) => <SelectItem key={z.id} value={z.name}>{z.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          )}
         </Field>
 
         <Field label="Assign Member *">
-          <Select value={assigneeId} onValueChange={(v) => setAssigneeId(v)}>
-            <SelectTrigger className="w-full h-9 text-xs">
-              <SelectValue placeholder={orgMembers.length ? "Select member…" : "No members yet"} />
-            </SelectTrigger>
-            <SelectContent>
+          {usePipSafe() ? (
+            <select value={assigneeId} onChange={(e) => setAssigneeId(e.target.value)} className="w-full h-9 text-sm rounded-md border px-3">
+              <option value="">{orgMembers.length ? "Select member…" : "No members yet"}</option>
               {sortedMembers.map((m) => (
-                <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                <option key={m.id} value={m.id}>{m.name}</option>
               ))}
-            </SelectContent>
-          </Select>
+            </select>
+          ) : (
+            <Select value={assigneeId} onValueChange={(v) => setAssigneeId(v)}>
+              <SelectTrigger className="w-full h-9 text-xs">
+                <SelectValue placeholder={orgMembers.length ? "Select member…" : "No members yet"} />
+              </SelectTrigger>
+              <SelectContent>
+                {sortedMembers.map((m) => (
+                  <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </Field>
 
         <Field label="Lead Stage">
-          <Select value={stage} onValueChange={(v) => setStage(v)}>
-            <SelectTrigger className="w-full h-9 text-xs">
-              <SelectValue placeholder="Select stage…" />
-            </SelectTrigger>
-            <SelectContent>
-              {sortedStages.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          {usePipSafe() ? (
+            <select value={stage} onChange={(e) => setStage(e.target.value)} className="w-full h-9 text-sm rounded-md border px-3">
+              <option value="">Select stage…</option>
+              {sortedStages.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+          ) : (
+            <Select value={stage} onValueChange={(v) => setStage(v)}>
+              <SelectTrigger className="w-full h-9 text-xs">
+                <SelectValue placeholder="Select stage…" />
+              </SelectTrigger>
+              <SelectContent>
+                {sortedStages.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          )}
         </Field>
 
         <Field label="📝 Notes">

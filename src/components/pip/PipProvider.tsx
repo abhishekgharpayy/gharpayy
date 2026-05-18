@@ -41,6 +41,16 @@ export function usePip() {
   return ctx;
 }
 
+// Safe accessor for components that may be mounted outside the provider
+// or in tests. Returns null when no provider is available.
+export function usePipSafe() {
+  try {
+    return useContext(PipContext);
+  } catch (err) {
+    return null;
+  }
+}
+
 export function PictureInPictureProvider({ children }: { children: ReactNode }) {
   const [pipWindow, setPipWindow] = useState<DocPipWindow | null>(null);
   const [mode, setMode] = useState<PipMode>("dashboard");
