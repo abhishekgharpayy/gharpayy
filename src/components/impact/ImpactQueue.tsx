@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useApp } from "@/lib/store";
+import { api } from "@/lib/api/client";
 import { useQuotationsQuery, useAddQuotation, useSetQuotationStatus, formatINR, type Quotation } from "@/lib/crm10x/quotations";
 import { useTcmContacts } from "@/lib/crm10x/tcm-contacts";
 import { useLeadInterests, useToggleInterest } from "@/lib/crm10x/lead-interests";
@@ -725,6 +726,56 @@ function CommandActions({
 
   const tcmPhone = useTcmContacts((s) => s.phones[tcm?.id ?? ""]);
 
+  const updateIntent = async (intent: Lead["intent"]) => {
+    const previous = lead.intent;
+    setLeadIntent(lead.id, intent);
+    try {
+      await api.command({
+        _id: `cmd-${crypto.randomUUID()}`,
+        type: "cmd.lead.update",
+        issuedAt: new Date().toISOString(),
+        payload: { leadId: lead.id, patch: { intent } },
+      });
+      toast.success(`Intent → ${intent}`);
+    } catch (error) {
+      setLeadIntent(lead.id, previous);
+      toast.error(error instanceof Error ? error.message : "Intent update failed");
+    }
+  };
+
+  const dropLead = async () => {
+    try {
+      await setLeadStage(lead.id, "dropped");
+      toast("Lead dropped");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Drop failed");
+    }
+  };
+
+  const logCallAction = async () => {
+    logCall(lead.id);
+    try {
+      await api.command({
+        _id: `cmd-${crypto.randomUUID()}`,
+        type: "cmd.activity.log",
+        issuedAt: new Date().toISOString(),
+        payload: {
+          entityType: "lead",
+          entityId: lead.id,
+          kind: "call",
+          subject: "Call logged",
+          body: "Call logged from Impact Queue",
+          direction: "outbound",
+          outcome: "neutral",
+          meta: { source: "impact_queue" },
+        },
+      });
+      toast.success("Call logged");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Call log failed");
+    }
+  };
+
   const baseCtx: ImpactTplCtx = useMemo(() => ({
     leadName: lead.name.split(" ")[0],
     agentName: tcm?.name,
@@ -812,7 +863,7 @@ function CommandActions({
         <NegotiationPlaybook lead={lead} leadPhone={lead.phone} ctx={baseCtx} />
         <QuotationDialog lead={lead} label={lastQuote ? "Re-quote" : "Quotation"} />
         <Button size="sm" variant="ghost" className="h-7 text-[10px] gap-1"
-          onClick={() => { logCall(lead.id); toast.success("Call logged"); }}>
+          onClick={() => void logCallAction()}>
           <Phone className="h-3 w-3" /> Log call
         </Button>
         <DirectBookButton lead={lead} openTour={openTour} />
@@ -826,14 +877,14 @@ function CommandActions({
         Override intent:
         {(["hot", "warm", "cold"] as const).map((t) => (
           <button key={t}
-            onClick={() => { setLeadIntent(lead.id, t); toast.success(`Intent → ${t}`); }}
+            onClick={() => void updateIntent(t)}
             className={`px-2 py-0.5 rounded-full border uppercase tracking-wider ${lead.intent === t ? intentChip(t) : "border-border"}`}>
             {t}
           </button>
         ))}
         <span className="mx-1">·</span>
         {lead.stage !== "dropped" && (
-          <button onClick={() => { setLeadStage(lead.id, "dropped"); toast("Lead dropped"); }}
+          <button onClick={() => void dropLead()}
             className="px-2 py-0.5 rounded-full border border-border hover:text-danger">
             Drop
           </button>
@@ -1182,12 +1233,16 @@ function ScheduleTourDialog({ lead }: { lead: Lead }) {
     toast.success(`Added ${name}`);
   };
 
-  const handleSchedule = () => {
+  const handleSchedule = async () => {
     if (!propId) return toast.error("Pick a property");
     const iso = new Date(`${date}T${time}:00`).toISOString();
-    scheduleTour({ leadId: lead.id, propertyId: propId, tcmId, scheduledAt: iso });
-    toast.success("Tour scheduled");
-    setOpen(false);
+    try {
+      await scheduleTour({ leadId: lead.id, propertyId: propId, tcmId, scheduledAt: iso });
+      toast.success("Tour scheduled");
+      setOpen(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Tour scheduling failed");
+    }
   };
 
   return (
@@ -1263,7 +1318,7 @@ function ScheduleTourDialog({ lead }: { lead: Lead }) {
             </div>
           </div>
 
-          <Button className="w-full h-8 text-xs" onClick={handleSchedule}>
+          <Button className="w-full h-8 text-xs" onClick={() => void handleSchedule()}>
             Schedule tour
           </Button>
         </div>
