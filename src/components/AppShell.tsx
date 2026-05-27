@@ -205,7 +205,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       {shouldMountMytBridges ? <LiveToursBridge /> : null}
       <div className="min-h-screen flex w-full bg-background text-foreground">
       {/* Sidebar */}
-      <aside className="hidden md:flex w-[240px] flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border sticky top-0 h-screen">
+      <aside className="hidden md:flex w-60 flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border sticky top-0 h-screen">
         <div className="px-5 py-5 flex items-center gap-2 border-b border-sidebar-border">
           <div className="h-9 w-9 rounded-lg bg-accent flex items-center justify-center">
             <Building2 className="h-4 w-4 text-accent-foreground" />
@@ -342,7 +342,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
 
         <PipMount>
-          <main className="flex-1 w-full max-w-[1400px] mx-auto p-4 pb-24 md:p-6 md:pb-6">{children}</main>
+          <main className="flex-1 w-full max-w-350 mx-auto p-4 pb-24 md:p-6 md:pb-6">{children}</main>
         </PipMount>
       </div>
 
@@ -359,7 +359,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 key={item.to}
                 to={item.to}
                 className={cn(
-                  "relative flex shrink-0 snap-start flex-col items-center justify-center gap-1 rounded-md px-3 py-1.5 text-[10px] font-medium transition-colors min-w-[64px] min-h-[44px]",
+                  "relative flex shrink-0 snap-start flex-col items-center justify-center gap-1 rounded-md px-3 py-1.5 text-[10px] font-medium transition-colors min-w-16 min-h-11",
                   active ? "bg-accent/10 text-accent" : "text-muted-foreground hover:bg-muted/60",
                 )}
               >
