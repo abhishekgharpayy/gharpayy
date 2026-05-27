@@ -13,6 +13,41 @@ import { personName } from "./people";
 
 const uid = (p: string) => `${p}-${Math.random().toString(36).slice(2, 14)}`;
 
+type AddLeadInput = {
+  id?: string;
+  name: string;
+  phone: string;
+  source?: string;
+  budget: number;
+  preferredArea: string;
+  moveInDate?: string;
+  intent?: Intent;
+  assignedTcmId?: string;
+  stage?: LeadStage;
+  confidence?: number;
+  tags?: string[];
+  nextFollowUpAt?: string | null;
+  responseSpeedMins?: number;
+  createdAt?: string;
+  updatedAt?: string;
+  email?: string;
+  areas?: string[];
+  fullAddress?: string;
+  type?: string;
+  room?: string;
+  need?: string;
+  inBLR?: boolean | null;
+  quality?: "hot" | "good" | "bad" | null;
+  specialReqs?: string;
+  notes?: string;
+  zoneCategory?: string;
+  stageLabel?: string;
+};
+
+type AddPropertyInput =
+  Omit<Property, "id" | "daysSinceLastBooking" | "zoneId" | "address"> &
+  Partial<Pick<Property, "zoneId" | "address">>;
+
 interface AppState {
   role: Role;
   currentTcmId: string;
@@ -32,7 +67,7 @@ interface AppState {
   sequences: ActiveSequence[];
   bookings: Booking[];
 
-  addLead: (lead: Lead) => void;
+  addLead: (input: AddLeadInput) => Lead;
   setLeads: (leads: Lead[]) => void;
   setLeadStage: (leadId: string, stage: LeadStage) => Promise<void>;
   setLeadIntent: (leadId: string, intent: Intent) => void;
@@ -67,6 +102,7 @@ interface AppState {
   advanceSequenceStep: (leadId: string) => void;
 
   closeDeal: (input: { leadId: string; tourId: string; propertyId: string; tcmId: string; amount: number }) => void;
+  addProperty: (input: AddPropertyInput) => Property;
 }
 
 export const useApp = create<AppState>((set, get) => ({
@@ -91,7 +127,41 @@ export const useApp = create<AppState>((set, get) => ({
   sequences: SEQUENCES_INIT,
   bookings: [],
 
-  addLead: (lead) => set((s) => ({ leads: [lead, ...s.leads] })),
+  addLead: (input) => {
+    const now = new Date().toISOString();
+    const lead: Lead = {
+      id: input.id ?? uid("lead"),
+      name: input.name,
+      phone: input.phone,
+      source: input.source ?? "manual",
+      budget: input.budget,
+      moveInDate: input.moveInDate ?? now,
+      preferredArea: input.preferredArea,
+      assignedTcmId: input.assignedTcmId ?? get().currentTcmId,
+      stage: input.stage ?? "new",
+      intent: input.intent ?? "warm",
+      confidence: input.confidence ?? (input.intent === "hot" ? 75 : input.intent === "cold" ? 25 : 50),
+      tags: input.tags ?? [],
+      nextFollowUpAt: input.nextFollowUpAt ?? null,
+      responseSpeedMins: input.responseSpeedMins ?? 0,
+      createdAt: input.createdAt ?? now,
+      updatedAt: input.updatedAt ?? now,
+      email: input.email,
+      areas: input.areas,
+      fullAddress: input.fullAddress,
+      type: input.type,
+      room: input.room,
+      need: input.need,
+      inBLR: input.inBLR,
+      quality: input.quality,
+      specialReqs: input.specialReqs,
+      notes: input.notes,
+      zoneCategory: input.zoneCategory,
+      stageLabel: input.stageLabel,
+    };
+    set((s) => ({ leads: [lead, ...s.leads] }));
+    return lead;
+  },
   setLeads: (leads: Lead[]) => set({ leads }),
 
   setLeadStage: async (leadId, stage) => {
@@ -555,6 +625,18 @@ export const useApp = create<AppState>((set, get) => ({
         ? [{ role: sched.actor === "flow-ops" ? "flow-ops" : "tcm", id: sched.actor }]
         : undefined,
     });
+  },
+
+  addProperty: (input) => {
+    const prop: Property = {
+      id: uid("prop"),
+      daysSinceLastBooking: 0,
+      zoneId: input.zoneId ?? "unassigned",
+      address: input.address ?? input.area,
+      ...input,
+    };
+    set((s) => ({ properties: [prop, ...s.properties] }));
+    return prop;
   },
 }));
 

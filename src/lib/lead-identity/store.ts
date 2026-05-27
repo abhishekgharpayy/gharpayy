@@ -40,17 +40,17 @@ interface IdentityStore {
   ) => UnifiedLead;
 
   /** Append an activity to a lead's timeline. */
-  logActivity: (ulid: string, kind: ActivityKind, text: string, meta?: Record<string, unknown>) => void;
+  logActivity: (leadId: string, kind: ActivityKind, text: string, meta?: Record<string, unknown>) => void;
 
-  requestAccess: (ulid: string, message?: string) => AccessRequest | null;
+  requestAccess: (leadId: string, message?: string) => AccessRequest | null;
   decideRequest: (id: string, decision: "approved" | "rejected") => void;
 
-  setSecondaryOwner: (ulid: string, ownerId: string, ownerName: string) => void;
-  reassignPrimary: (ulid: string, ownerId: string, ownerName: string, reason: string) => void;
-  setLifecycleState: (ulid: string, state: LifecycleState) => void;
+  setSecondaryOwner: (leadId: string, ownerId: string, ownerName: string) => void;
+  reassignPrimary: (leadId: string, ownerId: string, ownerName: string, reason: string) => void;
+  setLifecycleState: (leadId: string, state: LifecycleState) => void;
 
-  getLead: (ulid: string) => UnifiedLead | undefined;
-  getActivities: (ulid: string) => ActivityEntry[];
+  getLead: (leadId: string) => UnifiedLead | undefined;
+  getActivities: (leadId: string) => ActivityEntry[];
   getRequestsForOwner: (ownerId: string) => AccessRequest[];
   getRequestsByMe: (userId: string) => AccessRequest[];
 }
@@ -82,7 +82,7 @@ export const useIdentityStore = create<IdentityStore>()(
         const ownerName = opts?.ownerName ?? user.name;
         const ts = nowIso();
         const lead: UnifiedLead = {
-          ulid: newUlid(),
+          id: newUlid(),
           name: draft.name || "Unnamed Lead",
           phoneRaw: draft.phone,
           phoneE164: normalizePhoneIN(draft.phone),
@@ -118,37 +118,37 @@ export const useIdentityStore = create<IdentityStore>()(
           rawSource: draft.rawSource,
         };
         set((s) => ({ leads: [lead, ...s.leads] }));
-        get().logActivity(lead.ulid, "lead-created", `Lead created by ${ownerName}`);
+        get().logActivity(lead.id, "lead-created", `Lead created by ${ownerName}`);
         return lead;
       },
 
-      logActivity: (ulid, kind, text, meta) => {
+      logActivity: (leadId, kind, text, meta) => {
         const user = get().currentUser;
         const entry: ActivityEntry = {
           id: `act_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-          ulid, ts: nowIso(),
+          leadId, ts: nowIso(),
           actorId: user.id, actorName: user.name,
           kind, text, meta,
         };
         set((s) => ({
           activities: [entry, ...s.activities],
-          leads: s.leads.map((l) => l.ulid === ulid ? { ...l, lastActivityAt: entry.ts, updatedAt: entry.ts } : l),
+          leads: s.leads.map((l) => l.id === leadId ? { ...l, lastActivityAt: entry.ts, updatedAt: entry.ts } : l),
         }));
       },
 
-      requestAccess: (ulid, message) => {
-        const lead = get().leads.find((l) => l.ulid === ulid);
+      requestAccess: (leadId, message) => {
+        const lead = get().leads.find((l) => l.id === leadId);
         if (!lead) return null;
         const user = get().currentUser;
         if (lead.primaryOwnerId === user.id) return null;
         // Already pending?
         const existing = get().requests.find(
-          (r) => r.ulid === ulid && r.requesterId === user.id && r.state === "pending",
+          (r) => r.leadId === leadId && r.requesterId === user.id && r.state === "pending",
         );
         if (existing) return existing;
         const req: AccessRequest = {
           id: `req_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-          ulid,
+          leadId,
           requesterId: user.id,
           requesterName: user.name,
           toOwnerId: lead.primaryOwnerId,
@@ -157,7 +157,7 @@ export const useIdentityStore = create<IdentityStore>()(
           message,
         };
         set((s) => ({ requests: [req, ...s.requests] }));
-        get().logActivity(ulid, "access-requested", `${user.name} requested access`);
+        get().logActivity(leadId, "access-requested", `${user.name} requested access`);
         return req;
       },
 
@@ -169,40 +169,40 @@ export const useIdentityStore = create<IdentityStore>()(
           requests: s.requests.map((r) => r.id === id ? { ...r, state: decision, decidedAt: ts } : r),
         }));
         if (decision === "approved") {
-          get().setSecondaryOwner(req.ulid, req.requesterId, req.requesterName);
-          get().logActivity(req.ulid, "access-granted", `Access granted to ${req.requesterName}`);
+          get().setSecondaryOwner(req.leadId, req.requesterId, req.requesterName);
+          get().logActivity(req.leadId, "access-granted", `Access granted to ${req.requesterName}`);
         } else {
-          get().logActivity(req.ulid, "access-rejected", `Access rejected for ${req.requesterName}`);
+          get().logActivity(req.leadId, "access-rejected", `Access rejected for ${req.requesterName}`);
         }
       },
 
-      setSecondaryOwner: (ulid, ownerId, ownerName) => {
+      setSecondaryOwner: (leadId, ownerId, ownerName) => {
         set((s) => ({
-          leads: s.leads.map((l) => l.ulid === ulid
+          leads: s.leads.map((l) => l.id === leadId
             ? { ...l, secondaryOwnerId: ownerId, updatedAt: nowIso() }
             : l),
         }));
-        get().logActivity(ulid, "secondary-added", `${ownerName} added as secondary owner`);
+        get().logActivity(leadId, "secondary-added", `${ownerName} added as secondary owner`);
       },
 
-      reassignPrimary: (ulid, ownerId, ownerName, reason) => {
+      reassignPrimary: (leadId, ownerId, ownerName, reason) => {
         set((s) => ({
-          leads: s.leads.map((l) => l.ulid === ulid
+          leads: s.leads.map((l) => l.id === leadId
             ? { ...l, primaryOwnerId: ownerId, updatedAt: nowIso() }
             : l),
         }));
-        get().logActivity(ulid, "owner-changed", `Primary owner → ${ownerName} (${reason})`);
+        get().logActivity(leadId, "owner-changed", `Primary owner → ${ownerName} (${reason})`);
       },
 
-      setLifecycleState: (ulid, state) => {
+      setLifecycleState: (leadId, state) => {
         set((s) => ({
-          leads: s.leads.map((l) => l.ulid === ulid ? { ...l, state, updatedAt: nowIso() } : l),
+          leads: s.leads.map((l) => l.id === leadId ? { ...l, state, updatedAt: nowIso() } : l),
         }));
-        get().logActivity(ulid, "state-changed", `State → ${state}`);
+        get().logActivity(leadId, "state-changed", `State → ${state}`);
       },
 
-      getLead: (ulid) => get().leads.find((l) => l.ulid === ulid),
-      getActivities: (ulid) => get().activities.filter((a) => a.ulid === ulid),
+      getLead: (leadId) => get().leads.find((l) => l.id === leadId),
+      getActivities: (leadId) => get().activities.filter((a) => a.leadId === leadId),
       getRequestsForOwner: (ownerId) =>
         get().requests.filter((r) => r.toOwnerId === ownerId && r.state === "pending"),
       getRequestsByMe: (userId) => get().requests.filter((r) => r.requesterId === userId),
