@@ -5,6 +5,7 @@ import { formatINR, useQuotationsQuery } from "@/lib/crm10x/quotations";
 import { useLeadInterests } from "@/lib/crm10x/lead-interests";
 import { Badge } from "@/components/ui/badge";
 import { Brain, Target, AlertTriangle, Heart } from "lucide-react";
+import { differenceInHours, format, parseISO } from "date-fns";
 
 /**
  * Smart Dossier — 3-line auto-summary of a lead, derived from store data.
@@ -27,8 +28,24 @@ export function SmartDossier({ lead }: { lead: Lead }) {
       .filter((a) => a.leadId === lead.id && a.kind === "note_added")
       .sort((a, b) => +new Date(b.ts) - +new Date(a.ts))[0];
 
+    const confidence = [
+      lead.replied ? 20 : 0,
+      lead.tourDate || lastTour?.scheduledAt ? 30 : 0,
+      lead.budget > 0 ? 20 : 0,
+      (lead.interestLevel ?? lead.priority ?? lead.intent) === "hot" ? 30 : 0,
+    ].reduce((a, b) => a + b, 0);
+    const intentRaw = String(lead.interestLevel ?? lead.priority ?? lead.intent);
+    const intentLabel = intentRaw === "hot" ? "HOT" : intentRaw === "medium" || intentRaw === "warm" ? "WARM" : "COLD";
+    const moveInSource = lead.moveInDate || lead.earliestCheckIn;
+    const moveInLabel = moveInSource ? format(parseISO(moveInSource), "MMM yyyy") : "Not specified";
+    const budgetLabel = lead.budget > 0 ? formatINR(lead.budget) : "Not specified";
+    const blocker = lead.primaryObjection ?? lastTour?.postTour?.objection ?? lastTour?.postTour?.objectionNote;
+    const freshness = lead.lastContactAt
+      ? `Untouched ${differenceInHours(new Date(), parseISO(lead.lastContactAt))}h`
+      : "Never contacted";
+
     // Line 1 — budget + area + move-in
-    const budgetLine = `${formatINR(lead.budget)}/mo · ${lead.preferredArea}${lead.moveInDate ? ` · move-in ${lead.moveInDate}` : ""}`;
+    const budgetLine = `${budgetLabel}/mo · ${lead.preferredArea || "Area not specified"} · move-in ${moveInLabel}`;
 
     // Line 2 — must-haves (from tags) + interested properties
     const mustHaves = (lead.tags ?? []).filter((t) => !["hot", "warm", "cold"].includes(t)).slice(0, 3);
@@ -43,16 +60,15 @@ export function SmartDossier({ lead }: { lead: Lead }) {
         .join("  ·  ") || "No stated preferences yet.";
 
     // Line 3 — last objection / blocker / signal
-    const objection = lastTour?.postTour?.objection ?? lastTour?.postTour?.objectionNote;
-    const blockerLine = objection
-      ? `Last blocker: ${objection}`
+    const blockerLine = blocker
+      ? `Last blocker: ${blocker}`
       : lastQuote
         ? `Quote sent ${new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short" }).format(new Date(lastQuote.sentAt))} · awaiting reply.`
         : lastNote
-          ? `Latest note: ${lastNote.text.slice(0, 90)}${lastNote.text.length > 90 ? "…" : ""}`
-          : "No blocker logged. Fresh lead.";
+          ? `Latest note: ${lastNote.text.slice(0, 90)}${lastNote.text.length > 90 ? "..." : ""}`
+          : "No blockers logged";
 
-    return { budgetLine, wantsLine, blockerLine, lastTour, lastQuote };
+    return { budgetLine, wantsLine, blockerLine, confidence, intentLabel, freshness };
   }, [lead, tours, properties, activities, quotes, interests]);
 
   return (
@@ -62,8 +78,8 @@ export function SmartDossier({ lead }: { lead: Lead }) {
           <Brain className="h-3.5 w-3.5" />
         </div>
         <div className="text-[10px] uppercase tracking-[0.18em] font-semibold text-accent">Smart dossier</div>
-        <Badge variant="outline" className="text-[9px] ml-auto">{lead.intent}</Badge>
-        <Badge variant="outline" className="text-[9px]">{lead.confidence}% conf</Badge>
+        <Badge variant="outline" className="text-[9px] ml-auto">{summary.intentLabel}</Badge>
+        <Badge variant="outline" className="text-[9px]">{summary.confidence}% conf</Badge>
       </div>
       <div className="space-y-1.5 text-xs">
         <div className="flex items-start gap-2">
@@ -77,6 +93,10 @@ export function SmartDossier({ lead }: { lead: Lead }) {
         <div className="flex items-start gap-2">
           <AlertTriangle className="h-3 w-3 text-warning mt-0.5 shrink-0" />
           <span className="text-foreground">{summary.blockerLine}</span>
+        </div>
+        <div className="flex items-start gap-2">
+          <Brain className="h-3 w-3 text-accent mt-0.5 shrink-0" />
+          <span className="text-foreground">{summary.freshness}</span>
         </div>
       </div>
     </div>

@@ -42,6 +42,7 @@ const STATUS_TONE: Record<QuotationStatus, string> = {
 export function QuotationBuilder({ lead }: { lead: Lead }) {
   const properties = useApp((s) => s.properties);
   const addProperty = useApp((s) => s.addProperty);
+  const setLeadStage = useApp((s) => s.setLeadStage);
   const { mutate: add } = useAddQuotation();
   const { data: allQuotes = [] } = useQuotationsQuery(lead.id);
   const { mutate: setStatus } = useSetQuotationStatus();
@@ -156,9 +157,13 @@ export function QuotationBuilder({ lead }: { lead: Lead }) {
       validityMinutes: validityMin,
       validUntilISO,
       message,
+    }, {
+      onSuccess: (quote) => {
+        void setLeadStage(lead.id, "quote-sent");
+        if (quote) toast.success(`Quotation sent · ${formatINR(quote.discountedPrice)}`);
+      },
     });
     window.open(waLink(lead.phone, message), "_blank", "noopener,noreferrer");
-    toast.success(`Quotation sent · ${formatINR(discounted)}`);
     setOpen(false);
   };
 

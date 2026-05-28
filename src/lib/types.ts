@@ -6,8 +6,10 @@ export type LeadStage =
   | "new"
   | "contacted"
   | "tour-scheduled"
+  | "on-tour"
   | "tour-done"
   | "negotiation"
+  | "quote-sent"
   | "not-responding-3d"
   | "not-responding-7d"
   | "booked"
@@ -51,6 +53,16 @@ export interface Lead {
   responseSpeedMins: number; // first response time
   createdAt: string;
   updatedAt: string;
+  lastContactAt?: string;
+  tourDate?: string;
+  quoteId?: string;
+  quotedPrice?: number;
+  propertyName?: string;
+  replied?: boolean;
+  interestLevel?: Intent;
+  priority?: Intent;
+  earliestCheckIn?: string;
+  primaryObjection?: string | null;
   // Extended fields
   email?: string;
   areas?: string[];
@@ -99,9 +111,11 @@ export type ActivityKind =
   | "status_changed"
   | "site_visit"
   | "tour_scheduled"
+  | "tour_started"
   | "tour_completed"
   | "tour_cancelled"
   | "decision_logged"
+  | "booking_confirmed"
   | "post_tour_filled"
   | "follow_up_set"
   | "follow_up_done"
