@@ -36,7 +36,14 @@ async function main() {
   });
 
   await app.register(cors, {
-    origin: corsOrigins,
+    origin: (origin, cb) => {
+      if (!origin) return cb(null, true);
+      if (corsOrigins.includes(origin)) return cb(null, true);
+      if (env.NODE_ENV === "development" && /^(https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?)$/.test(origin)) {
+        return cb(null, true);
+      }
+      return cb(new Error("Not allowed by CORS"), false);
+    },
     credentials: true,
     methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "Idempotency-Key", "X-Requested-With", "Accept", "Origin"],

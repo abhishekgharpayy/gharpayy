@@ -22,7 +22,7 @@ const Env = z.object({
   PORT: z.coerce.number().default(4000),
   HOST: z.string().default("0.0.0.0"),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
-  CORS_ORIGINS: z.string().default("http://localhost:5173"),
+  CORS_ORIGINS: z.string().default("http://localhost:3002"),
   DEFAULT_TENANT: z.string().default("gharpayy"),
   LOG_LEVEL: z.string().default("info"),
 });
