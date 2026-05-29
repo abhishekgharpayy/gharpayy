@@ -1,4 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
+import { cn } from "@/lib/utils";
+import { PGS } from "@/property-genius/data/pgs";
+import type { PG } from "@/types/entities";
+import { LeadPropertyDossier } from "@/components/impact/LeadPropertyDossier";
 import { useApp } from "@/lib/store";
 import { api } from "@/lib/api/client";
 import { useQuotationsQuery, useAddQuotation, useSetQuotationStatus, formatINR, type Quotation } from "@/lib/crm10x/quotations";
@@ -33,6 +37,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { dispatch } from "@/lib/api/command-bus";
 import {
   Calendar, CheckCircle2, ChevronRight, ClipboardCopy,
   ExternalLink, FileText, Flame, LayoutGrid, ListOrdered, Phone, Plus,
@@ -73,8 +78,11 @@ function fmtWhen(iso: string) {
     weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit",
   }).format(new Date(iso));
 }
-function fmtDate(iso: string) {
-  return new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", year: "numeric" }).format(new Date(iso));
+function fmtDate(iso: string | null | undefined) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "—";
+  return new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", year: "numeric" }).format(d);
 }
 function fmtRel(iso: string, nowMs: number) {
   const ms = +new Date(iso) - nowMs;
@@ -689,8 +697,9 @@ function LeadDrawer({
 
         {/* Body — scrollable, all actions in one place */}
         <div className="flex-1 overflow-y-auto px-5 py-4">
-          <div className="mb-3">
+          <div className="mb-3 space-y-3">
             <SmartDossier lead={lead} />
+            <LeadPropertyDossier lead={lead} />
           </div>
           <CommandActions
             lead={lead}
@@ -1004,6 +1013,20 @@ function NegotiationPlaybook({
 }: { lead: Lead; leadPhone: string; ctx: ImpactTplCtx }) {
   const [open, setOpen] = useState(false);
   const setLeadStage = useApp((s) => s.setLeadStage);
+  const currentUser = useApp((s) => s.tcms.find((t) => t.id === s.currentTcmId));
+
+  function resolveTemplate(template: string, lead: Lead, ctx: ImpactTplCtx): string {
+    return template
+      .replace(/\{price\}/g, 
+        lead.budget ? `₹${lead.budget.toLocaleString("en-IN")}` : "")
+      .replace(/\{altPrice\}/g, 
+        lead.budget ? `₹${(lead.budget * 0.9).toLocaleString("en-IN")}` : "")
+      .replace(/\{propertyName\}/g, ctx.propertyName ?? "the property")
+      .replace(/\{roomType\}/g, "triple")
+      .replace(/\{leadName\}/g, lead.name ?? "")
+      .replace(/\{agentName\}/g, ctx.agentName ?? currentUser?.name ?? "")
+      .replace(/\{[^}]+\}/g, ""); // clear any remaining unresolved
+  }
 
   const send = (msg: string, label: string) => {
     openWhatsApp(leadPhone, msg);
@@ -1024,11 +1047,11 @@ function NegotiationPlaybook({
           <Sparkles className="h-3 w-3" /> Negotiate
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
+      <DialogContent className="max-w-2xl flex flex-col p-0 gap-0 overflow-hidden max-h-[85vh]">
+        <DialogHeader className="flex-none px-6 py-4 border-b">
           <DialogTitle className="text-sm">Negotiation playbook · {lead.name}</DialogTitle>
         </DialogHeader>
-        <div className="space-y-3">
+        <div className="flex-1 overflow-y-auto min-h-0 px-6 py-4 pb-10 space-y-3">
           {paths.map((p) => (
             <div key={p.key} className="border border-border rounded-lg p-3 space-y-2">
               <div>
@@ -1037,7 +1060,7 @@ function NegotiationPlaybook({
               </div>
               <div className="space-y-1.5">
                 {IMPACT_TEMPLATES[p.key].map((tpl) => {
-                  const msg = renderImpactTemplate(tpl, ctx);
+                  const msg = resolveTemplate(tpl.body, lead, ctx);
                   return (
                     <div key={tpl.id} className="rounded bg-muted/40 p-2 space-y-1">
                       <div className="flex items-center justify-between">
@@ -1084,23 +1107,53 @@ function QuickAddLead({ defaultTcmId }: { defaultTcmId: string }) {
   const [intent, setIntent] = useState<Lead["intent"]>("warm");
   const [tcmId, setTcmId] = useState<string>(defaultTcmId);
   const [autoRoute, setAutoRoute] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const reset = () => {
     setName(""); setPhone(""); setArea(""); setBudget(12000);
     setMoveIn(todayISO()); setIntent("warm"); setTcmId(defaultTcmId); setAutoRoute(true);
   };
 
-  const submit = () => {
+  const submit = async () => {
     if (!name.trim() || !phone.trim()) return toast.error("Name + phone required");
     if (!area.trim()) return toast.error("Preferred area required");
-    const lead = addLead({
-      name, phone, preferredArea: area, budget,
-      moveInDate: new Date(moveIn).toISOString(),
-      intent, assignedTcmId: autoRoute ? undefined : tcmId,
-    });
-    if (autoRoute) autoAssignLead(lead.id);
-    toast.success(`Lead added · ${lead.name}`);
-    reset(); setOpen(false);
+    
+    setIsSubmitting(true);
+    try {
+      const result = await dispatch({
+        type: "cmd.lead.create",
+        payload: {
+          name, phone,
+          source: "manual",
+          budget,
+          moveInDate: new Date(moveIn).toISOString(),
+          preferredArea: area,
+          zoneId: null,
+          intent,
+          assigneeId: autoRoute ? undefined : tcmId,
+        }
+      });
+      
+      if (!result.ok) throw new Error(result.error);
+      const newLeadId = (result as any).data?.leadId;
+
+      const lead = addLead({
+        id: newLeadId,
+        name, phone, preferredArea: area, budget,
+        moveInDate: new Date(moveIn).toISOString(),
+        intent, assignedTcmId: autoRoute ? undefined : tcmId,
+      });
+      if (autoRoute) autoAssignLead(lead.id);
+      
+      setOpen(false);
+      reset();
+      toast.success("Lead added — check Inbox");
+    } catch (error) {
+      console.error("Add lead error:", error);
+      toast.error("Failed to add lead. Try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -1175,8 +1228,8 @@ function QuickAddLead({ defaultTcmId }: { defaultTcmId: string }) {
             )}
           </div>
 
-          <Button className="w-full h-8 text-xs" onClick={submit}>
-            Add to queue
+          <Button className="w-full h-8 text-xs" onClick={() => void submit()} disabled={isSubmitting}>
+            {isSubmitting ? "Adding..." : "Add to queue"}
           </Button>
         </div>
       </DialogContent>
@@ -1198,50 +1251,52 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 /* ================================================================== */
 
 function ScheduleTourDialog({ lead }: { lead: Lead }) {
-  const properties = useApp((s) => s.properties);
   const tcms = useApp((s) => s.tcms);
   const scheduleTour = useApp((s) => s.scheduleTour);
-  const addProperty = useApp((s) => s.addProperty);
 
   const [open, setOpen] = useState(false);
-  const [tcmId, setTcmId] = useState(lead.assignedTcmId);
-  const [propQuery, setPropQuery] = useState("");
-  const [propId, setPropId] = useState("");
-  const [newProp, setNewProp] = useState(false);
-  const [newName, setNewName] = useState("");
-  const [newArea, setNewArea] = useState(lead.preferredArea);
-  const [newPrice, setNewPrice] = useState(lead.budget);
+  const [selectedAgent, setSelectedAgent] = useState(lead.assignedTcmId ?? "");
+  const [propertySearch, setPropertySearch] = useState("");
+  const [selectedProperty, setSelectedProperty] = useState<PG | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
   const today = todayISO();
   const [date, setDate] = useState(today);
   const [time, setTime] = useState("11:00");
 
-  const filtered = useMemo(() => {
-    const q = propQuery.trim().toLowerCase();
-    if (!q) return properties.slice(0, 6);
-    return properties
-      .filter((p) => p.name.toLowerCase().includes(q) || p.area.toLowerCase().includes(q))
-      .slice(0, 6);
-  }, [properties, propQuery]);
+  const filteredProperties = useMemo(() => {
+    const q = propertySearch.trim().toLowerCase();
+    let list = PGS;
+    if (q) {
+      list = PGS.filter(p => p.name.toLowerCase().includes(q) || p.area?.toLowerCase().includes(q));
+    } else if (lead.preferredArea) {
+      const byArea = PGS.filter(p => p.area.toLowerCase().includes(lead.preferredArea.toLowerCase()));
+      if (byArea.length > 0) list = byArea;
+    }
+    return list.slice(0, 6);
+  }, [propertySearch, lead.preferredArea]);
 
-  const handleAddProp = () => {
-    const name = newName.trim() || propQuery.trim();
-    if (!name) return toast.error("Property name required");
-    const created = addProperty({ name, area: newArea || "—", pricePerBed: newPrice || 12000, totalBeds: 1, vacantBeds: 1 });
-    setPropId(created.id);
-    setPropQuery(name);
-    setNewProp(false);
-    toast.success(`Added ${name}`);
-  };
+  const isValid = selectedProperty !== null && selectedAgent !== "" && date !== "" && time !== "";
 
-  const handleSchedule = async () => {
-    if (!propId) return toast.error("Pick a property");
+  const handleScheduleTour = async () => {
+    if (!isValid) return;
+    setIsSubmitting(true);
     const iso = new Date(`${date}T${time}:00`).toISOString();
     try {
-      await scheduleTour({ leadId: lead.id, propertyId: propId, tcmId, scheduledAt: iso });
-      toast.success("Tour scheduled");
+      await scheduleTour({ 
+        leadId: lead.id, 
+        propertyId: selectedProperty!.id, 
+        tcmId: selectedAgent, 
+        scheduledAt: iso 
+      });
+      toast.success("Tour scheduled successfully");
       setOpen(false);
+      setPropertySearch("");
+      setSelectedProperty(null);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Tour scheduling failed");
+      toast.error(error instanceof Error ? error.message : "Failed to schedule tour. Try again.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -1255,72 +1310,89 @@ function ScheduleTourDialog({ lead }: { lead: Lead }) {
       <DialogContent className="max-w-md">
         <DialogHeader><DialogTitle className="text-sm">Schedule tour · {lead.name}</DialogTitle></DialogHeader>
         <div className="space-y-3">
-          <div>
-            <Label className="text-[10px] uppercase text-muted-foreground">Property</Label>
+          
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] uppercase text-muted-foreground">PROPERTY</label>
             <div className="relative">
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-              <Input className="h-8 pl-7 text-xs" placeholder="Search or type new name…"
-                value={propQuery}
-                onChange={(e) => { setPropQuery(e.target.value); setPropId(""); }}
+              <input
+                type="text"
+                placeholder="Search or type new name..."
+                value={propertySearch}
+                onChange={e => { setPropertySearch(e.target.value); setSelectedProperty(null); }}
+                className="w-full border border-border rounded-md pl-7 pr-3 py-1.5 text-xs bg-transparent focus:outline-none focus:ring-1 focus:ring-primary h-8"
               />
             </div>
-            {!newProp && (
-              <div className="max-h-40 overflow-y-auto mt-1 space-y-1">
-                {filtered.map((p) => (
-                  <button key={p.id}
-                    onClick={() => { setPropId(p.id); setPropQuery(p.name); }}
-                    className={`w-full text-left text-xs px-2 py-1.5 rounded border ${propId === p.id ? "bg-primary/10 border-primary/40" : "border-border hover:bg-muted/50"}`}>
-                    <div className="font-medium">{p.name}</div>
-                    <div className="text-[10px] text-muted-foreground">{p.area} · {p.vacantBeds} vacant</div>
+            {propertySearch || !selectedProperty ? (
+              <div className="max-h-40 overflow-y-auto mt-1 space-y-1 border border-border rounded-md divide-y divide-border">
+                {filteredProperties.length === 0 && (
+                  <div className="px-3 py-4 text-xs text-muted-foreground text-center">
+                    No properties found
+                  </div>
+                )}
+                {filteredProperties.map(property => (
+                  <button
+                    key={property.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedProperty(property);
+                      setPropertySearch(property.name);
+                    }}
+                    className={cn(
+                      "w-full text-left text-xs px-2 py-1.5 transition-colors",
+                      selectedProperty?.id === property.id ? "bg-primary/10" : "hover:bg-muted/50"
+                    )}
+                  >
+                    <div className="font-medium">{property.name}</div>
+                    <div className="text-[10px] text-muted-foreground">
+                      {property.area} · 0 vacant
+                    </div>
                   </button>
                 ))}
-                {filtered.length === 0 && propQuery && (
-                  <Button variant="outline" size="sm" className="w-full h-7 text-xs gap-1"
-                    onClick={() => { setNewName(propQuery); setNewProp(true); }}>
-                    <Plus className="h-3 w-3" /> Add "{propQuery}" as new
-                  </Button>
-                )}
               </div>
-            )}
-            {newProp && (
-              <div className="space-y-2 mt-2 border-t border-border pt-2">
-                <Input className="h-8 text-xs" placeholder="Property name" value={newName} onChange={(e) => setNewName(e.target.value)} />
-                <div className="grid grid-cols-2 gap-2">
-                  <Input className="h-8 text-xs" placeholder="Area" value={newArea} onChange={(e) => setNewArea(e.target.value)} />
-                  <Input className="h-8 text-xs" type="number" placeholder="Price/bed" value={newPrice} onChange={(e) => setNewPrice(Number(e.target.value))} />
-                </div>
-                <div className="flex gap-2">
-                  <Button size="sm" className="h-7 text-xs flex-1" onClick={handleAddProp}>Save</Button>
-                  <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setNewProp(false)}>Cancel</Button>
-                </div>
-              </div>
-            )}
+            ) : null}
           </div>
 
-          <div>
-            <Label className="text-[10px] uppercase text-muted-foreground">Assign to</Label>
-            <Select value={tcmId} onValueChange={setTcmId}>
-              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {tcms.map((t) => <SelectItem key={t.id} value={t.id} className="text-xs">{t.name} · {t.zone}</SelectItem>)}
-              </SelectContent>
-            </Select>
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] uppercase text-muted-foreground">ASSIGN TO</label>
+            <select
+              value={selectedAgent}
+              onChange={e => setSelectedAgent(e.target.value)}
+              className="w-full border border-border rounded-md px-2 py-1.5 text-xs bg-transparent focus:outline-none focus:ring-1 focus:ring-primary h-8"
+            >
+              <option value="">Select agent...</option>
+              {tcms.map(agent => (
+                <option key={agent.id} value={agent.id} className="bg-background">
+                  {agent.name} · {agent.zone ?? ""}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="grid grid-cols-2 gap-2">
-            <div>
-              <Label className="text-[10px] uppercase text-muted-foreground">Date</Label>
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] uppercase text-muted-foreground">Date</label>
               <Input type="date" className="h-8 text-xs" value={date} onChange={(e) => setDate(e.target.value)} min={today} />
             </div>
-            <div>
-              <Label className="text-[10px] uppercase text-muted-foreground">Time</Label>
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] uppercase text-muted-foreground">Time</label>
               <Input type="time" className="h-8 text-xs" value={time} onChange={(e) => setTime(e.target.value)} />
             </div>
           </div>
 
-          <Button className="w-full h-8 text-xs" onClick={() => void handleSchedule()}>
-            Schedule tour
-          </Button>
+          <button
+            type="button"
+            disabled={!isValid || isSubmitting}
+            onClick={() => void handleScheduleTour()}
+            className={cn(
+              "w-full py-2 h-8 rounded-md font-semibold text-white text-xs transition-colors",
+              isValid && !isSubmitting 
+                ? "bg-black hover:bg-gray-800" 
+                : "bg-gray-300 cursor-not-allowed text-gray-500"
+            )}
+          >
+            {isSubmitting ? "Scheduling..." : "Schedule tour"}
+          </button>
         </div>
       </DialogContent>
     </Dialog>
