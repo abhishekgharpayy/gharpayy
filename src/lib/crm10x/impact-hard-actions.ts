@@ -13,6 +13,26 @@ export type HardActionKey =
   | "checkin"
   | "revive";
 
+/** Opens the matching tool in the lead drawer (`auto` = pick from NBA). */
+export type LeadFocusAction = HardActionKey | "auto";
+
+export function mapNbaToFocusAction(
+  nbaVerb: string,
+  column: string,
+  hasQuote: boolean,
+): LeadFocusAction {
+  if (nbaVerb === "call") return "call-hot";
+  if (nbaVerb === "schedule") return "schedule";
+  if (nbaVerb === "quote" || nbaVerb === "follow-quote") return "quote";
+  if (nbaVerb === "negotiate") return "negotiate";
+  if (nbaVerb === "book") return "book";
+  if (nbaVerb === "revive") return "revive";
+  if (column === "booked") return "checkin";
+  if (column === "quoted" && hasQuote) return "quote";
+  if (column === "scheduled" || column === "onTour") return "schedule";
+  return "call-hot";
+}
+
 export type ImpactPriority = "now" | "today" | "soon" | "later" | "won";
 
 export type ImpactEnrichedPick = {
@@ -110,7 +130,7 @@ export function topSuggestion(list: ImpactEnrichedPick[]): ImpactEnrichedPick | 
   const active = list.filter((e) => e.lead.stage !== "booked" && e.lead.stage !== "dropped");
   const escalate = firstMatch(active, (e) => e.nba.pressure === "escalate");
   if (escalate) return escalate;
-  return firstMatch(active, () => e.nba.verb !== "rest");
+  return firstMatch(active, (e) => e.nba.verb !== "rest");
 }
 
 export function classifyImpactPriority(e: ImpactEnrichedPick): ImpactPriority {

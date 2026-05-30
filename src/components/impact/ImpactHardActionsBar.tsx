@@ -5,7 +5,9 @@ import {
   topSuggestion,
   classifyImpactPriority,
   IMPACT_PRIORITY_META,
+  mapNbaToFocusAction,
   type HardActionKey,
+  type LeadFocusAction,
   type ImpactEnrichedPick,
 } from "@/lib/crm10x/impact-hard-actions";
 import {
@@ -68,7 +70,7 @@ export function ImpactHardActionsBar({
 }: {
   enriched: ImpactEnrichedPick[];
   tcms: TCM[];
-  onPickLead: (leadId: string, name: string) => void;
+  onPickLead: (leadId: string, name: string, action: LeadFocusAction) => void;
   onAddLead: () => void;
 }) {
   const picks = useMemo(() => {
@@ -101,7 +103,17 @@ export function ImpactHardActionsBar({
           <Button
             size="sm"
             className="h-8 text-xs shrink-0"
-            onClick={() => onPickLead(suggested.lead.id, suggested.lead.name)}
+            onClick={() =>
+              onPickLead(
+                suggested.lead.id,
+                suggested.lead.name,
+                mapNbaToFocusAction(
+                  suggested.nba.verb,
+                  suggested.column,
+                  Boolean(suggested.lastQuote),
+                ),
+              )
+            }
           >
             Do it
           </Button>
@@ -136,25 +148,38 @@ export function ImpactHardActionsBar({
             const Icon = action.icon;
 
             return (
-              <DropdownMenu key={key}>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
-                    className={`h-8 inline-flex items-center gap-1.5 rounded-full border px-2.5 text-xs font-medium transition ${action.className}`}
-                  >
-                    <Icon className="h-3.5 w-3.5 shrink-0" />
-                    <span>{action.label}</span>
-                    {action.sub && (
-                      <span className="text-[10px] font-bold uppercase opacity-90">{action.sub}</span>
-                    )}
-                    {top && (
-                      <span className="text-[10px] opacity-80 max-w-[72px] truncate">
-                        · {leadFirst(top.lead.name)}
-                      </span>
-                    )}
-                    <ChevronDown className="h-3 w-3 opacity-60 shrink-0" />
-                  </button>
-                </DropdownMenuTrigger>
+              <div
+                key={key}
+                className={`inline-flex h-8 items-stretch rounded-full border text-xs font-medium overflow-hidden ${action.className}`}
+              >
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1.5 px-2.5 hover:bg-black/5 transition"
+                  title={top ? `Open ${action.label} for ${top.lead.name}` : `No lead for ${action.label}`}
+                  disabled={!top}
+                  onClick={() => top && onPickLead(top.lead.id, top.lead.name, key)}
+                >
+                  <Icon className="h-3.5 w-3.5 shrink-0" />
+                  <span>{action.label}</span>
+                  {action.sub && (
+                    <span className="text-[10px] font-bold uppercase opacity-90">{action.sub}</span>
+                  )}
+                  {top && (
+                    <span className="text-[10px] opacity-80 max-w-[72px] truncate">
+                      · {leadFirst(top.lead.name)}
+                    </span>
+                  )}
+                </button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="px-1.5 border-l border-current/20 hover:bg-black/5 flex items-center"
+                      aria-label={`More leads for ${action.label}`}
+                    >
+                      <ChevronDown className="h-3 w-3 opacity-70" />
+                    </button>
+                  </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="w-64">
                   <DropdownMenuLabel className="text-xs">
                     {action.label}
@@ -173,7 +198,7 @@ export function ImpactHardActionsBar({
                         <DropdownMenuItem
                           key={e.lead.id}
                           className="text-xs flex flex-col items-start gap-0.5 py-2"
-                          onClick={() => onPickLead(e.lead.id, e.lead.name)}
+                          onClick={() => onPickLead(e.lead.id, e.lead.name, key)}
                         >
                           <div className="flex items-center gap-2 w-full">
                             <span className={`h-2 w-2 rounded-full shrink-0 ${meta.dot}`} />
@@ -188,7 +213,8 @@ export function ImpactHardActionsBar({
                     })
                   )}
                 </DropdownMenuContent>
-              </DropdownMenu>
+                </DropdownMenu>
+              </div>
             );
           })}
         </div>
