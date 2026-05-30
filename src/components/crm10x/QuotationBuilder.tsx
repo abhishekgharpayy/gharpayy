@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useApp } from "@/lib/store";
 import type { Lead } from "@/lib/types";
 import type { PG } from "@/property-genius/data/types";
 import { PropertyHubPicker, pgQuoteDefaults } from "@/property-genius/components/PropertyHubPicker";
@@ -48,6 +49,7 @@ type Props = {
 };
 
 export function QuotationBuilder({ lead, embedded, onSent }: Props) {
+  const setLeadStage = useApp((s) => s.setLeadStage);
   const { mutate: add } = useAddQuotation();
   const { data: leadQuotes = [], isLoading } = useQuotationsQuery(lead.id);
   const { mutate: setStatus } = useSetQuotationStatus();
@@ -132,9 +134,13 @@ export function QuotationBuilder({ lead, embedded, onSent }: Props) {
       validityMinutes: validityMin,
       validUntilISO,
       message,
+    }, {
+      onSuccess: (quote) => {
+        void setLeadStage(lead.id, "quote-sent");
+        if (quote) toast.success(`Quotation sent · ${formatINR(quote.discountedPrice)}`);
+      },
     });
     window.open(waLink(lead.phone, message), "_blank", "noopener,noreferrer");
-    toast.success(`Quotation sent · ${formatINR(discounted)}`);
     if (embedded) onSent?.();
     else setOpen(false);
   };

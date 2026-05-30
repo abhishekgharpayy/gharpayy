@@ -1,18 +1,18 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ClipboardEvent } from "react";
 import { cn } from "@/lib/utils";
 import { PGS } from "@/property-genius/data/pgs";
 import type { PG } from "@/types/entities";
 import { LeadPropertyDossier } from "@/components/impact/LeadPropertyDossier";
 import { useApp } from "@/lib/store";
 import { api } from "@/lib/api/client";
-import { useQuotationsQuery, useAddQuotation, useSetQuotationStatus, formatINR, type Quotation } from "@/lib/crm10x/quotations";
+import { useQuotationsQuery, useSetQuotationStatus, formatINR, type Quotation } from "@/lib/crm10x/quotations";
 import { useTcmContacts } from "@/lib/crm10x/tcm-contacts";
 import { useLeadInterests, useToggleInterest } from "@/lib/crm10x/lead-interests";
-import { useCheckin, useUpsertCheckin, usePatchCheckin, useSetCheckinStage, DELAY_REASONS, STAGE_LABEL, riskLevel, RISK_CLASS, RISK_LABEL, type DelayReason, type CheckIn } from "@/lib/checkins/store";
+import { useCheckin, useUpsertCheckin, usePatchCheckin, STAGE_LABEL, riskLevel, RISK_CLASS, RISK_LABEL, type CheckIn } from "@/lib/checkins/store";
 import { waBookingConfirm, waDateConfirm, waRescheduleCheckIn, waTokenRequest } from "@/lib/checkins/templates";
-import type { Lead, Property, TCM, Tour } from "@/lib/types";
+import type { ActivityLog, Lead, Property, TCM, Tour } from "@/lib/types";
 import {
-  IMPACT_TEMPLATES, renderImpactTemplate, impactWaLink,
+  IMPACT_TEMPLATES, renderImpactTemplate,
   type ImpactScenario, type ImpactTpl, type ImpactTplCtx,
 } from "@/lib/crm10x/impact-templates";
 import {
@@ -43,10 +43,13 @@ import {
   ExternalLink, FileText, Flame, LayoutGrid, ListOrdered, Phone, Plus,
   Search, Send, Sparkles, Target, Timer, UserCheck, Wallet, Zap,
   Beaker, Home, Pin, X, Heart, Star, Activity, TrendingUp, Bell, Sunrise,
-  RotateCcw, KeyRound, ScrollText, MessageSquare,
+  RotateCcw, KeyRound, ScrollText,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useMountedNow } from "@/hooks/use-now";
+import { useAuditLog } from "@/lib/crm10x/audit-log";
+import { useIdentityStore } from "@/lib/lead-identity/store";
+import { waLink } from "@/lib/crm10x/templates";
 
 /* ================================================================== */
 /*  Impact Queue — 10x                                                 */
@@ -104,6 +107,14 @@ function fmtRel(iso: string, nowMs: number) {
   if (Math.abs(h) < 24) return `${h > 0 ? "in " : ""}${Math.abs(h)}h${h < 0 ? " ago" : ""}`;
   return fmtWhen(iso);
 }
+function fmtActivityTime(iso: string) {
+  const now = Date.now();
+  const diff = now - +new Date(iso);
+  const minutes = Math.max(0, Math.floor(diff / 60000));
+  if (minutes < 60) return `${minutes || 1} min ago`;
+  if (new Date(iso).toDateString() === new Date().toDateString()) return `Today ${fmtTime(iso)}`;
+  return fmtWhen(iso);
+}
 
 async function copyText(text: string, label = "Copied — paste in WhatsApp") {
   try {
@@ -115,8 +126,37 @@ async function copyText(text: string, label = "Copied — paste in WhatsApp") {
 }
 
 function openWhatsApp(phone: string, text: string) {
-  window.open(impactWaLink(phone, text), "_blank", "noopener,noreferrer");
+  window.open(waLink(phone, text), "_blank", "noopener,noreferrer");
   toast.success("Opened WhatsApp");
+}
+
+const actionButtonClass =
+  "transition-colors hover:bg-accent/10 active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
+
+function isValidPhone(v: string) {
+  return /^\d{10}$/.test(v.trim());
+}
+
+function parsePastedText(text: string): { name?: string; phone?: string; location?: string } {
+  const phone = text.match(/\b[6-9]\d{9}\b/)?.[0];
+  const words = text.replace(phone ?? "", "").trim().split(/\s+/);
+  const locationKeywords = [
+    "koramangala","bellandur","hsr","whitefield","indiranagar",
+    "marathahalli","btm","hebbal","electronic city","jayanagar",
+    "jp nagar","yelahanka","sarjapur","bannerghatta"
+  ];
+  const location = words.find(w =>
+    locationKeywords.some(k => w.toLowerCase().includes(k))
+  );
+  const name = words
+    .filter(w => w !== location && !/\d/.test(w))
+    .slice(0, 2)
+    .join(" ");
+  return {
+    name: name || undefined,
+    phone: phone || undefined,
+    location: location || undefined,
+  };
 }
 
 type IntentFilter = "all" | "hot" | "warm" | "cold";
@@ -186,7 +226,9 @@ export function ImpactQueue() {
 
       let column: ColumnKey = "inbox";
       if (lead.stage === "booked") column = "booked";
+      else if (lead.stage === "quote-sent") column = "quoted";
       else if (lastQuote && (lastQuote.status === "sent" || lastQuote.status === "paid")) column = "quoted";
+      else if (lead.stage === "on-tour") column = "onTour";
       else if (openTour && isToday(openTour.scheduledAt)) column = "onTour";
       else if (openTour) column = "scheduled";
 
@@ -354,10 +396,10 @@ export function ImpactQueue() {
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
+        <div className="flex h-[calc(100vh-360px)] min-h-[360px] gap-3 overflow-hidden">
           {COLUMNS.map((c) => (
-            <div key={c.key} className={`rounded-lg border-l-2 ${c.tint} border-t border-r border-b border-border bg-muted/20 p-2 min-h-[300px]`}>
-              <div className="flex items-center justify-between px-1 pb-2">
+            <div key={c.key} className={`flex-none w-72 h-full overflow-y-auto overflow-x-hidden rounded-lg border-l-2 ${c.tint} border-t border-r border-b border-border bg-muted/20 p-2`}>
+              <div className="sticky top-0 z-10 flex items-center justify-between px-1 pb-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
                 <div className="text-[11px] font-semibold flex items-center gap-1.5">
                   <c.icon className="h-3 w-3" /> {c.label}
                 </div>
@@ -738,12 +780,17 @@ function CommandActions({
   property?: Property; column: ColumnKey;
 }) {
   const completeTour = useApp((s) => s.completeTour);
+  const markTourStarted = useApp((s) => s.markTourStarted);
   const setQuotationStatus = useSetQuotationStatus();
   const setLeadIntent = useApp((s) => s.setLeadIntent);
   const setLeadStage = useApp((s) => s.setLeadStage);
   const logCall = useApp((s) => s.logCall);
+  const activities = useApp((s) => s.activities);
+  const currentUser = useIdentityStore((s) => s.currentUser);
+  const auditLog = useAuditLog((s) => s.log);
   const { data: checkin } = useCheckin(lead.id);
   const [now, mounted] = useMountedNow(30_000);
+  const [loggingCall, setLoggingCall] = useState(false);
 
   const tcmPhone = useTcmContacts((s) => s.phones[tcm?.id ?? ""]);
 
@@ -774,7 +821,18 @@ function CommandActions({
   };
 
   const logCallAction = async () => {
+    const at = new Date().toISOString();
+    setLoggingCall(true);
     logCall(lead.id);
+    auditLog({
+      actorId: currentUser.id,
+      actorName: currentUser.name,
+      entityType: "lead",
+      entityId: lead.id,
+      action: "call_logged",
+      summary: `Call logged by ${currentUser.name}`,
+      after: { type: "call_logged", leadId: lead.id, actorId: currentUser.id, actorName: currentUser.name, at, meta: { callType: "manual" } },
+    });
     try {
       await api.command({
         _id: `cmd-${crypto.randomUUID()}`,
@@ -793,7 +851,9 @@ function CommandActions({
       });
       toast.success("Call logged");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Call log failed");
+      toast.error("Failed to log call");
+    } finally {
+      setLoggingCall(false);
     }
   };
 
@@ -840,8 +900,8 @@ function CommandActions({
         {column === "scheduled" && openTour && (
           <>
             <ConfirmTourButton lead={lead} tour={openTour} />
-            <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1"
-              onClick={() => { completeTour(openTour.id); toast.success("Tour marked started"); }}>
+            <Button size="sm" variant="outline" className={`h-7 text-[10px] gap-1 ${actionButtonClass}`}
+              onClick={() => { void markTourStarted(openTour.id).then(() => toast.success("Tour marked live")).catch(() => toast.error("Failed to start tour")); }}>
               <UserCheck className="h-3 w-3" /> Mark started
             </Button>
           </>
@@ -849,7 +909,7 @@ function CommandActions({
 
         {column === "onTour" && openTour && (
           <>
-            <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1"
+            <Button size="sm" variant="outline" className={`h-7 text-[10px] gap-1 ${actionButtonClass}`}
               onClick={() => { completeTour(openTour.id); toast.success("Tour completed"); }}>
               <CheckCircle2 className="h-3 w-3" /> Tour done
             </Button>
@@ -860,11 +920,11 @@ function CommandActions({
           <>
             {lastQuote.status === "sent" && (
               <>
-                <Button size="sm" className="h-7 text-[10px] gap-1"
+                <Button size="sm" className={`h-7 text-[10px] gap-1 ${actionButtonClass}`}
                   onClick={() => { setQuotationStatus.mutate({ id: lastQuote.id, leadId: lastQuote.leadId, status: "paid" }); toast.success("Quote accepted · paid"); }}>
                   <Wallet className="h-3 w-3" /> Mark paid
                 </Button>
-                <Button size="sm" variant="outline" className="h-7 text-[10px]"
+                <Button size="sm" variant="outline" className={`h-7 text-[10px] ${actionButtonClass}`}
                   onClick={() => { setQuotationStatus.mutate({ id: lastQuote.id, leadId: lastQuote.leadId, status: "not-paid" }); toast("Marked not paid"); }}>
                   Not paid
                 </Button>
@@ -883,15 +943,16 @@ function CommandActions({
         {/* Always-available — Quote sits next to Negotiate so the pair is one motion */}
         <NegotiationPlaybook lead={lead} leadPhone={lead.phone} ctx={baseCtx} />
         <QuotationDialog lead={lead} label={lastQuote ? "Re-quote" : "Quotation"} />
-        <Button size="sm" variant="ghost" className="h-7 text-[10px] gap-1"
-          onClick={() => void logCallAction()}>
-          <Phone className="h-3 w-3" /> Log call
+        <Button size="sm" variant="ghost" className={`h-7 text-[10px] gap-1 ${actionButtonClass}`}
+          onClick={() => void logCallAction()} disabled={loggingCall}>
+          {loggingCall ? <RotateCcw className="h-3 w-3 animate-spin" /> : <Phone className="h-3 w-3" />} Log call
         </Button>
         <DirectBookButton lead={lead} openTour={openTour} />
         <CheckInOpsButton lead={lead} property={property} quote={lastQuote} existing={checkin} />
       </div>
 
       {checkin && <CheckInAuditReport checkin={checkin} lead={lead} compact />}
+      <LeadActivityTimeline activities={activities.filter((a) => a.leadId === lead.id)} tcms={useApp.getState().tcms} />
 
       {/* Tier override */}
       <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
@@ -936,6 +997,7 @@ function TemplateMessenger({
   const [tplId, setTplId] = useState<string>(variants[0].id);
   const tpl = variants.find((v) => v.id === tplId) ?? variants[0];
   const [draft, setDraft] = useState(renderImpactTemplate(tpl, ctx));
+  const [copied, setCopied] = useState(false);
 
   // re-render when scenario / template changes
   const apply = (s: ImpactScenario, id?: string) => {
@@ -947,21 +1009,25 @@ function TemplateMessenger({
   };
   const reset = () => setDraft(renderImpactTemplate(tpl, ctx));
 
-  const copy = () => copyText(draft);
-  const send = () => openWhatsApp(leadPhone, draft);
-
-  const scenarioLabel: Record<ImpactScenario, string> = {
-    "first-touch": "First touch",
-    "tour-confirm": "Tour confirm",
-    "tour-reminder": "Tour reminder",
-    "tour-noshow": "No-show recovery",
-    "quote-followup": "Quote follow-up",
-    "negotiate-hold": "Negotiate · hold",
-    "negotiate-alt": "Negotiate · alt room",
-    "negotiate-floor": "Negotiate · floor",
-    "booking-confirm": "Booking confirm",
-    revival: "Revival",
+  const copy = async () => {
+    await copyText(draft, "Copied!");
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 2000);
   };
+  const send = () => {
+    if (!leadPhone.trim()) {
+      toast.warning("Set lead phone first");
+      return;
+    }
+    openWhatsApp(leadPhone, draft);
+  };
+
+  const scenarioSets: Record<string, { label: string; scenario: ImpactScenario }> = {
+    first: { label: "First touch", scenario: "first-touch" },
+    follow: { label: "Follow up", scenario: "quote-followup" },
+    post: { label: "Post tour", scenario: "tour-noshow" },
+  };
+  const selectedSet = Object.entries(scenarioSets).find(([, item]) => item.scenario === scenario)?.[0] ?? "first";
 
   return (
     <div className="rounded-md border border-border bg-card/60 p-2 space-y-2">
@@ -969,11 +1035,11 @@ function TemplateMessenger({
         <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
           WhatsApp template
         </div>
-        <Select value={scenario} onValueChange={(v) => apply(v as ImpactScenario)}>
+        <Select value={selectedSet} onValueChange={(v) => apply(scenarioSets[v].scenario)}>
           <SelectTrigger className="h-7 text-[11px] w-44"><SelectValue /></SelectTrigger>
           <SelectContent>
-            {(Object.keys(IMPACT_TEMPLATES) as ImpactScenario[]).map((k) => (
-              <SelectItem key={k} value={k} className="text-xs">{scenarioLabel[k]}</SelectItem>
+            {Object.entries(scenarioSets).map(([k, item]) => (
+              <SelectItem key={k} value={k} className="text-xs">{item.label}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -997,13 +1063,13 @@ function TemplateMessenger({
       />
 
       <div className="flex flex-wrap gap-1.5">
-        <Button size="sm" className="h-7 text-[10px] gap-1" onClick={send}>
+        <Button size="sm" className={`h-7 text-[10px] gap-1 ${actionButtonClass}`} onClick={send}>
           <ExternalLink className="h-3 w-3" /> Send via WhatsApp
         </Button>
-        <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1" onClick={copy}>
-          <ClipboardCopy className="h-3 w-3" /> Copy text
+        <Button size="sm" variant="outline" className={`h-7 text-[10px] gap-1 ${actionButtonClass}`} onClick={() => void copy()}>
+          <ClipboardCopy className="h-3 w-3" /> {copied ? "Copied!" : "Copy text"}
         </Button>
-        <Button size="sm" variant="ghost" className="h-7 text-[10px]" onClick={reset}>
+        <Button size="sm" variant="ghost" className={`h-7 text-[10px] ${actionButtonClass}`} onClick={reset}>
           Reset
         </Button>
         {!ctx.agentPhone && (
@@ -1012,6 +1078,41 @@ function TemplateMessenger({
           </span>
         )}
       </div>
+    </div>
+  );
+}
+
+function LeadActivityTimeline({ activities, tcms }: { activities: ActivityLog[]; tcms: TCM[] }) {
+  const rows = activities
+    .slice()
+    .sort((a, b) => +new Date(b.ts) - +new Date(a.ts))
+    .slice(0, 5);
+
+  const actorName = (actor: string) =>
+    tcms.find((t) => t.id === actor)?.name ?? (actor === "flow-ops" ? "Flow Ops" : actor === "system" ? "System" : actor);
+
+  return (
+    <div className="rounded-md border border-border bg-card/70 p-2 space-y-2">
+      <div className="text-[10px] uppercase tracking-wider font-semibold flex items-center gap-1.5">
+        <Activity className="h-3 w-3" /> Activity
+      </div>
+      {rows.length === 0 ? (
+        <p className="text-[11px] text-muted-foreground italic">No activity logged yet.</p>
+      ) : (
+        <div className="space-y-1">
+          {rows.map((a) => (
+            <div key={a.id} className="flex items-start gap-2 rounded border border-border/70 p-1.5 text-[11px]">
+              {a.kind === "call_logged" ? <Phone className="h-3 w-3 text-accent mt-0.5" /> : <Activity className="h-3 w-3 text-muted-foreground mt-0.5" />}
+              <div className="min-w-0 flex-1">
+                <div className="font-medium">
+                  {a.kind === "call_logged" ? `Call logged by ${actorName(a.actor)}` : a.text}
+                </div>
+                <div className="text-[10px] text-muted-foreground">{fmtActivityTime(a.ts)}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -1026,21 +1127,26 @@ function NegotiationPlaybook({
   const [open, setOpen] = useState(false);
   const setLeadStage = useApp((s) => s.setLeadStage);
   const currentUser = useApp((s) => s.tcms.find((t) => t.id === s.currentTcmId));
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   function resolveTemplate(template: string, lead: Lead, ctx: ImpactTplCtx): string {
     return template
-      .replace(/\{price\}/g, 
+      .replace(/\{price\}/g,
         lead.budget ? `₹${lead.budget.toLocaleString("en-IN")}` : "")
-      .replace(/\{altPrice\}/g, 
+      .replace(/\{altPrice\}/g,
         lead.budget ? `₹${(lead.budget * 0.9).toLocaleString("en-IN")}` : "")
       .replace(/\{propertyName\}/g, ctx.propertyName ?? "the property")
       .replace(/\{roomType\}/g, "triple")
       .replace(/\{leadName\}/g, lead.name ?? "")
       .replace(/\{agentName\}/g, ctx.agentName ?? currentUser?.name ?? "")
-      .replace(/\{[^}]+\}/g, ""); // clear any remaining unresolved
+      .replace(/\{[^}]+\}/g, "");
   }
 
   const send = (msg: string, label: string) => {
+    if (!leadPhone.trim()) {
+      toast.warning("Set lead phone first");
+      return;
+    }
     openWhatsApp(leadPhone, msg);
     setLeadStage(lead.id, "negotiation");
     toast.success(`${label} sent`);
@@ -1055,15 +1161,15 @@ function NegotiationPlaybook({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1">
+        <Button size="sm" variant="outline" className={`h-7 text-[10px] gap-1 ${actionButtonClass}`}>
           <Sparkles className="h-3 w-3" /> Negotiate
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl flex flex-col p-0 gap-0 overflow-hidden max-h-[85vh]">
-        <DialogHeader className="flex-none px-6 py-4 border-b">
+      <DialogContent className="max-w-2xl overflow-visible">
+        <DialogHeader>
           <DialogTitle className="text-sm">Negotiation playbook · {lead.name}</DialogTitle>
         </DialogHeader>
-        <div className="flex-1 overflow-y-auto min-h-0 px-6 py-4 pb-10 space-y-3">
+        <div className="space-y-3 overflow-y-auto max-h-[calc(100vh-160px)] pb-6 scroll-smooth">
           {paths.map((p) => (
             <div key={p.key} className="border border-border rounded-lg p-3 space-y-2">
               <div>
@@ -1079,8 +1185,12 @@ function NegotiationPlaybook({
                         <Badge variant="outline" className="text-[9px] uppercase">{tpl.label}</Badge>
                         <div className="flex gap-1">
                           <Button size="sm" variant="ghost" className="h-6 text-[10px] gap-1"
-                            onClick={() => copyText(msg, "Copied")}>
-                            <ClipboardCopy className="h-3 w-3" /> Copy
+                            onClick={() => {
+                              void copyText(msg, "Copied!");
+                              setCopiedId(tpl.id);
+                              window.setTimeout(() => setCopiedId((id) => id === tpl.id ? null : id), 2000);
+                            }}>
+                            <ClipboardCopy className="h-3 w-3" /> {copiedId === tpl.id ? "Copied!" : "Copy"}
                           </Button>
                           <Button size="sm" className="h-6 text-[10px] gap-1"
                             onClick={() => send(msg, tpl.label)}>
@@ -1119,11 +1229,31 @@ function QuickAddLead({ defaultTcmId }: { defaultTcmId: string }) {
   const [intent, setIntent] = useState<Lead["intent"]>("warm");
   const [tcmId, setTcmId] = useState<string>(defaultTcmId);
   const [autoRoute, setAutoRoute] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [touched, setTouched] = useState({ name: false, phone: false, area: false });
+  const [submitting, setSubmitting] = useState(false);
+
+  const errors = {
+    name: name.trim().length >= 2 ? "" : "Name must be at least 2 characters.",
+    phone: isValidPhone(phone) ? "" : "Phone must be exactly 10 digits.",
+    area: area.trim() ? "" : "Preferred location is required.",
+  };
+  const canSubmit = !errors.name && !errors.phone && !errors.area && !submitting;
 
   const reset = () => {
     setName(""); setPhone(""); setArea(""); setBudget(12000);
     setMoveIn(todayISO()); setIntent("warm"); setTcmId(defaultTcmId); setAutoRoute(true);
+    setTouched({ name: false, phone: false, area: false });
+    setSubmitting(false);
+  };
+
+  const handlePaste = (event: ClipboardEvent<HTMLInputElement>) => {
+    const parsed = parsePastedText(event.clipboardData.getData("text"));
+    if (!parsed.name && !parsed.phone && !parsed.location) return;
+    event.preventDefault();
+    setName(parsed.name ?? "");
+    setPhone(parsed.phone ?? "");
+    setArea(parsed.location ?? "");
+    setTouched({ name: false, phone: false, area: false });
   };
 
   const finishSuccess = (message = "Lead added to Impact Queue") => {
@@ -1133,15 +1263,15 @@ function QuickAddLead({ defaultTcmId }: { defaultTcmId: string }) {
   };
 
   const submit = async () => {
-    if (!name.trim() || !phone.trim()) return toast.error("Name + phone required");
-    if (!area.trim()) return toast.error("Preferred area required");
+    setTouched({ name: true, phone: true, area: true });
+    if (!canSubmit) return;
 
     const phoneE164 = normalizePhone(phone);
     const nameTrim = name.trim();
     const areaTrim = area.trim();
     const moveInIso = new Date(moveIn).toISOString();
 
-    setIsSubmitting(true);
+    setSubmitting(true);
     try {
       const result = await dispatch({
         type: "cmd.lead.create",
@@ -1212,7 +1342,7 @@ function QuickAddLead({ defaultTcmId }: { defaultTcmId: string }) {
       if (appeared) finishSuccess();
       else toast.error("Failed to add lead. Try again.");
     } finally {
-      setIsSubmitting(false);
+      setSubmitting(false);
     }
   };
 
@@ -1230,23 +1360,26 @@ function QuickAddLead({ defaultTcmId }: { defaultTcmId: string }) {
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-2">
             <Field label="Name">
-              <Input className="h-8 text-xs" value={name} onChange={(e) => setName(e.target.value)} />
+              <Input className="h-8 text-xs" value={name} onPaste={handlePaste} onBlur={() => setTouched((t) => ({ ...t, name: true }))} onChange={(e) => setName(e.target.value)} />
+              {touched.name && errors.name && <p className="mt-1 text-[10px] text-danger">{errors.name}</p>}
             </Field>
             <Field label="Phone">
-              <Input className="h-8 text-xs" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+91 9xxxxxxxxx" />
+              <Input className="h-8 text-xs" value={phone} onPaste={handlePaste} onBlur={() => setTouched((t) => ({ ...t, phone: true }))} onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))} placeholder="9xxxxxxxxx" />
+              {touched.phone && errors.phone && <p className="mt-1 text-[10px] text-danger">{errors.phone}</p>}
             </Field>
           </div>
           <div className="grid grid-cols-2 gap-2">
             <Field label="Preferred area">
-              <Input className="h-8 text-xs" value={area} onChange={(e) => setArea(e.target.value)} />
+              <Input className="h-8 text-xs" value={area} onPaste={handlePaste} onBlur={() => setTouched((t) => ({ ...t, area: true }))} onChange={(e) => setArea(e.target.value)} />
+              {touched.area && errors.area && <p className="mt-1 text-[10px] text-danger">{errors.area}</p>}
             </Field>
             <Field label="Budget (₹/mo)">
-              <Input className="h-8 text-xs" type="number" value={budget} onChange={(e) => setBudget(Number(e.target.value))} />
+              <Input className="h-8 text-xs" type="number" value={budget} onPaste={handlePaste} onChange={(e) => setBudget(Number(e.target.value))} />
             </Field>
           </div>
           <div className="grid grid-cols-2 gap-2">
             <Field label="Move-in by">
-              <Input className="h-8 text-xs" type="date" value={moveIn} onChange={(e) => setMoveIn(e.target.value)} />
+              <Input className="h-8 text-xs" type="date" value={moveIn} onPaste={handlePaste} onChange={(e) => setMoveIn(e.target.value)} />
             </Field>
             <Field label="Intent">
               <Select value={intent} onValueChange={(v) => setIntent(v as Lead["intent"]) }>
@@ -1288,8 +1421,13 @@ function QuickAddLead({ defaultTcmId }: { defaultTcmId: string }) {
             )}
           </div>
 
-          <Button className="w-full h-8 text-xs" onClick={() => void submit()} disabled={isSubmitting}>
-            {isSubmitting ? "Adding..." : "Add to queue"}
+          <Button
+            className={`w-full h-8 text-xs ${actionButtonClass}`}
+            onClick={() => void submit()}
+            disabled={!canSubmit || submitting}
+          >
+            {submitting && <RotateCcw className="h-3 w-3 mr-1 animate-spin" />}
+            {submitting ? "Adding..." : "Add to queue"}
           </Button>
         </div>
       </DialogContent>
@@ -1318,11 +1456,12 @@ function ScheduleTourDialog({ lead }: { lead: Lead }) {
   const [selectedAgent, setSelectedAgent] = useState(lead.assignedTcmId ?? "");
   const [propertySearch, setPropertySearch] = useState("");
   const [selectedProperty, setSelectedProperty] = useState<PG | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  
+  const [scheduling, setScheduling] = useState(false);
+
   const today = todayISO();
   const [date, setDate] = useState(today);
   const [time, setTime] = useState("11:00");
+  const [submitted, setSubmitted] = useState(false);
 
   const filteredProperties = useMemo(() => {
     const q = propertySearch.trim().toLowerCase();
@@ -1336,27 +1475,35 @@ function ScheduleTourDialog({ lead }: { lead: Lead }) {
     return list.slice(0, 6);
   }, [propertySearch, lead.preferredArea]);
 
-  const isValid = selectedProperty !== null && selectedAgent !== "" && date !== "" && time !== "";
+  const scheduleErrors = {
+    property: selectedProperty ? "" : "Property is required.",
+    agent: selectedAgent ? "" : "Agent is required.",
+    date: date && date >= today ? "" : "Date must be today or future.",
+    time: time ? "" : "Time slot is required.",
+  };
+  const canSchedule = !scheduleErrors.property && !scheduleErrors.agent && !scheduleErrors.date && !scheduleErrors.time;
 
   const handleScheduleTour = async () => {
-    if (!isValid) return;
-    setIsSubmitting(true);
+    setSubmitted(true);
+    if (!canSchedule) return;
     const iso = new Date(`${date}T${time}:00`).toISOString();
+    setScheduling(true);
     try {
-      await scheduleTour({ 
-        leadId: lead.id, 
-        propertyId: selectedProperty!.id, 
-        tcmId: selectedAgent, 
-        scheduledAt: iso 
+      await scheduleTour({
+        leadId: lead.id,
+        propertyId: selectedProperty!.id,
+        tcmId: selectedAgent,
+        scheduledAt: iso,
       });
       toast.success("Tour scheduled successfully");
       setOpen(false);
       setPropertySearch("");
       setSelectedProperty(null);
+      setSubmitted(false);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to schedule tour. Try again.");
     } finally {
-      setIsSubmitting(false);
+      setScheduling(false);
     }
   };
 
@@ -1390,7 +1537,7 @@ function ScheduleTourDialog({ lead }: { lead: Lead }) {
                     No properties found
                   </div>
                 )}
-                {filteredProperties.map(property => (
+                {filteredProperties.map((property) => (
                   <button
                     key={property.id}
                     type="button"
@@ -1400,59 +1547,60 @@ function ScheduleTourDialog({ lead }: { lead: Lead }) {
                     }}
                     className={cn(
                       "w-full text-left text-xs px-2 py-1.5 transition-colors",
-                      selectedProperty?.id === property.id ? "bg-primary/10" : "hover:bg-muted/50"
+                      selectedProperty?.id === property.id ? "bg-primary/10" : "hover:bg-muted/50",
                     )}
                   >
                     <div className="font-medium">{property.name}</div>
-                    <div className="text-[10px] text-muted-foreground">
-                      {property.area} · 0 vacant
-                    </div>
+                    <div className="text-[10px] text-muted-foreground">{property.area} · Property Hub</div>
                   </button>
                 ))}
               </div>
             ) : null}
+            {submitted && scheduleErrors.property && (
+              <p className="mt-1 text-[10px] text-danger">{scheduleErrors.property}</p>
+            )}
           </div>
 
           <div className="flex flex-col gap-1">
             <label className="text-[10px] uppercase text-muted-foreground">ASSIGN TO</label>
             <select
               value={selectedAgent}
-              onChange={e => setSelectedAgent(e.target.value)}
+              onChange={(e) => setSelectedAgent(e.target.value)}
               className="w-full border border-border rounded-md px-2 py-1.5 text-xs bg-transparent focus:outline-none focus:ring-1 focus:ring-primary h-8"
             >
               <option value="">Select agent...</option>
-              {tcms.map(agent => (
+              {tcms.map((agent) => (
                 <option key={agent.id} value={agent.id} className="bg-background">
                   {agent.name} · {agent.zone ?? ""}
                 </option>
               ))}
             </select>
+            {submitted && scheduleErrors.agent && (
+              <p className="mt-1 text-[10px] text-danger">{scheduleErrors.agent}</p>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-2">
             <div className="flex flex-col gap-1">
               <label className="text-[10px] uppercase text-muted-foreground">Date</label>
               <Input type="date" className="h-8 text-xs" value={date} onChange={(e) => setDate(e.target.value)} min={today} />
+              {submitted && scheduleErrors.date && <p className="mt-1 text-[10px] text-danger">{scheduleErrors.date}</p>}
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-[10px] uppercase text-muted-foreground">Time</label>
               <Input type="time" className="h-8 text-xs" value={time} onChange={(e) => setTime(e.target.value)} />
+              {submitted && scheduleErrors.time && <p className="mt-1 text-[10px] text-danger">{scheduleErrors.time}</p>}
             </div>
           </div>
 
-          <button
-            type="button"
-            disabled={!isValid || isSubmitting}
+          <Button
+            className={`w-full h-8 text-xs ${actionButtonClass}`}
             onClick={() => void handleScheduleTour()}
-            className={cn(
-              "w-full py-2 h-8 rounded-md font-semibold text-white text-xs transition-colors",
-              isValid && !isSubmitting 
-                ? "bg-black hover:bg-gray-800" 
-                : "bg-gray-300 cursor-not-allowed text-gray-500"
-            )}
+            disabled={scheduling || (submitted && !canSchedule)}
           >
-            {isSubmitting ? "Scheduling..." : "Schedule tour"}
-          </button>
+            {scheduling && <RotateCcw className="h-3 w-3 mr-1 animate-spin" />}
+            {scheduling ? "Scheduling..." : "Schedule tour"}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
@@ -1558,7 +1706,7 @@ function QuotationDialog({ lead, label = "Send quotation", variant = "default" }
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" variant={variant === "ghost" ? "ghost" : "default"} className="h-7 text-[10px] gap-1">
+        <Button size="sm" variant={variant === "ghost" ? "ghost" : "default"} className={`h-7 text-[10px] gap-1 ${actionButtonClass}`}>
           <FileText className="h-3 w-3" /> {label}
         </Button>
       </DialogTrigger>
@@ -1575,11 +1723,12 @@ function BookingDialog({ lead, quote, openTour }: { lead: Lead; quote: Quotation
   const { mutate: upsertCheckin } = useUpsertCheckin();
   const [open, setOpen] = useState(false);
   const [amt, setAmt] = useState(quote.discountedPrice);
+  const [closing, setClosing] = useState(false);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" className="h-7 text-[10px] gap-1 bg-success text-success-foreground hover:bg-success/90">
+        <Button size="sm" className={`h-7 text-[10px] gap-1 bg-success text-success-foreground hover:bg-success/90 ${actionButtonClass}`}>
           <CheckCircle2 className="h-3 w-3" /> Book
         </Button>
       </DialogTrigger>
@@ -1597,26 +1746,35 @@ function BookingDialog({ lead, quote, openTour }: { lead: Lead; quote: Quotation
             Prebook collected: {formatINR(quote.prebook)} · Deposit: {formatINR(quote.deposit)}
           </div>
           <Button
-            className="w-full h-8 text-xs"
+            className={`w-full h-8 text-xs ${actionButtonClass}`}
+            disabled={closing}
             onClick={() => {
-              closeDeal({
-                leadId: lead.id,
-                tourId: openTour?.id ?? "manual",
-                propertyId: quote.propertyId ?? openTour?.propertyId ?? "",
-                tcmId: lead.assignedTcmId,
-                amount: amt,
-              });
-              upsertCheckin({
-                leadId: lead.id,
-                rent: amt,
-                deposit: quote.deposit,
-                propertyId: quote.propertyId ?? openTour?.propertyId,
-                propertyName: quote.propertyName,
-              });
-              toast.success("Booking closed");
-              setOpen(false);
+              setClosing(true);
+              try {
+                closeDeal({
+                  leadId: lead.id,
+                  tourId: openTour?.id ?? "manual",
+                  propertyId: quote.propertyId ?? openTour?.propertyId ?? "",
+                  tcmId: lead.assignedTcmId,
+                  amount: amt,
+                });
+                upsertCheckin({
+                  leadId: lead.id,
+                  rent: amt,
+                  deposit: quote.deposit,
+                  propertyId: quote.propertyId ?? openTour?.propertyId,
+                  propertyName: quote.propertyName,
+                });
+                toast.success("Booking closed");
+                setOpen(false);
+              } catch {
+                toast.error("Booking failed");
+              } finally {
+                setClosing(false);
+              }
             }}
           >
+            {closing && <RotateCcw className="h-3 w-3 mr-1 animate-spin" />}
             Confirm booking
           </Button>
           {!openTour && <div className="text-[10px] text-warning">No tour found — booking will be marked as direct.</div>}
@@ -1638,6 +1796,7 @@ function DirectBookButton({ lead, openTour }: { lead: Lead; openTour?: Tour }) {
   const [rent, setRent] = useState(lead.budget);
   const [moveIn, setMoveIn] = useState(todayISO());
   const [mode, setMode] = useState<"upi" | "card" | "cash" | "bank">("upi");
+  const [submitting, setSubmitting] = useState(false);
 
   const filtered = useMemo(() => {
     const q = propQuery.trim().toLowerCase();
@@ -1657,6 +1816,7 @@ function DirectBookButton({ lead, openTour }: { lead: Lead; openTour?: Tour }) {
       toast.error("Pick or add a property");
       return;
     }
+    setSubmitting(true);
     try {
       closeDeal({ leadId: lead.id, tourId: openTour?.id ?? "direct", propertyId: pid, tcmId: lead.assignedTcmId, amount: rent });
       const prop = properties.find((item) => item.id === pid);
@@ -1666,13 +1826,15 @@ function DirectBookButton({ lead, openTour }: { lead: Lead; openTour?: Tour }) {
       setOpen(false);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Direct booking failed");
+    } finally {
+      setSubmitting(false);
     }
   };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1">
+        <Button size="sm" variant="outline" className={`h-7 text-[10px] gap-1 ${actionButtonClass}`}>
           <Wallet className="h-3 w-3" /> Direct book
         </Button>
       </DialogTrigger>
@@ -1714,7 +1876,10 @@ function DirectBookButton({ lead, openTour }: { lead: Lead; openTour?: Tour }) {
               </SelectContent>
             </Select>
           </Field>
-          <Button className="w-full h-8 text-xs" onClick={() => void submit()}>Confirm direct booking</Button>
+          <Button className={`w-full h-8 text-xs ${actionButtonClass}`} onClick={() => void submit()} disabled={submitting}>
+            {submitting && <RotateCcw className="h-3 w-3 mr-1 animate-spin" />}
+            Confirm direct booking
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
@@ -1726,7 +1891,7 @@ function CheckInOpsButton({ lead, existing }: { lead: Lead; property?: Property;
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" variant={existing ? "default" : "outline"} className="h-7 text-[10px] gap-1">
+        <Button size="sm" variant={existing ? "default" : "outline"} className={`h-7 text-[10px] gap-1 ${actionButtonClass}`}>
           <KeyRound className="h-3 w-3" /> Check-in
         </Button>
       </DialogTrigger>
@@ -2073,8 +2238,7 @@ function MessageLabSheet({ open, onOpenChange, tcms }: { open: boolean; onOpenCh
   const copy = (text: string) => copyText(text);
   const send = (text: string) => {
     if (!leadPhone.trim()) {
-      copy(text);
-      toast("No lead phone — copied to clipboard instead");
+      toast.warning("Set lead phone first");
       return;
     }
     openWhatsApp(leadPhone, text);

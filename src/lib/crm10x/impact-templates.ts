@@ -4,7 +4,7 @@
  * pick the line that matches the lead's mood and never sends a stale message.
  *
  * All templates accept the same context bag and resolve {placeholders} at
- * render time. Anything unresolved is left visible so the TCM sees the gap.
+ * render time. Anything unresolved is cleared so messages never leak tokens.
  */
 export type ImpactScenario =
   | "tour-confirm"
@@ -44,7 +44,7 @@ const fmt = (s: string, ctx: ImpactTplCtx) => {
   const dict = ctx as unknown as Record<string, unknown>;
   return s.replace(/\{(\w+)\}/g, (_, k) =>
     dict[k] === undefined || dict[k] === null || dict[k] === ""
-      ? `{${k}}`
+      ? ""
       : String(dict[k]),
   );
 };
