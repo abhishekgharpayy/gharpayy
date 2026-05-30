@@ -4,7 +4,7 @@ import type {
   PostTourUpdate, ClientDecision, LeadStage, Intent,
   HandoffMessage, ActiveSequence, SequenceKind, Booking,
 } from "./types";
-import { ACTIVITIES, FOLLOWUPS, PROPERTIES, TCMS, TOURS, HANDOFFS, SEQUENCES_INIT } from "./mock-data";
+import { ACTIVITIES, FOLLOWUPS, PROPERTIES, TCMS, HANDOFFS, SEQUENCES_INIT } from "./mock-data";
 import { autoAssign as autoAssignFn } from "./routing";
 import { api } from "@/lib/api/client";
 import { isTodayIST } from "@/lib/crm10x/dates";
@@ -70,6 +70,7 @@ interface AppState {
 
   addLead: (input: AddLeadInput) => Lead;
   setLeads: (leads: Lead[]) => void;
+  setTours: (tours: Tour[]) => void;
   setLeadStage: (leadId: string, stage: LeadStage) => Promise<void>;
   setLeadIntent: (leadId: string, intent: Intent) => void;
   setLeadFollowUp: (leadId: string, dueAt: string, priority: FollowUp["priority"], reason?: string) => void;
@@ -118,11 +119,9 @@ export const useApp = create<AppState>((set, get) => ({
 
   tcms: TCMS,
   properties: PROPERTIES,
-  // Leads are now hydrated from the VPS Mongo backend by <LiveLeadsBridge/>.
-  // Other entities (tours, follow-ups, handoffs, sequences, bookings) still
-  // use mock data until their backend modules are wired.
+  // Leads + tours hydrated from Mongo by LiveLeadsBridge / LiveToursAppBridge.
   leads: [],
-  tours: TOURS,
+  tours: [],
   activities: ACTIVITIES,
   followUps: FOLLOWUPS,
   handoffs: HANDOFFS,
@@ -166,6 +165,7 @@ export const useApp = create<AppState>((set, get) => ({
     return lead;
   },
   setLeads: (leads: Lead[]) => set({ leads }),
+  setTours: (tours: Tour[]) => set({ tours }),
 
   setLeadStage: async (leadId, stage) => {
     const prevLead = get().leads.find((l) => l.id === leadId);

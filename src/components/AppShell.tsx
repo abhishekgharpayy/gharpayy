@@ -28,6 +28,7 @@ import { usePipRouteSync } from "./pip/usePipSync";
 import { ClientOnly } from "./ClientOnly";
 import { QuickCreateMenu } from "./QuickCreateMenu";
 import { LiveLeadsBridge } from "./LiveLeadsBridge";
+import { LiveToursAppBridge } from "./LiveToursAppBridge";
 import { LiveToursBridge } from "./LiveToursBridge";
 import { useAuthUser } from "@/lib/auth-store";
 import { useAppState } from "@/myt/lib/app-context";
@@ -207,6 +208,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     <PictureInPictureProvider>
       <PipRouteSyncBridge />
       <LiveLeadsBridge />
+      <LiveToursAppBridge />
       {shouldMountMytBridges ? <LiveToursBridge /> : null}
       <div className="min-h-screen flex w-full bg-background text-foreground">
       {/* Sidebar */}
