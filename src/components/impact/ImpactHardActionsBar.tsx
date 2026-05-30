@@ -206,7 +206,12 @@ export function ImpactHardActionsBar({
                             <span className="text-[10px] text-muted-foreground uppercase">{e.lead.intent}</span>
                           </div>
                           <span className="text-[10px] text-muted-foreground pl-4 truncate w-full">
-                            {e.nba.label} — {assignee || "TCM"}
+                            Move-in: {(() => {
+                              if (!e.lead.moveInDate) return "TBD";
+                              const d = new Date(e.lead.moveInDate);
+                              if (isNaN(d.getTime())) return "TBD";
+                              return new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short' }).format(d);
+                            })()} · {e.lead.propertyName || e.lead.preferredArea || "Any Property"}
                           </span>
                         </DropdownMenuItem>
                       );
