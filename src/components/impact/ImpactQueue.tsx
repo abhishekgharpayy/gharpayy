@@ -9,8 +9,13 @@ import { useQuotationsQuery, useSetQuotationStatus, formatINR, type Quotation } 
 import { useTcmContacts } from "@/lib/crm10x/tcm-contacts";
 import { useLeadInterests, useToggleInterest } from "@/lib/crm10x/lead-interests";
 import { useCheckin, useUpsertCheckin, usePatchCheckin, STAGE_LABEL, riskLevel, RISK_CLASS, RISK_LABEL, type CheckIn } from "@/lib/checkins/store";
-import { waBookingConfirm, waDateConfirm, waRescheduleCheckIn, waTokenRequest } from "@/lib/checkins/templates";
 import type { ActivityLog, Lead, Property, TCM, Tour } from "@/lib/types";
+import {
+  resolvePropertyById,
+  searchPropertyCatalog,
+  allCatalogProperties,
+  type CatalogProperty,
+} from "@/lib/crm10x/property-catalog";
 import {
   IMPACT_TEMPLATES, renderImpactTemplate,
   type ImpactScenario, type ImpactTpl, type ImpactTplCtx,
@@ -196,6 +201,7 @@ export function ImpactQueue() {
   const [onlyTourToday, setOnlyTourToday] = useState(false);
   const [onlyQuotePending, setOnlyQuotePending] = useState(false);
   const [view, setView] = useState<ViewMode>("board");
+  const [focusLeadId, setFocusLeadId] = useState<string | null>(null);
 
   /* --------- 10x live tick: re-rank every 60s --------- */
   // Start at 0 on SSR + first client render to avoid hydration mismatches.
@@ -316,6 +322,10 @@ export function ImpactQueue() {
         targets={targets}
         stackSorted={stackSorted}
         tick={tick}
+        onFocusLead={(leadId, name) => {
+          setQuery(name);
+          setFocusLeadId(leadId);
+        }}
       />
 
       {/* ---------------- Header ---------------- */}
@@ -445,7 +455,15 @@ export function ImpactQueue() {
                   </div>
                 )}
                 {boardBuckets[c.key].map((e) => (
-                  <LeadRow key={e.lead.id} enriched={e} tcms={tcms} properties={properties} compact />
+                  <LeadRow
+                    key={e.lead.id}
+                    enriched={e}
+                    tcms={tcms}
+                    properties={properties}
+                    compact
+                    autoOpen={focusLeadId === e.lead.id}
+                    onAutoOpenConsumed={() => setFocusLeadId(null)}
+                  />
                 ))}
               </div>
               </div>
@@ -622,6 +640,7 @@ function Chip({
     "bg-foreground text-background border-foreground";
   return (
     <button
+      type="button"
       onClick={onClick}
       className={`${base} ${active ? activeStyle : "bg-card text-muted-foreground border-border hover:border-foreground/40"}`}>
       {children}
@@ -639,19 +658,30 @@ type EnrichedLite = {
 };
 
 function LeadRow({
-  enriched, rank, tcms, properties, compact,
+  enriched, rank, tcms, properties, compact, autoOpen, onAutoOpenConsumed,
 }: {
   enriched: EnrichedLite; rank?: number; tcms: TCM[]; properties: Property[]; compact?: boolean;
+  autoOpen?: boolean; onAutoOpenConsumed?: () => void;
 }) {
   const { lead, openTour, lastQuote, nba, column } = enriched;
   const [open, setOpen] = useState(false);
   const tcm = tcms.find((t) => t.id === lead.assignedTcmId);
-  const property = openTour ? properties.find((p) => p.id === openTour.propertyId) : undefined;
+  const catalogProperty = openTour
+    ? resolvePropertyById(openTour.propertyId, properties)
+    : undefined;
   const colMeta = COLUMNS.find((c) => c.key === column)!;
+
+  useEffect(() => {
+    if (autoOpen) {
+      setOpen(true);
+      onAutoOpenConsumed?.();
+    }
+  }, [autoOpen, onAutoOpenConsumed]);
 
   return (
     <>
       <button
+        type="button"
         onClick={() => setOpen(true)}
         className={`w-full text-left rounded-md border bg-card hover:border-accent/60 hover:bg-muted/30 transition-colors px-3 py-2 flex items-center gap-3 group ${compact ? "" : ""}`}>
         {rank !== undefined && (
@@ -687,7 +717,8 @@ function LeadRow({
         onOpenChange={setOpen}
         enriched={enriched}
         tcm={tcm}
-        property={property}
+        catalogProperty={catalogProperty}
+        opsProperties={properties}
       />
     </>
   );
@@ -707,23 +738,24 @@ function LeadInterestedPropertiesPicker({ lead }: { lead: Lead }) {
   const [query, setQuery] = useState("");
 
   const liked = interests
-    .map((id) => properties.find((p) => p.id === id))
-    .filter(Boolean) as Property[];
+    .map((id) => resolvePropertyById(id, properties))
+    .filter(Boolean) as CatalogProperty[];
 
-  const list = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const base = q
-      ? properties.filter(
-          (p) => p.name.toLowerCase().includes(q) || p.area.toLowerCase().includes(q),
-        )
-      : properties.slice(0, 12);
-    return [...base].sort((a, b) => {
-      const af = interests.includes(a.id) ? 0 : 1;
-      const bf = interests.includes(b.id) ? 0 : 1;
-      if (af !== bf) return af - bf;
-      return b.vacantBeds - a.vacantBeds;
-    });
-  }, [properties, query, interests]);
+  const list = useMemo(
+    () => searchPropertyCatalog(query, properties, { preferredArea: lead.preferredArea, limit: 16 }),
+    [properties, query, lead.preferredArea],
+  );
+
+  const sortedList = useMemo(
+    () =>
+      [...list].sort((a, b) => {
+        const af = interests.includes(a.id) ? 0 : 1;
+        const bf = interests.includes(b.id) ? 0 : 1;
+        if (af !== bf) return af - bf;
+        return (b.vacantBeds ?? 1) - (a.vacantBeds ?? 1);
+      }),
+    [list, interests],
+  );
 
   return (
     <div className="rounded-lg border border-border bg-gradient-to-br from-card via-card to-accent/5 p-3 space-y-2 shadow-sm">
@@ -763,17 +795,23 @@ function LeadInterestedPropertiesPicker({ lead }: { lead: Lead }) {
               <Star className="h-3 w-3 text-accent" />
               <span className="font-semibold">#{i + 1} {p.name}</span>
               <span className="text-muted-foreground">· {p.area} · {formatINR(p.pricePerBed)}</span>
-              <Badge
-                variant="outline"
-                className={`text-[9px] ${
-                  p.vacantBeds > 0
-                    ? "bg-success/10 text-success border-success/40"
-                    : "bg-danger/10 text-danger border-danger/40"
-                }`}
-              >
-                {p.vacantBeds}/{p.totalBeds}
-              </Badge>
+              {p.source === "hub" && (
+                <Badge variant="outline" className="text-[8px]">Hub</Badge>
+              )}
+              {p.vacantBeds !== undefined && (
+                <Badge
+                  variant="outline"
+                  className={`text-[9px] ${
+                    p.vacantBeds > 0
+                      ? "bg-success/10 text-success border-success/40"
+                      : "bg-danger/10 text-danger border-danger/40"
+                  }`}
+                >
+                  {p.vacantBeds}/{p.totalBeds ?? "—"}
+                </Badge>
+              )}
               <button
+                type="button"
                 onClick={() => toggleInterest({ leadId: lead.id, propertyId: p.id })}
                 className="opacity-40 hover:opacity-100 hover:text-danger"
                 aria-label="Remove"
@@ -797,11 +835,12 @@ function LeadInterestedPropertiesPicker({ lead }: { lead: Lead }) {
             />
           </div>
           <div className="max-h-44 overflow-y-auto space-y-1 rounded-md border border-border p-1">
-            {list.map((p) => {
+            {sortedList.map((p) => {
               const on = interests.includes(p.id);
               return (
                 <button
                   key={p.id}
+                  type="button"
                   onClick={() => toggleInterest({ leadId: lead.id, propertyId: p.id })}
                   className={`w-full text-left text-[11px] px-2 py-1 rounded border flex items-center gap-2 transition ${
                     on
@@ -820,22 +859,25 @@ function LeadInterestedPropertiesPicker({ lead }: { lead: Lead }) {
                     <div className="font-medium truncate">{p.name}</div>
                     <div className="text-[10px] text-muted-foreground truncate">
                       {p.area} · {formatINR(p.pricePerBed)}/bed
+                      {p.source === "hub" ? " · Property Hub" : ""}
                     </div>
                   </div>
-                  <Badge
-                    variant="outline"
-                    className={`text-[9px] ${
-                      p.vacantBeds > 0
-                        ? "bg-success/10 text-success border-success/40"
-                        : "bg-danger/10 text-danger border-danger/40"
-                    }`}
-                  >
-                    {p.vacantBeds}/{p.totalBeds}
-                  </Badge>
+                  {p.vacantBeds !== undefined && (
+                    <Badge
+                      variant="outline"
+                      className={`text-[9px] ${
+                        p.vacantBeds > 0
+                          ? "bg-success/10 text-success border-success/40"
+                          : "bg-danger/10 text-danger border-danger/40"
+                      }`}
+                    >
+                      {p.vacantBeds}/{p.totalBeds ?? "—"}
+                    </Badge>
+                  )}
                 </button>
               );
             })}
-            {list.length === 0 && (
+            {sortedList.length === 0 && (
               <p className="text-[11px] text-muted-foreground text-center py-3">
                 No matches.
               </p>
@@ -848,17 +890,25 @@ function LeadInterestedPropertiesPicker({ lead }: { lead: Lead }) {
 }
 
 function LeadDrawer({
-  open, onOpenChange, enriched, tcm, property,
+  open, onOpenChange, enriched, tcm, catalogProperty, opsProperties,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   enriched: EnrichedLite;
   tcm?: TCM;
-  property?: Property;
+  catalogProperty?: CatalogProperty;
+  opsProperties: Property[];
 }) {
   const { lead, openTour, lastQuote, nba, column } = enriched;
   const colMeta = COLUMNS.find((c) => c.key === column)!;
   const [now, mounted] = useMountedNow(30_000);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [schedulePrefill, setSchedulePrefill] = useState<PG | null>(null);
+
+  const handlePickPg = (pg: PG) => {
+    setSchedulePrefill(pg);
+    setScheduleOpen(true);
+  };
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -896,7 +946,7 @@ function LeadDrawer({
               {openTour && (
                 <Badge variant="outline" className="text-[10px] gap-1">
                   <Calendar className="h-3 w-3" />
-                  {property?.name ?? "Property"} · {fmtTime(openTour.scheduledAt)} ({mounted ? fmtRel(openTour.scheduledAt, now) : "—"})
+                  {catalogProperty?.name ?? "Property"} · {fmtTime(openTour.scheduledAt)} ({mounted ? fmtRel(openTour.scheduledAt, now) : "—"})
                 </Badge>
               )}
               {lastQuote && (
@@ -913,15 +963,20 @@ function LeadDrawer({
         <div className="flex-1 overflow-y-auto px-5 py-4">
           <div className="mb-3 space-y-3">
             <SmartDossier lead={lead} />
-            <LeadPropertyDossier lead={lead} />
+            <LeadPropertyDossier lead={lead} onPickPg={handlePickPg} />
           </div>
           <CommandActions
             lead={lead}
             tcm={tcm}
             openTour={openTour}
             lastQuote={lastQuote}
-            property={property}
+            catalogProperty={catalogProperty}
+            opsProperties={opsProperties}
             column={column}
+            scheduleOpen={scheduleOpen}
+            schedulePrefill={schedulePrefill}
+            onScheduleOpenChange={setScheduleOpen}
+            onSchedulePrefillClear={() => setSchedulePrefill(null)}
           />
         </div>
       </SheetContent>
@@ -934,10 +989,16 @@ function LeadDrawer({
 /* ================================================================== */
 
 function CommandActions({
-  lead, tcm, openTour, lastQuote, property, column,
+  lead, tcm, openTour, lastQuote, catalogProperty, opsProperties, column,
+  scheduleOpen, schedulePrefill, onScheduleOpenChange, onSchedulePrefillClear,
 }: {
   lead: Lead; tcm?: TCM; openTour?: Tour; lastQuote?: Quotation;
-  property?: Property; column: ColumnKey;
+  catalogProperty?: CatalogProperty; opsProperties: Property[];
+  column: ColumnKey;
+  scheduleOpen?: boolean;
+  schedulePrefill?: PG | null;
+  onScheduleOpenChange?: (v: boolean) => void;
+  onSchedulePrefillClear?: () => void;
 }) {
   const completeTour = useApp((s) => s.completeTour);
   const markTourStarted = useApp((s) => s.markTourStarted);
@@ -1021,8 +1082,8 @@ function CommandActions({
     leadName: lead.name.split(" ")[0],
     agentName: tcm?.name,
     agentPhone: tcmPhone,
-    propertyName: property?.name ?? lastQuote?.propertyName,
-    propertyAddress: property?.area,
+    propertyName: catalogProperty?.name ?? lastQuote?.propertyName,
+    propertyAddress: catalogProperty?.area,
     tourWhen: openTour ? fmtWhen(openTour.scheduledAt) : undefined,
     roomType: lastQuote?.roomType,
     price: lastQuote?.discountedPrice,
@@ -1030,7 +1091,7 @@ function CommandActions({
     area: lead.preferredArea,
     budget: lead.budget,
     moveIn: fmtDate(lead.moveInDate),
-  }), [lead, tcm, tcmPhone, property, lastQuote, openTour]);
+  }), [lead, tcm, tcmPhone, catalogProperty, lastQuote, openTour]);
 
   /* primary scenario picker (changes with state) */
   const primaryScenario: ImpactScenario = useMemo(() => {
@@ -1055,7 +1116,18 @@ function CommandActions({
 
       {/* Action toolbar — context-aware */}
       <div className="flex flex-wrap gap-1.5 pt-2 border-t border-border">
-        {column === "inbox" && <ScheduleTourDialog lead={lead} />}
+        {(column === "inbox" || scheduleOpen) && (
+          <ScheduleTourDialog
+            lead={lead}
+            open={scheduleOpen}
+            onOpenChange={(v) => {
+              onScheduleOpenChange?.(v);
+              if (!v) onSchedulePrefillClear?.();
+            }}
+            prefillPg={schedulePrefill}
+            showTrigger={column === "inbox"}
+          />
+        )}
 
         {column === "scheduled" && openTour && (
           <>
@@ -1070,7 +1142,11 @@ function CommandActions({
         {column === "onTour" && openTour && (
           <>
             <Button size="sm" variant="outline" className={`h-7 text-[10px] gap-1 ${actionButtonClass}`}
-              onClick={() => { completeTour(openTour.id); toast.success("Tour completed"); }}>
+              onClick={() => {
+                void completeTour(openTour.id)
+                  .then(() => toast.success("Tour completed"))
+                  .catch((err) => toast.error(err instanceof Error ? err.message : "Failed to complete tour"));
+              }}>
               <CheckCircle2 className="h-3 w-3" /> Tour done
             </Button>
           </>
@@ -1107,8 +1183,8 @@ function CommandActions({
           onClick={() => void logCallAction()} disabled={loggingCall}>
           {loggingCall ? <RotateCcw className="h-3 w-3 animate-spin" /> : <Phone className="h-3 w-3" />} Log call
         </Button>
-        <DirectBookButton lead={lead} openTour={openTour} />
-        <CheckInOpsButton lead={lead} property={property} quote={lastQuote} existing={checkin} />
+        <DirectBookButton lead={lead} openTour={openTour} opsProperties={opsProperties} />
+        <CheckInOpsButton lead={lead} catalogProperty={catalogProperty} quote={lastQuote} existing={checkin} />
       </div>
 
       {checkin && <CheckInAuditReport checkin={checkin} lead={lead} compact />}
@@ -1608,11 +1684,26 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 /*  Schedule Tour                                                      */
 /* ================================================================== */
 
-function ScheduleTourDialog({ lead }: { lead: Lead }) {
+function ScheduleTourDialog({
+  lead,
+  open: controlledOpen,
+  onOpenChange: controlledOnOpenChange,
+  prefillPg,
+  showTrigger = true,
+}: {
+  lead: Lead;
+  open?: boolean;
+  onOpenChange?: (v: boolean) => void;
+  prefillPg?: PG | null;
+  showTrigger?: boolean;
+}) {
   const tcms = useApp((s) => s.tcms);
   const scheduleTour = useApp((s) => s.scheduleTour);
 
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = controlledOpen ?? internalOpen;
+  const setOpen = controlledOnOpenChange ?? setInternalOpen;
+
   const [selectedAgent, setSelectedAgent] = useState(lead.assignedTcmId ?? "");
   const [propertySearch, setPropertySearch] = useState("");
   const [selectedProperty, setSelectedProperty] = useState<PG | null>(null);
@@ -1622,6 +1713,13 @@ function ScheduleTourDialog({ lead }: { lead: Lead }) {
   const [date, setDate] = useState(today);
   const [time, setTime] = useState("11:00");
   const [submitted, setSubmitted] = useState(false);
+
+  useEffect(() => {
+    if (open && prefillPg) {
+      setSelectedProperty(prefillPg);
+      setPropertySearch(prefillPg.name);
+    }
+  }, [open, prefillPg]);
 
   const filteredProperties = useMemo(() => {
     const q = propertySearch.trim().toLowerCase();
@@ -1669,11 +1767,13 @@ function ScheduleTourDialog({ lead }: { lead: Lead }) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button size="sm" className="h-7 text-[10px] gap-1">
-          <Calendar className="h-3 w-3" /> Schedule
-        </Button>
-      </DialogTrigger>
+      {showTrigger && (
+        <DialogTrigger asChild>
+          <Button size="sm" className="h-7 text-[10px] gap-1">
+            <Calendar className="h-3 w-3" /> Schedule
+          </Button>
+        </DialogTrigger>
+      )}
       <DialogContent className="max-w-md">
         <DialogHeader><DialogTitle className="text-sm">Schedule tour · {lead.name}</DialogTitle></DialogHeader>
         <div className="space-y-3">
@@ -1772,8 +1872,10 @@ function ScheduleTourDialog({ lead }: { lead: Lead }) {
 /* ================================================================== */
 
 function ConfirmTourButton({ lead, tour }: { lead: Lead; tour: Tour }) {
-  const tcm = useApp((s) => s.tcms.find((item) => item.id === tour.tcmId));
-  const property = useApp((s) => s.properties.find((item) => item.id === tour.propertyId));
+  const tcms = useApp((s) => s.tcms);
+  const opsProperties = useApp((s) => s.properties);
+  const catalogProperty = resolvePropertyById(tour.propertyId, opsProperties);
+  const tcm = tcms.find((item) => item.id === tour.tcmId);
   const phones = useTcmContacts((s) => s.phones);
   const setPhone = useTcmContacts((s) => s.setPhone);
   const [open, setOpen] = useState(false);
@@ -1785,13 +1887,14 @@ function ConfirmTourButton({ lead, tour }: { lead: Lead; tour: Tour }) {
       leadName: lead.name.split(" ")[0],
       agentName: tcm?.name ?? "Gharpayy TCM",
       agentPhone: phone || "(coming soon)",
-      propertyName: property?.name ?? "Property",
+      propertyName: catalogProperty?.name ?? "Property",
+      propertyAddress: catalogProperty?.area,
       tourWhen: fmtWhen(tour.scheduledAt),
     });
-  }, [lead.name, phone, property?.name, tcm?.name, tour.scheduledAt]);
+  }, [lead.name, phone, catalogProperty?.name, catalogProperty?.area, tcm?.name, tour.scheduledAt]);
 
   const handleSend = () => {
-    if (phone) setPhone(tour.tcmId, phone);
+    if (phone) setPhone(tour.tcmId, normalizePhone(phone));
     openWhatsApp(lead.phone, message);
     toast.success("Confirmation ready");
     setOpen(false);
@@ -1944,8 +2047,12 @@ function BookingDialog({ lead, quote, openTour }: { lead: Lead; quote: Quotation
   );
 }
 
-function DirectBookButton({ lead, openTour }: { lead: Lead; openTour?: Tour }) {
-  const properties = useApp((s) => s.properties);
+function DirectBookButton({
+  lead, openTour, opsProperties,
+}: {
+  lead: Lead; openTour?: Tour; opsProperties: Property[];
+}) {
+  const properties = opsProperties;
   const closeDeal = useApp((s) => s.closeDeal);
   const addProperty = useApp((s) => s.addProperty);
   const { mutateAsync: upsertCheckin } = useUpsertCheckin();
@@ -1953,35 +2060,50 @@ function DirectBookButton({ lead, openTour }: { lead: Lead; openTour?: Tour }) {
   const [open, setOpen] = useState(false);
   const [propQuery, setPropQuery] = useState("");
   const [propId, setPropId] = useState(openTour?.propertyId ?? "");
+  const [propName, setPropName] = useState("");
   const [rent, setRent] = useState(lead.budget);
   const [moveIn, setMoveIn] = useState(todayISO());
   const [mode, setMode] = useState<"upi" | "card" | "cash" | "bank">("upi");
   const [submitting, setSubmitting] = useState(false);
 
-  const filtered = useMemo(() => {
-    const q = propQuery.trim().toLowerCase();
-    if (!q) return properties.slice(0, 6);
-    return properties.filter((item) => item.name.toLowerCase().includes(q) || item.area.toLowerCase().includes(q)).slice(0, 6);
-  }, [properties, propQuery]);
+  const filtered = useMemo(
+    () => searchPropertyCatalog(propQuery, properties, { preferredArea: lead.preferredArea, limit: 8 }),
+    [properties, propQuery, lead.preferredArea],
+  );
 
   const submit = async () => {
     let pid = propId;
-    let propName = propQuery.trim();
-    if (!pid && propName) {
-      const created = addProperty({ name: propName, area: lead.preferredArea, pricePerBed: rent, totalBeds: 1, vacantBeds: 1 });
+    let name = propName || propQuery.trim();
+    if (!pid && name) {
+      const created = addProperty({ name, area: lead.preferredArea, pricePerBed: rent, totalBeds: 1, vacantBeds: 1 });
       pid = created.id;
-      propName = created.name;
+      name = created.name;
     }
     if (!pid) {
       toast.error("Pick or add a property");
       return;
     }
+    if (rent <= 0) {
+      toast.error("Rent must be greater than zero");
+      return;
+    }
     setSubmitting(true);
     try {
       closeDeal({ leadId: lead.id, tourId: openTour?.id ?? "direct", propertyId: pid, tcmId: lead.assignedTcmId, amount: rent });
-      const prop = properties.find((item) => item.id === pid);
-      const ci = await upsertCheckin({ leadId: lead.id, rent, propertyId: pid, propertyName: prop?.name ?? propName });
-      if (moveIn && ci) await patchCheckin({ id: ci.id, leadId: lead.id, patch: { checkInDate: new Date(moveIn).toISOString() } });
+      const resolved = resolvePropertyById(pid, properties);
+      const ci = await upsertCheckin({
+        leadId: lead.id,
+        rent,
+        propertyId: pid,
+        propertyName: resolved?.name ?? name,
+      });
+      if (moveIn && ci) {
+        await patchCheckin({
+          id: ci.id,
+          leadId: lead.id,
+          patch: { checkInDate: new Date(moveIn).toISOString() },
+        });
+      }
       toast.success(`Direct booking · ${lead.name} · ${formatINR(rent)}`);
       setOpen(false);
     } catch (error) {
@@ -2012,11 +2134,20 @@ function DirectBookButton({ lead, openTour }: { lead: Lead; openTour?: Tour }) {
               {filtered.map((item) => (
                 <button
                   key={item.id}
-                  onClick={() => { setPropId(item.id); setPropQuery(item.name); setRent(item.pricePerBed); }}
+                  type="button"
+                  onClick={() => {
+                    setPropId(item.id);
+                    setPropQuery(item.name);
+                    setPropName(item.name);
+                    setRent(item.pricePerBed);
+                  }}
                   className={`w-full text-left text-xs px-2 py-1.5 rounded border ${propId === item.id ? "bg-primary/10 border-primary/40" : "border-border hover:bg-muted/50"}`}
                 >
                   <div className="font-medium">{item.name}</div>
-                  <div className="text-[10px] text-muted-foreground">{item.area} · {formatINR(item.pricePerBed)}/bed</div>
+                  <div className="text-[10px] text-muted-foreground">
+                    {item.area} · {formatINR(item.pricePerBed)}/bed
+                    {item.source === "hub" ? " · Property Hub" : ""}
+                  </div>
                 </button>
               ))}
             </div>
@@ -2120,9 +2251,9 @@ function FocusInventoryStrip({ tcmFilter }: { tcmFilter: string }) {
     return list.map((t) => {
       const ids = focusProps[t.id] ?? [];
       const props = ids
-        .map((id) => properties.find((p) => p.id === id))
-        .filter(Boolean) as Property[];
-      const vacant = props.reduce((a, p) => a + p.vacantBeds, 0);
+        .map((id) => resolvePropertyById(id, properties))
+        .filter(Boolean) as CatalogProperty[];
+      const vacant = props.reduce((a, p) => a + (p.vacantBeds ?? 0), 0);
       return { tcm: t, props, vacant };
     });
   }, [activeTcm, tcms, focusProps, properties]);
@@ -2176,23 +2307,28 @@ function FocusInventoryStrip({ tcmFilter }: { tcmFilter: string }) {
                     <div
                       key={p.id}
                       className={`text-[10px] rounded-md border px-2 py-1 flex items-center gap-1.5 ${
-                        p.vacantBeds === 0
+                        (p.vacantBeds ?? 1) === 0
                           ? "border-danger/40 bg-danger/5 text-muted-foreground"
                           : "border-border bg-card"
                       }`}
                     >
                       <span className="font-semibold">{p.name}</span>
                       <span className="text-muted-foreground">· {p.area}</span>
-                      <Badge
-                        variant="outline"
-                        className={`text-[9px] ${
-                          p.vacantBeds > 0
-                            ? "bg-success/10 text-success border-success/40"
-                            : "bg-danger/10 text-danger border-danger/40"
-                        }`}
-                      >
-                        {p.vacantBeds}/{p.totalBeds}
-                      </Badge>
+                      {p.source === "hub" && (
+                        <Badge variant="outline" className="text-[8px]">Hub</Badge>
+                      )}
+                      {p.vacantBeds !== undefined && (
+                        <Badge
+                          variant="outline"
+                          className={`text-[9px] ${
+                            p.vacantBeds > 0
+                              ? "bg-success/10 text-success border-success/40"
+                              : "bg-danger/10 text-danger border-danger/40"
+                          }`}
+                        >
+                          {p.vacantBeds}/{p.totalBeds ?? "—"}
+                        </Badge>
+                      )}
                       <span className="text-muted-foreground">{formatINR(p.pricePerBed)}</span>
                     </div>
                   ))}
@@ -2229,19 +2365,12 @@ function ManageFocusDialog({
 
   const focused = focusProps[tcmId] ?? [];
   const list = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const base = q
-      ? properties.filter(
-          (p) =>
-            p.name.toLowerCase().includes(q) ||
-            p.area.toLowerCase().includes(q),
-        )
-      : properties;
+    const base = searchPropertyCatalog(query, properties, { limit: 40 });
     return [...base].sort((a, b) => {
       const af = focused.includes(a.id) ? 0 : 1;
       const bf = focused.includes(b.id) ? 0 : 1;
       if (af !== bf) return af - bf;
-      return b.vacantBeds - a.vacantBeds;
+      return (b.vacantBeds ?? 1) - (a.vacantBeds ?? 1);
     });
   }, [properties, query, focused]);
 
@@ -2301,6 +2430,7 @@ function ManageFocusDialog({
               return (
                 <button
                   key={p.id}
+                  type="button"
                   onClick={() => toggleFocusProp(tcmId, p.id)}
                   className={`w-full text-left text-xs px-2 py-1.5 rounded border flex items-center gap-2 transition ${
                     on
@@ -2315,18 +2445,21 @@ function ManageFocusDialog({
                     <div className="font-medium truncate">{p.name}</div>
                     <div className="text-[10px] text-muted-foreground truncate">
                       {p.area} · {formatINR(p.pricePerBed)}/bed
+                      {p.source === "hub" ? " · Property Hub" : ""}
                     </div>
                   </div>
-                  <Badge
-                    variant="outline"
-                    className={`text-[9px] ${
-                      p.vacantBeds > 0
-                        ? "bg-success/10 text-success border-success/40"
-                        : "bg-danger/10 text-danger border-danger/40"
-                    }`}
-                  >
-                    {p.vacantBeds}/{p.totalBeds}
-                  </Badge>
+                  {p.vacantBeds !== undefined && (
+                    <Badge
+                      variant="outline"
+                      className={`text-[9px] ${
+                        p.vacantBeds > 0
+                          ? "bg-success/10 text-success border-success/40"
+                          : "bg-danger/10 text-danger border-danger/40"
+                      }`}
+                    >
+                      {p.vacantBeds}/{p.totalBeds ?? "—"}
+                    </Badge>
+                  )}
                 </button>
               );
             })}
@@ -2366,10 +2499,11 @@ function MessageLabButton({ tcms }: { tcms: TCM[] }) {
 }
 
 function MessageLabSheet({ open, onOpenChange, tcms }: { open: boolean; onOpenChange: (v: boolean) => void; tcms: TCM[] }) {
-  const properties = useApp((s) => s.properties);
+  const opsProperties = useApp((s) => s.properties);
+  const catalog = useMemo(() => allCatalogProperties(opsProperties), [opsProperties]);
   const phones = useTcmContacts((s) => s.phones);
   const [tcmId, setTcmId] = useState(tcms[0]?.id ?? "");
-  const [propId, setPropId] = useState(properties[0]?.id ?? "");
+  const [propId, setPropId] = useState(catalog[0]?.id ?? "");
   const [leadName, setLeadName] = useState("Aakash");
   const [leadPhone, setLeadPhone] = useState("");
   const [tourWhen, setTourWhen] = useState("Tomorrow, 11:00 AM");
@@ -2377,7 +2511,7 @@ function MessageLabSheet({ open, onOpenChange, tcms }: { open: boolean; onOpenCh
   const [altPrice, setAltPrice] = useState<number>(10500);
   const [budget, setBudget] = useState<number>(13000);
   const tcm = tcms.find((item) => item.id === tcmId);
-  const property = properties.find((item) => item.id === propId);
+  const property = catalog.find((item) => item.id === propId);
 
   const ctx: ImpactTplCtx = useMemo(() => ({
     leadName,
@@ -2426,7 +2560,13 @@ function MessageLabSheet({ open, onOpenChange, tcms }: { open: boolean; onOpenCh
             <Field label="Property">
               <Select value={propId} onValueChange={setPropId}>
                 <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>{properties.map((item) => <SelectItem key={item.id} value={item.id} className="text-xs">{item.name}</SelectItem>)}</SelectContent>
+                <SelectContent>
+                  {catalog.map((item) => (
+                    <SelectItem key={item.id} value={item.id} className="text-xs">
+                      {item.name}{item.source === "hub" ? " · Hub" : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
             </Field>
             <Field label="Tour when"><Input className="h-8 text-xs" value={tourWhen} onChange={(event) => setTourWhen(event.target.value)} /></Field>
@@ -2471,7 +2611,7 @@ function MessageLabSheet({ open, onOpenChange, tcms }: { open: boolean; onOpenCh
 /* ================================================================== */
 
 function TenXCommandBar({
-  lastRerank, escalations, counters, targets, stackSorted, tick,
+  lastRerank, escalations, counters, targets, stackSorted, tick, onFocusLead,
 }: {
   lastRerank: number;
   escalations: number;
@@ -2479,11 +2619,12 @@ function TenXCommandBar({
   targets: { toursToday: number; quotesWeek: number; bookingsMonth: number };
   stackSorted: Array<{ lead: { id: string; name: string }; score: number; nba: { label: string; pressure: string }; column: string }>;
   tick: number;
+  onFocusLead?: (leadId: string, name: string) => void;
 }) {
   const streak = counters.toursToday + counters.quotesWeek + counters.bookingsMonth;
   const breach = escalations;
   const top5 = stackSorted.slice(0, 5);
-  const stalled = stackSorted.filter((e) => e.nba.pressure === "escalate" || e.nba.pressure === "overdue").slice(0, 5);
+  const stalled = stackSorted.filter((e) => e.nba.pressure === "escalate").slice(0, 5);
   const moved = Math.min(streak, 99);
 
   const ago = lastRerank === 0 ? 0 : Math.max(0, Math.floor((Date.now() - lastRerank) / 1000));
@@ -2580,10 +2721,16 @@ function TenXCommandBar({
                 <ol className="space-y-1">
                   {top5.length === 0 && <li className="text-xs text-muted-foreground italic">Queue clear.</li>}
                   {top5.map((e, i) => (
-                    <li key={e.lead.id} className="flex items-center gap-2 text-xs rounded-md border border-border bg-card p-2">
-                      <span className="h-5 w-5 rounded-full bg-accent/15 text-accent text-[10px] font-semibold flex items-center justify-center">{i + 1}</span>
-                      <span className="font-medium truncate flex-1">{e.lead.name}</span>
-                      <Badge variant="outline" className="text-[9px]">{e.nba.label}</Badge>
+                    <li key={e.lead.id}>
+                      <button
+                        type="button"
+                        onClick={() => onFocusLead?.(e.lead.id, e.lead.name)}
+                        className="w-full flex items-center gap-2 text-xs rounded-md border border-border bg-card p-2 text-left hover:border-accent/50 hover:bg-accent/5 transition"
+                      >
+                        <span className="h-5 w-5 rounded-full bg-accent/15 text-accent text-[10px] font-semibold flex items-center justify-center">{i + 1}</span>
+                        <span className="font-medium truncate flex-1">{e.lead.name}</span>
+                        <Badge variant="outline" className="text-[9px]">{e.nba.label}</Badge>
+                      </button>
                     </li>
                   ))}
                 </ol>
@@ -2594,10 +2741,16 @@ function TenXCommandBar({
                   <div className="text-[10px] uppercase tracking-wider text-danger font-semibold mb-1">Stalled — escalate</div>
                   <ul className="space-y-1">
                     {stalled.map((e) => (
-                      <li key={e.lead.id} className="flex items-center gap-2 text-xs rounded-md border border-danger/30 bg-danger/5 p-2">
-                        <Zap className="h-3 w-3 text-danger" />
-                        <span className="font-medium truncate flex-1">{e.lead.name}</span>
-                        <Badge variant="outline" className="text-[9px] border-danger/40 text-danger">{e.nba.label}</Badge>
+                      <li key={e.lead.id}>
+                        <button
+                          type="button"
+                          onClick={() => onFocusLead?.(e.lead.id, e.lead.name)}
+                          className="w-full flex items-center gap-2 text-xs rounded-md border border-danger/30 bg-danger/5 p-2 text-left hover:border-danger/50 transition"
+                        >
+                          <Zap className="h-3 w-3 text-danger" />
+                          <span className="font-medium truncate flex-1">{e.lead.name}</span>
+                          <Badge variant="outline" className="text-[9px] border-danger/40 text-danger">{e.nba.label}</Badge>
+                        </button>
                       </li>
                     ))}
                   </ul>

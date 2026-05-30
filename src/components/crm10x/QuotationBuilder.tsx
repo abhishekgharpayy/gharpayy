@@ -138,11 +138,14 @@ export function QuotationBuilder({ lead, embedded, onSent }: Props) {
       onSuccess: (quote) => {
         void setLeadStage(lead.id, "quote-sent");
         if (quote) toast.success(`Quotation sent · ${formatINR(quote.discountedPrice)}`);
+        window.open(waLink(lead.phone, message), "_blank", "noopener,noreferrer");
+        if (embedded) onSent?.();
+        else setOpen(false);
+      },
+      onError: () => {
+        toast.error("Failed to save quotation — WhatsApp not opened");
       },
     });
-    window.open(waLink(lead.phone, message), "_blank", "noopener,noreferrer");
-    if (embedded) onSent?.();
-    else setOpen(false);
   };
 
   const form = (
