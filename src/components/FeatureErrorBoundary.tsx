@@ -1,6 +1,7 @@
 import React from "react";
 import { AlertTriangle, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { captureBoundaryError } from "@/lib/error-reporting";
 
 export class FeatureErrorBoundary extends React.Component<
   { children: React.ReactNode; fallback?: React.ReactNode },
@@ -17,7 +18,7 @@ export class FeatureErrorBoundary extends React.Component<
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error("FeatureErrorBoundary caught an error:", error, errorInfo);
-    // Here we could report to Sentry / Datadog
+    captureBoundaryError(error, errorInfo.componentStack ?? undefined);
   }
 
   render() {

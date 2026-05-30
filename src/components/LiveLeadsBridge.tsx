@@ -4,6 +4,7 @@
 // store now sees real data without any per-page refactor.
 import { useEffect, useRef } from "react";
 import { useApp } from "@/lib/store";
+import { useLeadsSync } from "@/lib/leads-sync";
 import { api } from "@/lib/api/client";
 import { onEvent, getSocket } from "@/lib/api/socket";
 import type { Lead as LegacyLead, LeadStage, Intent } from "@/lib/types";
@@ -55,15 +56,22 @@ export function LiveLeadsBridge() {
   useEffect(() => {
     let cancelled = false;
 
+    useLeadsSync.getState().setLoading();
+
     void (async () => {
       try {
         const r = await api.leads.list({ limit: 200 });
         if (cancelled) return;
         const fallbackTcm = tcmsRef.current[0]?.id ?? "";
         setLeads((r.items as WireLead[]).map((l) => toLegacy(l, fallbackTcm)));
+        useLeadsSync.getState().setReady();
       } catch (e) {
-        console.warn("[LiveLeadsBridge] initial load failed:", (e as Error).message);
-        if (!cancelled) setLeads([]);
+        const msg = (e as Error).message;
+        console.warn("[LiveLeadsBridge] initial load failed:", msg);
+        if (!cancelled) {
+          setLeads([]);
+          useLeadsSync.getState().setError(msg);
+        }
       }
     })();
 
