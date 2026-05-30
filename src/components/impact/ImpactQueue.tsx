@@ -3,6 +3,13 @@ import { cn } from "@/lib/utils";
 import { PGS } from "@/property-genius/data/pgs";
 import type { PG } from "@/types/entities";
 import { LeadPropertyDossier } from "@/components/impact/LeadPropertyDossier";
+import { ImpactHardActionsBar } from "@/components/impact/ImpactHardActionsBar";
+import {
+  classifyImpactPriority,
+  IMPACT_PRIORITY_META,
+  mapNbaToFocusAction,
+  type LeadFocusAction,
+} from "@/lib/crm10x/impact-hard-actions";
 import { useApp } from "@/lib/store";
 import { api } from "@/lib/api/client";
 import { useQuotationsQuery, useSetQuotationStatus, formatINR, type Quotation } from "@/lib/crm10x/quotations";
@@ -185,7 +192,14 @@ function parsePastedText(text: string): { name?: string; phone?: string; locatio
   };
 }
 
-type IntentFilter = "all" | "hot" | "warm" | "cold";
+type QueueChipFilter =
+  | "all"
+  | "hot"
+  | "warm"
+  | "cold"
+  | "overdue"
+  | "tour-today"
+  | "quote-pending";
 type ViewMode = "stack" | "board";
 type ColumnKey = "inbox" | "scheduled" | "onTour" | "quoted" | "booked";
 const COLUMNS: { key: ColumnKey; label: string; tint: string; icon: typeof Sparkles }[] = [
@@ -205,12 +219,19 @@ export function ImpactQueue() {
 
   const [tcmFilter, setTcmFilter] = useState<string>(role === "tcm" ? currentTcmId : "all");
   const [query, setQuery] = useState("");
-  const [intent, setIntent] = useState<IntentFilter>("all");
-  const [onlyOverdue, setOnlyOverdue] = useState(false);
-  const [onlyTourToday, setOnlyTourToday] = useState(false);
-  const [onlyQuotePending, setOnlyQuotePending] = useState(false);
+  const [chipFilter, setChipFilter] = useState<QueueChipFilter>("all");
   const [view, setView] = useState<ViewMode>("board");
   const [focusLeadId, setFocusLeadId] = useState<string | null>(null);
+  const [focusAction, setFocusAction] = useState<LeadFocusAction | null>(null);
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
+
+  const selectChip = (next: QueueChipFilter) => {
+    if (next === "all") {
+      setChipFilter("all");
+      return;
+    }
+    setChipFilter((prev) => (prev === next ? "all" : next));
+  };
 
   /* --------- 10x live tick: re-rank every 60s --------- */
   // Start at 0 on SSR + first client render to avoid hydration mismatches.
@@ -241,7 +262,6 @@ export function ImpactQueue() {
     const at = typeof window !== "undefined" ? Date.now() : 0;
     const tFilter = (lead: Lead) =>
       (tcmFilter === "all" || lead.assignedTcmId === tcmFilter) &&
-      (intent === "all" || lead.intent === intent) &&
       (!query.trim() ||
         lead.name.toLowerCase().includes(query.toLowerCase()) ||
         lead.phone.includes(query));
@@ -275,7 +295,7 @@ export function ImpactQueue() {
           : undefined;
       return { lead, openTour, lastQuote, nba, score, column, tourBand, tourTimeHint };
     });
-  }, [leads, tours, quotes, tcmFilter, query, intent, tick]);
+  }, [leads, tours, quotes, tcmFilter, query, tick]);
 
   /* Auto-promote tour-scheduled → on-tour when tour day is today (IST). */
   const autoPromotedRef = useRef(new Set<string>());
@@ -298,14 +318,16 @@ export function ImpactQueue() {
   /* --------- filter chips --------- */
   const filtered = useMemo(() => {
     return enriched.filter((e) => {
-      if (onlyOverdue && e.nba.pressure !== "escalate") return false;
-      if (onlyTourToday && !(e.openTour && isToday(e.openTour.scheduledAt))) return false;
-      if (onlyQuotePending && !(e.lastQuote?.status === "sent")) return false;
-      // Hide closed deals unless filtering by booked column
+      if (chipFilter === "hot" && e.lead.intent !== "hot") return false;
+      if (chipFilter === "warm" && e.lead.intent !== "warm") return false;
+      if (chipFilter === "cold" && e.lead.intent !== "cold") return false;
+      if (chipFilter === "overdue" && e.nba.pressure !== "escalate") return false;
+      if (chipFilter === "tour-today" && !(e.openTour && isToday(e.openTour.scheduledAt))) return false;
+      if (chipFilter === "quote-pending" && e.lastQuote?.status !== "sent") return false;
       if (e.lead.stage === "dropped") return false;
       return true;
     });
-  }, [enriched, onlyOverdue, onlyTourToday, onlyQuotePending]);
+  }, [enriched, chipFilter]);
 
   const stackSorted = useMemo(
     () => [...filtered].sort((a, b) => b.score - a.score),
@@ -365,6 +387,16 @@ export function ImpactQueue() {
 
   return (
     <div className="space-y-3">
+      <ImpactHardActionsBar
+        enriched={stackSorted}
+        tcms={tcms}
+        onPickLead={(leadId, _name, action) => {
+          setFocusLeadId(leadId);
+          setFocusAction(action);
+        }}
+        onAddLead={() => setQuickAddOpen(true)}
+      />
+
       {/* ---------------- 10x Command Bar ---------------- */}
       <TenXCommandBar
         lastRerank={lastRerank}
@@ -373,9 +405,9 @@ export function ImpactQueue() {
         targets={targets}
         stackSorted={stackSorted}
         tick={tick}
-        onFocusLead={(leadId, name) => {
-          setQuery(name);
+        onFocusLead={(leadId) => {
           setFocusLeadId(leadId);
+          setFocusAction("auto");
         }}
       />
 
@@ -398,7 +430,11 @@ export function ImpactQueue() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <QuickAddLead defaultTcmId={tcmFilter !== "all" ? tcmFilter : currentTcmId} />
+          <QuickAddLead
+            defaultTcmId={tcmFilter !== "all" ? tcmFilter : currentTcmId}
+            open={quickAddOpen}
+            onOpenChange={setQuickAddOpen}
+          />
           <div className="relative">
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <Input
@@ -441,7 +477,10 @@ export function ImpactQueue() {
           got={counters.quotesWeek}
           target={targets.quotesWeek}
           tone={tone(counters.quotesWeek, targets.quotesWeek)}
-          onFocusLead={(name) => setQuery(name)}
+          onFocusLead={(leadId) => {
+            setFocusLeadId(leadId);
+            setFocusAction("auto");
+          }}
         />
         <Counter label="Bookings this month" got={counters.bookingsMonth} target={targets.bookingsMonth} tone={tone(counters.bookingsMonth, targets.bookingsMonth)} icon={Target} />
       </div>
@@ -451,18 +490,18 @@ export function ImpactQueue() {
 
       {/* ---------------- Filter chips ---------------- */}
       <div className="flex flex-wrap gap-1.5 items-center">
-        <Chip active={intent === "all"} onClick={() => setIntent("all")}>All</Chip>
-        <Chip active={intent === "hot"} onClick={() => setIntent("hot")} tone="danger"><Flame className="h-3 w-3" /> Hot</Chip>
-        <Chip active={intent === "warm"} onClick={() => setIntent("warm")} tone="warning">Warm</Chip>
-        <Chip active={intent === "cold"} onClick={() => setIntent("cold")}>Cold</Chip>
+        <Chip active={chipFilter === "all"} onClick={() => selectChip("all")}>All</Chip>
+        <Chip active={chipFilter === "hot"} onClick={() => selectChip("hot")} tone="danger"><Flame className="h-3 w-3" /> Hot</Chip>
+        <Chip active={chipFilter === "warm"} onClick={() => selectChip("warm")} tone="warning">Warm</Chip>
+        <Chip active={chipFilter === "cold"} onClick={() => selectChip("cold")}>Cold</Chip>
         <span className="text-muted-foreground/40">·</span>
-        <Chip active={onlyOverdue} onClick={() => setOnlyOverdue((v) => !v)} tone="danger">
+        <Chip active={chipFilter === "overdue"} onClick={() => selectChip("overdue")} tone="danger">
           Overdue only
         </Chip>
-        <Chip active={onlyTourToday} onClick={() => setOnlyTourToday((v) => !v)} tone="warning">
+        <Chip active={chipFilter === "tour-today"} onClick={() => selectChip("tour-today")} tone="warning">
           Tour today
         </Chip>
-        <Chip active={onlyQuotePending} onClick={() => setOnlyQuotePending((v) => !v)}>
+        <Chip active={chipFilter === "quote-pending"} onClick={() => selectChip("quote-pending")}>
           Quote pending
         </Chip>
         <MessageLabButton tcms={tcms} />
@@ -480,7 +519,19 @@ export function ImpactQueue() {
             </div>
           )}
           {stackSorted.map((e, i) => (
-            <LeadRow key={e.lead.id} rank={i + 1} enriched={e} tcms={tcms} properties={properties} />
+            <LeadRow
+              key={e.lead.id}
+              rank={i + 1}
+              enriched={e}
+              tcms={tcms}
+              properties={properties}
+              autoOpen={focusLeadId === e.lead.id}
+              focusAction={focusLeadId === e.lead.id ? focusAction : null}
+              onAutoOpenConsumed={() => {
+                setFocusLeadId(null);
+                setFocusAction(null);
+              }}
+            />
           ))}
         </div>
       ) : (
@@ -506,7 +557,11 @@ export function ImpactQueue() {
                 properties={properties}
                 nowMs={tick ? Date.now() : 0}
                 focusLeadId={focusLeadId}
-                onFocusConsumed={() => setFocusLeadId(null)}
+                focusAction={focusAction}
+                onFocusConsumed={() => {
+                  setFocusLeadId(null);
+                  setFocusAction(null);
+                }}
               />
               </div>
             ))}
@@ -562,7 +617,7 @@ function QuotesWeekCounter({
   got: number;
   target: number;
   tone: string;
-  onFocusLead: (leadName: string) => void;
+  onFocusLead: (leadId: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const pct = Math.min(100, Math.round((got / Math.max(target, 1)) * 100));
@@ -628,9 +683,9 @@ function QuotesWeekCounter({
                           variant="outline"
                           className="h-7 text-[10px]"
                           onClick={() => {
-                            onFocusLead(lead.name);
+                            onFocusLead(lead.id);
                             setOpen(false);
-                            toast.success(`Filtered to ${lead.name}`);
+                            toast.success(`Opened ${lead.name}`);
                           }}
                         >
                           Find lead
@@ -701,6 +756,7 @@ function BoardColumnBody({
   properties,
   nowMs,
   focusLeadId,
+  focusAction,
   onFocusConsumed,
 }: {
   columnKey: ColumnKey;
@@ -709,6 +765,7 @@ function BoardColumnBody({
   properties: Property[];
   nowMs: number;
   focusLeadId: string | null;
+  focusAction: LeadFocusAction | null;
   onFocusConsumed: () => void;
 }) {
   const useBands = columnKey === "scheduled" || columnKey === "onTour";
@@ -754,6 +811,7 @@ function BoardColumnBody({
             properties={properties}
             compact
             autoOpen={focusLeadId === e.lead.id}
+            focusAction={focusLeadId === e.lead.id ? focusAction : null}
             onAutoOpenConsumed={onFocusConsumed}
           />
         ))}
@@ -786,6 +844,7 @@ function BoardColumnBody({
                   properties={properties}
                   compact
                   autoOpen={focusLeadId === e.lead.id}
+                  focusAction={focusLeadId === e.lead.id ? focusAction : null}
                   onAutoOpenConsumed={onFocusConsumed}
                 />
               ))}
@@ -809,13 +868,18 @@ type EnrichedLite = {
 };
 
 function LeadRow({
-  enriched, rank, tcms, properties, compact, autoOpen, onAutoOpenConsumed,
+  enriched, rank, tcms, properties, compact, autoOpen, focusAction, onAutoOpenConsumed,
 }: {
   enriched: EnrichedLite; rank?: number; tcms: TCM[]; properties: Property[]; compact?: boolean;
-  autoOpen?: boolean; onAutoOpenConsumed?: () => void;
+  autoOpen?: boolean;
+  focusAction?: LeadFocusAction | null;
+  onAutoOpenConsumed?: () => void;
 }) {
-  const { lead, openTour, lastQuote, nba, column, tourTimeHint } = enriched;
+  const { lead, openTour, lastQuote, nba, column, tourTimeHint, tourBand } = enriched;
   const [open, setOpen] = useState(false);
+  const [drawerAction, setDrawerAction] = useState<LeadFocusAction | null>(null);
+  const priority = classifyImpactPriority(enriched);
+  const priorityMeta = IMPACT_PRIORITY_META[priority];
   const tcm = tcms.find((t) => t.id === lead.assignedTcmId);
   const catalogProperty = openTour
     ? resolvePropertyById(openTour.propertyId, properties)
@@ -825,9 +889,10 @@ function LeadRow({
   useEffect(() => {
     if (autoOpen) {
       setOpen(true);
+      if (focusAction) setDrawerAction(focusAction);
       onAutoOpenConsumed?.();
     }
-  }, [autoOpen, onAutoOpenConsumed]);
+  }, [autoOpen, focusAction, onAutoOpenConsumed]);
 
   return (
     <>
@@ -842,6 +907,10 @@ function LeadRow({
         )}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 flex-wrap">
+            <span
+              className={`h-2 w-2 rounded-full shrink-0 ${priorityMeta.dot}`}
+              title={priorityMeta.hint}
+            />
             <span className="text-xs font-semibold truncate">{lead.name}</span>
             <Badge variant="outline" className={`text-[9px] uppercase ${intentChip(lead.intent)}`}>{lead.intent}</Badge>
             {!compact && (
@@ -881,6 +950,8 @@ function LeadRow({
         tcm={tcm}
         catalogProperty={catalogProperty}
         opsProperties={properties}
+        pendingAction={drawerAction}
+        onPendingActionConsumed={() => setDrawerAction(null)}
       />
     </>
   );
@@ -1053,6 +1124,7 @@ function LeadInterestedPropertiesPicker({ lead }: { lead: Lead }) {
 
 function LeadDrawer({
   open, onOpenChange, enriched, tcm, catalogProperty, opsProperties,
+  pendingAction, onPendingActionConsumed,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -1060,6 +1132,8 @@ function LeadDrawer({
   tcm?: TCM;
   catalogProperty?: CatalogProperty;
   opsProperties: Property[];
+  pendingAction?: LeadFocusAction | null;
+  onPendingActionConsumed?: () => void;
 }) {
   const { lead, openTour, lastQuote, nba, column } = enriched;
   const colMeta = COLUMNS.find((c) => c.key === column)!;
@@ -1132,6 +1206,7 @@ function LeadDrawer({
             tcm={tcm}
             openTour={openTour}
             lastQuote={lastQuote}
+            nba={nba}
             catalogProperty={catalogProperty}
             opsProperties={opsProperties}
             column={column}
@@ -1139,6 +1214,8 @@ function LeadDrawer({
             schedulePrefill={schedulePrefill}
             onScheduleOpenChange={setScheduleOpen}
             onSchedulePrefillClear={() => setSchedulePrefill(null)}
+            pendingAction={pendingAction}
+            onPendingActionConsumed={onPendingActionConsumed}
           />
         </div>
       </SheetContent>
@@ -1151,16 +1228,19 @@ function LeadDrawer({
 /* ================================================================== */
 
 function CommandActions({
-  lead, tcm, openTour, lastQuote, catalogProperty, opsProperties, column,
+  lead, tcm, openTour, lastQuote, nba, catalogProperty, opsProperties, column,
   scheduleOpen, schedulePrefill, onScheduleOpenChange, onSchedulePrefillClear,
+  pendingAction, onPendingActionConsumed,
 }: {
-  lead: Lead; tcm?: TCM; openTour?: Tour; lastQuote?: Quotation;
+  lead: Lead; tcm?: TCM; openTour?: Tour; lastQuote?: Quotation; nba: NextBestAction;
   catalogProperty?: CatalogProperty; opsProperties: Property[];
   column: ColumnKey;
   scheduleOpen?: boolean;
   schedulePrefill?: PG | null;
   onScheduleOpenChange?: (v: boolean) => void;
   onSchedulePrefillClear?: () => void;
+  pendingAction?: LeadFocusAction | null;
+  onPendingActionConsumed?: () => void;
 }) {
   const completeTour = useApp((s) => s.completeTour);
   const markTourStarted = useApp((s) => s.markTourStarted);
@@ -1174,6 +1254,13 @@ function CommandActions({
   const { data: checkin } = useCheckin(lead.id);
   const [now, mounted] = useMountedNow(30_000);
   const [loggingCall, setLoggingCall] = useState(false);
+  const [quoteOpen, setQuoteOpen] = useState(false);
+  const [negotiateOpen, setNegotiateOpen] = useState(false);
+  const [bookOpen, setBookOpen] = useState(false);
+  const [directBookOpen, setDirectBookOpen] = useState(false);
+  const [checkinOpen, setCheckinOpen] = useState(false);
+  const [messengerScenario, setMessengerScenario] = useState<ImpactScenario | null>(null);
+  const messengerRef = useRef<HTMLDivElement>(null);
 
   const tcmPhone = useTcmContacts((s) => s.phones[tcm?.id ?? ""]);
 
@@ -1271,6 +1358,43 @@ function CommandActions({
     return "first-touch";
   }, [lead.stage, lastQuote, openTour, mounted, now]);
 
+  useEffect(() => {
+    if (!pendingAction) return;
+    const action =
+      pendingAction === "auto"
+        ? mapNbaToFocusAction(nba.verb, column, Boolean(lastQuote))
+        : pendingAction;
+
+    switch (action) {
+      case "schedule":
+        onScheduleOpenChange?.(true);
+        break;
+      case "quote":
+        setQuoteOpen(true);
+        break;
+      case "negotiate":
+        setNegotiateOpen(true);
+        break;
+      case "book":
+        if (lastQuote) setBookOpen(true);
+        else setDirectBookOpen(true);
+        break;
+      case "checkin":
+        setCheckinOpen(true);
+        break;
+      case "call-hot":
+        void logCallAction();
+        break;
+      case "revive":
+        setMessengerScenario("revival");
+        window.requestAnimationFrame(() => {
+          messengerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+        break;
+    }
+    onPendingActionConsumed?.();
+  }, [pendingAction]); // eslint-disable-line react-hooks/exhaustive-deps -- one-shot from Hard Actions
+
   return (
     <div className="space-y-3">
       {/* Interested properties — what the lead is leaning toward */}
@@ -1328,7 +1452,13 @@ function CommandActions({
                 </Button>
               </>
             )}
-            <BookingDialog lead={lead} quote={lastQuote} openTour={openTour} />
+            <BookingDialog
+              lead={lead}
+              quote={lastQuote}
+              openTour={openTour}
+              open={bookOpen}
+              onOpenChange={setBookOpen}
+            />
           </>
         )}
 
@@ -1339,14 +1469,41 @@ function CommandActions({
         )}
 
         {/* Always-available — Quote sits next to Negotiate so the pair is one motion */}
-        <NegotiationPlaybook lead={lead} leadPhone={lead.phone} ctx={baseCtx} />
-        <QuotationDialog lead={lead} label={lastQuote ? "Re-quote" : "Quotation"} />
+        <NegotiationPlaybook
+          lead={lead}
+          leadPhone={lead.phone}
+          ctx={baseCtx}
+          open={negotiateOpen}
+          onOpenChange={setNegotiateOpen}
+        />
+        <QuotationDialog
+          lead={lead}
+          label={lastQuote ? "Re-quote" : "Quotation"}
+          open={quoteOpen}
+          onOpenChange={setQuoteOpen}
+        />
         <Button size="sm" variant="ghost" className={`h-7 text-[10px] gap-1 ${actionButtonClass}`}
           onClick={() => void logCallAction()} disabled={loggingCall}>
           {loggingCall ? <RotateCcw className="h-3 w-3 animate-spin" /> : <Phone className="h-3 w-3" />} Log call
         </Button>
-        <DirectBookButton lead={lead} openTour={openTour} opsProperties={opsProperties} />
-        <CheckInOpsButton lead={lead} catalogProperty={catalogProperty} quote={lastQuote} existing={checkin} />
+        <DirectBookButton
+          lead={lead}
+          openTour={openTour}
+          opsProperties={opsProperties}
+          open={directBookOpen}
+          onOpenChange={setDirectBookOpen}
+        />
+        <CheckInOpsButton lead={lead} existing={checkin} open={checkinOpen} onOpenChange={setCheckinOpen} />
+        {lastQuote && column !== "quoted" && (
+          <BookingDialog
+            lead={lead}
+            quote={lastQuote}
+            openTour={openTour}
+            open={bookOpen}
+            onOpenChange={setBookOpen}
+            hideTrigger
+          />
+        )}
       </div>
 
       {checkin && <CheckInAuditReport checkin={checkin} lead={lead} compact />}
@@ -1372,11 +1529,14 @@ function CommandActions({
       </div>
 
       {/* Template messenger */}
-      <TemplateMessenger
-        leadPhone={lead.phone}
-        initialScenario={primaryScenario}
-        ctx={baseCtx}
-      />
+      <div ref={messengerRef}>
+        <TemplateMessenger
+          leadPhone={lead.phone}
+          initialScenario={messengerScenario ?? primaryScenario}
+          ctx={baseCtx}
+          highlight={messengerScenario === "revival"}
+        />
+      </div>
     </div>
   );
 }
@@ -1386,9 +1546,10 @@ function CommandActions({
 /* ================================================================== */
 
 function TemplateMessenger({
-  leadPhone, initialScenario, ctx,
+  leadPhone, initialScenario, ctx, highlight = false,
 }: {
   leadPhone: string; initialScenario: ImpactScenario; ctx: ImpactTplCtx;
+  highlight?: boolean;
 }) {
   const [scenario, setScenario] = useState<ImpactScenario>(initialScenario);
   const variants = IMPACT_TEMPLATES[scenario];
@@ -1428,7 +1589,10 @@ function TemplateMessenger({
   const selectedSet = Object.entries(scenarioSets).find(([, item]) => item.scenario === scenario)?.[0] ?? "first";
 
   return (
-    <div className="rounded-md border border-border bg-card/60 p-2 space-y-2">
+    <div className={cn(
+      "rounded-md border bg-card/60 p-2 space-y-2",
+      highlight ? "border-accent ring-2 ring-accent/30" : "border-border",
+    )}>
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
           WhatsApp template
@@ -1520,9 +1684,14 @@ function LeadActivityTimeline({ activities, tcms }: { activities: ActivityLog[];
 /* ================================================================== */
 
 function NegotiationPlaybook({
-  lead, leadPhone, ctx,
-}: { lead: Lead; leadPhone: string; ctx: ImpactTplCtx }) {
-  const [open, setOpen] = useState(false);
+  lead, leadPhone, ctx, open: controlledOpen, onOpenChange: controlledOnOpenChange,
+}: {
+  lead: Lead; leadPhone: string; ctx: ImpactTplCtx;
+  open?: boolean; onOpenChange?: (v: boolean) => void;
+}) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = controlledOpen ?? internalOpen;
+  const setOpen = controlledOnOpenChange ?? setInternalOpen;
   const setLeadStage = useApp((s) => s.setLeadStage);
   const currentUser = useApp((s) => s.tcms.find((t) => t.id === s.currentTcmId));
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -1613,12 +1782,22 @@ function NegotiationPlaybook({
 /*  Quick Add Lead                                                     */
 /* ================================================================== */
 
-function QuickAddLead({ defaultTcmId }: { defaultTcmId: string }) {
+function QuickAddLead({
+  defaultTcmId,
+  open: controlledOpen,
+  onOpenChange: controlledOnOpenChange,
+}: {
+  defaultTcmId: string;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}) {
   const tcms = useApp((s) => s.tcms);
   const addLead = useApp((s) => s.addLead);
   const autoAssignLead = useApp((s) => s.autoAssignLead);
 
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = controlledOpen ?? internalOpen;
+  const setOpen = controlledOnOpenChange ?? setInternalOpen;
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [area, setArea] = useState("");
@@ -2126,15 +2305,25 @@ function ReminderRow({ tour }: { tour: Tour }) {
   );
 }
 
-function QuotationDialog({ lead, label = "Send quotation", variant = "default" }: { lead: Lead; label?: string; variant?: "default" | "ghost" }) {
-  const [open, setOpen] = useState(false);
+function QuotationDialog({
+  lead, label = "Send quotation", variant = "default",
+  open: controlledOpen, onOpenChange: controlledOnOpenChange, hideTrigger = false,
+}: {
+  lead: Lead; label?: string; variant?: "default" | "ghost";
+  open?: boolean; onOpenChange?: (v: boolean) => void; hideTrigger?: boolean;
+}) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = controlledOpen ?? internalOpen;
+  const setOpen = controlledOnOpenChange ?? setInternalOpen;
   return (
     <Dialog open={open} onOpenChange={setOpen}>
+      {!hideTrigger && (
       <DialogTrigger asChild>
         <Button size="sm" variant={variant === "ghost" ? "ghost" : "default"} className={`h-7 text-[10px] gap-1 ${actionButtonClass}`}>
           <FileText className="h-3 w-3" /> {label}
         </Button>
       </DialogTrigger>
+      )}
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle className="text-sm">Quotation · {lead.name}</DialogTitle></DialogHeader>
         <QuotationBuilder lead={lead} embedded onSent={() => setOpen(false)} />
@@ -2143,20 +2332,29 @@ function QuotationDialog({ lead, label = "Send quotation", variant = "default" }
   );
 }
 
-function BookingDialog({ lead, quote, openTour }: { lead: Lead; quote: Quotation; openTour?: Tour }) {
+function BookingDialog({
+  lead, quote, openTour, open: controlledOpen, onOpenChange: controlledOnOpenChange, hideTrigger = false,
+}: {
+  lead: Lead; quote: Quotation; openTour?: Tour;
+  open?: boolean; onOpenChange?: (v: boolean) => void; hideTrigger?: boolean;
+}) {
   const closeDeal = useApp((s) => s.closeDeal);
   const { mutate: upsertCheckin } = useUpsertCheckin();
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = controlledOpen ?? internalOpen;
+  const setOpen = controlledOnOpenChange ?? setInternalOpen;
   const [amt, setAmt] = useState(quote.discountedPrice);
   const [closing, setClosing] = useState(false);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
+      {!hideTrigger && (
       <DialogTrigger asChild>
         <Button size="sm" className={`h-7 text-[10px] gap-1 bg-success text-success-foreground hover:bg-success/90 ${actionButtonClass}`}>
           <CheckCircle2 className="h-3 w-3" /> Book
         </Button>
       </DialogTrigger>
+      )}
       <DialogContent className="max-w-sm">
         <DialogHeader><DialogTitle className="text-sm">Close booking · {lead.name}</DialogTitle></DialogHeader>
         <div className="space-y-3">
@@ -2210,16 +2408,19 @@ function BookingDialog({ lead, quote, openTour }: { lead: Lead; quote: Quotation
 }
 
 function DirectBookButton({
-  lead, openTour, opsProperties,
+  lead, openTour, opsProperties, open: controlledOpen, onOpenChange: controlledOnOpenChange,
 }: {
   lead: Lead; openTour?: Tour; opsProperties: Property[];
+  open?: boolean; onOpenChange?: (v: boolean) => void;
 }) {
   const properties = opsProperties;
   const closeDeal = useApp((s) => s.closeDeal);
   const addProperty = useApp((s) => s.addProperty);
   const { mutateAsync: upsertCheckin } = useUpsertCheckin();
   const { mutateAsync: patchCheckin } = usePatchCheckin();
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = controlledOpen ?? internalOpen;
+  const setOpen = controlledOnOpenChange ?? setInternalOpen;
   const [propQuery, setPropQuery] = useState("");
   const [propId, setPropId] = useState(openTour?.propertyId ?? "");
   const [propName, setPropName] = useState("");
@@ -2339,8 +2540,12 @@ function DirectBookButton({
   );
 }
 
-function CheckInOpsButton({ lead, existing }: { lead: Lead; property?: Property; quote?: Quotation; existing?: CheckIn | null }) {
-  const [open, setOpen] = useState(false);
+function CheckInOpsButton({
+  lead, existing, open: controlledOpen, onOpenChange: controlledOnOpenChange,
+}: { lead: Lead; existing?: CheckIn | null; open?: boolean; onOpenChange?: (v: boolean) => void }) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = controlledOpen ?? internalOpen;
+  const setOpen = controlledOnOpenChange ?? setInternalOpen;
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -2525,9 +2730,19 @@ function ManageFocusDialog({
   const [tcmId, setTcmId] = useState(defaultTcmId);
   const [query, setQuery] = useState("");
 
+  useEffect(() => {
+    if (open) {
+      setTcmId(defaultTcmId);
+      setQuery("");
+    }
+  }, [open, defaultTcmId]);
+
   const focused = focusProps[tcmId] ?? [];
   const list = useMemo(() => {
-    const base = searchPropertyCatalog(query, properties, { limit: 40 });
+    const q = query.trim();
+    const base = q
+      ? searchPropertyCatalog(q, properties, { limit: 80 })
+      : allCatalogProperties(properties);
     return [...base].sort((a, b) => {
       const af = focused.includes(a.id) ? 0 : 1;
       const bf = focused.includes(b.id) ? 0 : 1;
@@ -2593,7 +2808,11 @@ function ManageFocusDialog({
                 <button
                   key={p.id}
                   type="button"
-                  onClick={() => toggleFocusProp(tcmId, p.id)}
+                  onClick={() => {
+                    const wasOn = focused.includes(p.id);
+                    toggleFocusProp(tcmId, p.id);
+                    toast.success(wasOn ? `Removed ${p.name} from focus` : `Pinned ${p.name} to focus`);
+                  }}
                   className={`w-full text-left text-xs px-2 py-1.5 rounded border flex items-center gap-2 transition ${
                     on
                       ? "bg-accent/10 border-accent/50"
@@ -2781,7 +3000,7 @@ function TenXCommandBar({
   targets: { toursToday: number; quotesWeek: number; bookingsMonth: number };
   stackSorted: Array<{ lead: { id: string; name: string }; score: number; nba: { label: string; pressure: string }; column: string }>;
   tick: number;
-  onFocusLead?: (leadId: string, name: string) => void;
+  onFocusLead?: (leadId: string) => void;
 }) {
   const streak = counters.toursToday + counters.quotesWeek + counters.bookingsMonth;
   const breach = escalations;
@@ -2886,7 +3105,7 @@ function TenXCommandBar({
                     <li key={e.lead.id}>
                       <button
                         type="button"
-                        onClick={() => onFocusLead?.(e.lead.id, e.lead.name)}
+                        onClick={() => onFocusLead?.(e.lead.id)}
                         className="w-full flex items-center gap-2 text-xs rounded-md border border-border bg-card p-2 text-left hover:border-accent/50 hover:bg-accent/5 transition"
                       >
                         <span className="h-5 w-5 rounded-full bg-accent/15 text-accent text-[10px] font-semibold flex items-center justify-center">{i + 1}</span>
@@ -2906,7 +3125,7 @@ function TenXCommandBar({
                       <li key={e.lead.id}>
                         <button
                           type="button"
-                          onClick={() => onFocusLead?.(e.lead.id, e.lead.name)}
+                          onClick={() => onFocusLead?.(e.lead.id)}
                           className="w-full flex items-center gap-2 text-xs rounded-md border border-danger/30 bg-danger/5 p-2 text-left hover:border-danger/50 transition"
                         >
                           <Zap className="h-3 w-3 text-danger" />
