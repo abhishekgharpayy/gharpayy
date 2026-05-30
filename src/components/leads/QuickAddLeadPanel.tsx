@@ -22,7 +22,7 @@ import { useOrgMembers, useOrgZones } from "@/hooks/useOrgDirectory";
 import { useAuthUser } from "@/lib/auth-store";
 import { dispatch } from "@/lib/api/command-bus";
 import { toast } from "sonner";
-import { Save, Repeat2, Phone, MapPin, Sparkles, X, CalendarPlus } from "lucide-react";
+import { Save, Repeat2, Phone, MapPin, Sparkles, X, CalendarPlus, Search, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useNavigate } from "@/shims/react-router-dom";
@@ -30,6 +30,10 @@ import { useAppState } from "@/myt/lib/app-context";
 import { bestInventoryFits, detectAreaZone, recommendedFlowOps, recommendedTcm } from "@/myt/lib/inventory-intelligence";
 import { QUICKAD_NEED_OPTIONS, QUICKAD_ROOM_OPTIONS, QUICKAD_TYPE_OPTIONS, parseBudgetAmount } from "@/lib/quickad-shared";
 import type { ParsedLeadDraft } from "@/lib/lead-identity/types";
+import { PGS } from "@/property-genius/data/pgs";
+import { searchPGs } from "@/property-genius/lib/search";
+import type { PG } from "@/property-genius/data/types";
+import { formatINR } from "@/lib/utils";
 
 interface Props { open: boolean; onClose: () => void; }
 
@@ -86,6 +90,9 @@ export function QuickAddLeadPanel({ open, onClose }: Props) {
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [areasText, setAreasText] = useState("");        // comma-separated areas
+  const [selectedPG, setSelectedPG] = useState<PG | null>(null);
+  const [hubQuery, setHubQuery] = useState("");
+  const [showHubResults, setShowHubResults] = useState(false);
   const [fullAddress, setFullAddress] = useState("");
   const [budget, setBudget] = useState("");
   const [moveIn, setMoveIn] = useState(todayIso());
@@ -107,6 +114,20 @@ export function QuickAddLeadPanel({ open, onClose }: Props) {
   const nameRef = useRef<HTMLInputElement>(null);
   useEffect(() => { if (open) setTimeout(() => nameRef.current?.focus(), 50); }, [open]);
 
+  const hubResults = useMemo(() => {
+    const q = hubQuery.trim();
+    if (!q && selectedPG) return [];
+    if (q) return searchPGs(q, 10);
+    if (areasText) {
+      const byArea = PGS.filter((p) =>
+        p.area.toLowerCase().includes(areasText.toLowerCase()) ||
+        areasText.toLowerCase().includes(p.area.toLowerCase()),
+      );
+      return byArea.slice(0, 10).map((pg) => ({ pg, score: 1, matched: [] }));
+    }
+    return [...PGS].sort((a, b) => b.iq - a.iq).slice(0, 10).map((pg) => ({ pg, score: 1, matched: [] }));
+  }, [hubQuery, selectedPG, areasText]);
+
   const detectedZone = useMemo(
     () => detectZone(`${areasText} ${fullAddress}`),
     [areasText, fullAddress],
@@ -122,7 +143,7 @@ export function QuickAddLeadPanel({ open, onClose }: Props) {
 
   const reset = () => {
     setName(""); setPhone(""); setEmail("");
-    setAreasText(""); setFullAddress("");
+    setAreasText(""); setFullAddress(""); setSelectedPG(null); setHubQuery("");
     setBudget(""); setMoveIn(todayIso());
     setType(""); setRoom(""); setNeed(""); setSpecialReqs("");
     setInBLR(null); setQuality(null); setZoneBucket("");
@@ -322,6 +343,7 @@ export function QuickAddLeadPanel({ open, onClose }: Props) {
     if (!parsed) return;
     e.preventDefault();
     setLastParsed(parsed);
+    setSelectedPG(null);
     if (parsed.name) setName(parsed.name);
     if (parsed.phone) setPhone(parsed.phone);
     if (parsed.email) setEmail(parsed.email);
@@ -405,25 +427,66 @@ export function QuickAddLeadPanel({ open, onClose }: Props) {
             <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.com" inputMode="email" />
           </Field>
 
-          {/* Areas */}
-          <Field label="📍 Areas (comma-separated)">
-            <div className="relative">
-              <Input
-                value={areasText}
-                onChange={(e) => setAreasText(e.target.value)}
-                placeholder="HSR Layout, BTM, Koramangala"
-              />
-              {detectedZone && (
-                <Badge variant="secondary" className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px]">
-                  {detectedZone}
-                </Badge>
+          {/* Property Hub */}
+          <Field label="📍 Preferred Property (from Property Hub)">
+            <div className="relative" onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setTimeout(() => setShowHubResults(false), 200); }}>
+              <div className="relative">
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                <Input
+                  value={selectedPG ? selectedPG.name : hubQuery}
+                  onChange={(e) => {
+                    setHubQuery(e.target.value);
+                    setShowHubResults(true);
+                    if (selectedPG) {
+                      setSelectedPG(null);
+                      setAreasText("");
+                    }
+                  }}
+                  onFocus={() => setShowHubResults(true)}
+                  placeholder="Search Property Hub — name, area, landmark…"
+                  className="pl-7"
+                />
+                {detectedZone && !selectedPG && (
+                  <Badge variant="secondary" className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px]">
+                    {detectedZone}
+                  </Badge>
+                )}
+              </div>
+              {selectedPG && (
+                <div className="mt-1.5 rounded-md border border-primary/40 bg-primary/5 p-2">
+                  <div className="text-xs font-semibold">{selectedPG.name}</div>
+                  <div className="text-[10px] text-muted-foreground">
+                    {selectedPG.area} · {selectedPG.gender} · IQ {selectedPG.iq}
+                  </div>
+                </div>
+              )}
+              {showHubResults && hubResults.length > 0 && !selectedPG && (
+                <div className="absolute z-50 mt-1 w-full rounded-md border border-border bg-background shadow-lg max-h-48 overflow-y-auto">
+                  {hubResults.map(({ pg }) => (
+                    <button
+                      key={pg.id}
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        setSelectedPG(pg);
+                        setAreasText(pg.area);
+                        setHubQuery("");
+                        setShowHubResults(false);
+                      }}
+                      className="w-full text-left px-2.5 py-2 text-xs hover:bg-muted/50 transition-colors flex items-center gap-2 border-b border-border last:border-0"
+                    >
+                      <Building2 className="h-3 w-3 shrink-0 text-primary" />
+                      <div className="min-w-0 flex-1">
+                        <div className="font-medium truncate">{pg.name}</div>
+                        <div className="text-[10px] text-muted-foreground truncate">
+                          {pg.area} · {formatINR(Math.min(...[pg.prices.triple, pg.prices.double, pg.prices.single].filter(Boolean)))}/mo · IQ {pg.iq}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
               )}
             </div>
-            {areasText.includes(",") && (
-              <p className="text-[10px] text-primary mt-1 flex items-center gap-1">
-                <MapPin className="h-2.5 w-2.5" /> Multiple Areas Detected
-              </p>
-            )}
           </Field>
 
           {/* Full Address */}

@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   CheckCircle2, AlertCircle, User, Phone, Mail, MapPin, Wallet,
   CalendarDays, Briefcase, BedDouble, Sparkles, Loader2, Flame, UserCheck, Tag,
+  Search, Building2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { DuplicateModal } from "./DuplicateModal";
@@ -23,6 +24,10 @@ import { useOrgMembers, useOrgZones } from "@/hooks/useOrgDirectory";
 import { useAuthUser } from "@/lib/auth-store";
 import { dispatch } from "@/lib/api/command-bus";
 import { useApp } from "@/lib/store";
+import { PGS } from "@/property-genius/data/pgs";
+import { searchPGs } from "@/property-genius/lib/search";
+import type { PG } from "@/property-genius/data/types";
+import { formatINR } from "@/lib/utils";
 
 interface Props {
   onCreated?: (lead: UnifiedLead) => void;
@@ -84,6 +89,23 @@ export function DirectLeadForm({ onCreated }: Props) {
   const [match, setMatch] = useState<MatchResult | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [selectedPG, setSelectedPG] = useState<PG | null>(null);
+  const [hubQuery, setHubQuery] = useState("");
+  const [showHubResults, setShowHubResults] = useState(false);
+
+  const hubResults = useMemo(() => {
+    const q = hubQuery.trim();
+    if (!q && selectedPG) return [];
+    if (q) return searchPGs(q, 10);
+    if (draft.location) {
+      const byArea = PGS.filter((p) =>
+        p.area.toLowerCase().includes(draft.location.toLowerCase()) ||
+        draft.location.toLowerCase().includes(p.area.toLowerCase()),
+      );
+      return byArea.slice(0, 10).map((pg) => ({ pg, score: 1, matched: [] }));
+    }
+    return [...PGS].sort((a, b) => b.iq - a.iq).slice(0, 10).map((pg) => ({ pg, score: 1, matched: [] }));
+  }, [hubQuery, selectedPG, draft.location]);
 
   // Auto-detect zone (informational) when location changes
   useEffect(() => {
@@ -203,6 +225,8 @@ export function DirectLeadForm({ onCreated }: Props) {
 
     toast.success(`Lead saved · ${draft.name.trim()}`);
     setDraft({ ...emptyDraft(), assigneeId: defaultAssigneeId });
+    setSelectedPG(null);
+    setHubQuery("");
     setTouched({});
     setMatch(null);
     onCreated?.(identityLead);
@@ -263,16 +287,65 @@ export function DirectLeadForm({ onCreated }: Props) {
               onBlur={() => setTouched((t) => ({ ...t, email: true }))}
               placeholder="rahul@example.com" type="email" className="h-10 text-sm" />
           </FormField>
-          <FormField icon={MapPin} label="Preferred areas * (comma-separated)"
+          <FormField icon={MapPin} label="Preferred property (from Property Hub) *"
             error={showError("location") ? errors.location : undefined}>
-            <div className="relative">
-              <Input value={draft.location} onChange={(e) => update("location", e.target.value)}
-                onBlur={() => setTouched((t) => ({ ...t, location: true }))}
-                placeholder="Koramangala, HSR" className="h-10 text-sm pr-20" />
-              {draft.zone && (
-                <Badge variant="secondary" className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px]">
-                  {draft.zone}
-                </Badge>
+            <div className="relative" onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setTimeout(() => setShowHubResults(false), 200); }}>
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                <Input
+                  value={selectedPG ? selectedPG.name : hubQuery}
+                  onChange={(e) => {
+                    setHubQuery(e.target.value);
+                    setShowHubResults(true);
+                    if (selectedPG) {
+                      setSelectedPG(null);
+                      update("location", "");
+                    }
+                  }}
+                  onFocus={() => setShowHubResults(true)}
+                  onBlur={() => { setTouched((t) => ({ ...t, location: true })); }}
+                  placeholder="Search Property Hub — name, area, landmark…"
+                  className="h-10 text-sm pl-8"
+                />
+                {draft.zone && !selectedPG && (
+                  <Badge variant="secondary" className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px]">
+                    {draft.zone}
+                  </Badge>
+                )}
+              </div>
+              {selectedPG && (
+                <div className="mt-1.5 rounded-md border border-primary/40 bg-primary/5 p-2">
+                  <div className="text-sm font-semibold">{selectedPG.name}</div>
+                  <div className="text-[11px] text-muted-foreground">
+                    {selectedPG.area} · {selectedPG.gender} · IQ {selectedPG.iq}
+                  </div>
+                </div>
+              )}
+              {showHubResults && hubResults.length > 0 && !selectedPG && (
+                <div className="absolute z-50 mt-1 w-full rounded-md border border-border bg-background shadow-lg max-h-48 overflow-y-auto">
+                  {hubResults.map(({ pg }) => (
+                    <button
+                      key={pg.id}
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        setSelectedPG(pg);
+                        update("location", pg.area);
+                        setHubQuery("");
+                        setShowHubResults(false);
+                      }}
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-muted/50 transition-colors flex items-center gap-2 border-b border-border last:border-0"
+                    >
+                      <Building2 className="h-4 w-4 shrink-0 text-primary" />
+                      <div className="min-w-0 flex-1">
+                        <div className="font-medium truncate">{pg.name}</div>
+                        <div className="text-[11px] text-muted-foreground truncate">
+                          {pg.area} · {formatINR(Math.min(...[pg.prices.triple, pg.prices.double, pg.prices.single].filter(Boolean)))}/mo · IQ {pg.iq}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
               )}
             </div>
           </FormField>
