@@ -3,6 +3,7 @@ import { useApp } from "@/lib/store";
 import type { Lead } from "@/lib/types";
 import { formatINR, useQuotationsQuery } from "@/lib/crm10x/quotations";
 import { useLeadInterests } from "@/lib/crm10x/lead-interests";
+import { resolvePropertyById } from "@/lib/crm10x/property-catalog";
 import { Badge } from "@/components/ui/badge";
 import { Brain, Target, AlertTriangle, Heart } from "lucide-react";
 import { differenceInHours, format, isValid, parseISO } from "date-fns";
@@ -76,7 +77,7 @@ export function SmartDossier({ lead }: { lead: Lead }) {
     // Line 2 — must-haves (from tags) + interested properties
     const mustHaves = (lead.tags ?? []).filter((t) => !["hot", "warm", "cold"].includes(t)).slice(0, 3);
     const liked = interests
-      .map((pid) => properties.find((p) => p.id === pid)?.name)
+      .map((pid) => resolvePropertyById(pid, properties)?.name)
       .filter(Boolean)
       .slice(0, 2)
       .join(", ");
