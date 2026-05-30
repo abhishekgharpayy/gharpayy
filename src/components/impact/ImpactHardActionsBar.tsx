@@ -212,6 +212,11 @@ export function ImpactHardActionsBar({
                               if (isNaN(d.getTime())) return "TBD";
                               return new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short' }).format(d);
                             })()} · {e.lead.propertyName || e.lead.preferredArea || "Any Property"}
+                            {e.openTour && (() => {
+                              const d = new Date(e.openTour.scheduledAt);
+                              const label = isNaN(d.getTime()) ? "TBD" : new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }).format(d);
+                              return <> · Tour: {label}</>;
+                            })()}
                           </span>
                         </DropdownMenuItem>
                       );
