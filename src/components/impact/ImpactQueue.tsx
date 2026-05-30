@@ -57,6 +57,18 @@ import { useMountedNow } from "@/hooks/use-now";
 function todayISO() {
   const d = new Date(); d.setHours(0,0,0,0); return d.toISOString().slice(0,10);
 }
+function normalizePhone(raw: string): string {
+  const digits = raw.replace(/\D/g, "");
+  if (!digits) return raw.trim();
+  if (digits.startsWith("91") && digits.length >= 12) return `+${digits}`;
+  if (digits.length === 10) return `+91${digits}`;
+  return raw.trim().startsWith("+") ? raw.trim() : `+${digits}`;
+}
+function phonesMatch(a: string, b: string): boolean {
+  const da = a.replace(/\D/g, "").slice(-10);
+  const db = b.replace(/\D/g, "").slice(-10);
+  return da.length >= 10 && da === db;
+}
 function isToday(iso: string) {
   return new Date(iso).toDateString() === new Date().toDateString();
 }
@@ -1114,43 +1126,91 @@ function QuickAddLead({ defaultTcmId }: { defaultTcmId: string }) {
     setMoveIn(todayISO()); setIntent("warm"); setTcmId(defaultTcmId); setAutoRoute(true);
   };
 
+  const finishSuccess = (message = "Lead added to Impact Queue") => {
+    setOpen(false);
+    reset();
+    toast.success(message);
+  };
+
   const submit = async () => {
     if (!name.trim() || !phone.trim()) return toast.error("Name + phone required");
     if (!area.trim()) return toast.error("Preferred area required");
-    
+
+    const phoneE164 = normalizePhone(phone);
+    const nameTrim = name.trim();
+    const areaTrim = area.trim();
+    const moveInIso = new Date(moveIn).toISOString();
+
     setIsSubmitting(true);
     try {
       const result = await dispatch({
         type: "cmd.lead.create",
         payload: {
-          name, phone,
+          name: nameTrim,
+          phone: phoneE164,
           source: "manual",
           budget,
-          moveInDate: new Date(moveIn).toISOString(),
-          preferredArea: area,
+          moveInDate: moveInIso,
+          preferredArea: areaTrim,
           zoneId: null,
           intent,
           assigneeId: autoRoute ? undefined : tcmId,
-        }
+        },
       });
-      
-      if (!result.ok) throw new Error(result.error);
-      const newLeadId = (result as any).data?.leadId;
 
-      const lead = addLead({
-        id: newLeadId,
-        name, phone, preferredArea: area, budget,
-        moveInDate: new Date(moveIn).toISOString(),
-        intent, assignedTcmId: autoRoute ? undefined : tcmId,
-      });
-      if (autoRoute) autoAssignLead(lead.id);
-      
-      setOpen(false);
-      reset();
-      toast.success("Lead added — check Inbox");
+      const data = (result as { data?: { leadId?: string; duplicate?: boolean } }).data;
+
+      if (!result.ok) {
+        const appeared = useApp.getState().leads.some(
+          (l) => phonesMatch(l.phone, phoneE164) && l.name === nameTrim,
+        );
+        if (appeared) {
+          finishSuccess();
+          return;
+        }
+        toast.error(`Failed to add lead: ${result.error ?? "Try again."}`);
+        return;
+      }
+
+      if (data?.duplicate) {
+        finishSuccess("Lead already in queue");
+        return;
+      }
+
+      const newLeadId = data?.leadId;
+      const cur = useApp.getState().leads;
+      const alreadyThere = newLeadId
+        ? cur.some((l) => l.id === newLeadId)
+        : cur.some((l) => phonesMatch(l.phone, phoneE164));
+
+      if (!alreadyThere) {
+        const lead = addLead({
+          id: newLeadId,
+          name: nameTrim,
+          phone: phoneE164,
+          preferredArea: areaTrim,
+          budget,
+          moveInDate: moveInIso,
+          intent,
+          assignedTcmId: autoRoute ? undefined : tcmId,
+        });
+        if (autoRoute && tcms.length > 0) {
+          try {
+            autoAssignLead(lead.id);
+          } catch (err) {
+            console.warn("Auto-route skipped:", err);
+          }
+        }
+      }
+
+      finishSuccess();
     } catch (error) {
       console.error("Add lead error:", error);
-      toast.error("Failed to add lead. Try again.");
+      const appeared = useApp.getState().leads.some(
+        (l) => phonesMatch(l.phone, phoneE164) && l.name === nameTrim,
+      );
+      if (appeared) finishSuccess();
+      else toast.error("Failed to add lead. Try again.");
     } finally {
       setIsSubmitting(false);
     }
