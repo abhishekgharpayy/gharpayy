@@ -435,7 +435,7 @@ export const useApp = create<AppState>((set, get) => ({
         _id: uid("c"),
         type: "cmd.lead.change_stage",
         issuedAt: new Date().toISOString(),
-        payload: { leadId: t.leadId, to: "on-tour", tourId },
+        payload: { leadId: t.leadId, to: "on-tour" },
       });
       pushActivity(set, get, { kind: "tour_started", actor: t.tcmId, leadId: t.leadId, tourId, text: "Tour marked live" });
     } catch (err) {

@@ -17,13 +17,18 @@ export function AuthGate({ children }: { children: ReactNode }) {
   const loading = useAuthUser((s) => s.loading);
   const hydrate = useAuthUser((s) => s.hydrate);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const search = useRouterState({ select: (s) => s.location.search as Record<string, unknown> });
   const navigate = useNavigate();
 
   useEffect(() => { hydrate(); }, [hydrate]);
 
   const hasToken = typeof window !== "undefined" && !!tokenStore.get();
   const isLoginRoute = pathname === "/login";
+
+  useEffect(() => {
+    if (user || isLoginRoute || !hasToken) return;
+    const redirect = pathname || "/";
+    void navigate({ to: "/login", search: { redirect }, replace: true }).catch(() => undefined);
+  }, [user, isLoginRoute, hasToken, pathname, navigate]);
 
   // Resolving auth: token present but user not yet loaded
   if (hasToken && !user && loading) {
@@ -34,16 +39,8 @@ export function AuthGate({ children }: { children: ReactNode }) {
     );
   }
 
-  // Not signed in → force the login screen, no matter what route was requested
+  // Not signed in → loading shell while useEffect redirects to /login
   if (!user && !isLoginRoute) {
-    // Push the URL to /login so the address bar reflects state and a refresh works.
-    // (Safe to call from effect-less render - navigate is idempotent for same target.)
-    if (typeof window !== "undefined" && pathname !== "/login") {
-      const redirect = pathname + (search && Object.keys(search).length ? "" : "");
-      queueMicrotask(() => {
-        navigate({ to: "/login", search: { redirect: redirect || "/" }, replace: true }).catch(() => undefined);
-      });
-    }
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />

@@ -4,6 +4,7 @@ export const LeadStage = z.enum([
   "new",
   "contacted",
   "tour-scheduled",
+  "on-tour",
   "tour-done",
   "negotiation",
   "booked",
