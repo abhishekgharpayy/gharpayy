@@ -16,6 +16,7 @@ import {
   allCatalogProperties,
   type CatalogProperty,
 } from "@/lib/crm10x/property-catalog";
+import { isTodayIST } from "@/lib/crm10x/dates";
 import {
   IMPACT_TEMPLATES, renderImpactTemplate,
   type ImpactScenario, type ImpactTpl, type ImpactTplCtx,
@@ -78,7 +79,7 @@ function phonesMatch(a: string, b: string): boolean {
   return da.length >= 10 && da === db;
 }
 function isToday(iso: string) {
-  return new Date(iso).toDateString() === new Date().toDateString();
+  return isTodayIST(iso);
 }
 function isThisWeek(iso: string) {
   const d = new Date(iso); const n = new Date();
@@ -192,6 +193,7 @@ const COLUMNS: { key: ColumnKey; label: string; tint: string; icon: typeof Spark
 
 export function ImpactQueue() {
   const { role, currentTcmId, tcms, leads, tours, properties, bookings } = useApp();
+  const markTourStarted = useApp((s) => s.markTourStarted);
   const { data: quotes = [] } = useQuotationsQuery();
 
   const [tcmFilter, setTcmFilter] = useState<string>(role === "tcm" ? currentTcmId : "all");
@@ -255,7 +257,20 @@ export function ImpactQueue() {
       const { score } = scoreLead(lead, openTour, lastQuote);
       return { lead, openTour, lastQuote, nba, score, column };
     });
-  }, [leads, tours, quotes, tcmFilter, query, intent]);
+  }, [leads, tours, quotes, tcmFilter, query, intent, tick]);
+
+  /* Auto-promote tour-scheduled → on-tour when tour day is today (IST). */
+  useEffect(() => {
+    const due = leads.filter((lead) => {
+      if (lead.stage !== "tour-scheduled") return false;
+      const openTour = tours.find((t) => t.leadId === lead.id && t.status === "scheduled");
+      return openTour && isTodayIST(openTour.scheduledAt);
+    });
+    for (const lead of due) {
+      const tour = tours.find((t) => t.leadId === lead.id && t.status === "scheduled");
+      if (tour) void markTourStarted(tour.id).catch(() => {});
+    }
+  }, [leads, tours, tick, markTourStarted]);
 
   /* --------- filter chips --------- */
   const filtered = useMemo(() => {
