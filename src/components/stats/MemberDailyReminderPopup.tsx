@@ -133,7 +133,7 @@ export function MemberDailyReminderPopup() {
                     colorClass="bg-gradient-to-r from-indigo-500 to-violet-500"
                   />
                   <ProgressStrip
-                    label="Tours Scheduled"
+                    label="Tours Scheduled + Completed"
                     value={toursScheduled}
                     max={goals.toursScheduled}
                     colorClass="bg-gradient-to-r from-emerald-500 to-teal-500"

@@ -55,7 +55,7 @@ export function useTodos(opts: UseTodosOpts = {}) {
     dueAt?: string | null;
     assignTo?: string | null;
   }) => {
-    return dispatch({
+    const result = await dispatch({
       type: "cmd.todo.create",
       payload: {
         title: input.title,
@@ -67,13 +67,41 @@ export function useTodos(opts: UseTodosOpts = {}) {
         assignTo: input.assignTo ?? null,
       },
     });
-  }, [opts.entityType, opts.entityId]);
+    if (result.ok) {
+      void refresh();
+    }
+    return result;
+  }, [opts.entityType, opts.entityId, refresh]);
 
-  const accept   = useCallback((todoId: string) => dispatch({ type: "cmd.todo.accept",   payload: { todoId } }), []);
-  const decline  = useCallback((todoId: string, reason?: string) => dispatch({ type: "cmd.todo.decline", payload: { todoId, reason } }), []);
-  const complete = useCallback((todoId: string) => dispatch({ type: "cmd.todo.complete", payload: { todoId } }), []);
-  const cancel   = useCallback((todoId: string) => dispatch({ type: "cmd.todo.cancel",   payload: { todoId } }), []);
-  const assign   = useCallback((todoId: string, assignTo: string) => dispatch({ type: "cmd.todo.assign", payload: { todoId, assignTo } }), []);
+  const accept = useCallback(async (todoId: string) => {
+    const result = await dispatch({ type: "cmd.todo.accept", payload: { todoId } });
+    if (result.ok) void refresh();
+    return result;
+  }, [refresh]);
+
+  const decline = useCallback(async (todoId: string, reason?: string) => {
+    const result = await dispatch({ type: "cmd.todo.decline", payload: { todoId, reason } });
+    if (result.ok) void refresh();
+    return result;
+  }, [refresh]);
+
+  const complete = useCallback(async (todoId: string) => {
+    const result = await dispatch({ type: "cmd.todo.complete", payload: { todoId } });
+    if (result.ok) void refresh();
+    return result;
+  }, [refresh]);
+
+  const cancel = useCallback(async (todoId: string) => {
+    const result = await dispatch({ type: "cmd.todo.cancel", payload: { todoId } });
+    if (result.ok) void refresh();
+    return result;
+  }, [refresh]);
+
+  const assign = useCallback(async (todoId: string, assignTo: string) => {
+    const result = await dispatch({ type: "cmd.todo.assign", payload: { todoId, assignTo } });
+    if (result.ok) void refresh();
+    return result;
+  }, [refresh]);
 
   return { todos, loading, error, refresh, create, accept, decline, complete, cancel, assign };
 }

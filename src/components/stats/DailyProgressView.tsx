@@ -115,7 +115,7 @@ export function DailyProgressView() {
             Daily Progress
           </h2>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Leads added, tours scheduled, and quotes sent for the selected date (IST).
+            Leads added, tours scheduled + completed, and quotes sent for the selected date (IST).
           </p>
         </div>
         <div className="flex items-center gap-2 rounded-xl border bg-background/90 px-2.5 py-1.5">
@@ -164,7 +164,7 @@ export function DailyProgressView() {
             </div>
             <div className="mt-3 grid gap-3 md:grid-cols-3">
               <MetricTile label="Leads Added" value={memberRow.leadsAdded} max={goals.leadsAdded} accent="violet" />
-              <MetricTile label="Tours Scheduled" value={memberRow.toursScheduled} max={goals.toursScheduled} accent="emerald" />
+              <MetricTile label="Tours Scheduled + Completed" value={memberRow.toursScheduled} max={goals.toursScheduled} accent="emerald" />
               <MetricTile label="Quotes Sent" value={memberRow.quotesSent ?? 0} max={goals.quotesSent ?? 10} accent="emerald" />
             </div>
             <div className="mt-3 rounded-xl border border-dashed border-border/80 bg-secondary/20 px-3 py-2">
@@ -249,7 +249,7 @@ export function DailyProgressView() {
                       <ProgressLine label="Leads Added" value={member.leadsAdded} max={goals.leadsAdded} />
                     </div>
                     <div className="rounded-lg bg-secondary/20 p-2.5">
-                      <ProgressLine label="Tours Scheduled" value={member.toursScheduled} max={goals.toursScheduled} />
+                      <ProgressLine label="Tours Scheduled + Completed" value={member.toursScheduled} max={goals.toursScheduled} />
                     </div>
                     <div className="rounded-lg bg-secondary/20 p-2.5">
                       <ProgressLine label="Quotes Sent" value={member.quotesSent ?? 0} max={goals.quotesSent ?? 10} />

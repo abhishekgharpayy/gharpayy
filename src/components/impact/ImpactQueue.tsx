@@ -471,7 +471,9 @@ export function ImpactQueue() {
     const scopedQuotes = tcmFilter === "all" ? quotes : quotes.filter((q) => q.tcmId === tcmFilter);
     const scopedBookings = tcmFilter === "all" ? bookings : bookings.filter((b) => b.tcmId === tcmFilter);
     const scopedLeads = tcmFilter === "all" ? leads : leads.filter((l) => l.assignedTcmId === tcmFilter);
-    const toursToday = scopedTours.filter((t) => isToday(t.scheduledAt) && t.status === "scheduled").length;
+    const toursScheduledToday = scopedTours.filter((t) => isToday(t.scheduledAt)).length;
+    const toursCompletedToday = scopedTours.filter((t) => t.status === "completed" && isToday(t.updatedAt)).length;
+    const toursToday = toursScheduledToday + toursCompletedToday;
     const quotesToday = scopedQuotes.filter((q) => isToday(q.sentAt)).length;
     const bookingsMonth = scopedBookings.filter((b) => isThisMonth(b.ts)).length;
     const leadsToday = scopedLeads.filter((l) => isToday(l.createdAt)).length;
@@ -660,7 +662,7 @@ export function ImpactQueue() {
       {/* ---------------- Live counters ---------------- */}
       <div className="grid grid-cols-4 gap-2">
         <Counter label="Leads Added Today" got={counters.leadsToday} target={targets.leadsToday} tone={tone(counters.leadsToday, targets.leadsToday)} icon={ListOrdered} />
-        <Counter label="Tours today" got={counters.toursToday} target={targets.toursToday} tone={tone(counters.toursToday, targets.toursToday)} icon={Calendar} />
+        <Counter label="Tours scheduled + completed today" got={counters.toursToday} target={targets.toursToday} tone={tone(counters.toursToday, targets.toursToday)} icon={Calendar} />
         <QuotesWeekCounter
           quotes={quotesToday}
           leads={leads}

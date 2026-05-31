@@ -101,18 +101,36 @@ export function registerStatsRoutes(app: FastifyInstance) {
       ])
       .toArray();
 
-    const toursAgg = await col<Tour>("tours")
+    const toursScheduledAgg = await col<Tour>("tours")
       .aggregate<{ _id: string; count: number }>([
         {
           $match: {
             tenantId,
             scheduledBy: { $in: memberIds },
-            createdAt: { $gte: dayStart, $lte: dayEnd },
+            scheduledAt: { $gte: dayStart, $lte: dayEnd },
           },
         },
         { $group: { _id: "$scheduledBy", count: { $sum: 1 } } },
       ])
       .toArray();
+
+    const toursCompletedAgg = await col<Tour>("tours")
+      .aggregate<{ _id: string; count: number }>([
+        {
+          $match: {
+            tenantId,
+            assignedTo: { $in: memberIds },
+            status: "completed",
+            updatedAt: { $gte: dayStart, $lte: dayEnd },
+          },
+        },
+        { $group: { _id: "$assignedTo", count: { $sum: 1 } } },
+      ])
+      .toArray();
+
+    const toursMap = new Map<string, number>();
+    toursScheduledAgg.forEach((x) => toursMap.set(x._id, x.count));
+    toursCompletedAgg.forEach((x) => toursMap.set(x._id, (toursMap.get(x._id) ?? 0) + x.count));
 
     const quotesAgg = await col("quotations")
       .aggregate<{ _id: string; count: number }>([
@@ -128,7 +146,6 @@ export function registerStatsRoutes(app: FastifyInstance) {
       .toArray();
 
     const leadsMap = new Map(leadsAgg.map((x) => [x._id, x.count]));
-    const toursMap = new Map(toursAgg.map((x) => [x._id, x.count]));
     const quotesMap = new Map(quotesAgg.map((x) => [x._id, x.count]));
 
     const result = members.map((member) => {
@@ -169,7 +186,7 @@ export function registerStatsRoutes(app: FastifyInstance) {
       members: result,
       goals: GOALS,
       thresholds: GOALS,
-      visitStageLabel: "Tours Scheduled",
+      visitStageLabel: "Tours Scheduled + Completed",
       targets: {
         newLeads: GOALS.leadsAdded,
         visitConfirmed: GOALS.toursScheduled,
