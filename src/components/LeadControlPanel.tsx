@@ -54,6 +54,7 @@ const OBJECTIONS = ["Budget", "Location", "Amenities", "Timing", "Parents", "Com
 const ROOM_TYPES = ["Single", "Double Sharing", "Triple Sharing", "Studio"];
 const BOOKING_SOURCES = ["ad", "referral", "organic", "whatsapp", "call", "walk-in"];
 const DECISION_MAKERS = ["self", "parent", "group"];
+const OTHER_PROPERTY_VALUE = "__others__";
 const TOUR_TYPES = [
   { value: "physical", label: "Physical", icon: Building2 },
   { value: "virtual", label: "Virtual", icon: Video },
@@ -358,7 +359,8 @@ export function LeadControlPanel() {
     const scheduler = currentMemberId ? (orgMembers.find((m) => m.id === currentMemberId) ?? null) : null;
 
     try {
-      const tour = await scheduleTour({ leadId: lead.id, propertyId: propertyId || undefined, tcmId, scheduledAt: new Date(scheduledAt).toISOString() });
+      const selectedPropertyId = propertyId === OTHER_PROPERTY_VALUE ? undefined : propertyId || undefined;
+      const tour = await scheduleTour({ leadId: lead.id, propertyId: selectedPropertyId, tcmId, scheduledAt: new Date(scheduledAt).toISOString() });
 
       // MYT tour is created by LiveToursBridge from the server event.
       // Only create a local MYT entry as a fast optimistic update so /myt/schedule
@@ -371,8 +373,8 @@ export function LeadControlPanel() {
         phone: lead.phone || "",
         assignedTo: tcmId,
         assignedToName: assignee?.name ?? "Member",
-        propertyName: propertyId ? properties.find(p => p.id === propertyId)?.name ?? "Property Tour" : "Property Tour",
-        propertyId: propertyId || undefined,
+        propertyName: selectedPropertyId ? properties.find((p) => p.id === selectedPropertyId)?.name ?? "Property Tour" : "Property Tour",
+        propertyId: selectedPropertyId,
         area: lead.preferredArea || "",
         zoneId: "",
         tourDate: scheduledDateTime.toISOString().split('T')[0],
@@ -1413,6 +1415,9 @@ function InlineScheduleTour({
                     {p.name}
                   </SelectItem>
                 ))}
+                <SelectItem value={OTHER_PROPERTY_VALUE}>
+                  Others
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>

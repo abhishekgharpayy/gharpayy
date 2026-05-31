@@ -8,6 +8,7 @@ export interface DirectoryMember {
   name: string;
   role: string;
   zones: string[];
+  isTcm?: boolean;
   adminId?: string | null;
   managerId?: string | null;
 }
@@ -41,6 +42,7 @@ export function useOrgMembers() {
           name: u.fullName, 
           role: u.role, 
           zones: u.zones || [],
+          isTcm: u.isTcm,
           adminId: u.adminId,
           managerId: u.managerId
         })));
