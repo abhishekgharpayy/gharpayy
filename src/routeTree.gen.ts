@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ZonesRouteImport } from './routes/zones'
 import { Route as ZoneBrainRouteImport } from './routes/zone-brain'
+import { Route as VisitWarRouteImport } from './routes/visit-war'
 import { Route as ToursRouteImport } from './routes/tours'
 import { Route as TodayRouteImport } from './routes/today'
 import { Route as SettingsRouteImport } from './routes/settings'
@@ -37,11 +38,13 @@ import { Route as ExecutionRouteImport } from './routes/execution'
 import { Route as DailyProgressRouteImport } from './routes/daily-progress'
 import { Route as CoachRouteImport } from './routes/coach'
 import { Route as CalendarRouteImport } from './routes/calendar'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as ActivityRouteImport } from './routes/activity'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SupplyHubIndexRouteImport } from './routes/supply-hub/index'
 import { Route as OwnerIndexRouteImport } from './routes/owner/index'
 import { Route as MytIndexRouteImport } from './routes/myt/index'
+import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as SupplyHubMatchRouteImport } from './routes/supply-hub/match'
 import { Route as SupplyHubAreasRouteImport } from './routes/supply-hub/areas'
 import { Route as SupplyHubIdRouteImport } from './routes/supply-hub/$id'
@@ -71,6 +74,20 @@ import { Route as MytDraftsRouteImport } from './routes/myt/drafts'
 import { Route as MytCalendarRouteImport } from './routes/myt/calendar'
 import { Route as MytBookingsRouteImport } from './routes/myt/bookings'
 import { Route as LeadsAddRouteImport } from './routes/leads.add'
+import { Route as AdminWarroomRouteImport } from './routes/admin.warroom'
+import { Route as AdminVisitsRouteImport } from './routes/admin.visits'
+import { Route as AdminSupremeRouteImport } from './routes/admin.supreme'
+import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
+import { Route as AdminPropertyRouteImport } from './routes/admin.property'
+import { Route as AdminPeopleRouteImport } from './routes/admin.people'
+import { Route as AdminOwnersRouteImport } from './routes/admin.owners'
+import { Route as AdminLeadsRouteImport } from './routes/admin.leads'
+import { Route as AdminIntelligenceRouteImport } from './routes/admin.intelligence'
+import { Route as AdminImpactRouteImport } from './routes/admin.impact'
+import { Route as AdminExportsRouteImport } from './routes/admin.exports'
+import { Route as AdminCommandRouteImport } from './routes/admin.command'
+import { Route as AdminCalendarRouteImport } from './routes/admin.calendar'
+import { Route as AdminAuditRouteImport } from './routes/admin.audit'
 import { Route as OwnerMediaRoomIdRouteImport } from './routes/owner/media.$roomId'
 import { Route as MytTourIdRouteImport } from './routes/myt/tour.$id'
 import { Route as MytTcmPerformanceRouteImport } from './routes/myt/tcm.performance'
@@ -86,6 +103,11 @@ const ZonesRoute = ZonesRouteImport.update({
 const ZoneBrainRoute = ZoneBrainRouteImport.update({
   id: '/zone-brain',
   path: '/zone-brain',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VisitWarRoute = VisitWarRouteImport.update({
+  id: '/visit-war',
+  path: '/visit-war',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ToursRoute = ToursRouteImport.update({
@@ -218,6 +240,11 @@ const CalendarRoute = CalendarRouteImport.update({
   path: '/calendar',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ActivityRoute = ActivityRouteImport.update({
   id: '/activity',
   path: '/activity',
@@ -242,6 +269,11 @@ const MytIndexRoute = MytIndexRouteImport.update({
   id: '/myt/',
   path: '/myt/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminRoute,
 } as any)
 const SupplyHubMatchRoute = SupplyHubMatchRouteImport.update({
   id: '/supply-hub/match',
@@ -388,6 +420,76 @@ const LeadsAddRoute = LeadsAddRouteImport.update({
   path: '/add',
   getParentRoute: () => LeadsRoute,
 } as any)
+const AdminWarroomRoute = AdminWarroomRouteImport.update({
+  id: '/warroom',
+  path: '/warroom',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminVisitsRoute = AdminVisitsRouteImport.update({
+  id: '/visits',
+  path: '/visits',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminSupremeRoute = AdminSupremeRouteImport.update({
+  id: '/supreme',
+  path: '/supreme',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminSettingsRoute = AdminSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminPropertyRoute = AdminPropertyRouteImport.update({
+  id: '/property',
+  path: '/property',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminPeopleRoute = AdminPeopleRouteImport.update({
+  id: '/people',
+  path: '/people',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminOwnersRoute = AdminOwnersRouteImport.update({
+  id: '/owners',
+  path: '/owners',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminLeadsRoute = AdminLeadsRouteImport.update({
+  id: '/leads',
+  path: '/leads',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminIntelligenceRoute = AdminIntelligenceRouteImport.update({
+  id: '/intelligence',
+  path: '/intelligence',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminImpactRoute = AdminImpactRouteImport.update({
+  id: '/impact',
+  path: '/impact',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminExportsRoute = AdminExportsRouteImport.update({
+  id: '/exports',
+  path: '/exports',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminCommandRoute = AdminCommandRouteImport.update({
+  id: '/command',
+  path: '/command',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminCalendarRoute = AdminCalendarRouteImport.update({
+  id: '/calendar',
+  path: '/calendar',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminAuditRoute = AdminAuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
+  getParentRoute: () => AdminRoute,
+} as any)
 const OwnerMediaRoomIdRoute = OwnerMediaRoomIdRouteImport.update({
   id: '/owner/media/$roomId',
   path: '/owner/media/$roomId',
@@ -422,6 +524,7 @@ const MytTourIdReportRoute = MytTourIdReportRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/activity': typeof ActivityRoute
+  '/admin': typeof AdminRouteWithChildren
   '/calendar': typeof CalendarRoute
   '/coach': typeof CoachRoute
   '/daily-progress': typeof DailyProgressRoute
@@ -448,8 +551,23 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRoute
   '/today': typeof TodayRoute
   '/tours': typeof ToursRoute
+  '/visit-war': typeof VisitWarRoute
   '/zone-brain': typeof ZoneBrainRoute
   '/zones': typeof ZonesRoute
+  '/admin/audit': typeof AdminAuditRoute
+  '/admin/calendar': typeof AdminCalendarRoute
+  '/admin/command': typeof AdminCommandRoute
+  '/admin/exports': typeof AdminExportsRoute
+  '/admin/impact': typeof AdminImpactRoute
+  '/admin/intelligence': typeof AdminIntelligenceRoute
+  '/admin/leads': typeof AdminLeadsRoute
+  '/admin/owners': typeof AdminOwnersRoute
+  '/admin/people': typeof AdminPeopleRoute
+  '/admin/property': typeof AdminPropertyRoute
+  '/admin/settings': typeof AdminSettingsRoute
+  '/admin/supreme': typeof AdminSupremeRoute
+  '/admin/visits': typeof AdminVisitsRoute
+  '/admin/warroom': typeof AdminWarroomRoute
   '/leads/add': typeof LeadsAddRoute
   '/myt/bookings': typeof MytBookingsRoute
   '/myt/calendar': typeof MytCalendarRoute
@@ -479,6 +597,7 @@ export interface FileRoutesByFullPath {
   '/supply-hub/$id': typeof SupplyHubIdRoute
   '/supply-hub/areas': typeof SupplyHubAreasRoute
   '/supply-hub/match': typeof SupplyHubMatchRoute
+  '/admin/': typeof AdminIndexRoute
   '/myt/': typeof MytIndexRoute
   '/owner/': typeof OwnerIndexRoute
   '/supply-hub/': typeof SupplyHubIndexRoute
@@ -518,8 +637,23 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/today': typeof TodayRoute
   '/tours': typeof ToursRoute
+  '/visit-war': typeof VisitWarRoute
   '/zone-brain': typeof ZoneBrainRoute
   '/zones': typeof ZonesRoute
+  '/admin/audit': typeof AdminAuditRoute
+  '/admin/calendar': typeof AdminCalendarRoute
+  '/admin/command': typeof AdminCommandRoute
+  '/admin/exports': typeof AdminExportsRoute
+  '/admin/impact': typeof AdminImpactRoute
+  '/admin/intelligence': typeof AdminIntelligenceRoute
+  '/admin/leads': typeof AdminLeadsRoute
+  '/admin/owners': typeof AdminOwnersRoute
+  '/admin/people': typeof AdminPeopleRoute
+  '/admin/property': typeof AdminPropertyRoute
+  '/admin/settings': typeof AdminSettingsRoute
+  '/admin/supreme': typeof AdminSupremeRoute
+  '/admin/visits': typeof AdminVisitsRoute
+  '/admin/warroom': typeof AdminWarroomRoute
   '/leads/add': typeof LeadsAddRoute
   '/myt/bookings': typeof MytBookingsRoute
   '/myt/calendar': typeof MytCalendarRoute
@@ -549,6 +683,7 @@ export interface FileRoutesByTo {
   '/supply-hub/$id': typeof SupplyHubIdRoute
   '/supply-hub/areas': typeof SupplyHubAreasRoute
   '/supply-hub/match': typeof SupplyHubMatchRoute
+  '/admin': typeof AdminIndexRoute
   '/myt': typeof MytIndexRoute
   '/owner': typeof OwnerIndexRoute
   '/supply-hub': typeof SupplyHubIndexRoute
@@ -563,6 +698,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/activity': typeof ActivityRoute
+  '/admin': typeof AdminRouteWithChildren
   '/calendar': typeof CalendarRoute
   '/coach': typeof CoachRoute
   '/daily-progress': typeof DailyProgressRoute
@@ -589,8 +725,23 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRoute
   '/today': typeof TodayRoute
   '/tours': typeof ToursRoute
+  '/visit-war': typeof VisitWarRoute
   '/zone-brain': typeof ZoneBrainRoute
   '/zones': typeof ZonesRoute
+  '/admin/audit': typeof AdminAuditRoute
+  '/admin/calendar': typeof AdminCalendarRoute
+  '/admin/command': typeof AdminCommandRoute
+  '/admin/exports': typeof AdminExportsRoute
+  '/admin/impact': typeof AdminImpactRoute
+  '/admin/intelligence': typeof AdminIntelligenceRoute
+  '/admin/leads': typeof AdminLeadsRoute
+  '/admin/owners': typeof AdminOwnersRoute
+  '/admin/people': typeof AdminPeopleRoute
+  '/admin/property': typeof AdminPropertyRoute
+  '/admin/settings': typeof AdminSettingsRoute
+  '/admin/supreme': typeof AdminSupremeRoute
+  '/admin/visits': typeof AdminVisitsRoute
+  '/admin/warroom': typeof AdminWarroomRoute
   '/leads/add': typeof LeadsAddRoute
   '/myt/bookings': typeof MytBookingsRoute
   '/myt/calendar': typeof MytCalendarRoute
@@ -620,6 +771,7 @@ export interface FileRoutesById {
   '/supply-hub/$id': typeof SupplyHubIdRoute
   '/supply-hub/areas': typeof SupplyHubAreasRoute
   '/supply-hub/match': typeof SupplyHubMatchRoute
+  '/admin/': typeof AdminIndexRoute
   '/myt/': typeof MytIndexRoute
   '/owner/': typeof OwnerIndexRoute
   '/supply-hub/': typeof SupplyHubIndexRoute
@@ -635,6 +787,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/activity'
+    | '/admin'
     | '/calendar'
     | '/coach'
     | '/daily-progress'
@@ -661,8 +814,23 @@ export interface FileRouteTypes {
     | '/settings'
     | '/today'
     | '/tours'
+    | '/visit-war'
     | '/zone-brain'
     | '/zones'
+    | '/admin/audit'
+    | '/admin/calendar'
+    | '/admin/command'
+    | '/admin/exports'
+    | '/admin/impact'
+    | '/admin/intelligence'
+    | '/admin/leads'
+    | '/admin/owners'
+    | '/admin/people'
+    | '/admin/property'
+    | '/admin/settings'
+    | '/admin/supreme'
+    | '/admin/visits'
+    | '/admin/warroom'
     | '/leads/add'
     | '/myt/bookings'
     | '/myt/calendar'
@@ -692,6 +860,7 @@ export interface FileRouteTypes {
     | '/supply-hub/$id'
     | '/supply-hub/areas'
     | '/supply-hub/match'
+    | '/admin/'
     | '/myt/'
     | '/owner/'
     | '/supply-hub/'
@@ -731,8 +900,23 @@ export interface FileRouteTypes {
     | '/settings'
     | '/today'
     | '/tours'
+    | '/visit-war'
     | '/zone-brain'
     | '/zones'
+    | '/admin/audit'
+    | '/admin/calendar'
+    | '/admin/command'
+    | '/admin/exports'
+    | '/admin/impact'
+    | '/admin/intelligence'
+    | '/admin/leads'
+    | '/admin/owners'
+    | '/admin/people'
+    | '/admin/property'
+    | '/admin/settings'
+    | '/admin/supreme'
+    | '/admin/visits'
+    | '/admin/warroom'
     | '/leads/add'
     | '/myt/bookings'
     | '/myt/calendar'
@@ -762,6 +946,7 @@ export interface FileRouteTypes {
     | '/supply-hub/$id'
     | '/supply-hub/areas'
     | '/supply-hub/match'
+    | '/admin'
     | '/myt'
     | '/owner'
     | '/supply-hub'
@@ -775,6 +960,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/activity'
+    | '/admin'
     | '/calendar'
     | '/coach'
     | '/daily-progress'
@@ -801,8 +987,23 @@ export interface FileRouteTypes {
     | '/settings'
     | '/today'
     | '/tours'
+    | '/visit-war'
     | '/zone-brain'
     | '/zones'
+    | '/admin/audit'
+    | '/admin/calendar'
+    | '/admin/command'
+    | '/admin/exports'
+    | '/admin/impact'
+    | '/admin/intelligence'
+    | '/admin/leads'
+    | '/admin/owners'
+    | '/admin/people'
+    | '/admin/property'
+    | '/admin/settings'
+    | '/admin/supreme'
+    | '/admin/visits'
+    | '/admin/warroom'
     | '/leads/add'
     | '/myt/bookings'
     | '/myt/calendar'
@@ -832,6 +1033,7 @@ export interface FileRouteTypes {
     | '/supply-hub/$id'
     | '/supply-hub/areas'
     | '/supply-hub/match'
+    | '/admin/'
     | '/myt/'
     | '/owner/'
     | '/supply-hub/'
@@ -846,6 +1048,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ActivityRoute: typeof ActivityRoute
+  AdminRoute: typeof AdminRouteWithChildren
   CalendarRoute: typeof CalendarRoute
   CoachRoute: typeof CoachRoute
   DailyProgressRoute: typeof DailyProgressRoute
@@ -872,6 +1075,7 @@ export interface RootRouteChildren {
   SettingsRoute: typeof SettingsRoute
   TodayRoute: typeof TodayRoute
   ToursRoute: typeof ToursRoute
+  VisitWarRoute: typeof VisitWarRoute
   ZoneBrainRoute: typeof ZoneBrainRoute
   ZonesRoute: typeof ZonesRoute
   MytBookingsRoute: typeof MytBookingsRoute
@@ -924,6 +1128,13 @@ declare module '@tanstack/react-router' {
       path: '/zone-brain'
       fullPath: '/zone-brain'
       preLoaderRoute: typeof ZoneBrainRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/visit-war': {
+      id: '/visit-war'
+      path: '/visit-war'
+      fullPath: '/visit-war'
+      preLoaderRoute: typeof VisitWarRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/tours': {
@@ -1108,6 +1319,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CalendarRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/activity': {
       id: '/activity'
       path: '/activity'
@@ -1142,6 +1360,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/myt/'
       preLoaderRoute: typeof MytIndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/admin/': {
+      id: '/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof AdminRoute
     }
     '/supply-hub/match': {
       id: '/supply-hub/match'
@@ -1346,6 +1571,104 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LeadsAddRouteImport
       parentRoute: typeof LeadsRoute
     }
+    '/admin/warroom': {
+      id: '/admin/warroom'
+      path: '/warroom'
+      fullPath: '/admin/warroom'
+      preLoaderRoute: typeof AdminWarroomRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/visits': {
+      id: '/admin/visits'
+      path: '/visits'
+      fullPath: '/admin/visits'
+      preLoaderRoute: typeof AdminVisitsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/supreme': {
+      id: '/admin/supreme'
+      path: '/supreme'
+      fullPath: '/admin/supreme'
+      preLoaderRoute: typeof AdminSupremeRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/settings': {
+      id: '/admin/settings'
+      path: '/settings'
+      fullPath: '/admin/settings'
+      preLoaderRoute: typeof AdminSettingsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/property': {
+      id: '/admin/property'
+      path: '/property'
+      fullPath: '/admin/property'
+      preLoaderRoute: typeof AdminPropertyRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/people': {
+      id: '/admin/people'
+      path: '/people'
+      fullPath: '/admin/people'
+      preLoaderRoute: typeof AdminPeopleRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/owners': {
+      id: '/admin/owners'
+      path: '/owners'
+      fullPath: '/admin/owners'
+      preLoaderRoute: typeof AdminOwnersRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/leads': {
+      id: '/admin/leads'
+      path: '/leads'
+      fullPath: '/admin/leads'
+      preLoaderRoute: typeof AdminLeadsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/intelligence': {
+      id: '/admin/intelligence'
+      path: '/intelligence'
+      fullPath: '/admin/intelligence'
+      preLoaderRoute: typeof AdminIntelligenceRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/impact': {
+      id: '/admin/impact'
+      path: '/impact'
+      fullPath: '/admin/impact'
+      preLoaderRoute: typeof AdminImpactRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/exports': {
+      id: '/admin/exports'
+      path: '/exports'
+      fullPath: '/admin/exports'
+      preLoaderRoute: typeof AdminExportsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/command': {
+      id: '/admin/command'
+      path: '/command'
+      fullPath: '/admin/command'
+      preLoaderRoute: typeof AdminCommandRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/calendar': {
+      id: '/admin/calendar'
+      path: '/calendar'
+      fullPath: '/admin/calendar'
+      preLoaderRoute: typeof AdminCalendarRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/audit': {
+      id: '/admin/audit'
+      path: '/audit'
+      fullPath: '/admin/audit'
+      preLoaderRoute: typeof AdminAuditRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/owner/media/$roomId': {
       id: '/owner/media/$roomId'
       path: '/owner/media/$roomId'
@@ -1391,6 +1714,44 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AdminRouteChildren {
+  AdminAuditRoute: typeof AdminAuditRoute
+  AdminCalendarRoute: typeof AdminCalendarRoute
+  AdminCommandRoute: typeof AdminCommandRoute
+  AdminExportsRoute: typeof AdminExportsRoute
+  AdminImpactRoute: typeof AdminImpactRoute
+  AdminIntelligenceRoute: typeof AdminIntelligenceRoute
+  AdminLeadsRoute: typeof AdminLeadsRoute
+  AdminOwnersRoute: typeof AdminOwnersRoute
+  AdminPeopleRoute: typeof AdminPeopleRoute
+  AdminPropertyRoute: typeof AdminPropertyRoute
+  AdminSettingsRoute: typeof AdminSettingsRoute
+  AdminSupremeRoute: typeof AdminSupremeRoute
+  AdminVisitsRoute: typeof AdminVisitsRoute
+  AdminWarroomRoute: typeof AdminWarroomRoute
+  AdminIndexRoute: typeof AdminIndexRoute
+}
+
+const AdminRouteChildren: AdminRouteChildren = {
+  AdminAuditRoute: AdminAuditRoute,
+  AdminCalendarRoute: AdminCalendarRoute,
+  AdminCommandRoute: AdminCommandRoute,
+  AdminExportsRoute: AdminExportsRoute,
+  AdminImpactRoute: AdminImpactRoute,
+  AdminIntelligenceRoute: AdminIntelligenceRoute,
+  AdminLeadsRoute: AdminLeadsRoute,
+  AdminOwnersRoute: AdminOwnersRoute,
+  AdminPeopleRoute: AdminPeopleRoute,
+  AdminPropertyRoute: AdminPropertyRoute,
+  AdminSettingsRoute: AdminSettingsRoute,
+  AdminSupremeRoute: AdminSupremeRoute,
+  AdminVisitsRoute: AdminVisitsRoute,
+  AdminWarroomRoute: AdminWarroomRoute,
+  AdminIndexRoute: AdminIndexRoute,
+}
+
+const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
+
 interface LeadsRouteChildren {
   LeadsAddRoute: typeof LeadsAddRoute
 }
@@ -1429,6 +1790,7 @@ const MytTourIdRouteWithChildren = MytTourIdRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ActivityRoute: ActivityRoute,
+  AdminRoute: AdminRouteWithChildren,
   CalendarRoute: CalendarRoute,
   CoachRoute: CoachRoute,
   DailyProgressRoute: DailyProgressRoute,
@@ -1455,6 +1817,7 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRoute: SettingsRoute,
   TodayRoute: TodayRoute,
   ToursRoute: ToursRoute,
+  VisitWarRoute: VisitWarRoute,
   ZoneBrainRoute: ZoneBrainRoute,
   ZonesRoute: ZonesRoute,
   MytBookingsRoute: MytBookingsRoute,

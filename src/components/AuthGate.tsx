@@ -30,6 +30,12 @@ export function AuthGate({ children }: { children: ReactNode }) {
     void navigate({ to: "/login", search: { redirect }, replace: true }).catch(() => undefined);
   }, [user, isLoginRoute, hasToken, pathname, navigate]);
 
+  useEffect(() => {
+    if (user?.role === "super_admin" && pathname === "/") {
+      void navigate({ to: "/admin", replace: true }).catch(() => undefined);
+    }
+  }, [user, pathname, navigate]);
+
   // Resolving auth: token present but user not yet loaded
   if (hasToken && !user && loading) {
     return (

@@ -28,7 +28,11 @@ function LoginPage() {
     if (tokenStore.get()) {
       api.auth.me().then((r) => {
         setUser(r.user);
-        nav({ to: search.redirect || "/" });
+        if (r.user.role === "super_admin" && (!search.redirect || search.redirect === "/")) {
+          nav({ to: "/admin" });
+        } else {
+          nav({ to: search.redirect || "/" });
+        }
       }).catch(() => undefined);
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -39,7 +43,11 @@ function LoginPage() {
     try {
       const r = await api.login(identifier.trim(), password);
       setUser(r.user);
-      nav({ to: search.redirect || "/" });
+      if (r.user.role === "super_admin" && (!search.redirect || search.redirect === "/")) {
+        nav({ to: "/admin" });
+      } else {
+        nav({ to: search.redirect || "/" });
+      }
     } catch (e) {
       setErr((e as Error).message);
     } finally {

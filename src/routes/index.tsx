@@ -1,6 +1,7 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { useApp, computePropertyMetrics } from "@/lib/store";
+import { useAuthUser } from "@/lib/auth-store";
 import { KpiCard } from "@/components/atoms";
 import { format } from "date-fns";
 import { AlertTriangle, ArrowUpRight, CalendarPlus, Flame, Building2, Zap, Sun, TrendingUp, Sparkles, IndianRupee } from "lucide-react";
@@ -11,6 +12,10 @@ import { scanRevivals } from "@/lib/revival";
 import { QuickActionRow } from "@/components/QuickActionRow";
 
 export const Route = createFileRoute("/")({
+  beforeLoad: () => {
+    const role = useAuthUser.getState().user?.role;
+    if (role === "super_admin") throw redirect({ to: "/admin" });
+  },
   head: () => ({
     meta: [
       { title: "Dashboard - Gharpayy" },
