@@ -9,9 +9,10 @@ import { api } from "@/lib/api/client";
 import { onEvent, getSocket } from "@/lib/api/socket";
 import type { Lead as LegacyLead, LeadStage, Intent } from "@/lib/types";
 import type { Lead as WireLead, DomainEvent } from "@/contracts";
+import { normalizeLeadRecord } from "@/lib/lead-helpers";
 
 function toLegacy(w: WireLead, fallbackTcmId = ""): LegacyLead {
-  return {
+  return normalizeLeadRecord({
     id: w._id,
     name: w.name,
     phone: w.phone,
@@ -41,7 +42,7 @@ function toLegacy(w: WireLead, fallbackTcmId = ""): LegacyLead {
     notes: w.notes,
     zoneCategory: w.zoneCategory,
     stageLabel: w.stageLabel,
-  };
+  });
 }
 
 export function LiveLeadsBridge() {
@@ -104,4 +105,3 @@ export function LiveLeadsBridge() {
 
   return null;
 }
-

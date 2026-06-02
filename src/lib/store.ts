@@ -12,6 +12,7 @@ import type { LeadFocusAction } from "@/lib/crm10x/impact-hard-actions";
 import { pushObjectionToOwner, pushTourViewToOwner } from "@/owner/team-bridge";
 import { emit as emitConnector } from "./connectors";
 import { personName } from "./people";
+import { normalizeLeadRecord } from "./lead-helpers";
 
 const uid = (p: string) => `${p}-${Math.random().toString(36).slice(2, 14)}`;
 
@@ -146,7 +147,7 @@ export const useApp = create<AppState>((set, get) => ({
     const now = new Date().toISOString();
     const lead: Lead = {
       id: input.id ?? uid("lead"),
-      name: input.name,
+      name: normalizeLeadRecord({ name: input.name }).name,
       phone: input.phone,
       source: input.source ?? "manual",
       budget: input.budget,
@@ -178,7 +179,7 @@ export const useApp = create<AppState>((set, get) => ({
     set((s) => ({ leads: [lead, ...s.leads] }));
     return lead;
   },
-  setLeads: (leads: Lead[]) => set({ leads }),
+  setLeads: (leads: Lead[]) => set({ leads: leads.map(normalizeLeadRecord) }),
   setTours: (tours: Tour[]) => set({ tours }),
 
   setLeadStage: async (leadId, stage) => {

@@ -12,11 +12,19 @@ Use this with new teammates before go-live.
 
 | Column | Meaning |
 |--------|---------|
-| Inbox | New leads — call or schedule |
-| Tour scheduled | Tour booked |
-| On tour today | Today's tours |
+| Inbox | New leads — complete Impact profile and schedule |
+| Tour scheduled | Tour booked — confirm, reschedule, or start |
+| On tour today | Today's tours — mark tour done |
 | Quote sent | Follow up / negotiate / book |
 | Booked | Check-in & handover |
+
+## Drawer flow
+
+The lead drawer now opens only the allowed work step:
+
+Impact → Tour → Post-tour → Quote → Check-in
+
+TCMs cannot jump ahead from the step rail. Finish the current step to unlock the next one.
 
 ## Filters
 

@@ -9,14 +9,22 @@ import { Tour } from "@/myt/lib/types";
 import { useOrgMembers, useActiveTcMs } from "@/hooks/useOrgDirectory";
 import { notifyTourScheduled } from "@/lib/notifications";
 import {
-  Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -35,18 +43,40 @@ import { SmartDossier } from "./crm10x/SmartDossier";
 import { LeadPropertyDossier } from "./impact/LeadPropertyDossier";
 import { CommandActions, useImpactStateForLead } from "./impact/ImpactQueue";
 import {
-  Phone, MessageSquare, Calendar as CalendarIcon, Tag, ClipboardCheck,
-  AlertTriangle, CheckCircle2, X, Activity as ActivityIcon, MapPin,
-  Wallet, Send, Zap, IndianRupee, BellRing, ExternalLink,
-  Building2, Video, Briefcase,
+  Phone,
+  MessageSquare,
+  Calendar as CalendarIcon,
+  Tag,
+  ClipboardCheck,
+  AlertTriangle,
+  CheckCircle2,
+  X,
+  Activity as ActivityIcon,
+  MapPin,
+  Wallet,
+  Send,
+  Zap,
+  IndianRupee,
+  BellRing,
+  ExternalLink,
+  Building2,
+  Video,
+  Briefcase,
+  UserCheck,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { formatTime12h } from "@/lib/utils";
+import {
+  formatBudget,
+  formatAssignee,
+  normalizeLeadName,
+  resolveBestLeadName,
+  resolveLeadLocation,
+} from "@/lib/lead-helpers";
 import type { Lead, LeadStage, FollowUpPriority, SequenceKind } from "@/lib/types";
 import { toast } from "sonner";
 import { useMountedNow } from "@/hooks/use-now";
 import { sendTourMessage as sendOwnerTourMessage } from "@/owner/messaging";
-import { useSettings } from "@/myt/lib/settings-context";
 import { ActivityTimeline } from "@/components/activities/ActivityTimeline";
 import { ActivityComposer } from "@/components/activities/ActivityComposer";
 import { TodoPanel } from "@/components/todos/TodoPanel";
@@ -56,8 +86,22 @@ import { pressureColor } from "@/lib/crm10x/impact-scoring";
 import type { LeadFocusAction } from "@/lib/crm10x/impact-hard-actions";
 import { CheckInPanel } from "@/components/checkins/CheckInPanel";
 
-const TAG_OPTIONS = ["price-issue", "location-mismatch", "parents-involved", "urgent", "budget-low"];
-const OBJECTIONS = ["Budget", "Location", "Amenities", "Timing", "Parents", "Comparing options", "Other"];
+const TAG_OPTIONS = [
+  "price-issue",
+  "location-mismatch",
+  "parents-involved",
+  "urgent",
+  "budget-low",
+];
+const OBJECTIONS = [
+  "Budget",
+  "Location",
+  "Amenities",
+  "Timing",
+  "Parents",
+  "Comparing options",
+  "Other",
+];
 const ROOM_TYPES = ["Single", "Double Sharing", "Triple Sharing", "Studio"];
 const BOOKING_SOURCES = ["ad", "referral", "organic", "whatsapp", "call", "walk-in"];
 const DECISION_MAKERS = ["self", "parent", "group"];
@@ -67,13 +111,29 @@ const TOUR_TYPES = [
   { value: "virtual", label: "Virtual", icon: Video },
   { value: "pre-book-pitch", label: "Pre-book", icon: Briefcase },
 ];
-const LEAD_DRAWER_TABS = new Set([
-  "dossier", "tour", "post", "quote", "checkin", "impact", "best-fit", "control", "handoff", "log",
-]);
+const WORKFLOW_TAB_LABELS: Record<JourneyTab, string> = {
+  impact: "Impact",
+  tour: "Tour",
+  post: "Post-tour",
+  quote: "Quote",
+  checkin: "Check-in",
+};
 const TEMPLATES = [
-  { id: "tour-confirm", label: "Tour confirmation", body: "Hi! Confirming your tour today. Looking forward to meeting you." },
-  { id: "post-tour", label: "Post-tour check-in", body: "Hi! How did you find the property? Happy to answer any questions." },
-  { id: "scarcity", label: "Scarcity", body: "Just a heads-up - only a couple of beds left at this price." },
+  {
+    id: "tour-confirm",
+    label: "Tour confirmation",
+    body: "Hi! Confirming your tour today. Looking forward to meeting you.",
+  },
+  {
+    id: "post-tour",
+    label: "Post-tour check-in",
+    body: "Hi! How did you find the property? Happy to answer any questions.",
+  },
+  {
+    id: "scarcity",
+    label: "Scarcity",
+    body: "Just a heads-up - only a couple of beds left at this price.",
+  },
 ];
 
 function parseSafeDate(value?: string | null): Date | null {
@@ -111,19 +171,43 @@ type DrawerScheduleAnswers = {
 
 export function LeadControlPanel() {
   const {
-    selectedLeadId, selectedLeadTab, selectedLeadAction, selectLead, consumeSelectedLeadAction,
-    leads, properties, tours, activities, tcms,
-    setLeadStage, setLeadIntent, setLeadFollowUp, addLeadTag, removeLeadTag,
-    scheduleTour, cancelTour, rescheduleTour, completeTour, setDecision, updatePostTour,
-    addNote, logCall, sendMessage, autoAssignLead, startSequence, closeDeal,
+    selectedLeadId,
+    selectedLeadTab,
+    selectedLeadAction,
+    selectLead,
+    consumeSelectedLeadAction,
+    leads,
+    properties,
+    tours,
+    activities,
+    tcms,
+    setLeadStage,
+    setLeadIntent,
+    setLeadFollowUp,
+    addLeadTag,
+    removeLeadTag,
+    scheduleTour,
+    cancelTour,
+    rescheduleTour,
+    completeTour,
+    setDecision,
+    updatePostTour,
+    addNote,
+    logCall,
+    sendMessage,
+    autoAssignLead,
+    startSequence,
+    closeDeal,
     markHandoffsRead,
   } = useApp();
   const { currentMemberId, setTours } = useAppState();
   const { members: orgMembers } = useOrgMembers();
   const authUser = useAuthUser((s) => s.user);
-  const { settings } = useSettings();
 
-  const lead = useMemo(() => leads.find((l) => l.id === selectedLeadId) ?? null, [leads, selectedLeadId]);
+  const lead = useMemo(
+    () => leads.find((l) => l.id === selectedLeadId) ?? null,
+    [leads, selectedLeadId],
+  );
   const tourPropertyOptions = useMemo(() => allCatalogProperties(properties), [properties]);
 
   // Mark handoffs read when this lead opens
@@ -132,15 +216,16 @@ export function LeadControlPanel() {
   }, [selectedLeadId, markHandoffsRead]);
 
   const leadTours = useMemo(
-    () => (lead
-      ? tours
-          .filter((tour) => {
-            // Match by leadId (primary), then fallback to phone/name for legacy tours
-            if (tour.leadId === lead.id) return true;
-            return tour.phone === lead.phone || tour.leadName === lead.name;
-          })
-          .sort((a, b) => +new Date(b.scheduledAt) - +new Date(a.scheduledAt))
-      : []),
+    () =>
+      lead
+        ? tours
+            .filter((tour) => {
+              // Match by leadId (primary), then fallback to phone/name for legacy tours
+              if (tour.leadId === lead.id) return true;
+              return tour.phone === lead.phone || tour.leadName === lead.name;
+            })
+            .sort((a, b) => +new Date(b.scheduledAt) - +new Date(a.scheduledAt))
+        : [],
     [tours, lead],
   );
   const leadActivities = useMemo(
@@ -151,7 +236,13 @@ export function LeadControlPanel() {
   const { tcms: activeTcms } = useActiveTcMs();
   const tcmUsers = useMemo(() => {
     if (activeTcms && activeTcms.length > 0) {
-      return activeTcms.map((a: any) => ({ id: a.id, name: a.fullName ?? a.name, role: a.role ?? "tcm", zones: a.zones ?? [] }))
+      return activeTcms
+        .map((a: any) => ({
+          id: a.id,
+          name: a.fullName ?? a.name,
+          role: a.role ?? "tcm",
+          zones: a.zones ?? [],
+        }))
         .sort((a, b) => a.name.localeCompare(b.name));
     }
     return orgMembers
@@ -203,23 +294,35 @@ export function LeadControlPanel() {
     keyConcern: "",
     tourType: "physical",
   });
-  const [tab, setTab] = useState("dossier");
+  const [tab, setTab] = useState("impact");
   const [, mounted] = useMountedNow();
 
   // Note state
   const [note, setNote] = useState("");
   const [customMsg, setCustomMsg] = useState("");
 
-  const pendingPostTour = leadTours.find(
-    (t) => t.status === "completed" && !t.postTour.filledAt,
-  );
+  const pendingPostTour = leadTours.find((t) => t.status === "completed" && !t.postTour.filledAt);
+  const completedPostTour = leadTours.find((t) => t.status === "completed" && t.postTour.filledAt);
   const upcomingTour = leadTours.find((t) => t.status === "scheduled");
   const hasScheduledTour = Boolean(upcomingTour) || lead?.stage === "tour-scheduled";
-  const scheduledTourActivity = leadActivities.find((a) => (a.kind === "tour_scheduled" || a.kind === "site_visit") && a.tourId) ?? null;
+  const scheduledTourActivity =
+    leadActivities.find(
+      (a) => (a.kind === "tour_scheduled" || a.kind === "site_visit") && a.tourId,
+    ) ?? null;
   const scheduledTourFromActivity = scheduledTourActivity?.tourId
     ? tours.find((candidate) => candidate.id === scheduledTourActivity.tourId)
     : null;
-  const tourToShow = upcomingTour ?? scheduledTourFromActivity ?? (hasScheduledTour ? leadTours[0] ?? null : null);
+  const tourToShow =
+    upcomingTour ?? scheduledTourFromActivity ?? (hasScheduledTour ? (leadTours[0] ?? null) : null);
+  const currentWorkTab: JourneyTab = (() => {
+    if (!lead) return "impact";
+    if (lead.stage === "booked") return "checkin";
+    if (lead.stage === "quote-sent" || lead.stage === "negotiation") return "quote";
+    if (completedPostTour) return "quote";
+    if (pendingPostTour || lead.stage === "tour-done") return "post";
+    if (hasScheduledTour || lead.stage === "tour-scheduled" || lead.stage === "on-tour") return "tour";
+    return "impact";
+  })();
 
   useEffect(() => {
     if (!lead) return;
@@ -240,19 +343,22 @@ export function LeadControlPanel() {
       workLocation: lead.preferredArea || "",
       keyConcern: lead.tags.join(", "),
     }));
-    setTab(selectedLeadTab && LEAD_DRAWER_TABS.has(selectedLeadTab)
-      ? selectedLeadTab
-      : pendingPostTour ? "post" : "dossier");
+    const requestedTab =
+      selectedLeadTab === "dossier" ? "impact" : selectedLeadTab;
+    setTab(
+      requestedTab === "impact" || requestedTab === currentWorkTab
+        ? requestedTab
+        : currentWorkTab,
+    );
   }, [
     authUser?.role,
+    currentWorkTab,
     currentMemberId,
     defaultSelfAssigneeId,
     hasScheduledTour,
     lead,
-    pendingPostTour,
     scheduleAssignees,
     selectedLeadTab,
-    // settings.matching.drawerDefaultTab intentionally removed — default is now dossier
     tourToShow,
   ]);
 
@@ -265,7 +371,10 @@ export function LeadControlPanel() {
         const { items } = await api.tours.list();
         if (cancelled) return;
 
-        const wireTour = items.find((tour) => tour.leadId === lead.id && (tour.status === "scheduled" || tour.status === "confirmed"));
+        const wireTour = items.find(
+          (tour) =>
+            tour.leadId === lead.id && (tour.status === "scheduled" || tour.status === "confirmed"),
+        );
         if (!wireTour) return;
 
         // 1. Add to CRM store so tourToShow / leadTours can find it
@@ -297,19 +406,22 @@ export function LeadControlPanel() {
         }));
 
         // 2. Also add MYT-format tour for /myt/schedule
-        const property = wireTour.propertyId ? properties.find((p) => p.id === wireTour.propertyId) : undefined;
+        const hydratedLocation = resolveLeadLocation(lead, tours, properties);
+        const property = wireTour.propertyId
+          ? tourPropertyOptions.find((p) => p.id === wireTour.propertyId)
+          : undefined;
         const assignedTo = orgMembers.find((member) => member.id === wireTour.assignedTo);
         const scheduledBy = orgMembers.find((member) => member.id === wireTour.scheduledBy);
         const hydratedTour: Tour = {
           id: wireTour._id,
           leadId: wireTour.leadId,
-          leadName: lead.name,
+          leadName: resolveBestLeadName(lead),
           phone: lead.phone || "",
           assignedTo: wireTour.assignedTo,
           assignedToName: assignedTo?.name ?? wireTour.assignedTo,
-          propertyName: property?.name ?? "Property Tour",
+          propertyName: property?.name ?? hydratedLocation.propertyName ?? "Property Hub option",
           propertyId: wireTour.propertyId ?? undefined,
-          area: lead.preferredArea || "",
+          area: hydratedLocation.area,
           zoneId: "",
           tourDate: wireTour.scheduledAt.slice(0, 10),
           tourTime: wireTour.scheduledAt.slice(11, 16),
@@ -345,21 +457,47 @@ export function LeadControlPanel() {
           whyLost: null,
         };
 
-        setTours((prev) => (prev.some((tour) => tour.id === hydratedTour.id)
-          ? prev.map((tour) => (tour.id === hydratedTour.id ? { ...tour, ...hydratedTour } : tour))
-          : [hydratedTour, ...prev]));
+        setTours((prev) =>
+          prev.some((tour) => tour.id === hydratedTour.id)
+            ? prev.map((tour) =>
+                tour.id === hydratedTour.id ? { ...tour, ...hydratedTour } : tour,
+              )
+            : [hydratedTour, ...prev],
+        );
       } catch (err) {
-        console.warn("[LeadControlPanel] failed to hydrate scheduled tour:", (err as Error).message);
+        console.warn(
+          "[LeadControlPanel] failed to hydrate scheduled tour:",
+          (err as Error).message,
+        );
       }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [hasScheduledTour, lead, leadTours.length, orgMembers, properties, scheduledTourFromActivity, setTours]);
+  }, [
+    hasScheduledTour,
+    lead,
+    leadTours.length,
+    orgMembers,
+    properties,
+    scheduledTourFromActivity,
+    setTours,
+    tourPropertyOptions,
+    tours,
+  ]);
+
+  const leadLocation = useMemo(
+    () =>
+      lead
+        ? resolveLeadLocation(lead, tours, properties)
+        : { area: "", propertyName: null, source: "fallback" as const },
+    [lead, tours, properties],
+  );
 
   if (!lead) return null;
 
+  const displayLeadName = resolveBestLeadName(lead);
   const tcm = getTcm(lead.assignedTcmId);
   const selectedMember = orgMembers.find((m) => m.id === lead.assignedTcmId) ?? null;
 
@@ -369,11 +507,19 @@ export function LeadControlPanel() {
       return;
     }
     const assignee = scheduleAssignees.find((m) => m.id === tcmId) ?? null;
-    const scheduler = currentMemberId ? (orgMembers.find((m) => m.id === currentMemberId) ?? null) : null;
+    const scheduler = currentMemberId
+      ? (orgMembers.find((m) => m.id === currentMemberId) ?? null)
+      : null;
 
     try {
-      const selectedPropertyId = propertyId === OTHER_PROPERTY_VALUE ? undefined : propertyId || undefined;
-      const tour = await scheduleTour({ leadId: lead.id, propertyId: selectedPropertyId, tcmId, scheduledAt: new Date(scheduledAt).toISOString() });
+      const selectedPropertyId =
+        propertyId === OTHER_PROPERTY_VALUE ? undefined : propertyId || undefined;
+      const tour = await scheduleTour({
+        leadId: lead.id,
+        propertyId: selectedPropertyId,
+        tcmId,
+        scheduledAt: new Date(scheduledAt).toISOString(),
+      });
 
       // MYT tour is created by LiveToursBridge from the server event.
       // Only create a local MYT entry as a fast optimistic update so /myt/schedule
@@ -382,16 +528,20 @@ export function LeadControlPanel() {
       const mytTour = {
         id: tour.id,
         leadId: lead.id,
-        leadName: lead.name,
+        leadName: displayLeadName,
         phone: lead.phone || "",
         assignedTo: tcmId,
         assignedToName: assignee?.name ?? "Member",
-        propertyName: selectedPropertyId ? properties.find((p) => p.id === selectedPropertyId)?.name ?? "Property Tour" : "Property Tour",
+        propertyName: selectedPropertyId
+          ? (tourPropertyOptions.find((p) => p.id === selectedPropertyId)?.name ??
+            leadLocation.propertyName ??
+            "Property Hub option")
+          : (leadLocation.propertyName ?? "Property Hub option"),
         propertyId: selectedPropertyId,
-        area: lead.preferredArea || "",
+        area: leadLocation.area,
         zoneId: "",
-        tourDate: scheduledDateTime.toISOString().split('T')[0],
-        tourTime: scheduledDateTime.toTimeString().split(' ')[0].substring(0, 5),
+        tourDate: scheduledDateTime.toISOString().split("T")[0],
+        tourTime: scheduledDateTime.toTimeString().split(" ")[0].substring(0, 5),
         bookingSource: "whatsapp" as const,
         scheduledBy: scheduler?.id ?? currentMemberId ?? tcmId,
         scheduledByName: scheduler?.name ?? "You",
@@ -413,7 +563,7 @@ export function LeadControlPanel() {
           roomType: "Single",
           budget: String(lead.budget || ""),
           occupation: "",
-          workLocation: lead.preferredArea || "",
+          workLocation: leadLocation.area,
           readyIn48h: false,
           exploring: false,
           comparing: false,
@@ -425,21 +575,23 @@ export function LeadControlPanel() {
         tokenPaid: false,
         whyLost: null,
       };
-      setTours(prev => {
+      setTours((prev) => {
         // Avoid duplicates if LiveToursBridge already added it
-        if (prev.some(t => t.id === mytTour.id)) return prev;
+        if (prev.some((t) => t.id === mytTour.id)) return prev;
         return [mytTour, ...prev];
       });
 
       notifyTourScheduled({
         tourId: tour.id,
-        leadName: lead.name,
+        leadName: displayLeadName,
         senderId: scheduler?.id ?? currentMemberId ?? tcmId,
         senderName: scheduler?.name ?? "You",
         assigneeName: assignee?.name ?? "Member",
         recipientIds: [
           { id: tcmId, name: assignee?.name ?? "Member" },
-          ...(scheduler?.id && scheduler.id !== tcmId ? [{ id: scheduler.id, name: scheduler.name }] : []),
+          ...(scheduler?.id && scheduler.id !== tcmId
+            ? [{ id: scheduler.id, name: scheduler.name }]
+            : []),
         ],
       });
       setTcmId(defaultSelfAssigneeId);
@@ -462,7 +614,9 @@ export function LeadControlPanel() {
         <SheetHeader className="px-5 py-4 border-b border-border space-y-2">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <SheetTitle className="font-display text-lg leading-tight">{lead.name}</SheetTitle>
+              <SheetTitle className="font-display text-lg leading-tight">
+                {displayLeadName}
+              </SheetTitle>
               <SheetDescription className="text-xs">
                 {lead.phone} · via {lead.source}
               </SheetDescription>
@@ -475,18 +629,21 @@ export function LeadControlPanel() {
             <ObjectionTag leadId={lead.id} />
           </div>
           <div className="grid grid-cols-3 gap-2 pt-1 text-xs">
-            <Meta icon={CalendarIcon} label="Move-in" value={formatSafeDate(lead.moveInDate, "MMM d", "TBD")} />
-            <Meta icon={Wallet} label="Budget" value={`₹${(lead.budget / 1000).toFixed(0)}k`} />
-            <Meta icon={MapPin} label="Area" value={lead.preferredArea} />
+            <Meta
+              icon={CalendarIcon}
+              label="Move-in"
+              value={formatSafeDate(lead.moveInDate, "MMM d", "TBD")}
+            />
+            <Meta icon={Wallet} label="Budget" value={formatBudget(lead.budget)} />
+            <Meta icon={MapPin} label="Area" value={leadLocation.area} />
           </div>
-          <div className="text-[11px] text-muted-foreground">Assigned · {tcm?.name ?? "—"} ({tcm?.zone ?? "—"})</div>
+          <div className="text-[11px] text-muted-foreground">
+            {leadLocation.propertyName ? <>{leadLocation.propertyName} · </> : null}
+            Assigned · {formatAssignee(lead.assignedTcmId, tcm?.name)}
+          </div>
         </SheetHeader>
 
-        <LeadJourneyStepper
-          lead={lead}
-          currentTab={tab}
-          onJump={(t: JourneyTab) => setTab(t)}
-        />
+        <LeadJourneyStepper lead={lead} currentTab={tab} onJump={(t: JourneyTab) => setTab(t)} />
 
         {/* CRM 10x - commitment banner + 48h post-visit gate */}
         <CommitmentBanner lead={lead} />
@@ -499,8 +656,9 @@ export function LeadControlPanel() {
             <div className="text-xs">
               <div className="font-semibold text-destructive">Post-tour update missing</div>
               <div className="text-muted-foreground">
-                Tour completed {mounted ? formatSafeDistance(pendingPostTour.scheduledAt, "recently") : "recently"}.
-                TCM must fill the form below.
+                Tour completed{" "}
+                {mounted ? formatSafeDistance(pendingPostTour.scheduledAt, "recently") : "recently"}
+                . TCM must fill the form below.
               </div>
             </div>
           </div>
@@ -511,18 +669,14 @@ export function LeadControlPanel() {
           <Tabs value={tab} onValueChange={setTab} className="px-6 pt-5 pb-6">
             {/* Quiet underline tab bar — single horizontal scroll, no chrome */}
             <TabsList className="h-auto w-full justify-start gap-6 rounded-none border-b border-border/60 bg-transparent p-0 overflow-x-auto scrollbar-thin">
-              <TabsTrigger value="dossier" className={tabTriggerClass}>1·Dossier</TabsTrigger>
-              <TabsTrigger value="tour" className={tabTriggerClass}>2·Tour</TabsTrigger>
-              <TabsTrigger value="post" className={tabTriggerClass}>
-                3·Post {pendingPostTour && <span className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full bg-destructive align-middle" />}
-              </TabsTrigger>
-              <TabsTrigger value="quote" className={tabTriggerClass}>4·Quote</TabsTrigger>
-              <TabsTrigger value="checkin" className={tabTriggerClass}>5·Check-in</TabsTrigger>
-              <TabsTrigger value="impact" className={tabTriggerClass}>Impact</TabsTrigger>
-              <TabsTrigger value="best-fit" className={tabTriggerClass}>Best Fit</TabsTrigger>
-              <TabsTrigger value="control" className={tabTriggerClass}>Control</TabsTrigger>
-              <TabsTrigger value="handoff" className={tabTriggerClass}>Handoff</TabsTrigger>
-              <TabsTrigger value="log" className={tabTriggerClass}>Log</TabsTrigger>
+              {Array.from(new Set<JourneyTab>(["impact", currentWorkTab])).map((workflowTab) => (
+                <TabsTrigger key={workflowTab} value={workflowTab} className={tabTriggerClass}>
+                  {WORKFLOW_TAB_LABELS[workflowTab]}
+                  {workflowTab === "post" && pendingPostTour && (
+                    <span className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full bg-destructive align-middle" />
+                  )}
+                </TabsTrigger>
+              ))}
             </TabsList>
 
             <TabsContent value="activity" className="space-y-3 pt-4">
@@ -536,14 +690,60 @@ export function LeadControlPanel() {
             <TabsContent value="details" className="pt-4 space-y-4">
               <Section title="Lead Details (from creation)">
                 <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-                  {lead.email && <div className="space-y-1"><Label className="text-[10px] uppercase text-muted-foreground">Email</Label><div>{lead.email}</div></div>}
-                  {lead.type && <div className="space-y-1"><Label className="text-[10px] uppercase text-muted-foreground">Type</Label><div className="capitalize">{lead.type}</div></div>}
-                  {lead.room && <div className="space-y-1"><Label className="text-[10px] uppercase text-muted-foreground">Room preference</Label><div className="capitalize">{lead.room}</div></div>}
-                  {lead.need && <div className="space-y-1"><Label className="text-[10px] uppercase text-muted-foreground">Gender need</Label><div className="capitalize">{lead.need}</div></div>}
-                  {lead.quality && <div className="space-y-1"><Label className="text-[10px] uppercase text-muted-foreground">Quality</Label><div className="capitalize">{lead.quality}</div></div>}
-                  {lead.inBLR !== null && lead.inBLR !== undefined && <div className="space-y-1"><Label className="text-[10px] uppercase text-muted-foreground">In BLR</Label><div>{lead.inBLR ? "Yes" : "No"}</div></div>}
-                  {lead.zoneCategory && <div className="space-y-1"><Label className="text-[10px] uppercase text-muted-foreground">Zone Category</Label><div>{lead.zoneCategory}</div></div>}
-                  <div className="space-y-1"><Label className="text-[10px] uppercase text-muted-foreground">Current Stage</Label><div className="capitalize">{lead.stage.replace("-", " ")}</div></div>
+                  {lead.email && (
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase text-muted-foreground">Email</Label>
+                      <div>{lead.email}</div>
+                    </div>
+                  )}
+                  {lead.type && (
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase text-muted-foreground">Type</Label>
+                      <div className="capitalize">{lead.type}</div>
+                    </div>
+                  )}
+                  {lead.room && (
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase text-muted-foreground">
+                        Room preference
+                      </Label>
+                      <div className="capitalize">{lead.room}</div>
+                    </div>
+                  )}
+                  {lead.need && (
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase text-muted-foreground">
+                        Gender need
+                      </Label>
+                      <div className="capitalize">{lead.need}</div>
+                    </div>
+                  )}
+                  {lead.quality && (
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase text-muted-foreground">Quality</Label>
+                      <div className="capitalize">{lead.quality}</div>
+                    </div>
+                  )}
+                  {lead.inBLR !== null && lead.inBLR !== undefined && (
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase text-muted-foreground">In BLR</Label>
+                      <div>{lead.inBLR ? "Yes" : "No"}</div>
+                    </div>
+                  )}
+                  {lead.zoneCategory && (
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase text-muted-foreground">
+                        Zone Category
+                      </Label>
+                      <div>{lead.zoneCategory}</div>
+                    </div>
+                  )}
+                  <div className="space-y-1">
+                    <Label className="text-[10px] uppercase text-muted-foreground">
+                      Current Stage
+                    </Label>
+                    <div className="capitalize">{lead.stage.replace("-", " ")}</div>
+                  </div>
                 </div>
                 {lead.areas && lead.areas.length > 0 && (
                   <div className="space-y-1 mt-3">
@@ -553,27 +753,35 @@ export function LeadControlPanel() {
                 )}
                 {lead.fullAddress && (
                   <div className="space-y-1 mt-3">
-                    <Label className="text-[10px] uppercase text-muted-foreground">Full Address</Label>
-                    <div className="text-sm text-muted-foreground bg-muted/30 p-2 rounded-md">{lead.fullAddress}</div>
+                    <Label className="text-[10px] uppercase text-muted-foreground">
+                      Full Address
+                    </Label>
+                    <div className="text-sm text-muted-foreground bg-muted/30 p-2 rounded-md">
+                      {lead.fullAddress}
+                    </div>
                   </div>
                 )}
                 {lead.specialReqs && (
                   <div className="space-y-1 mt-3">
-                    <Label className="text-[10px] uppercase text-muted-foreground">Special Requirements</Label>
-                    <div className="text-sm text-muted-foreground bg-muted/30 p-2 rounded-md whitespace-pre-wrap">{lead.specialReqs}</div>
+                    <Label className="text-[10px] uppercase text-muted-foreground">
+                      Special Requirements
+                    </Label>
+                    <div className="text-sm text-muted-foreground bg-muted/30 p-2 rounded-md whitespace-pre-wrap">
+                      {lead.specialReqs}
+                    </div>
                   </div>
                 )}
                 {lead.notes && (
                   <div className="space-y-1 mt-3">
-                    <Label className="text-[10px] uppercase text-muted-foreground">Original Notes</Label>
-                    <div className="text-sm text-muted-foreground bg-muted/30 p-2 rounded-md whitespace-pre-wrap">{lead.notes}</div>
+                    <Label className="text-[10px] uppercase text-muted-foreground">
+                      Original Notes
+                    </Label>
+                    <div className="text-sm text-muted-foreground bg-muted/30 p-2 rounded-md whitespace-pre-wrap">
+                      {lead.notes}
+                    </div>
                   </div>
                 )}
               </Section>
-            </TabsContent>
-
-            <TabsContent value="dossier" className="space-y-4 pt-4">
-              <LeadDossierPanel lead={lead} />
             </TabsContent>
 
             <TabsContent value="quote" className="space-y-4 pt-4">
@@ -605,61 +813,95 @@ export function LeadControlPanel() {
               <Section title="Routing">
                 <div className="flex gap-2">
                   <Button
-                    variant="outline" size="sm" className="flex-1"
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
                     onClick={() => {
                       const r = autoAssignLead(lead.id);
                       const tcm = tcms.find((t) => t.id === r.tcmId);
-                      toast.success(`Auto-routed to ${tcm?.name ?? "TCM"}`, { description: r.reasons.join(" · ") });
+                      toast.success(`Auto-routed to ${tcm?.name ?? "TCM"}`, {
+                        description: r.reasons.join(" · "),
+                      });
                     }}
                   >
                     <Zap className="h-3.5 w-3.5 mr-1.5" /> Auto-route to best TCM
                   </Button>
                 </div>
                 <div className="text-[11px] text-muted-foreground">
-                  Currently with <span className="text-foreground font-medium">{selectedMember?.name ?? "-"}</span>
+                  Currently with{" "}
+                  <span className="text-foreground font-medium">{selectedMember?.name ?? "-"}</span>
                 </div>
               </Section>
 
               <Section title="Status engine">
-                <Select value={lead.stage} onValueChange={(v) => {
-                  const prev = lead.stage;
-                  const next = v as LeadStage;
-                  void (async () => {
-                    try {
-                      await setLeadStage(lead.id, next);
-                      if (v === "dropped") {
-                        toast("Marked dropped", {
-                          description: `${lead.name} → dropped`,
-                          action: {
-                            label: "Undo",
-                            onClick: () => {
-                              void setLeadStage(lead.id, prev)
-                                .then(() => toast.success("Restored"))
-                                .catch((err) => toast.error((err as Error).message || "Failed to restore stage"));
+                <Select
+                  value={lead.stage}
+                  onValueChange={(v) => {
+                    const prev = lead.stage;
+                    const next = v as LeadStage;
+                    void (async () => {
+                      try {
+                        await setLeadStage(lead.id, next);
+                        if (v === "dropped") {
+                          toast("Marked dropped", {
+                            description: `${displayLeadName} → dropped`,
+                            action: {
+                              label: "Undo",
+                              onClick: () => {
+                                void setLeadStage(lead.id, prev)
+                                  .then(() => toast.success("Restored"))
+                                  .catch((err) =>
+                                    toast.error(
+                                      (err as Error).message || "Failed to restore stage",
+                                    ),
+                                  );
+                              },
                             },
-                          },
-                          duration: 5000,
-                        });
+                            duration: 5000,
+                          });
+                        }
+                      } catch (err) {
+                        toast.error((err as Error).message || "Failed to update status");
                       }
-                    } catch (err) {
-                      toast.error((err as Error).message || "Failed to update status");
-                    }
-                  })();
-                }}>
+                    })();
+                  }}
+                >
                   <SelectTrigger className="h-9 text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {(["new","contacted","tour-scheduled","tour-done","negotiation","not-responding-3d","not-responding-7d","booked","dropped"] as LeadStage[]).map((s) => (
-                      <SelectItem key={s} value={s} className="text-sm capitalize">{s.replace("-", " ")}</SelectItem>
+                    {(
+                      [
+                        "new",
+                        "contacted",
+                        "tour-scheduled",
+                        "tour-done",
+                        "negotiation",
+                        "not-responding-3d",
+                        "not-responding-7d",
+                        "booked",
+                        "dropped",
+                      ] as LeadStage[]
+                    ).map((s) => (
+                      <SelectItem key={s} value={s} className="text-sm capitalize">
+                        {s.replace("-", " ")}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
                 <div className="grid grid-cols-2 gap-2 pt-1">
-                  {(["first-contact","post-tour","pre-decision","cold-revival"] as SequenceKind[]).map((k) => (
+                  {(
+                    ["first-contact", "post-tour", "pre-decision", "cold-revival"] as SequenceKind[]
+                  ).map((k) => (
                     <Button
-                      key={k} size="sm" variant="outline" className="h-7 text-[11px]"
-                      onClick={() => { startSequence(lead.id, k); toast.success(`Started ${k} sequence`); }}
+                      key={k}
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-[11px]"
+                      onClick={() => {
+                        startSequence(lead.id, k);
+                        toast.success(`Started ${k} sequence`);
+                      }}
                     >
                       Start {k}
                     </Button>
@@ -669,20 +911,42 @@ export function LeadControlPanel() {
 
               <Section title="Action engine">
                 <div className="grid grid-cols-2 gap-2">
-                  <Button variant="outline" size="sm" onClick={() => { logCall(lead.id); toast.success("Call logged"); }}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      logCall(lead.id);
+                      toast.success("Call logged");
+                    }}
+                  >
                     <Phone className="h-3.5 w-3.5 mr-1.5" /> Call
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => { sendMessage(lead.id, "WhatsApp template sent"); toast.success("Message sent"); }}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      sendMessage(lead.id, "WhatsApp template sent");
+                      toast.success("Message sent");
+                    }}
+                  >
                     <MessageSquare className="h-3.5 w-3.5 mr-1.5" /> WhatsApp
                   </Button>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">Templates</Label>
+                  <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                    Templates
+                  </Label>
                   <div className="flex flex-wrap gap-1.5">
                     {TEMPLATES.map((t) => (
                       <Button
-                        key={t.id} variant="secondary" size="sm" className="h-7 text-[11px]"
-                        onClick={() => { sendMessage(lead.id, t.body); toast.success(`Sent: ${t.label}`); }}
+                        key={t.id}
+                        variant="secondary"
+                        size="sm"
+                        className="h-7 text-[11px]"
+                        onClick={() => {
+                          sendMessage(lead.id, t.body);
+                          toast.success(`Sent: ${t.label}`);
+                        }}
                       >
                         {t.label}
                       </Button>
@@ -691,12 +955,19 @@ export function LeadControlPanel() {
                 </div>
                 <div className="flex gap-2">
                   <Input
-                    value={customMsg} onChange={(e) => setCustomMsg(e.target.value)}
-                    placeholder="Custom message…" className="h-9 text-sm"
+                    value={customMsg}
+                    onChange={(e) => setCustomMsg(e.target.value)}
+                    placeholder="Custom message…"
+                    className="h-9 text-sm"
                   />
                   <Button
-                    size="sm" disabled={!customMsg.trim()}
-                    onClick={() => { sendMessage(lead.id, customMsg); setCustomMsg(""); toast.success("Sent"); }}
+                    size="sm"
+                    disabled={!customMsg.trim()}
+                    onClick={() => {
+                      sendMessage(lead.id, customMsg);
+                      setCustomMsg("");
+                      toast.success("Sent");
+                    }}
                   >
                     <Send className="h-3.5 w-3.5" />
                   </Button>
@@ -706,24 +977,41 @@ export function LeadControlPanel() {
               <Section title="Follow-up engine">
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">Next follow-up</Label>
+                    <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                      Next follow-up
+                    </Label>
                     <Input
                       type="datetime-local"
                       defaultValue={lead.nextFollowUpAt ? toLocal(lead.nextFollowUpAt) : ""}
                       onChange={(e) => {
                         if (!e.target.value) return;
-                        setLeadFollowUp(lead.id, new Date(e.target.value).toISOString(), priorityFor(lead.confidence));
+                        setLeadFollowUp(
+                          lead.id,
+                          new Date(e.target.value).toISOString(),
+                          priorityFor(lead.confidence),
+                        );
                       }}
                       className="h-9 text-sm"
                     />
                   </div>
                   <div>
-                    <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">Priority</Label>
+                    <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                      Priority
+                    </Label>
                     <Select
-                      value={lead.intent === "hot" ? "high" : lead.intent === "warm" ? "medium" : "low"}
-                      onValueChange={(v) => setLeadIntent(lead.id, v === "high" ? "hot" : v === "medium" ? "warm" : "cold")}
+                      value={
+                        lead.intent === "hot" ? "high" : lead.intent === "warm" ? "medium" : "low"
+                      }
+                      onValueChange={(v) =>
+                        setLeadIntent(
+                          lead.id,
+                          v === "high" ? "hot" : v === "medium" ? "warm" : "cold",
+                        )
+                      }
                     >
-                      <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="h-9 text-sm">
+                        <SelectValue />
+                      </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="high">Hot</SelectItem>
                         <SelectItem value="medium">Warm</SelectItem>
@@ -745,7 +1033,10 @@ export function LeadControlPanel() {
                     <Badge key={t} variant="secondary" className="text-[10px] gap-1">
                       <Tag className="h-2.5 w-2.5" />
                       {t}
-                      <button onClick={() => removeLeadTag(lead.id, t)} className="hover:text-destructive">
+                      <button
+                        onClick={() => removeLeadTag(lead.id, t)}
+                        className="hover:text-destructive"
+                      >
                         <X className="h-2.5 w-2.5" />
                       </button>
                     </Badge>
@@ -754,7 +1045,8 @@ export function LeadControlPanel() {
                 <div className="flex flex-wrap gap-1.5">
                   {TAG_OPTIONS.filter((t) => !lead.tags.includes(t)).map((t) => (
                     <button
-                      key={t} onClick={() => addLeadTag(lead.id, t)}
+                      key={t}
+                      onClick={() => addLeadTag(lead.id, t)}
                       className="text-[10px] px-2 py-0.5 rounded-md border border-dashed border-border text-muted-foreground hover:border-accent hover:text-accent transition-colors"
                     >
                       + {t}
@@ -763,12 +1055,20 @@ export function LeadControlPanel() {
                 </div>
                 <div className="flex gap-2">
                   <Textarea
-                    value={note} onChange={(e) => setNote(e.target.value)}
-                    placeholder="Add a note…" rows={2} className="text-sm resize-none"
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    placeholder="Add a note…"
+                    rows={2}
+                    className="text-sm resize-none"
                   />
                   <Button
-                    size="sm" disabled={!note.trim()}
-                    onClick={() => { addNote(lead.id, note); setNote(""); toast.success("Note added"); }}
+                    size="sm"
+                    disabled={!note.trim()}
+                    onClick={() => {
+                      addNote(lead.id, note);
+                      setNote("");
+                      toast.success("Note added");
+                    }}
                   >
                     Add
                   </Button>
@@ -783,7 +1083,7 @@ export function LeadControlPanel() {
                   <UpcomingTourCard
                     tour={tourToShow}
                     members={orgMembers}
-                    leadName={lead.name}
+                    leadName={displayLeadName}
                   />
                 </Section>
               ) : null}
@@ -797,7 +1097,9 @@ export function LeadControlPanel() {
                   tcmId={tcmId}
                   scheduledAt={scheduledAt}
                   answers={scheduleAnswers}
-                  onAnswersChange={(patch: Partial<DrawerScheduleAnswers>) => setScheduleAnswers((answers) => ({ ...answers, ...patch }))}
+                  onAnswersChange={(patch: Partial<DrawerScheduleAnswers>) =>
+                    setScheduleAnswers((answers) => ({ ...answers, ...patch }))
+                  }
                   onPropertyChange={setPropertyId}
                   onTcmChange={setTcmId}
                   onScheduledAtChange={setScheduledAt}
@@ -811,18 +1113,33 @@ export function LeadControlPanel() {
                     {leadTours.slice(upcomingTour ? 1 : 0).map((t) => {
                       const prop = getProperty(t.propertyId, properties);
                       return (
-                        <div key={t.id} className="rounded-lg border border-border bg-card p-3 text-xs space-y-1">
+                        <div
+                          key={t.id}
+                          className="rounded-lg border border-border bg-card p-3 text-xs space-y-1"
+                        >
                           <div className="flex items-center justify-between">
                             <span className="font-medium">{prop?.name}</span>
-                            <span className="text-muted-foreground">{formatSafeDate(t.scheduledAt, "MMM d, p", "time unknown")}</span>
+                            <span className="text-muted-foreground">
+                              {formatSafeDate(t.scheduledAt, "MMM d, p", "time unknown")}
+                            </span>
                           </div>
                           <div className="flex items-center gap-2 text-[11px]">
-                            <Badge variant="outline" className="capitalize">{t.status}</Badge>
-                            {t.decision && <Badge variant="outline" className="capitalize">{t.decision}</Badge>}
+                            <Badge variant="outline" className="capitalize">
+                              {t.status}
+                            </Badge>
+                            {t.decision && (
+                              <Badge variant="outline" className="capitalize">
+                                {t.decision}
+                              </Badge>
+                            )}
                             {t.postTour.filledAt ? (
-                              <span className="text-success inline-flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> Form complete</span>
+                              <span className="text-success inline-flex items-center gap-1">
+                                <CheckCircle2 className="h-3 w-3" /> Form complete
+                              </span>
                             ) : t.status === "completed" ? (
-                              <span className="text-destructive inline-flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> Form pending</span>
+                              <span className="text-destructive inline-flex items-center gap-1">
+                                <AlertTriangle className="h-3 w-3" /> Form pending
+                              </span>
                             ) : null}
                           </div>
                         </div>
@@ -840,7 +1157,8 @@ export function LeadControlPanel() {
                 if (!target) {
                   return (
                     <div className="text-sm text-muted-foreground text-center py-8">
-                      No completed tours yet. The post-tour form appears here once a tour is marked complete.
+                      No completed tours yet. The post-tour form appears here once a tour is marked
+                      complete.
                     </div>
                   );
                 }
@@ -849,43 +1167,58 @@ export function LeadControlPanel() {
                 return (
                   <div className="space-y-4">
                     <div className="text-xs text-muted-foreground">
-                      Tour at <span className="text-foreground font-medium">{prop?.name}</span> · {formatSafeDate(target.scheduledAt, "MMM d, p", "time unknown")}
+                      Tour at <span className="text-foreground font-medium">{prop?.name}</span> ·{" "}
+                      {formatSafeDate(target.scheduledAt, "MMM d, p", "time unknown")}
                     </div>
 
                     {/* Send updates / reminders - one row, always visible post-tour */}
                     <div className="flex flex-wrap gap-1.5">
                       <Button
-                        size="sm" variant="outline" className="h-8 text-xs gap-1.5"
+                        size="sm"
+                        variant="outline"
+                        className="h-8 text-xs gap-1.5"
                         disabled={!prop}
                         onClick={() => {
                           if (!prop) return;
-                          sendOwnerTourMessage('post_visit_thanks', {
-                            tourId: target.id, leadName: lead.name, phone: lead.phone,
-                            propertyName: prop.name, area: prop.area,
+                          sendOwnerTourMessage("post_visit_thanks", {
+                            tourId: target.id,
+                            leadName: displayLeadName,
+                            phone: lead.phone,
+                            propertyName: prop.name,
+                            area: prop.area,
                             tourDate: target.scheduledAt.slice(0, 10),
                             tourTime: target.scheduledAt.slice(11, 16),
                             tcmName: tcms.find((t) => t.id === target.tcmId)?.name,
                           });
-                          toast.success('Thank-you message opened');
+                          toast.success("Thank-you message opened");
                         }}
                       >
                         <ExternalLink className="h-3 w-3" /> Thank-you msg
                       </Button>
                       <Button
-                        size="sm" variant="outline" className="h-8 text-xs gap-1.5"
+                        size="sm"
+                        variant="outline"
+                        className="h-8 text-xs gap-1.5"
                         onClick={() => {
-                          sendMessage(lead.id, 'Quick update - any thoughts on the property?');
-                          toast.success('Update sent');
+                          sendMessage(lead.id, "Quick update - any thoughts on the property?");
+                          toast.success("Update sent");
                         }}
                       >
                         <Send className="h-3 w-3" /> Send update
                       </Button>
                       <Button
-                        size="sm" variant="outline" className="h-8 text-xs gap-1.5"
+                        size="sm"
+                        variant="outline"
+                        className="h-8 text-xs gap-1.5"
                         onClick={() => {
                           const dueAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-                          setLeadFollowUp(lead.id, dueAt, priorityFor(pt.confidence), 'Post-tour reminder');
-                          toast.success('Reminder set for tomorrow');
+                          setLeadFollowUp(
+                            lead.id,
+                            dueAt,
+                            priorityFor(pt.confidence),
+                            "Post-tour reminder",
+                          );
+                          toast.success("Reminder set for tomorrow");
                         }}
                       >
                         <BellRing className="h-3 w-3" /> Set reminder
@@ -894,22 +1227,50 @@ export function LeadControlPanel() {
 
                     <Section title="Outcome (mandatory · explicit)">
                       <div className="text-[11px] text-muted-foreground mb-1.5">
-                        Choose carefully - the lead's stage <em>and</em> closure status update only when you click here.
-                        Nothing is auto-assigned by the system.
+                        Choose carefully - the lead's stage <em>and</em> closure status update only
+                        when you click here. Nothing is auto-assigned by the system.
                       </div>
                       <div className="grid grid-cols-2 gap-2">
-                        {([
-                          { o: "booked", label: "Booked ✓", tone: "default" as const, decision: "booked" as const },
-                          { o: "thinking", label: "Still deciding", tone: "outline" as const, decision: "thinking" as const },
-                          { o: "not-interested", label: "Not interested", tone: "outline" as const, decision: "dropped" as const },
-                          { o: null, label: "Awaiting outcome (no change)", tone: "ghost" as const, decision: null },
-                        ] as const).map((opt) => (
+                        {(
+                          [
+                            {
+                              o: "booked",
+                              label: "Booked ✓",
+                              tone: "default" as const,
+                              decision: "booked" as const,
+                            },
+                            {
+                              o: "thinking",
+                              label: "Still deciding",
+                              tone: "outline" as const,
+                              decision: "thinking" as const,
+                            },
+                            {
+                              o: "not-interested",
+                              label: "Not interested",
+                              tone: "outline" as const,
+                              decision: "dropped" as const,
+                            },
+                            {
+                              o: null,
+                              label: "Awaiting outcome (no change)",
+                              tone: "ghost" as const,
+                              decision: null,
+                            },
+                          ] as const
+                        ).map((opt) => (
                           <Button
                             key={opt.label}
                             variant={pt.outcome === opt.o ? "default" : opt.tone}
-                            size="sm" className="capitalize"
+                            size="sm"
+                            className="capitalize"
                             onClick={() => {
-                              if (!confirm(`Confirm outcome: ${opt.label}? This updates the lead stage.`)) return;
+                              if (
+                                !confirm(
+                                  `Confirm outcome: ${opt.label}? This updates the lead stage.`,
+                                )
+                              )
+                                return;
                               updatePostTour(target.id, { outcome: opt.o });
                               if (opt.decision) setDecision(target.id, opt.decision);
                               toast.success(`Outcome set: ${opt.label}`);
@@ -923,7 +1284,10 @@ export function LeadControlPanel() {
 
                     <Section title={`Deal confidence - ${pt.confidence}%`}>
                       <input
-                        type="range" min={0} max={100} value={pt.confidence}
+                        type="range"
+                        min={0}
+                        max={100}
+                        value={pt.confidence}
                         onChange={(e) => updatePostTour(target.id, { confidence: +e.target.value })}
                         className="w-full accent-(--color-accent)"
                       />
@@ -934,14 +1298,24 @@ export function LeadControlPanel() {
                         value={pt.objection ?? ""}
                         onValueChange={(v) => updatePostTour(target.id, { objection: v })}
                       >
-                        <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Select objection" /></SelectTrigger>
+                        <SelectTrigger className="h-9 text-sm">
+                          <SelectValue placeholder="Select objection" />
+                        </SelectTrigger>
                         <SelectContent>
-                          {OBJECTIONS.map((o) => <SelectItem key={o} value={o} className="text-sm">{o}</SelectItem>)}
+                          {OBJECTIONS.map((o) => (
+                            <SelectItem key={o} value={o} className="text-sm">
+                              {o}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                       <Textarea
-                        rows={2} placeholder="Note…" value={pt.objectionNote}
-                        onChange={(e) => updatePostTour(target.id, { objectionNote: e.target.value })}
+                        rows={2}
+                        placeholder="Note…"
+                        value={pt.objectionNote}
+                        onChange={(e) =>
+                          updatePostTour(target.id, { objectionNote: e.target.value })
+                        }
                         className="text-sm resize-none mt-2"
                       />
                     </Section>
@@ -951,7 +1325,13 @@ export function LeadControlPanel() {
                         <Input
                           type="date"
                           value={pt.expectedDecisionAt ? pt.expectedDecisionAt.slice(0, 10) : ""}
-                          onChange={(e) => updatePostTour(target.id, { expectedDecisionAt: e.target.value ? new Date(e.target.value).toISOString() : null })}
+                          onChange={(e) =>
+                            updatePostTour(target.id, {
+                              expectedDecisionAt: e.target.value
+                                ? new Date(e.target.value).toISOString()
+                                : null,
+                            })
+                          }
                           className="h-9 text-sm"
                         />
                       </Section>
@@ -959,7 +1339,13 @@ export function LeadControlPanel() {
                         <Input
                           type="datetime-local"
                           value={pt.nextFollowUpAt ? toLocal(pt.nextFollowUpAt) : ""}
-                          onChange={(e) => updatePostTour(target.id, { nextFollowUpAt: e.target.value ? new Date(e.target.value).toISOString() : null })}
+                          onChange={(e) =>
+                            updatePostTour(target.id, {
+                              nextFollowUpAt: e.target.value
+                                ? new Date(e.target.value).toISOString()
+                                : null,
+                            })
+                          }
                           className="h-9 text-sm"
                         />
                       </Section>
@@ -968,19 +1354,25 @@ export function LeadControlPanel() {
                     {pt.filledAt ? (
                       <div className="rounded-lg border border-success/30 bg-success/5 p-3 flex items-center gap-2 text-xs">
                         <CheckCircle2 className="h-4 w-4 text-success" />
-                        <span>Form complete · saved {mounted ? formatSafeDistance(pt.filledAt, "recently") : "recently"}</span>
+                        <span>
+                          Form complete · saved{" "}
+                          {mounted ? formatSafeDistance(pt.filledAt, "recently") : "recently"}
+                        </span>
                       </div>
                     ) : (
                       <div className="rounded-lg border border-warning/40 bg-warning/10 p-3 flex items-center gap-2 text-xs">
                         <ClipboardCheck className="h-4 w-4" />
-                        <span>Fill all four fields to mark this lead complete and silence the alert.</span>
+                        <span>
+                          Fill all four fields to mark this lead complete and silence the alert.
+                        </span>
                       </div>
                     )}
 
                     {/* Close deal - one click, blocks the bed, fires the booking */}
                     {lead.stage !== "booked" && (
                       <Button
-                        size="lg" className="w-full bg-success text-success-foreground hover:bg-success/90"
+                        size="lg"
+                        className="w-full bg-success text-success-foreground hover:bg-success/90"
                         onClick={() => {
                           closeDeal({
                             leadId: lead.id,
@@ -989,12 +1381,13 @@ export function LeadControlPanel() {
                             tcmId: target.tcmId,
                             amount: prop?.pricePerBed ?? 12000,
                           });
-                          toast.success(`Deal closed · ${lead.name} → ${prop?.name}`, {
+                          toast.success(`Deal closed · ${displayLeadName} → ${prop?.name}`, {
                             description: `Bed blocked, MRR +₹${((prop?.pricePerBed ?? 12000) / 1000).toFixed(0)}k`,
                           });
                         }}
                       >
-                        <IndianRupee className="h-4 w-4 mr-1.5" /> Close deal · ₹{((prop?.pricePerBed ?? 12000) / 1000).toFixed(0)}k/mo
+                        <IndianRupee className="h-4 w-4 mr-1.5" /> Close deal · ₹
+                        {((prop?.pricePerBed ?? 12000) / 1000).toFixed(0)}k/mo
                       </Button>
                     )}
                     {lead.stage === "booked" && (
@@ -1024,12 +1417,18 @@ export function LeadControlPanel() {
                     <div className="text-xs text-muted-foreground">No activity yet.</div>
                   )}
                   {leadActivities.map((a) => (
-                    <div key={a.id} className="flex gap-2 text-xs border-l-2 border-border pl-3 py-1">
+                    <div
+                      key={a.id}
+                      className="flex gap-2 text-xs border-l-2 border-border pl-3 py-1"
+                    >
                       <ActivityIcon className="h-3 w-3 mt-0.5 text-muted-foreground shrink-0" />
                       <div className="flex-1">
                         <div className="text-foreground">{a.text}</div>
                         <div className="text-muted-foreground text-[10px] mt-0.5">
-                          {formatSafeDate(a.ts, "MMM d, p", "time unknown")} · {a.actor === "system" ? "system" : tcms.find((t) => t.id === a.actor)?.name ?? a.actor}
+                          {formatSafeDate(a.ts, "MMM d, p", "time unknown")} ·{" "}
+                          {a.actor === "system"
+                            ? "system"
+                            : (tcms.find((t) => t.id === a.actor)?.name ?? a.actor)}
                         </div>
                       </div>
                     </div>
@@ -1071,6 +1470,7 @@ function ImpactTabContent({
         <div className="text-[10px] opacity-80">{state.nba.reason}</div>
       </div>
 
+      <LeadDossierPanel lead={state.lead} />
       <SmartDossier lead={state.lead} />
       <LeadPropertyDossier lead={state.lead} />
 
@@ -1094,7 +1494,9 @@ function ImpactTabContent({
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="space-y-2">
-      <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">{title}</div>
+      <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">
+        {title}
+      </div>
       <div className="space-y-2">{children}</div>
     </section>
   );
@@ -1109,7 +1511,15 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function Meta({ icon: Icon, label, value }: { icon: typeof CalendarIcon; label: string; value: string }) {
+function Meta({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: typeof CalendarIcon;
+  label: string;
+  value: string;
+}) {
   return (
     <div className="rounded-md bg-muted/60 px-2 py-1.5">
       <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-muted-foreground">
@@ -1129,21 +1539,29 @@ function UpcomingTourCard({
   members: { id: string; name: string; role: string; zones: string[] }[];
   leadName?: string;
 }) {
-  const { properties, rescheduleTour, cancelTour } = useApp();
+  const { properties, rescheduleTour, cancelTour, markTourStarted, completeTour } = useApp();
   const prop = properties.find((p) => p.id === tour.propertyId);
-  
+
   // Handle both old CRM tour format (tcmId) and new MYT tour format (assignedTo, assignedToName)
   const assignedToId = (tour as any).assignedTo ?? (tour as any).tcmId;
-  const assignedToName = (tour as any).assignedToName ?? members.find((m) => m.id === assignedToId)?.name ?? assignedToId ?? "TBD";
+  const assignedToName =
+    (tour as any).assignedToName ??
+    members.find((m) => m.id === assignedToId)?.name ??
+    assignedToId ??
+    "TBD";
   const scheduledById = (tour as any).scheduledBy;
-  const scheduledByName = (tour as any).scheduledByName ?? members.find((m) => m.id === scheduledById)?.name ?? scheduledById ?? "TBD";
+  const scheduledByName =
+    (tour as any).scheduledByName ??
+    members.find((m) => m.id === scheduledById)?.name ??
+    scheduledById ??
+    "TBD";
   const tourType = (tour as any).tourType ?? "physical";
   const qualification = (tour as any).qualification;
-  const displayLeadName = (tour as any).leadName ?? leadName ?? "";
+  const displayLeadName = normalizeLeadName((tour as any).leadName ?? leadName ?? "");
   const phone = (tour as any).phone ?? "";
   const budget = (tour as any).budget ?? 0;
   const area = (tour as any).area ?? "";
-  
+
   const [showReschedule, setShowReschedule] = useState(false);
   const [newDateTime, setNewDateTime] = useState(() => toLocal(tour.scheduledAt));
 
@@ -1151,7 +1569,11 @@ function UpcomingTourCard({
     <div className="rounded-lg border border-accent/30 bg-accent/5 p-4 space-y-3">
       {/* Header with property and status */}
       <div className="flex items-center justify-between">
-        <div className="font-display font-semibold text-sm">{prop?.name ?? (tour as any).propertyName ?? (displayLeadName ? `${displayLeadName}'s Tour` : "Property TBD")}</div>
+        <div className="font-display font-semibold text-sm">
+          {prop?.name ??
+            (tour as any).propertyName ??
+            (displayLeadName ? `${displayLeadName}'s Tour` : "Property TBD")}
+        </div>
         <Badge className="bg-accent text-accent-foreground capitalize">{tour.status}</Badge>
       </div>
 
@@ -1161,7 +1583,9 @@ function UpcomingTourCard({
           <CalendarIcon className="h-3 w-3" />
           {formatSafeDate(tour.scheduledAt, "EEE, MMM d · p", "time unknown")}
         </span>
-        <Badge variant="outline" className="text-[10px] capitalize">{tourType.replace("-", " ")}</Badge>
+        <Badge variant="outline" className="text-[10px] capitalize">
+          {tourType.replace("-", " ")}
+        </Badge>
       </div>
 
       {/* Lead info row */}
@@ -1203,43 +1627,81 @@ function UpcomingTourCard({
       {/* Qualification details if available */}
       {qualification && (
         <div className="rounded-md border border-border bg-background/40 px-3 py-2 space-y-1.5">
-          <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Qualification</div>
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+            Qualification
+          </div>
           <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
             {qualification.moveInDate && (
-              <div><span className="text-muted-foreground">Move-in:</span> <span className="font-medium">{qualification.moveInDate}</span></div>
+              <div>
+                <span className="text-muted-foreground">Move-in:</span>{" "}
+                <span className="font-medium">{qualification.moveInDate}</span>
+              </div>
             )}
             {qualification.roomType && (
-              <div><span className="text-muted-foreground">Room:</span> <span className="font-medium">{qualification.roomType}</span></div>
+              <div>
+                <span className="text-muted-foreground">Room:</span>{" "}
+                <span className="font-medium">{qualification.roomType}</span>
+              </div>
             )}
             {qualification.decisionMaker && (
-              <div><span className="text-muted-foreground">Decision:</span> <span className="font-medium capitalize">{qualification.decisionMaker}</span></div>
+              <div>
+                <span className="text-muted-foreground">Decision:</span>{" "}
+                <span className="font-medium capitalize">{qualification.decisionMaker}</span>
+              </div>
             )}
             {qualification.willBookToday && (
-              <div><span className="text-muted-foreground">Book today:</span> <span className="font-medium capitalize">{qualification.willBookToday}</span></div>
+              <div>
+                <span className="text-muted-foreground">Book today:</span>{" "}
+                <span className="font-medium capitalize">{qualification.willBookToday}</span>
+              </div>
             )}
             {qualification.workLocation && (
-              <div><span className="text-muted-foreground">Work area:</span> <span className="font-medium">{qualification.workLocation}</span></div>
+              <div>
+                <span className="text-muted-foreground">Work area:</span>{" "}
+                <span className="font-medium">{qualification.workLocation}</span>
+              </div>
             )}
             {qualification.keyConcern && (
-              <div className="col-span-2"><span className="text-muted-foreground">Concern:</span> <span className="font-medium">{qualification.keyConcern}</span></div>
+              <div className="col-span-2">
+                <span className="text-muted-foreground">Concern:</span>{" "}
+                <span className="font-medium">{qualification.keyConcern}</span>
+              </div>
             )}
           </div>
           <div className="flex flex-wrap gap-1.5 mt-1">
-            {qualification.readyIn48h && <Badge variant="secondary" className="text-[9px]">Ready in 48h</Badge>}
-            {qualification.exploring && <Badge variant="secondary" className="text-[9px]">Exploring</Badge>}
-            {qualification.comparing && <Badge variant="secondary" className="text-[9px]">Comparing</Badge>}
-            {qualification.needsFamily && <Badge variant="secondary" className="text-[9px]">Family approval</Badge>}
+            {qualification.readyIn48h && (
+              <Badge variant="secondary" className="text-[9px]">
+                Ready in 48h
+              </Badge>
+            )}
+            {qualification.exploring && (
+              <Badge variant="secondary" className="text-[9px]">
+                Exploring
+              </Badge>
+            )}
+            {qualification.comparing && (
+              <Badge variant="secondary" className="text-[9px]">
+                Comparing
+              </Badge>
+            )}
+            {qualification.needsFamily && (
+              <Badge variant="secondary" className="text-[9px]">
+                Family approval
+              </Badge>
+            )}
           </div>
         </div>
       )}
 
       {/* Action buttons */}
-      {tour.status === "scheduled" && (
+      {(tour.status === "scheduled" || tour.status === "confirmed" || tour.status === "on-tour") && (
         <div className="flex flex-wrap gap-2 pt-1">
           {showReschedule ? (
             <div className="flex gap-2 w-full items-end">
               <div className="flex-1">
-                <Label className="text-[10px] uppercase text-muted-foreground">New date & time</Label>
+                <Label className="text-[10px] uppercase text-muted-foreground">
+                  New date & time
+                </Label>
                 <Input
                   type="datetime-local"
                   value={newDateTime}
@@ -1248,7 +1710,9 @@ function UpcomingTourCard({
                 />
               </div>
               <Button
-                size="sm" variant="default" className="h-8 text-xs"
+                size="sm"
+                variant="default"
+                className="h-8 text-xs"
                 onClick={() => {
                   if (newDateTime) {
                     rescheduleTour(tour.id, new Date(newDateTime).toISOString());
@@ -1259,20 +1723,59 @@ function UpcomingTourCard({
               >
                 Confirm
               </Button>
-              <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => setShowReschedule(false)}>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 text-xs"
+                onClick={() => setShowReschedule(false)}
+              >
                 Cancel
               </Button>
             </div>
           ) : (
             <>
+              {(tour.status === "scheduled" || tour.status === "confirmed") && (
+                <Button
+                  size="sm"
+                  className="h-7 text-[11px] gap-1"
+                  onClick={() => {
+                    void markTourStarted(tour.id)
+                      .then(() => toast.success("Moved to on-tour day"))
+                      .catch((err) =>
+                        toast.error(err instanceof Error ? err.message : "Failed to move tour"),
+                      );
+                  }}
+                >
+                  <UserCheck className="h-3 w-3" /> Move to on-tour
+                </Button>
+              )}
+              {tour.status === "on-tour" && (
+                <Button
+                  size="sm"
+                  className="h-7 text-[11px] gap-1"
+                  onClick={() => {
+                    void completeTour(tour.id)
+                      .then(() => toast.success("Tour completed"))
+                      .catch((err) =>
+                        toast.error(err instanceof Error ? err.message : "Failed to complete tour"),
+                      );
+                  }}
+                >
+                  <CheckCircle2 className="h-3 w-3" /> Tour done
+                </Button>
+              )}
               <Button
-                size="sm" variant="outline" className="h-7 text-[11px]"
+                size="sm"
+                variant="outline"
+                className="h-7 text-[11px]"
                 onClick={() => setShowReschedule(true)}
               >
                 <CalendarIcon className="h-3 w-3 mr-1" /> Reschedule
               </Button>
               <Button
-                size="sm" variant="outline" className="h-7 text-[11px] text-destructive hover:text-destructive"
+                size="sm"
+                variant="outline"
+                className="h-7 text-[11px] text-destructive hover:text-destructive"
                 onClick={() => {
                   if (confirm("Cancel this tour?")) {
                     cancelTour(tour.id);
@@ -1289,7 +1792,6 @@ function UpcomingTourCard({
     </div>
   );
 }
-
 
 function InlineScheduleTour({
   lead,
@@ -1322,7 +1824,10 @@ function InlineScheduleTour({
     <Section title="Schedule Tour in drawer">
       <div className="rounded-lg border border-border bg-card p-3 space-y-3">
         <div className="text-xs text-muted-foreground">
-          Lead is already known: <span className="font-medium text-foreground">{lead.name}</span>. Fill the tour details below and assign it to a TCM (members can also assign to themselves).
+          Lead is already known:{" "}
+          <span className="font-medium text-foreground">{resolveBestLeadName(lead)}</span>.
+          Fill the tour details below and assign it to a TCM (members can also assign to
+          themselves).
         </div>
         <div className="grid grid-cols-3 gap-2 text-[11px]">
           <div className="rounded-md bg-muted/60 px-2 py-1.5">
@@ -1344,7 +1849,10 @@ function InlineScheduleTour({
           </div>
           <div className="grid gap-2 sm:grid-cols-2">
             <Field label="Source">
-              <Select value={answers.bookingSource} onValueChange={(v) => onAnswersChange({ bookingSource: v })}>
+              <Select
+                value={answers.bookingSource}
+                onValueChange={(v) => onAnswersChange({ bookingSource: v })}
+              >
                 <SelectTrigger className="h-8 text-xs">
                   <SelectValue />
                 </SelectTrigger>
@@ -1358,7 +1866,10 @@ function InlineScheduleTour({
               </Select>
             </Field>
             <Field label="Decision maker">
-              <Select value={answers.decisionMaker} onValueChange={(v) => onAnswersChange({ decisionMaker: v })}>
+              <Select
+                value={answers.decisionMaker}
+                onValueChange={(v) => onAnswersChange({ decisionMaker: v })}
+              >
                 <SelectTrigger className="h-8 text-xs">
                   <SelectValue />
                 </SelectTrigger>
@@ -1403,7 +1914,10 @@ function InlineScheduleTour({
             </Field>
           </div>
           <Field label="Room type">
-            <Select value={answers.roomType} onValueChange={(v) => onAnswersChange({ roomType: v })}>
+            <Select
+              value={answers.roomType}
+              onValueChange={(v) => onAnswersChange({ roomType: v })}
+            >
               <SelectTrigger className="h-8 text-xs">
                 <SelectValue />
               </SelectTrigger>
@@ -1438,7 +1952,10 @@ function InlineScheduleTour({
             ))}
           </div>
           <Field label="Will book today">
-            <Select value={answers.willBookToday} onValueChange={(v) => onAnswersChange({ willBookToday: v })}>
+            <Select
+              value={answers.willBookToday}
+              onValueChange={(v) => onAnswersChange({ willBookToday: v })}
+            >
               <SelectTrigger className="h-8 text-xs">
                 <SelectValue />
               </SelectTrigger>
@@ -1460,7 +1977,9 @@ function InlineScheduleTour({
           </Field>
         </div>
         <div>
-          <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">Tour Type</Label>
+          <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">
+            Tour Type
+          </Label>
           <div className="mt-1 grid grid-cols-3 gap-2">
             {TOUR_TYPES.map(({ value, label, icon: Icon }) => (
               <button
@@ -1481,7 +2000,9 @@ function InlineScheduleTour({
         </div>
         <div className="grid gap-2 sm:grid-cols-2">
           <div>
-            <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">Property</Label>
+            <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">
+              Property
+            </Label>
             <Select value={propertyId} onValueChange={onPropertyChange}>
               <SelectTrigger className="h-9 text-sm">
                 <SelectValue placeholder="Select Property" />
@@ -1492,14 +2013,14 @@ function InlineScheduleTour({
                     {p.name}
                   </SelectItem>
                 ))}
-                <SelectItem value={OTHER_PROPERTY_VALUE}>
-                  Others
-                </SelectItem>
+                <SelectItem value={OTHER_PROPERTY_VALUE}>Others</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div>
-            <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">TCM</Label>
+            <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">
+              TCM
+            </Label>
             <Select value={tcmId} onValueChange={onTcmChange}>
               <SelectTrigger className="h-9 text-sm">
                 <SelectValue placeholder="Select TCM" />
@@ -1518,7 +2039,10 @@ function InlineScheduleTour({
           {/* Separate date and time selectors. Time options: 09:00–21:00 every 30 minutes */}
           {(() => {
             const datePart = scheduledAt ? scheduledAt.split("T")[0] : "";
-            const timePartRaw = scheduledAt && scheduledAt.includes("T") ? (scheduledAt.split("T")[1] || "").slice(0, 5) : "";
+            const timePartRaw =
+              scheduledAt && scheduledAt.includes("T")
+                ? (scheduledAt.split("T")[1] || "").slice(0, 5)
+                : "";
             const times: string[] = [];
             const pad = (n: number) => String(n).padStart(2, "0");
             for (let mins = 9 * 60; mins <= 21 * 60; mins += 30) {
@@ -1540,10 +2064,13 @@ function InlineScheduleTour({
                   className="h-9 text-sm"
                 />
 
-                <Select value={timePartRaw} onValueChange={(v) => {
-                  const d = datePart || new Date().toISOString().split('T')[0];
-                  onScheduledAtChange(v ? `${d}T${v}` : "");
-                }}>
+                <Select
+                  value={timePartRaw}
+                  onValueChange={(v) => {
+                    const d = datePart || new Date().toISOString().split("T")[0];
+                    onScheduledAtChange(v ? `${d}T${v}` : "");
+                  }}
+                >
                   <SelectTrigger className="h-9 text-sm">
                     <SelectValue placeholder="Select time" />
                   </SelectTrigger>
@@ -1583,13 +2110,21 @@ function priorityFor(c: number): FollowUpPriority {
 // adapter when offline). Auto-logs every system change AND lets the user
 // quickly log calls, emails, WhatsApp, notes, meetings and site visits.
 function LeadActivityTab({ leadId }: { leadId: string }) {
-  const { activities, loading, log, remove } = useActivities({ entityType: "lead", entityId: leadId });
+  const { activities, loading, log, remove } = useActivities({
+    entityType: "lead",
+    entityId: leadId,
+  });
   return (
     <div className="space-y-3">
       <div className="rounded-md border bg-card p-3">
         <ActivityComposer onLog={log} />
       </div>
-      <ActivityTimeline activities={activities} loading={loading} onDelete={remove} emptyHint="No activity logged yet. Use the composer above to log a call, message, note, or meeting." />
+      <ActivityTimeline
+        activities={activities}
+        loading={loading}
+        onDelete={remove}
+        emptyHint="No activity logged yet. Use the composer above to log a call, message, note, or meeting."
+      />
     </div>
   );
 }

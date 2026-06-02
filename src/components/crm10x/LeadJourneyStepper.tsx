@@ -6,12 +6,12 @@ import { useDossierReadiness } from "@/lib/crm10x/dossier-readiness";
 import type { Lead } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import {
-  CheckCircle2, Circle, Lock, ChevronRight, ClipboardCheck,
-  Calendar, MessageSquare, FileText, IndianRupee, KeyRound, ArrowRight,
+  CheckCircle2, Lock, ChevronRight, ClipboardCheck,
+  Calendar, MessageSquare, IndianRupee, KeyRound, ArrowRight,
 } from "lucide-react";
 
 export type JourneyTab =
-  | "dossier" | "tour" | "post" | "quote" | "checkin";
+  | "impact" | "tour" | "post" | "quote" | "checkin";
 
 type StepState = "done" | "active" | "todo" | "locked";
 
@@ -45,21 +45,21 @@ export function LeadJourneyStepper({
     const sentQuote = leadQuotes.find((q) => q.status === "sent");
 
     const dossierDone = dossier.ready;
-    const tourDone = !!completedTour || !!openTour;
+    const tourDone = !!completedTour;
     const postDone = !!completedTour && !pendingPost;
     const bookingDone = lead.stage === "booked" || !!paidQuote;
     const checkinDone = !!checkin && (checkin.stage === "moved_in" || checkin.stage === "settled");
 
     const order = [
-      { key: "dossier" as const, done: dossierDone, unlock: true, label: "Dossier", icon: ClipboardCheck, cta: "Fill Dossier",
-        hint: dossierDone ? "Complete" : `${dossier.filledCount}/${dossier.totalCount} fields` },
+      { key: "impact" as const, done: dossierDone, unlock: true, label: "Impact", icon: ClipboardCheck, cta: "Complete profile",
+        hint: dossierDone ? "Ready" : `${dossier.filledCount}/${dossier.totalCount} dossier fields` },
       { key: "tour" as const, done: tourDone, unlock: dossierDone, label: "Tour", icon: Calendar,
-        cta: openTour ? "Manage tour" : "Schedule tour",
+        cta: openTour ? "Move to on-tour" : "Schedule tour",
         hint: openTour ? "Scheduled" : completedTour ? "Completed" : "Not scheduled" },
       { key: "post" as const, done: postDone, unlock: tourDone, label: "Post-tour", icon: MessageSquare,
         cta: pendingPost ? "Fill post-tour" : "Review",
         hint: pendingPost ? "Pending form" : postDone ? "Complete" : "Awaiting tour" },
-      { key: "quote" as const, done: bookingDone, unlock: postDone || tourDone, label: "Quote · Book", icon: IndianRupee,
+      { key: "quote" as const, done: bookingDone, unlock: postDone, label: "Quote · Book", icon: IndianRupee,
         cta: bookingDone ? "View booking" : "Send quote",
         hint: bookingDone ? "Booked" : sentQuote ? "Quote sent" : "Pending" },
       { key: "checkin" as const, done: checkinDone, unlock: bookingDone, label: "Check-in", icon: KeyRound,
@@ -89,29 +89,29 @@ export function LeadJourneyStepper({
           const Icon = s.icon;
           const isCurrent = currentTab === s.key;
           const tone =
-            s.state === "done" ? "border-success/50 bg-success/10 text-success"
-            : s.state === "active" ? "border-accent bg-accent/15 text-accent-foreground ring-1 ring-accent"
-            : s.state === "locked" ? "border-border bg-muted/40 text-muted-foreground opacity-60"
-            : "border-border bg-card text-muted-foreground";
+            s.state === "done" ? "border-success/60 bg-success/10 text-success"
+            : s.state === "active" ? "border-accent bg-accent/15 text-foreground ring-1 ring-accent"
+            : s.state === "locked" ? "border-border bg-card text-foreground"
+            : "border-border bg-card text-foreground";
           return (
             <div key={s.key} className="flex items-center shrink-0">
               <button
-                onClick={() => s.state !== "locked" && onJump(s.key)}
-                disabled={s.state === "locked"}
+                onClick={() => (s.state === "done" || s.state === "active") && onJump(s.key)}
+                disabled={s.state === "locked" || s.state === "todo"}
                 aria-current={isCurrent ? "step" : undefined}
-                className={`group flex flex-col items-center gap-1 rounded-md border px-2 py-1.5 min-w-[68px] transition-all ${tone} ${isCurrent ? "scale-[1.04] shadow-sm" : ""} ${s.state === "locked" ? "cursor-not-allowed" : "hover:brightness-110"}`}
-                title={s.state === "locked" ? "Complete previous step first" : s.label}
+                className={`group flex flex-col items-center gap-1 rounded-md border px-3 py-2 min-w-[104px] transition-all ${tone} ${isCurrent ? "scale-[1.02] shadow-sm" : ""} ${s.state === "locked" || s.state === "todo" ? "cursor-not-allowed" : "hover:brightness-110"}`}
+                title={s.state === "locked" || s.state === "todo" ? "Complete previous step first" : s.label}
               >
                 <div className="flex items-center gap-1">
-                  {s.state === "done" ? <CheckCircle2 className="h-3.5 w-3.5" />
-                    : s.state === "locked" ? <Lock className="h-3 w-3" />
-                    : <Icon className="h-3.5 w-3.5" />}
-                  <span className="text-[10px] font-semibold whitespace-nowrap">{s.label}</span>
+                  {s.state === "done" ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                    : s.state === "locked" ? <Lock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    : <Icon className="h-3.5 w-3.5 shrink-0" />}
+                  <span className="text-[11px] font-semibold whitespace-nowrap">{s.label}</span>
                 </div>
-                {s.hint && <span className="text-[9px] opacity-80 whitespace-nowrap leading-none">{s.hint}</span>}
+                {s.hint && <span className="text-[10px] text-muted-foreground whitespace-nowrap leading-none">{s.hint}</span>}
               </button>
               {i < steps.length - 1 && (
-                <ChevronRight className={`h-3.5 w-3.5 mx-0.5 shrink-0 ${steps[i + 1].state === "locked" ? "text-muted-foreground/40" : "text-muted-foreground"}`} />
+                <ChevronRight className="h-3.5 w-3.5 mx-1 shrink-0 text-muted-foreground" />
               )}
             </div>
           );

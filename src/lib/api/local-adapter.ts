@@ -4,6 +4,7 @@
 // or the server is unreachable.
 import { ulid } from "@/contracts";
 import type { Todo, Activity, DomainEvent, Lead, Tour } from "@/contracts";
+import { normalizeLeadName } from "@/lib/lead-helpers";
 
 const TODOS_KEY = "gharpayy.local.todos";
 const ACTS_KEY = "gharpayy.local.activities";
@@ -178,7 +179,7 @@ export const localAdapter = {
         const p = cmd.payload as Record<string, unknown>;
         const lead: Lead = {
           _id: ulid(),
-          name: String(p.name ?? ""),
+          name: normalizeLeadName(String(p.name ?? "")),
           phone: String(p.phone ?? ""),
           source: (p.source as string) ?? "manual",
           budget: Number(p.budget ?? 0),
@@ -219,7 +220,11 @@ export const localAdapter = {
         const list = read<Lead>(LEADS_KEY);
         const idx = list.findIndex((l) => l._id === p.leadId);
         if (idx < 0) return { ok: false, error: "Lead not found" };
-        const patch = { ...p.patch, updatedAt: nowISO() };
+        const patch = {
+          ...p.patch,
+          ...(p.patch.name != null ? { name: normalizeLeadName(p.patch.name) } : {}),
+          updatedAt: nowISO(),
+        };
         list[idx] = { ...list[idx], ...patch } as Lead;
         write(LEADS_KEY, list);
         const evt = { ...env(correlationId), type: "evt.lead.updated" as const, payload: { leadId: p.leadId, patch } };

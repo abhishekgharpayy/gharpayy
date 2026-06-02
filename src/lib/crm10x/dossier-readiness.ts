@@ -7,11 +7,16 @@ export const DOSSIER_REQUIRED_FIELDS: Array<{
   key: keyof DeepLeadProfile;
   label: string;
 }> = [
+  { key: "gender", label: "PG type" },
   { key: "roomType", label: "Room type" },
+  { key: "furnishing", label: "Furnishing" },
   { key: "food", label: "Food pref" },
-  { key: "preferredMoveInDate", label: "Move-in date" },
+  { key: "source", label: "Source" },
   { key: "decisionMaker", label: "Decision maker" },
+  { key: "language", label: "Language" },
+  { key: "companyOrCollege", label: "Company / college" },
   { key: "budgetStated", label: "Stated budget" },
+  { key: "verifiedBudget", label: "Budget verification" },
 ];
 
 export interface DossierReadiness {

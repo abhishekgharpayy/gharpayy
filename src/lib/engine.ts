@@ -9,16 +9,17 @@
  *   - Smart "do next" prioritization
  */
 import type { Lead, Tour, FollowUp, Intent } from "./types";
+import { isLeadActive } from "./lead-helpers";
 
 /* ============== SLA RULES ============== */
 
 export const SLA = {
-  firstResponseMins: 5,         // first response after lead arrives
-  followUpHours: 24,            // every lead has a follow-up within 24h
-  postTourHours: 1,             // post-tour form filled within 1h
-  postTourAlertHours: 2,        // soft alert
-  postTourEscalateHours: 6,     // hard escalation to Flow Ops
-  reassignDays: 3,              // T+3 with no action → reassign
+  firstResponseMins: 5, // first response after lead arrives
+  followUpHours: 24, // every lead has a follow-up within 24h
+  postTourHours: 1, // post-tour form filled within 1h
+  postTourAlertHours: 2, // soft alert
+  postTourEscalateHours: 6, // hard escalation to Flow Ops
+  reassignDays: 3, // T+3 with no action → reassign
 } as const;
 
 export type SlaState = "ok" | "warn" | "breach";
@@ -116,7 +117,7 @@ export function buildDoNextQueue(
     .filter((t) => t.status === "completed" && !t.postTour.filledAt)
     .forEach((t) => {
       const lead = leads.find((l) => l.id === t.leadId);
-      if (!lead || !byLead(lead)) return;
+      if (!lead || !byLead(lead) || !isLeadActive(lead)) return;
       const hrs = (now - +new Date(t.scheduledAt)) / 36e5;
       actions.push({
         leadId: lead.id,
@@ -131,7 +132,7 @@ export function buildDoNextQueue(
     .filter((f) => !f.done && +new Date(f.dueAt) < now)
     .forEach((f) => {
       const lead = leads.find((l) => l.id === f.leadId);
-      if (!lead || !byLead(lead)) return;
+      if (!lead || !byLead(lead) || !isLeadActive(lead)) return;
       const hrs = (now - +new Date(f.dueAt)) / 36e5;
       actions.push({
         leadId: lead.id,
@@ -147,13 +148,14 @@ export function buildDoNextQueue(
     .filter((t) => t.status === "scheduled" && sameDay(+new Date(t.scheduledAt), now))
     .forEach((t) => {
       const lead = leads.find((l) => l.id === t.leadId);
-      if (!lead || !byLead(lead)) return;
+      if (!lead || !byLead(lead) || !isLeadActive(lead)) return;
       const minsToTour = (+new Date(t.scheduledAt) - now) / 60_000;
       actions.push({
         leadId: lead.id,
-        reason: minsToTour > 0
-          ? `Tour today in ${formatRel(minsToTour)}`
-          : `Tour was ${formatRel(-minsToTour)} ago - confirm`,
+        reason:
+          minsToTour > 0
+            ? `Tour today in ${formatRel(minsToTour)}`
+            : `Tour was ${formatRel(-minsToTour)} ago - confirm`,
         kind: "tour-today",
         score: 700 + intentBoost(lead.intent) - Math.abs(minsToTour) / 30,
         dueAt: t.scheduledAt,
@@ -165,7 +167,7 @@ export function buildDoNextQueue(
     .filter((f) => !f.done && sameDay(+new Date(f.dueAt), now) && +new Date(f.dueAt) >= now)
     .forEach((f) => {
       const lead = leads.find((l) => l.id === f.leadId);
-      if (!lead || !byLead(lead)) return;
+      if (!lead || !byLead(lead) || !isLeadActive(lead)) return;
       actions.push({
         leadId: lead.id,
         reason: `Follow-up today · ${f.reason}`,
@@ -189,7 +191,7 @@ export function buildDoNextQueue(
 
   // 6. brand-new leads waiting for first response
   leads
-    .filter((l) => byLead(l) && l.stage === "new")
+    .filter((l) => byLead(l) && isLeadActive(l) && l.stage === "new")
     .forEach((l) => {
       const ageMin = (now - +new Date(l.createdAt)) / 60_000;
       if (ageMin > SLA.firstResponseMins) {
@@ -202,10 +204,10 @@ export function buildDoNextQueue(
       }
     });
 
-  // de-dup by lead+kind, sort
+  // de-dup by lead+kind, sort (deterministic with leadId tiebreaker)
   const seen = new Set<string>();
   return actions
-    .sort((a, b) => b.score - a.score)
+    .sort((a, b) => b.score - a.score || a.leadId.localeCompare(b.leadId))
     .filter((a) => {
       const k = `${a.leadId}:${a.kind}`;
       if (seen.has(k)) return false;
@@ -219,10 +221,13 @@ function intentBoost(i: Intent) {
 }
 
 function sameDay(a: number, b: number) {
-  const da = new Date(a), db = new Date(b);
-  return da.getFullYear() === db.getFullYear() &&
-         da.getMonth() === db.getMonth() &&
-         da.getDate() === db.getDate();
+  const da = new Date(a),
+    db = new Date(b);
+  return (
+    da.getFullYear() === db.getFullYear() &&
+    da.getMonth() === db.getMonth() &&
+    da.getDate() === db.getDate()
+  );
 }
 
 function formatRel(mins: number): string {
@@ -258,14 +263,25 @@ export function computeTcmPerformance(
   const toursDone = myTours.filter((t) => t.status === "completed").length;
   const bookings = myTours.filter((t) => t.decision === "booked").length;
   const conversion = toursDone > 0 ? Math.round((bookings / toursDone) * 100) : 0;
-  const pendingPostTour = myTours.filter((t) => t.status === "completed" && !t.postTour.filledAt).length;
-  const overdueFollowUps = followUps.filter((f) => f.tcmId === tcmId && !f.done && +new Date(f.dueAt) < now).length;
+  const pendingPostTour = myTours.filter(
+    (t) => t.status === "completed" && !t.postTour.filledAt,
+  ).length;
+  const overdueFollowUps = followUps.filter(
+    (f) => f.tcmId === tcmId && !f.done && +new Date(f.dueAt) < now,
+  ).length;
   const total = myLeads.length || 1;
-  const discipline = Math.max(0, Math.min(100,
-    100 - (pendingPostTour / total) * 100 - (overdueFollowUps / total) * 60,
-  ));
+  const discipline = Math.max(
+    0,
+    Math.min(100, 100 - (pendingPostTour / total) * 100 - (overdueFollowUps / total) * 60),
+  );
   return {
-    tcmId, leadCount: myLeads.length, toursDone, bookings, conversion,
-    pendingPostTour, overdueFollowUps, discipline: Math.round(discipline),
+    tcmId,
+    leadCount: myLeads.length,
+    toursDone,
+    bookings,
+    conversion,
+    pendingPostTour,
+    overdueFollowUps,
+    discipline: Math.round(discipline),
   };
 }

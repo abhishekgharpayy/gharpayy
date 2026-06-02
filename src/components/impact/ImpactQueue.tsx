@@ -21,6 +21,7 @@ import {
   markDigestSentToday,
 } from "@/lib/crm10x/impact-queue-prefs";
 import { isQuoteStale } from "@/lib/crm10x/impact-quote-stale";
+import { useDossierReadiness } from "@/lib/crm10x/dossier-readiness";
 import { useLeadsSync } from "@/lib/leads-sync";
 import { leadHasValidProperty, pickBestPropertyForLead } from "@/lib/crm10x/fix-lead-properties";
 import { useAuthUser } from "@/lib/auth-store";
@@ -95,6 +96,7 @@ import { useAuditLog } from "@/lib/crm10x/audit-log";
 import { useIdentityStore } from "@/lib/lead-identity/store";
 import { waLink } from "@/lib/crm10x/templates";
 import { LeadPasteParser } from "@/components/leads/LeadPasteParser";
+import { resolveBestLeadName } from "@/lib/lead-helpers";
 
 /* ================================================================== */
 /*  Impact Queue — 10x                                                 */
@@ -177,7 +179,7 @@ function fmtActivityTime(iso: string) {
 function normalizeQueueLead(lead: Lead): Lead {
   return {
     ...lead,
-    name: lead.name?.trim() || "Unnamed lead",
+    name: resolveBestLeadName(lead),
     phone: lead.phone?.trim() || "No phone",
     preferredArea: lead.preferredArea?.trim() || "Area TBD",
     moveInDate:
@@ -215,7 +217,7 @@ export function useImpactStateForLead(leadInput?: Lead | null) {
 
     let column: ColumnKey = "inbox";
     if (lead.stage === "booked") column = "booked";
-    else if (lead.stage === "quote-sent") column = "quoted";
+    else if (lead.stage === "quote-sent" || lead.stage === "negotiation") column = "quoted";
     else if (lead.stage === "on-tour") column = "onTour";
     else if (lead.stage === "tour-scheduled") column = "scheduled";
     else if (lastQuote && (lastQuote.status === "sent" || lastQuote.status === "paid")) column = "quoted";
@@ -489,7 +491,7 @@ export function ImpactQueue() {
 
       let column: ColumnKey = "inbox";
       if (lead.stage === "booked") column = "booked";
-      else if (lead.stage === "quote-sent") column = "quoted";
+      else if (lead.stage === "quote-sent" || lead.stage === "negotiation") column = "quoted";
       else if (lead.stage === "on-tour") column = "onTour";
       else if (lead.stage === "tour-scheduled") column = "scheduled";
       else if (lastQuote && (lastQuote.status === "sent" || lastQuote.status === "paid")) column = "quoted";
@@ -1332,11 +1334,11 @@ function LeadRow({
           ev.dataTransfer.setData("text/from-column", dragColumn);
           ev.dataTransfer.effectAllowed = "move";
         }}
-        onClick={() => selectLead(lead.id, "dossier")}
+        onClick={() => selectLead(lead.id, "impact")}
         onKeyDown={(ev) => {
           if (ev.key === "Enter" || ev.key === " ") {
             ev.preventDefault();
-            selectLead(lead.id, "dossier");
+            selectLead(lead.id, "impact");
           }
         }}
         className={cn(
@@ -1772,17 +1774,23 @@ export function CommandActions({
   const currentUser = useIdentityStore((s) => s.currentUser);
   const auditLog = useAuditLog((s) => s.log);
   const { data: checkin } = useCheckin(lead.id);
+  const dossier = useDossierReadiness(lead);
   const [now, mounted] = useMountedNow(30_000);
   const [loggingCall, setLoggingCall] = useState(false);
   const [quoteOpen, setQuoteOpen] = useState(false);
   const [negotiateOpen, setNegotiateOpen] = useState(false);
   const [bookOpen, setBookOpen] = useState(false);
-  const [directBookOpen, setDirectBookOpen] = useState(false);
+  const [localScheduleOpen, setLocalScheduleOpen] = useState(false);
   const [checkinOpen, setCheckinOpen] = useState(false);
   const [messengerScenario, setMessengerScenario] = useState<ImpactScenario | null>(null);
   const messengerRef = useRef<HTMLDivElement>(null);
 
   const tcmPhone = useTcmContacts((s) => s.phones[tcm?.id ?? ""]);
+  const scheduleDialogOpen = scheduleOpen ?? localScheduleOpen;
+  const setScheduleDialogOpen = (v: boolean) => {
+    if (onScheduleOpenChange) onScheduleOpenChange(v);
+    else setLocalScheduleOpen(v);
+  };
 
   const updateIntent = async (intent: Lead["intent"]) => {
     const previous = lead.intent;
@@ -1887,7 +1895,11 @@ export function CommandActions({
 
     switch (action) {
       case "schedule":
-        onScheduleOpenChange?.(true);
+        if (dossier.ready) {
+          setScheduleDialogOpen(true);
+        } else {
+          toast.warning(`Complete deep profile first: ${dossier.missing.join(", ")}`);
+        }
         break;
       case "quote":
         setQuoteOpen(true);
@@ -1897,7 +1909,6 @@ export function CommandActions({
         break;
       case "book":
         if (lastQuote) setBookOpen(true);
-        else setDirectBookOpen(true);
         break;
       case "checkin":
         setCheckinOpen(true);
@@ -1922,18 +1933,29 @@ export function CommandActions({
 
       {/* Action toolbar — context-aware */}
       <div className="flex flex-wrap gap-1.5 pt-2 border-t border-border">
-        {(column === "inbox" || scheduleOpen) && (
-          <ScheduleTourDialog
-            lead={lead}
-            open={scheduleOpen}
-            onOpenChange={(v) => {
-              onScheduleOpenChange?.(v);
-              if (!v) onSchedulePrefillClear?.();
-            }}
-            prefillPg={schedulePrefill}
-            showTrigger={column === "inbox"}
-            tcmOptions={tcmOptions}
-          />
+        {(column === "inbox" || scheduleDialogOpen) && (
+          dossier.ready ? (
+            <ScheduleTourDialog
+              lead={lead}
+              open={scheduleDialogOpen}
+              onOpenChange={(v) => {
+                setScheduleDialogOpen(v);
+                if (!v) onSchedulePrefillClear?.();
+              }}
+              prefillPg={schedulePrefill}
+              showTrigger={column === "inbox"}
+              tcmOptions={tcmOptions}
+            />
+          ) : (
+            <Button
+              size="sm"
+              disabled
+              title={`Complete deep profile first: ${dossier.missing.join(", ")}`}
+              className="h-7 text-[10px] gap-1"
+            >
+              <Calendar className="h-3 w-3" /> Schedule locked
+            </Button>
+          )
         )}
 
         {column === "scheduled" && openTour && (
@@ -1941,8 +1963,11 @@ export function CommandActions({
             <ConfirmTourButton lead={lead} tour={openTour} />
             <Button size="sm" variant="outline" className={`h-7 text-[10px] gap-1 ${actionButtonClass}`}
               onClick={() => { void markTourStarted(openTour.id).then(() => toast.success("Tour marked live")).catch(() => toast.error("Failed to start tour")); }}>
-              <UserCheck className="h-3 w-3" /> Mark started
+              <UserCheck className="h-3 w-3" /> Move to on-tour
             </Button>
+            <span className="text-[10px] text-muted-foreground self-center">
+              Click this on tour day to unlock Tour done.
+            </span>
           </>
         )}
 
@@ -1989,32 +2014,32 @@ export function CommandActions({
           </div>
         )}
 
-        {/* Always-available — Quote sits next to Negotiate so the pair is one motion */}
-        <NegotiationPlaybook
-          lead={lead}
-          leadPhone={lead.phone}
-          ctx={baseCtx}
-          open={negotiateOpen}
-          onOpenChange={setNegotiateOpen}
-        />
-        <QuotationDialog
-          lead={lead}
-          label={lastQuote ? "Re-quote" : "Quotation"}
-          open={quoteOpen}
-          onOpenChange={setQuoteOpen}
-        />
-        <Button size="sm" variant="ghost" className={`h-7 text-[10px] gap-1 ${actionButtonClass}`}
-          onClick={() => void logCallAction()} disabled={loggingCall}>
-          {loggingCall ? <RotateCcw className="h-3 w-3 animate-spin" /> : <Phone className="h-3 w-3" />} Log call
-        </Button>
-        <DirectBookButton
-          lead={lead}
-          openTour={openTour}
-          opsProperties={opsProperties}
-          open={directBookOpen}
-          onOpenChange={setDirectBookOpen}
-        />
-        <CheckInOpsButton lead={lead} existing={checkin} open={checkinOpen} onOpenChange={setCheckinOpen} />
+        {column === "quoted" && (
+          <>
+            <NegotiationPlaybook
+              lead={lead}
+              leadPhone={lead.phone}
+              ctx={baseCtx}
+              open={negotiateOpen}
+              onOpenChange={setNegotiateOpen}
+            />
+            <QuotationDialog
+              lead={lead}
+              label={lastQuote ? "Re-quote" : "Quotation"}
+              open={quoteOpen}
+              onOpenChange={setQuoteOpen}
+            />
+          </>
+        )}
+        {(column === "inbox" || column === "quoted") && (
+          <Button size="sm" variant="ghost" className={`h-7 text-[10px] gap-1 ${actionButtonClass}`}
+            onClick={() => void logCallAction()} disabled={loggingCall}>
+            {loggingCall ? <RotateCcw className="h-3 w-3 animate-spin" /> : <Phone className="h-3 w-3" />} Log call
+          </Button>
+        )}
+        {column === "booked" && (
+          <CheckInOpsButton lead={lead} existing={checkin} open={checkinOpen} onOpenChange={setCheckinOpen} />
+        )}
         {lastQuote && column !== "quoted" && (
           <BookingDialog
             lead={lead}
@@ -2362,6 +2387,7 @@ function ScheduleTourDialog({
   tcmOptions: TCM[];
 }) {
   const scheduleTour = useApp((s) => s.scheduleTour);
+  const currentTcmId = useApp((s) => s.currentTcmId);
 
   const [internalOpen, setInternalOpen] = useState(false);
   const open = controlledOpen ?? internalOpen;
@@ -2384,6 +2410,12 @@ function ScheduleTourDialog({
     }
   }, [open, prefillPg]);
 
+  useEffect(() => {
+    if (!open || selectedAgent) return;
+    const fallbackAgent = lead.assignedTcmId || tcmOptions[0]?.id || currentTcmId || "";
+    if (fallbackAgent) setSelectedAgent(fallbackAgent);
+  }, [currentTcmId, lead.assignedTcmId, open, selectedAgent, tcmOptions]);
+
   const filteredProperties = useMemo(() => {
     const q = propertySearch.trim().toLowerCase();
     let list = PGS;
@@ -2396,9 +2428,10 @@ function ScheduleTourDialog({
     return list.slice(0, 6);
   }, [propertySearch, lead.preferredArea]);
 
+  const resolvedAgentId = selectedAgent || lead.assignedTcmId || tcmOptions[0]?.id || currentTcmId || "";
   const scheduleErrors = {
     property: selectedProperty ? "" : "Property is required.",
-    agent: selectedAgent ? "" : "Agent is required.",
+    agent: resolvedAgentId ? "" : "Agent is required.",
     date: date && date >= today ? "" : "Date must be today or future.",
     time: time ? "" : "Time slot is required.",
   };
@@ -2413,7 +2446,7 @@ function ScheduleTourDialog({
       await scheduleTour({
         leadId: lead.id,
         propertyId: selectedProperty!.id,
-        tcmId: selectedAgent,
+        tcmId: resolvedAgentId,
         scheduledAt: iso,
       });
       toast.success("Tour scheduled successfully");
@@ -2491,13 +2524,18 @@ function ScheduleTourDialog({
               onChange={(e) => setSelectedAgent(e.target.value)}
               className="w-full border border-border rounded-md px-2 py-1.5 text-xs bg-transparent focus:outline-none focus:ring-1 focus:ring-primary h-8"
             >
-              <option value="">Select agent...</option>
+              <option value="">{resolvedAgentId ? "Auto assign" : "Select agent..."}</option>
               {tcmOptions.map((agent: any) => (
                 <option key={agent.id} value={agent.id} className="bg-background">
                   {agent.fullName ?? agent.name}{agent.zone ? ` · ${agent.zone}` : ""}
                 </option>
               ))}
             </select>
+            {resolvedAgentId && !selectedAgent && (
+              <p className="mt-1 text-[10px] text-muted-foreground">
+                Auto assigning to lead/current TCM.
+              </p>
+            )}
             {submitted && scheduleErrors.agent && (
               <p className="mt-1 text-[10px] text-danger">{scheduleErrors.agent}</p>
             )}

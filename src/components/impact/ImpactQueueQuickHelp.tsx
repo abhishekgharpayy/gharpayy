@@ -43,7 +43,7 @@ export function ImpactQueueQuickHelp() {
           <li className="flex items-start gap-2">
             <LayoutGrid className="h-3.5 w-3.5 text-accent shrink-0 mt-0.5" />
             <span>
-              <strong className="text-foreground">Board columns</strong> show stage: inbox → tour → quote → booked. Work left to right.
+              <strong className="text-foreground">Board columns</strong> show stage: inbox → tour scheduled → on tour day → quote sent → booked. Work left to right.
             </span>
           </li>
           <li className="flex items-start gap-2">
