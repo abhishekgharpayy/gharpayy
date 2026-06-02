@@ -84,7 +84,7 @@ export function DirectLeadForm({ onCreated }: Props) {
   const addLead = useApp((s) => s.addLead);
 
   // Default to the current member when a regular member is adding a lead
-  const defaultAssigneeId = authUser?.role === "member" ? authUser.id : "";
+  const defaultAssigneeId = authUser?.role === "member" || authUser?.role === "tcm" ? authUser.id : "";
 
   const [draft, setDraft] = useState<Draft>(() => ({ ...emptyDraft(), assigneeId: defaultAssigneeId }));
   const [touched, setTouched] = useState<Record<string, boolean>>({});
@@ -186,7 +186,9 @@ export function DirectLeadForm({ onCreated }: Props) {
     setSubmitting(true);
     const phoneClean = draft.phone.replace(/\D/g, "");
     const areasArr = draft.location.split(",").map((a) => a.trim()).filter(Boolean);
-    const assignee = orgMembers.find((m) => m.id === draft.assigneeId);
+    const assignee = sortedMembers.find((m: any) => m.id === draft.assigneeId)
+      ?? orgMembers.find((m) => m.id === draft.assigneeId)
+      ?? (activeTcms || []).find((a: any) => a.id === draft.assigneeId);
     const zoneObj = orgZones.find((z) => z.name === draft.zoneBucket);
     const budgetNum = parseBudgetAmount(draft.budget);
 
@@ -220,6 +222,7 @@ export function DirectLeadForm({ onCreated }: Props) {
       toast.error(`Could not save: ${result.error}`);
       return;
     }
+    const newLeadId = (result as any).data?.leadId;
 
     // Mirror locally so dedup hints stay current this session
     const parsedDraft: ParsedLeadDraft = {
@@ -230,6 +233,7 @@ export function DirectLeadForm({ onCreated }: Props) {
 
     // Optimistically add to the main app store for immediate visibility
     addLead({
+      id: newLeadId || identityLead.id,
       name: draft.name.trim(),
       phone: `+91${phoneClean}`,
       source: "direct-form",
@@ -237,6 +241,7 @@ export function DirectLeadForm({ onCreated }: Props) {
       moveInDate: draft.moveIn,
       preferredArea: areasArr[0] ?? draft.location.trim(),
       assignedTcmId: assignee?.id ?? "",
+      stage: "new",
       intent: draft.quality === "hot" ? "hot" : draft.quality === "bad" ? "cold" : "warm",
       tags: [],
     });
