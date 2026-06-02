@@ -56,7 +56,8 @@ interface AppState {
   setCurrentTcmId: (id: string) => void;
 
   selectedLeadId: string | null;
-  selectLead: (id: string | null) => void;
+  selectedLeadTab: string | null;
+  selectLead: (id: string | null, tab?: string | null) => void;
 
   tcms: TCM[];
   properties: Property[];
@@ -115,7 +116,8 @@ export const useApp = create<AppState>((set, get) => ({
   setCurrentTcmId: (id) => set({ currentTcmId: id }),
 
   selectedLeadId: null,
-  selectLead: (id) => set({ selectedLeadId: id }),
+  selectedLeadTab: null,
+  selectLead: (id, tab = null) => set({ selectedLeadId: id, selectedLeadTab: tab }),
 
   tcms: TCMS,
   properties: PROPERTIES,
@@ -331,18 +333,29 @@ export const useApp = create<AppState>((set, get) => ({
   },
 
   cancelTour: async (tourId) => {
-    await api.command({
+    const result = await api.command({
       _id: uid("c"),
       type: "cmd.tour.cancel",
       issuedAt: new Date().toISOString(),
       payload: { tourId },
     });
+    if ((result as any)?.ok === false) {
+      throw new Error((result as any).error ?? "Tour cancel failed on server");
+    }
     const t = get().tours.find((x) => x.id === tourId);
     if (!t) return;
     set((s) => ({
       tours: s.tours.map((x) =>
         x.id === tourId ? { ...x, status: "cancelled", updatedAt: new Date().toISOString() } : x,
       ),
+      leads: s.leads.map((lead) => {
+        if (lead.id !== t.leadId) return lead;
+        const hasOtherActiveTour = s.tours.some(
+          (tour) => tour.id !== tourId && tour.leadId === t.leadId && (tour.status === "scheduled" || tour.status === "confirmed"),
+        );
+        if (hasOtherActiveTour || (lead.stage !== "tour-scheduled" && lead.stage !== "on-tour")) return lead;
+        return { ...lead, stage: "contacted", tourDate: undefined, updatedAt: new Date().toISOString() };
+      }),
     }));
     pushActivity(set, get, { kind: "tour_cancelled", actor: get().role, leadId: t.leadId, tourId, text: "Tour cancelled" });
   },
