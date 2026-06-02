@@ -75,6 +75,7 @@ interface AppState {
   addLead: (input: AddLeadInput) => Lead;
   setLeads: (leads: Lead[]) => void;
   setTours: (tours: Tour[]) => void;
+  setProperties: (properties: Property[]) => void;
   setLeadStage: (leadId: string, stage: LeadStage) => Promise<void>;
   setLeadIntent: (leadId: string, intent: Intent) => void;
   setLeadFollowUp: (leadId: string, dueAt: string, priority: FollowUp["priority"], reason?: string) => void;
@@ -138,6 +139,8 @@ export const useApp = create<AppState>((set, get) => ({
   handoffs: HANDOFFS,
   sequences: SEQUENCES_INIT,
   bookings: [],
+
+  setProperties: (properties) => set({ properties }),
 
   addLead: (input) => {
     const now = new Date().toISOString();
