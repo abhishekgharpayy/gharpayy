@@ -60,6 +60,7 @@ export interface DeepLeadProfile {
   shortlistedCount?: number;
   decisionMaker?: DecisionAuthority;
   language?: LangPref;
+  locationFeasible?: boolean;
   bestCallTime?: string;
   flexibility?: FlexibilityScore;
   verifiedBudget?: boolean;
