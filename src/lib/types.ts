@@ -45,6 +45,8 @@ export interface Lead {
   moveInDate: string;
   preferredArea: string;
   assignedTcmId: string;
+  assigneeId?: string | null;
+  createdBy?: string | null;
   stage: LeadStage;
   intent: Intent;
   confidence: number; // 0-100 (deal probability)
