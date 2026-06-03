@@ -5,6 +5,7 @@ export default defineConfig({
   vite: {
     server: {
       port: 3001,
+      allowedHosts: [".trycloudflare.com"],
     },
   },
 });
