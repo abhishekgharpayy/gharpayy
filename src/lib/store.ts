@@ -26,6 +26,8 @@ type AddLeadInput = {
   moveInDate?: string;
   intent?: Intent;
   assignedTcmId?: string;
+  assigneeId?: string | null;
+  createdBy?: string | null;
   stage?: LeadStage;
   confidence?: number;
   tags?: string[];
@@ -154,6 +156,8 @@ export const useApp = create<AppState>((set, get) => ({
       moveInDate: input.moveInDate ?? now,
       preferredArea: input.preferredArea,
       assignedTcmId: input.assignedTcmId ?? get().currentTcmId,
+      assigneeId: input.assigneeId ?? input.assignedTcmId ?? null,
+      createdBy: input.createdBy ?? null,
       stage: input.stage ?? "new",
       intent: input.intent ?? "warm",
       confidence: input.confidence ?? (input.intent === "hot" ? 75 : input.intent === "cold" ? 25 : 50),
@@ -176,7 +180,11 @@ export const useApp = create<AppState>((set, get) => ({
       zoneCategory: input.zoneCategory,
       stageLabel: input.stageLabel,
     };
-    set((s) => ({ leads: [lead, ...s.leads] }));
+    set((s) => ({
+      leads: s.leads.some((existing) => existing.id === lead.id)
+        ? s.leads.map((existing) => existing.id === lead.id ? { ...existing, ...lead } : existing)
+        : [lead, ...s.leads],
+    }));
     return lead;
   },
   setLeads: (leads: Lead[]) => set({ leads: leads.map(normalizeLeadRecord) }),
@@ -237,19 +245,45 @@ export const useApp = create<AppState>((set, get) => ({
   },
 
   addLeadTag: (leadId, tag) => {
+    const prevLead = get().leads.find((l) => l.id === leadId);
+    if (!prevLead || prevLead.tags.includes(tag)) return;
+    const nextTags = [...prevLead.tags, tag];
     set((s) => ({
       leads: s.leads.map((l) =>
-        l.id === leadId && !l.tags.includes(tag) ? { ...l, tags: [...l.tags, tag] } : l,
+        l.id === leadId ? { ...l, tags: nextTags, updatedAt: new Date().toISOString() } : l,
       ),
     }));
+    void api.command({
+      _id: uid("c"),
+      type: "cmd.lead.update",
+      issuedAt: new Date().toISOString(),
+      payload: { leadId, patch: { tags: nextTags } },
+    }).catch(() => {
+      set((s) => ({
+        leads: s.leads.map((l) => (l.id === leadId ? prevLead : l)),
+      }));
+    });
   },
 
   removeLeadTag: (leadId, tag) => {
+    const prevLead = get().leads.find((l) => l.id === leadId);
+    if (!prevLead || !prevLead.tags.includes(tag)) return;
+    const nextTags = prevLead.tags.filter((t) => t !== tag);
     set((s) => ({
       leads: s.leads.map((l) =>
-        l.id === leadId ? { ...l, tags: l.tags.filter((t) => t !== tag) } : l,
+        l.id === leadId ? { ...l, tags: nextTags, updatedAt: new Date().toISOString() } : l,
       ),
     }));
+    void api.command({
+      _id: uid("c"),
+      type: "cmd.lead.update",
+      issuedAt: new Date().toISOString(),
+      payload: { leadId, patch: { tags: nextTags } },
+    }).catch(() => {
+      set((s) => ({
+        leads: s.leads.map((l) => (l.id === leadId ? prevLead : l)),
+      }));
+    });
   },
 
   scheduleTour: async ({ leadId, propertyId, tcmId, scheduledAt }) => {
@@ -477,20 +511,27 @@ export const useApp = create<AppState>((set, get) => ({
   setDecision: (tourId, decision) => {
     const t = get().tours.find((x) => x.id === tourId);
     if (!t) return;
+    const nextStage: LeadStage =
+      decision === "booked" ? "booked" :
+      decision === "dropped" ? "dropped" : "negotiation";
     set((s) => ({
       tours: s.tours.map((x) => (x.id === tourId ? { ...x, decision, updatedAt: new Date().toISOString() } : x)),
       leads: s.leads.map((l) =>
         l.id === t.leadId
           ? {
               ...l,
-              stage:
-                decision === "booked" ? "booked" :
-                decision === "dropped" ? "dropped" : "negotiation",
+              stage: nextStage,
               updatedAt: new Date().toISOString(),
             }
           : l,
       ),
     }));
+    void api.command({
+      _id: uid("c"),
+      type: "cmd.lead.change_stage",
+      issuedAt: new Date().toISOString(),
+      payload: { leadId: t.leadId, to: nextStage },
+    }).catch(() => {});
     pushActivity(set, get, {
       kind: "decision_logged", actor: t.tcmId, leadId: t.leadId, tourId,
       text: `Decision: ${decision ?? "-"}`,
@@ -704,6 +745,12 @@ export const useApp = create<AppState>((set, get) => ({
         seq.leadId === leadId && !seq.stoppedReason ? { ...seq, stoppedReason: "Booked" } : seq,
       ),
     }));
+    void api.command({
+      _id: uid("c"),
+      type: "cmd.lead.change_stage",
+      issuedAt: new Date().toISOString(),
+      payload: { leadId, to: "booked" },
+    }).catch(() => {});
     pushActivity(set, get, { kind: "booking_confirmed", actor: tcmId, leadId, tourId, propertyId, text: `Deal closed · ₹${amount.toLocaleString("en-IN")}/mo` });
     // Connector - find which Flop scheduled this lead's tour, give them assist XP.
     const sched = get().activities.find(
