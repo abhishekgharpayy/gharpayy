@@ -82,7 +82,7 @@ export function QuickCreateMenu() {
 
       {/* Lead from paste - paste box first, then full Quick Add field set for review */}
       <Dialog open={dialog === "lead"} onOpenChange={(o) => !o && setDialog(null)}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[96vw] max-w-[1180px] max-h-[calc(100dvh-16px)] overflow-y-auto p-4">
           <DialogHeader>
             <DialogTitle>Paste a lead - auto-extract every field</DialogTitle>
             <DialogDescription>Paste lead details and review extracted fields before saving.</DialogDescription>
