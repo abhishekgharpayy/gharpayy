@@ -8,8 +8,15 @@ const RAW_API_BASE_URL = (import.meta.env.VITE_API_URL as string | undefined)?.t
 function normalizeApiBaseUrl(value: string): string {
   const trimmed = value.replace(/\/$/, "");
   if (!trimmed) return "/api/v1";
-  if (/\/api(?:\/v1)?$/.test(trimmed)) return trimmed;
-  return `${trimmed}/api/v1`;
+  
+  // Add protocol if missing
+  let url = trimmed;
+  if (!url.startsWith("http://") && !url.startsWith("https://")) {
+    url = `http://${url}`;
+  }
+  
+  if (/\/api(?:\/v1)?$/.test(url)) return url;
+  return `${url}/api/v1`;
 }
 
 const API_BASE_URL = normalizeApiBaseUrl(RAW_API_BASE_URL);
