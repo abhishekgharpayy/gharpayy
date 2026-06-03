@@ -327,34 +327,107 @@ export function LeadPasteParser({ onDone }: Props) {
 
   return (
     <div className="grid items-start gap-3 xl:grid-cols-[300px_minmax(0,1fr)]">
-      {/* Paste box */}
-      <Card className="h-fit p-3 space-y-3 bg-muted/20">
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <Wand2 className="h-4 w-4 text-primary" />
-            <h3 className="font-semibold text-sm">Paste the lead</h3>
+      <div className="space-y-3">
+        {/* Paste box */}
+        <Card className="h-fit p-3 space-y-3 bg-muted/20">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Wand2 className="h-4 w-4 text-primary" />
+              <h3 className="font-semibold text-sm">Paste the lead</h3>
+            </div>
+            <p className="text-[11px] leading-relaxed text-muted-foreground">
+              Paste a WhatsApp, portal, or call note. The form on the right will fill automatically.
+            </p>
           </div>
-          <p className="text-[11px] leading-relaxed text-muted-foreground">
-            Paste a WhatsApp, portal, or call note. The form on the right will fill automatically.
-          </p>
-        </div>
-        <Button variant="outline" size="sm" className="w-full justify-center" onClick={() => setRaw(SAMPLE)}>
-          <Sparkles className="h-3 w-3 mr-1" /> Try sample
-        </Button>
-        <Textarea
-          ref={textRef}
-          value={raw}
-          onChange={(e) => setRaw(e.target.value)}
-          placeholder="Paste WhatsApp message, portal lead, email signature, anything…"
-          rows={5}
-          className="font-mono text-xs resize-none min-h-[130px]"
-        />
-        {parsedOnce && (
-          <p className="flex items-center gap-1 text-[11px] text-green-600">
-            <CheckCircle2 className="h-3 w-3" /> Parsed - review fields below before saving
-          </p>
-        )}
-      </Card>
+          <Button variant="outline" size="sm" className="w-full justify-center" onClick={() => setRaw(SAMPLE)}>
+            <Sparkles className="h-3 w-3 mr-1" /> Try sample
+          </Button>
+          <Textarea
+            ref={textRef}
+            value={raw}
+            onChange={(e) => setRaw(e.target.value)}
+            placeholder="Paste WhatsApp message, portal lead, email signature, anything…"
+            rows={5}
+            className="font-mono text-xs resize-none min-h-[130px]"
+          />
+          {parsedOnce && (
+            <p className="flex items-center gap-1 text-[11px] text-green-600">
+              <CheckCircle2 className="h-3 w-3" /> Parsed - review fields before saving
+            </p>
+          )}
+        </Card>
+
+        <Card className="h-fit p-3 space-y-3 [&_button]:min-h-0 [&_button]:text-[11px]">
+          <div>
+            <h3 className="font-semibold text-sm">Manual setup</h3>
+            <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+              These are not detected from paste, so set them before saving.
+            </p>
+          </div>
+
+          <LeftField label="Zone *">
+            {usePipSafe() ? (
+              <select
+                value={zoneBucket}
+                onChange={(e) => setZoneBucket(e.target.value)}
+                className="w-full h-9 text-sm rounded-md border px-3"
+              >
+                <option value="">{orgZones.length ? "Select zone…" : "No zones configured"}</option>
+                {sortedZones.map((z) => <option key={z.id} value={z.name}>{z.name}</option>)}
+              </select>
+            ) : (
+              <Select value={zoneBucket} onValueChange={(v) => setZoneBucket(v)}>
+                <SelectTrigger className="w-full h-9 text-xs">
+                  <SelectValue placeholder={orgZones.length ? "Select zone…" : "No zones configured"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {sortedZones.map((z) => <SelectItem key={z.id} value={z.name}>{z.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            )}
+          </LeftField>
+
+          <LeftField label="Assign Member *">
+            {usePipSafe() ? (
+              <select value={assigneeId} onChange={(e) => setAssigneeId(e.target.value)} className="w-full h-9 text-sm rounded-md border px-3">
+                <option value="">{orgMembers.length ? "Select member…" : "No members yet"}</option>
+                {sortedMembers.map((m) => (
+                  <option key={m.id} value={m.id}>{m.name}</option>
+                ))}
+              </select>
+            ) : (
+              <Select value={assigneeId} onValueChange={(v) => setAssigneeId(v)}>
+                <SelectTrigger className="w-full h-9 text-xs">
+                  <SelectValue placeholder={orgMembers.length ? "Select member…" : "No members yet"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {sortedMembers.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </LeftField>
+
+          <LeftField label="Lead Stage">
+            {usePipSafe() ? (
+              <select value={stage} onChange={(e) => setStage(e.target.value)} className="w-full h-9 text-sm rounded-md border px-3">
+                <option value="">Select stage…</option>
+                {sortedStages.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            ) : (
+              <Select value={stage} onValueChange={(v) => setStage(v)}>
+                <SelectTrigger className="w-full h-9 text-xs">
+                  <SelectValue placeholder="Select stage…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {sortedStages.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            )}
+          </LeftField>
+        </Card>
+      </div>
 
       {/* Full Quick-Add field set (always visible so the person fills missing pieces) */}
       <Card className="h-fit p-3 space-y-3 [&_input]:h-8 [&_input]:text-xs [&_button]:min-h-0 [&_button]:text-[11px] [&_textarea]:text-xs">
@@ -464,70 +537,6 @@ export function LeadPasteParser({ onDone }: Props) {
           </Field>
           </FormGroup>
 
-          <FormGroup title="Routing">
-          <Field label="Zone *">
-          {usePipSafe() ? (
-            <select
-              value={zoneBucket}
-              onChange={(e) => setZoneBucket(e.target.value)}
-              className="w-full h-9 text-sm rounded-md border px-3"
-            >
-              <option value="">{orgZones.length ? "Select zone…" : "No zones configured"}</option>
-              {sortedZones.map((z) => <option key={z.id} value={z.name}>{z.name}</option>)}
-            </select>
-          ) : (
-            <Select value={zoneBucket} onValueChange={(v) => setZoneBucket(v)}>
-              <SelectTrigger className="w-full h-9 text-xs">
-                <SelectValue placeholder={orgZones.length ? "Select zone…" : "No zones configured"} />
-              </SelectTrigger>
-              <SelectContent>
-                {sortedZones.map((z) => <SelectItem key={z.id} value={z.name}>{z.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          )}
-          </Field>
-
-          <Field label="Assign Member *">
-          {usePipSafe() ? (
-            <select value={assigneeId} onChange={(e) => setAssigneeId(e.target.value)} className="w-full h-9 text-sm rounded-md border px-3">
-              <option value="">{orgMembers.length ? "Select member…" : "No members yet"}</option>
-              {sortedMembers.map((m) => (
-                <option key={m.id} value={m.id}>{m.name}</option>
-              ))}
-            </select>
-          ) : (
-            <Select value={assigneeId} onValueChange={(v) => setAssigneeId(v)}>
-              <SelectTrigger className="w-full h-9 text-xs">
-                <SelectValue placeholder={orgMembers.length ? "Select member…" : "No members yet"} />
-              </SelectTrigger>
-              <SelectContent>
-                {sortedMembers.map((m) => (
-                  <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-          </Field>
-
-          <Field label="Lead Stage">
-          {usePipSafe() ? (
-            <select value={stage} onChange={(e) => setStage(e.target.value)} className="w-full h-9 text-sm rounded-md border px-3">
-              <option value="">Select stage…</option>
-              {sortedStages.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
-          ) : (
-            <Select value={stage} onValueChange={(v) => setStage(v)}>
-              <SelectTrigger className="w-full h-9 text-xs">
-                <SelectValue placeholder="Select stage…" />
-              </SelectTrigger>
-              <SelectContent>
-                {sortedStages.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          )}
-          </Field>
-          </FormGroup>
-
           <FormGroup title="Notes">
           <Field label="Requests">
             <Textarea
@@ -570,6 +579,15 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   return (
     <div className="space-y-1">
       <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</Label>
+      {children}
+    </div>
+  );
+}
+
+function LeftField({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</Label>
       {children}
     </div>
   );
