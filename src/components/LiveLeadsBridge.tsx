@@ -21,6 +21,8 @@ function toLegacy(w: WireLead, fallbackTcmId = ""): LegacyLead {
     moveInDate: w.moveInDate ?? new Date().toISOString().slice(0, 10),
     preferredArea: w.preferredArea ?? "",
     assignedTcmId: w.assignedTcmId ?? fallbackTcmId,
+    assigneeId: w.assigneeId ?? w.assignedTcmId ?? null,
+    createdBy: w.createdBy ?? null,
     stage: (w.stage as LeadStage) ?? "new",
     intent: (w.intent as Intent) ?? "warm",
     confidence: w.confidence ?? 50,
