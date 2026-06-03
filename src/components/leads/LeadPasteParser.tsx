@@ -51,14 +51,14 @@ const STAGES = [
 ] as const;
 
 const QUALITY_OPTS = [
-  { v: "hot" as const, label: "🔥 Hot" },
-  { v: "good" as const, label: "✅ Good" },
-  { v: "bad" as const, label: "❌ Bad" },
+  { v: "hot" as const, label: "Hot" },
+  { v: "good" as const, label: "Good" },
+  { v: "bad" as const, label: "Bad" },
 ];
 const BLR_OPTS = [
-  { v: true as const, label: "🏙 In" },
-  { v: false as const, label: "✈️ Out" },
-  { v: null, label: "❓ Unknown" },
+  { v: true as const, label: "In Bangalore" },
+  { v: false as const, label: "Out of Bangalore" },
+  { v: null, label: "Unknown" },
 ];
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
@@ -113,6 +113,7 @@ export function LeadPasteParser({ onDone }: Props) {
   const [stage, setStage] = useState<string>(STAGES[0]);
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
 
   useEffect(() => {
     if (!assigneeId && defaultAssigneeId) {
@@ -192,6 +193,7 @@ export function LeadPasteParser({ onDone }: Props) {
   const blocking = errors.length > 0;
 
   const save = async () => {
+    if (savingRef.current) return;
     if (blocking) {
       toast.error(`Fill all required fields: ${errors.slice(0, 3).join(", ")}${errors.length > 3 ? "…" : ""}`);
       return;
@@ -208,30 +210,40 @@ export function LeadPasteParser({ onDone }: Props) {
     const zoneObj = orgZones.find((z) => z.name === zoneBucket);
     const budgetNum = parseBudgetAmount(budget);
 
+    savingRef.current = true;
     setSaving(true);
-    const result = await dispatch({
-      type: "cmd.lead.create",
-      payload: {
-        name: name.trim(),
-        phone: `+91${phoneClean}`,
-        source: "paste",
-        budget: budgetNum,
-        moveInDate: moveIn,
-        preferredArea: areasArr[0] ?? areasText.trim(),
-        zoneId: zoneObj?.id ?? null,
-        email: email.trim(),
-        areas: areasArr,
-        fullAddress: fullAddress.trim(),
-        type, room, need,
-        inBLR: inBLR === undefined ? null : inBLR,
-        quality,
-        specialReqs: specialReqs.trim(),
-        notes: notes.trim(),
-        zoneCategory: zoneBucket,
-        assigneeId: assignee?.id ?? null,
-        stageLabel: stage,
-      },
-    });
+    let result: Awaited<ReturnType<typeof dispatch>>;
+    try {
+      result = await dispatch({
+        type: "cmd.lead.create",
+        payload: {
+          name: name.trim(),
+          phone: `+91${phoneClean}`,
+          source: "paste",
+          budget: budgetNum,
+          moveInDate: moveIn,
+          preferredArea: areasArr[0] ?? areasText.trim(),
+          zoneId: zoneObj?.id ?? null,
+          email: email.trim(),
+          areas: areasArr,
+          fullAddress: fullAddress.trim(),
+          type, room, need,
+          inBLR: inBLR === undefined ? null : inBLR,
+          quality,
+          specialReqs: specialReqs.trim(),
+          notes: notes.trim(),
+          zoneCategory: zoneBucket,
+          assigneeId: assignee?.id ?? null,
+          stageLabel: stage,
+        },
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not save lead");
+      savingRef.current = false;
+      setSaving(false);
+      return;
+    }
+    savingRef.current = false;
     setSaving(false);
     if (!result.ok) {
       toast.error(`Could not save: ${result.error}`);
@@ -287,6 +299,8 @@ export function LeadPasteParser({ onDone }: Props) {
       moveInDate: moveIn,
       preferredArea: areasArr[0] ?? areasText.trim(),
       assignedTcmId: assignee?.id ?? "",
+      assigneeId: assignee?.id ?? null,
+      createdBy: authUser?.id ?? null,
       stage: "new",
       intent: (quality === "hot" ? "hot" : quality === "bad" ? "cold" : "warm") as Intent,
       confidence: quality === "hot" ? 90 : quality === "good" ? 70 : quality === "bad" ? 30 : 50,
@@ -312,26 +326,28 @@ export function LeadPasteParser({ onDone }: Props) {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="grid items-start gap-3 xl:grid-cols-[300px_minmax(0,1fr)]">
       {/* Paste box */}
-      <Card className="p-4 space-y-3">
-        <div className="flex items-center justify-between flex-wrap gap-2">
+      <Card className="h-fit p-3 space-y-3 bg-muted/20">
+        <div className="space-y-2">
           <div className="flex items-center gap-2">
             <Wand2 className="h-4 w-4 text-primary" />
-            <h3 className="font-semibold">Paste the lead</h3>
-            <Badge variant="secondary">auto-fills every field</Badge>
+            <h3 className="font-semibold text-sm">Paste the lead</h3>
           </div>
-          <Button variant="outline" size="sm" onClick={() => setRaw(SAMPLE)}>
-            <Sparkles className="h-3 w-3 mr-1" /> Try sample
-          </Button>
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            Paste a WhatsApp, portal, or call note. The form on the right will fill automatically.
+          </p>
         </div>
+        <Button variant="outline" size="sm" className="w-full justify-center" onClick={() => setRaw(SAMPLE)}>
+          <Sparkles className="h-3 w-3 mr-1" /> Try sample
+        </Button>
         <Textarea
           ref={textRef}
           value={raw}
           onChange={(e) => setRaw(e.target.value)}
           placeholder="Paste WhatsApp message, portal lead, email signature, anything…"
-          rows={6}
-          className="font-mono text-xs"
+          rows={5}
+          className="font-mono text-xs resize-none min-h-[130px]"
         />
         {parsedOnce && (
           <p className="flex items-center gap-1 text-[11px] text-green-600">
@@ -341,8 +357,8 @@ export function LeadPasteParser({ onDone }: Props) {
       </Card>
 
       {/* Full Quick-Add field set (always visible so the person fills missing pieces) */}
-      <Card className="p-4 space-y-3">
-        <div className="flex items-center justify-between">
+      <Card className="h-fit p-3 space-y-3 [&_input]:h-8 [&_input]:text-xs [&_button]:min-h-0 [&_button]:text-[11px] [&_textarea]:text-xs">
+        <div className="flex items-center justify-between gap-2">
           <h3 className="font-semibold text-sm">Review & complete</h3>
           {blocking ? (
             <span className="flex items-center gap-1 text-xs text-destructive">
@@ -355,8 +371,9 @@ export function LeadPasteParser({ onDone }: Props) {
           )}
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
-          <Field label="👤 Name *">
+        <div className="space-y-3">
+          <FormGroup title="Contact">
+          <Field label="Name *">
             <div className="relative">
               <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Rahul Sharma" />
               {parsedOnce && lastParsedConfidence.name && (
@@ -372,95 +389,83 @@ export function LeadPasteParser({ onDone }: Props) {
               )}
             </div>
           </Field>
-          <Field label="📱 Phone *">
+          <Field label="Phone *">
             <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="98xxxxxxxx" inputMode="tel"
               className={cn(!phoneValid && phone ? "border-destructive" : "")} />
           </Field>
-        </div>
 
-        <Field label="✉️ Email">
-          <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.com" inputMode="email" />
-        </Field>
+          <Field label="Email">
+            <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.com" inputMode="email" />
+          </Field>
 
-        <Field label="📍 Areas (comma-separated)">
-          <div className="relative">
-            <Input
-              value={areasText}
-              onChange={(e) => setAreasText(e.target.value)}
-              placeholder="HSR Layout, BTM, Koramangala"
-            />
-            {detectedZone && (
-              <Badge variant="secondary" className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px]">
-                {detectedZone}
-              </Badge>
+          <Field label="Areas *">
+            <div className="relative">
+              <Input
+                value={areasText}
+                onChange={(e) => setAreasText(e.target.value)}
+                placeholder="HSR, BTM, Koramangala"
+              />
+              {detectedZone && (
+                <Badge variant="secondary" className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px]">
+                  {detectedZone}
+                </Badge>
+              )}
+            </div>
+            {areasText.includes(",") && (
+              <p className="text-[10px] text-primary mt-1 flex items-center gap-1">
+                <MapPin className="h-2.5 w-2.5" /> Multiple Areas Detected
+              </p>
             )}
-          </div>
-          {areasText.includes(",") && (
-            <p className="text-[10px] text-primary mt-1 flex items-center gap-1">
-              <MapPin className="h-2.5 w-2.5" /> Multiple Areas Detected
-            </p>
-          )}
-        </Field>
+          </Field>
+          </FormGroup>
 
-        <Field label="🏠 Full Address / Map link">
-          <Textarea
-            value={fullAddress}
-            onChange={(e) => setFullAddress(e.target.value)}
-            rows={2}
-            placeholder="Door no, street, landmark or Google Maps URL"
-            className="resize-none"
-          />
-        </Field>
-
-        <div className="grid grid-cols-2 gap-2">
-          <Field label="💰 Budget">
+          <FormGroup title="Requirement">
+          <Field label="Budget">
             <Input value={budget} onChange={(e) => setBudget(e.target.value)} placeholder="8-12k" />
           </Field>
-          <Field label="📅 Move-in">
+          <Field label="Move-in">
             <Input type="date" value={moveIn} onChange={(e) => setMoveIn(e.target.value)} />
           </Field>
-        </div>
 
-        <Field label="💼 Type">
-          <ChipGroup options={QUICKAD_TYPE_OPTIONS} value={type} onChange={setType} />
-        </Field>
-        <Field label="🛏 Room">
-          <ChipGroup options={QUICKAD_ROOM_OPTIONS} value={room} onChange={setRoom} />
-        </Field>
-        <Field label="👥 Need">
-          <ChipGroup options={QUICKAD_NEED_OPTIONS} value={need} onChange={setNeed} />
-        </Field>
+          <Field label="Address / map">
+            <Input
+              value={fullAddress}
+              onChange={(e) => setFullAddress(e.target.value)}
+              placeholder="Door, landmark or Maps URL"
+            />
+          </Field>
 
-        <Field label="⭐ Special Requests">
-          <Textarea
-            value={specialReqs}
-            onChange={(e) => setSpecialReqs(e.target.value)}
-            rows={2}
-            placeholder="Veg only · attached washroom · top floor…"
-            className="resize-none"
-          />
-        </Field>
+          <Field label="Type">
+            <ChipGroup options={QUICKAD_TYPE_OPTIONS} value={type} onChange={setType} />
+          </Field>
+          <Field label="Room">
+            <ChipGroup options={QUICKAD_ROOM_OPTIONS} value={room} onChange={setRoom} />
+          </Field>
+          <Field label="Need">
+            <ChipGroup options={QUICKAD_NEED_OPTIONS} value={need} onChange={setNeed} />
+          </Field>
+          <Field label="Currently in Bangalore?">
+            <ChipGroup
+              options={BLR_OPTS.map((o) => o.label)}
+              value={BLR_OPTS.find((o) => o.v === inBLR)?.label ?? ""}
+              onChange={(label) => {
+                const opt = BLR_OPTS.find((o) => o.label === label);
+                if (opt !== undefined) setInBLR(opt.v);
+              }}
+            />
+          </Field>
 
-        <Field label="Currently in Bangalore?">
-          <ChipGroup
-            options={BLR_OPTS.map((o) => o.label)}
-            value={BLR_OPTS.find((o) => o.v === inBLR)?.label ?? ""}
-            onChange={(label) => {
-              const opt = BLR_OPTS.find((o) => o.label === label);
-              if (opt !== undefined) setInBLR(opt.v);
-            }}
-          />
-        </Field>
+          <Field label="Lead Quality">
+            <ChipGroup
+              options={QUALITY_OPTS.map((o) => o.label)}
+              value={QUALITY_OPTS.find((o) => o.v === quality)?.label ?? ""}
+              onChange={(label) => setQuality(QUALITY_OPTS.find((o) => o.label === label)?.v ?? null)}
+            />
+          </Field>
+          </FormGroup>
 
-        <Field label="Lead Quality">
-          <ChipGroup
-            options={QUALITY_OPTS.map((o) => o.label)}
-            value={QUALITY_OPTS.find((o) => o.v === quality)?.label ?? ""}
-            onChange={(label) => setQuality(QUALITY_OPTS.find((o) => o.label === label)?.v ?? null)}
-          />
-        </Field>
-
-        <Field label="Zone *">
+          <FormGroup title="Routing">
+          <Field label="Zone *">
           {usePipSafe() ? (
             <select
               value={zoneBucket}
@@ -480,9 +485,9 @@ export function LeadPasteParser({ onDone }: Props) {
               </SelectContent>
             </Select>
           )}
-        </Field>
+          </Field>
 
-        <Field label="Assign Member *">
+          <Field label="Assign Member *">
           {usePipSafe() ? (
             <select value={assigneeId} onChange={(e) => setAssigneeId(e.target.value)} className="w-full h-9 text-sm rounded-md border px-3">
               <option value="">{orgMembers.length ? "Select member…" : "No members yet"}</option>
@@ -502,9 +507,9 @@ export function LeadPasteParser({ onDone }: Props) {
               </SelectContent>
             </Select>
           )}
-        </Field>
+          </Field>
 
-        <Field label="Lead Stage">
+          <Field label="Lead Stage">
           {usePipSafe() ? (
             <select value={stage} onChange={(e) => setStage(e.target.value)} className="w-full h-9 text-sm rounded-md border px-3">
               <option value="">Select stage…</option>
@@ -520,27 +525,41 @@ export function LeadPasteParser({ onDone }: Props) {
               </SelectContent>
             </Select>
           )}
-        </Field>
+          </Field>
+          </FormGroup>
 
-        <Field label="📝 Notes">
-          <Textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            rows={2}
-            placeholder="Internal notes…"
-            className="resize-none"
-          />
-        </Field>
+          <FormGroup title="Notes">
+          <Field label="Requests">
+            <Textarea
+              value={specialReqs}
+              onChange={(e) => setSpecialReqs(e.target.value)}
+              rows={1}
+              placeholder="Veg · attached washroom…"
+              className="resize-none min-h-8"
+            />
+          </Field>
+
+          <Field label="Internal notes">
+            <Textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={1}
+              placeholder="Internal notes…"
+              className="resize-none min-h-8"
+            />
+          </Field>
+          </FormGroup>
+        </div>
 
         {blocking && (
-          <ul className="text-[11px] text-destructive list-disc list-inside">
-            {errors.map((e) => <li key={e}>{e} is required</li>)}
-          </ul>
+          <div className="truncate text-[11px] text-destructive">
+            Missing: {errors.join(", ")}
+          </div>
         )}
 
-        <div className="flex justify-end gap-2 pt-2 border-t">
-          <Button variant="ghost" onClick={reset} disabled={saving}>Clear</Button>
-          <Button disabled={blocking || saving} onClick={save}>{saving ? "Saving…" : "Save lead"}</Button>
+        <div className="flex justify-end gap-2 pt-1.5 border-t">
+          <Button variant="ghost" size="sm" onClick={reset} disabled={saving}>Clear</Button>
+          <Button size="sm" disabled={blocking || saving} onClick={save}>{saving ? "Saving…" : "Save lead"}</Button>
         </div>
       </Card>
     </div>
@@ -553,6 +572,19 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</Label>
       {children}
     </div>
+  );
+}
+
+function FormGroup({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="space-y-1.5">
+      <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+        {title}
+      </div>
+      <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 xl:grid-cols-4">
+        {children}
+      </div>
+    </section>
   );
 }
 
