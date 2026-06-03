@@ -1,5 +1,6 @@
 import type { Lead, Tour, Property } from "./types";
 import { resolvePropertyById, searchPropertyCatalog } from "@/lib/crm10x/property-catalog";
+import { calendarDayIST } from "@/lib/crm10x/dates";
 
 const CLOSED_STAGES: ReadonlySet<Lead["stage"]> = new Set(["booked", "dropped"]);
 
@@ -95,6 +96,7 @@ const INVALID_PLACEHOLDER_PATTERNS = [
   /^_+$/,                                                   // Underscores only: "___"
   /^\.+$/,                                                  // Dots only: "..."
   /^(n\/?a|na|none|null|undefined)$/i,                     // Explicit placeholders
+  /^(lead name not captured|name not captured|unknown lead|unknown)$/i,
   /^(test|demo|sample|temp|testing|dummy)$/i,              // Test placeholders (NOT short names)
   /^(uploaded lead|lead \d+|customer \d+)$/i,              // CSV upload artifacts
 ];
@@ -190,6 +192,33 @@ export function resolveBestLeadName(lead: {
   notes?: string | null;
   email?: string | null;
 }): string {
+  const captured = resolveCapturedLeadName(lead);
+  if (captured) return captured;
+
+  // Keep a graceful fallback for unusual short names, but never repeat system placeholders.
+  if (lead.name?.trim() && lead.name.trim().toLowerCase() !== LEAD_NAME_NOT_CAPTURED.toLowerCase()) {
+    return lead.name.trim();
+  }
+
+  const digits = lead.phone?.replace(/\D/g, "") ?? "";
+  if (digits.length >= 4) return `Customer ${digits.slice(-4)}`;
+  if (lead.id?.trim()) return `Customer ${lead.id.trim().slice(-4).toUpperCase()}`;
+  return "Customer";
+}
+
+export function hasCapturedLeadName(lead: {
+  name?: string | null;
+  notes?: string | null;
+  email?: string | null;
+}): boolean {
+  return resolveCapturedLeadName(lead) !== null;
+}
+
+function resolveCapturedLeadName(lead: {
+  name?: string | null;
+  notes?: string | null;
+  email?: string | null;
+}): string | null {
   // 1. Try normalized lead.name if it's valid
   if (lead.name) {
     const normalized = normalizeLeadName(lead.name);
@@ -239,16 +268,8 @@ export function resolveBestLeadName(lead: {
       }
     }
   }
-  
-  // Last resort: fall back to the original name even if invalid (better than generic fallback)
-  if (lead.name?.trim()) {
-    return lead.name.trim();
-  }
-  
-  const digits = lead.phone?.replace(/\D/g, "") ?? "";
-  if (digits.length >= 4) return `Customer ${digits.slice(-4)}`;
-  if (lead.id?.trim()) return `Customer ${lead.id.trim().slice(-4).toUpperCase()}`;
-  return "Customer";
+
+  return null;
 }
 
 export function normalizeLeadRecord<T extends { name?: string | null; notes?: string | null; email?: string | null }>(
@@ -258,6 +279,24 @@ export function normalizeLeadRecord<T extends { name?: string | null; notes?: st
     ...lead,
     name: resolveBestLeadName(lead),
   };
+}
+
+export function pickRelevantActiveTour(tours: Tour[], nowMs = Date.now()): Tour | undefined {
+  const activeTours = tours.filter((tour) => tour.status === "scheduled" || tour.status === "confirmed");
+  if (activeTours.length === 0) return undefined;
+  const today = calendarDayIST(new Date(nowMs));
+
+  const todayTours = activeTours
+    .filter((tour) => calendarDayIST(tour.scheduledAt) === today)
+    .sort((a, b) => +new Date(a.scheduledAt) - +new Date(b.scheduledAt));
+  if (todayTours[0]) return todayTours[0];
+
+  const futureTours = activeTours
+    .filter((tour) => +new Date(tour.scheduledAt) >= nowMs)
+    .sort((a, b) => +new Date(a.scheduledAt) - +new Date(b.scheduledAt));
+  if (futureTours[0]) return futureTours[0];
+
+  return activeTours.sort((a, b) => +new Date(b.scheduledAt) - +new Date(a.scheduledAt))[0];
 }
 
 // ─── Location validation ─────────────────────────────

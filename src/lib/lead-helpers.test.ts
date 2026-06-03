@@ -9,7 +9,9 @@ import {
   formatBudget,
   formatAssignee,
   formatMoveInLabel,
+  hasCapturedLeadName,
   normalizeLeadName,
+  pickRelevantActiveTour,
   resolveBestLeadName,
   isInvalidLocationValue,
   resolveLeadLocation,
@@ -225,6 +227,7 @@ describe("normalizeLeadName", () => {
     expect(normalizeLeadName("demo")).toBe("Lead name not captured");
     expect(normalizeLeadName("none")).toBe("Lead name not captured");
     expect(normalizeLeadName("null")).toBe("Lead name not captured");
+    expect(normalizeLeadName("Lead name not captured")).toBe("Lead name not captured");
   });
   it("returns fallback for repeated single characters (short)", () => {
     expect(normalizeLeadName("aaa")).toBe("Lead name not captured");
@@ -263,6 +266,68 @@ describe("resolveBestLeadName", () => {
   });
   it("returns fallback only when truly no sources exist", () => {
     expect(resolveBestLeadName({ name: null, notes: null, email: null, phone: "9876543210" })).toBe("Customer 3210");
+  });
+});
+
+describe("hasCapturedLeadName", () => {
+  it("rejects anonymous placeholder leads", () => {
+    expect(hasCapturedLeadName({ name: "Lead name not captured" })).toBe(false);
+  });
+
+  it("accepts names recovered from notes or email", () => {
+    expect(hasCapturedLeadName({ name: "Lead name not captured", notes: "Name: Kavya Rao" })).toBe(true);
+    expect(hasCapturedLeadName({ name: "", email: "rahul.mehta@gmail.com" })).toBe(true);
+  });
+});
+
+describe("pickRelevantActiveTour", () => {
+  function makeActiveTour(id: string, scheduledAt: string): Tour {
+    return {
+      id,
+      leadId: "test-1",
+      propertyId: null,
+      tcmId: "tcm-1",
+      scheduledAt,
+      status: "scheduled",
+      decision: null,
+      postTour: {
+        outcome: null,
+        confidence: 0,
+        objection: null,
+        objectionNote: "",
+        expectedDecisionAt: null,
+        nextFollowUpAt: null,
+        filledAt: null,
+      },
+      createdAt: scheduledAt,
+      updatedAt: scheduledAt,
+    };
+  }
+
+  it("prefers today's tour over future and stale tours", () => {
+    const now = new Date("2026-06-03T06:00:00.000Z");
+    const today = makeActiveTour("today", "2026-06-03T09:00:00.000Z");
+    const tomorrow = makeActiveTour("tomorrow", "2026-06-04T09:00:00.000Z");
+    const stale = makeActiveTour("stale", "2026-05-29T09:00:00.000Z");
+
+    expect(pickRelevantActiveTour([tomorrow, stale, today], now.getTime())?.id).toBe("today");
+  }, 10000);
+
+  it("uses the nearest future tour when there is no tour today", () => {
+    const now = new Date("2026-06-03T06:00:00.000Z");
+    const tomorrow = makeActiveTour("tomorrow", "2026-06-04T09:00:00.000Z");
+    const nextWeek = makeActiveTour("next-week", "2026-06-10T09:00:00.000Z");
+    const stale = makeActiveTour("stale", "2026-05-29T09:00:00.000Z");
+
+    expect(pickRelevantActiveTour([nextWeek, stale, tomorrow], now.getTime())?.id).toBe("tomorrow");
+  });
+
+  it("falls back to the latest stale tour only when no future tour exists", () => {
+    const now = new Date("2026-06-03T06:00:00.000Z");
+    const older = makeActiveTour("older", "2026-05-20T09:00:00.000Z");
+    const stale = makeActiveTour("stale", "2026-05-29T09:00:00.000Z");
+
+    expect(pickRelevantActiveTour([older, stale], now.getTime())?.id).toBe("stale");
   });
 });
 
