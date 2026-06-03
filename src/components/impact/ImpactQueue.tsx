@@ -4,7 +4,6 @@ import { PGS } from "@/property-genius/data/pgs";
 import type { PG } from "@/types/entities";
 import { LeadPropertyDossier } from "@/components/impact/LeadPropertyDossier";
 import { ImpactHardActionsBar } from "@/components/impact/ImpactHardActionsBar";
-import { ImpactQueueQuickHelp } from "@/components/impact/ImpactQueueQuickHelp";
 import { ImpactApiHealthBanner } from "@/components/impact/ImpactApiHealthBanner";
 import { ImpactManagerEscalations } from "@/components/impact/ImpactManagerEscalations";
 import { ImpactStageMoveDialog } from "@/components/impact/ImpactStageMoveDialog";
@@ -39,6 +38,7 @@ import { api } from "@/lib/api/client";
 import { useQuotationsQuery, useSetQuotationStatus, formatINR, type Quotation } from "@/lib/crm10x/quotations";
 import { useTcmContacts } from "@/lib/crm10x/tcm-contacts";
 import { useLeadInterests, useToggleInterest } from "@/lib/crm10x/lead-interests";
+import { useCRM10x } from "@/lib/crm10x/store";
 import { useCheckin, useUpsertCheckin, usePatchCheckin, STAGE_LABEL, riskLevel, RISK_CLASS, RISK_LABEL, type CheckIn } from "@/lib/checkins/store";
 import type { ActivityLog, Lead, Property, TCM, Tour } from "@/lib/types";
 import {
@@ -96,7 +96,7 @@ import { useAuditLog } from "@/lib/crm10x/audit-log";
 import { useIdentityStore } from "@/lib/lead-identity/store";
 import { waLink } from "@/lib/crm10x/templates";
 import { LeadPasteParser } from "@/components/leads/LeadPasteParser";
-import { resolveBestLeadName } from "@/lib/lead-helpers";
+import { hasCapturedLeadName, pickRelevantActiveTour, resolveBestLeadName } from "@/lib/lead-helpers";
 
 /* ================================================================== */
 /*  Impact Queue — 10x                                                 */
@@ -189,6 +189,21 @@ function normalizeQueueLead(lead: Lead): Lead {
   };
 }
 
+function shouldShowInImpactQueue(lead: Lead, tours: Tour[], quotes: Quotation[]): boolean {
+  if (lead.stage === "dropped") return false;
+  if (!hasCapturedLeadName(lead)) return false;
+
+  const leadTours = tours.filter((tour) => tour.leadId === lead.id);
+  const hasOpenTour = leadTours.some((tour) => tour.status === "scheduled" || tour.status === "confirmed");
+  const hasQuote = quotes.some((quote) => quote.leadId === lead.id);
+
+  // Post-tour work is handled outside this simplified Impact flow.
+  // Keep quoted/booked leads visible, but do not surface tour-done rows as inbox work.
+  if (lead.stage === "tour-done" && !hasOpenTour && !hasQuote) return false;
+
+  return true;
+}
+
 export function drawerTabForLeadFocusAction(action?: LeadFocusAction | null) {
   if (action === "quote") return "quote";
   if (action === "schedule") return "tour";
@@ -210,7 +225,7 @@ export function useImpactStateForLead(leadInput?: Lead | null) {
     const leadTours = tours
       .filter((t) => t.leadId === lead.id)
       .sort((a, b) => +new Date(b.scheduledAt) - +new Date(a.scheduledAt));
-    const openTour = leadTours.find((t) => t.status === "scheduled" || t.status === "confirmed");
+    const openTour = pickRelevantActiveTour(leadTours);
     const lastQuote = [...leadQuotes]
       .filter((q) => q.leadId === lead.id)
       .sort((a, b) => +new Date(b.sentAt) - +new Date(a.sentAt))[0];
@@ -218,11 +233,9 @@ export function useImpactStateForLead(leadInput?: Lead | null) {
     let column: ColumnKey = "inbox";
     if (lead.stage === "booked") column = "booked";
     else if (lead.stage === "quote-sent" || lead.stage === "negotiation") column = "quoted";
-    else if (lead.stage === "on-tour") column = "onTour";
-    else if (lead.stage === "tour-scheduled") column = "scheduled";
     else if (lastQuote && (lastQuote.status === "sent" || lastQuote.status === "paid")) column = "quoted";
     else if (openTour && isToday(openTour.scheduledAt)) column = "onTour";
-    else if (openTour) column = "scheduled";
+    else if (openTour || lead.stage === "tour-scheduled" || lead.stage === "on-tour") column = "scheduled";
 
     const nba = computeNBA(lead, openTour, lastQuote);
     const { score } = scoreLead(lead, openTour, lastQuote);
@@ -292,6 +305,7 @@ function parsePastedText(text: string): { name?: string; phone?: string; locatio
 export function ImpactQueue() {
   const { role, currentTcmId, tcms, leads, tours, properties, bookings } = useApp();
   const selectLead = useApp((s) => s.selectLead);
+  const selectedLeadId = useApp((s) => s.selectedLeadId);
   const authUser = useAuthUser((s) => s.user);
   const canSelectTcmScope =
     authUser?.role === "super_admin" || authUser?.role === "manager" || authUser?.role === "admin";
@@ -469,48 +483,51 @@ export function ImpactQueue() {
 
   const enriched: Enriched[] = useMemo(() => {
     const at = typeof window !== "undefined" ? Date.now() : 0;
-    const inScope = (lead: Lead) =>
-      tcmFilter === "all" ||
-      lead.assignedTcmId === tcmFilter ||
-      !lead.assignedTcmId?.trim();
+    const inScope = (lead: Lead) => {
+      if (tcmFilter === "all") return true;
+      const assignedTo = (lead.assignedTcmId || lead.assigneeId || "").trim();
+      if (assignedTo) return assignedTo === tcmFilter;
+      return canSelectTcmScope;
+    };
     const tFilter = (lead: Lead) =>
       inScope(lead) &&
       (!query.trim() ||
         lead.name.toLowerCase().includes(query.toLowerCase()) ||
         lead.phone.includes(query));
 
-    return leads.filter(tFilter).map((rawLead) => {
-      const lead = normalizeQueueLead(rawLead);
-      const ts = tours
-        .filter((t) => t.leadId === lead.id)
-        .sort((a, b) => +new Date(b.scheduledAt) - +new Date(a.scheduledAt));
-      const openTour = ts.find((t) => t.status === "scheduled" || t.status === "confirmed");
-      const lastQuote = quotes
-        .filter((q) => q.leadId === lead.id)
-        .sort((a, b) => +new Date(b.sentAt) - +new Date(a.sentAt))[0];
+    return leads
+      .filter((lead) => shouldShowInImpactQueue(lead, tours, quotes))
+      .filter(tFilter)
+      .map((rawLead) => {
+        const lead = normalizeQueueLead(rawLead);
+        const ts = tours
+          .filter((t) => t.leadId === lead.id)
+          .sort((a, b) => +new Date(b.scheduledAt) - +new Date(a.scheduledAt));
+        const openTour = pickRelevantActiveTour(ts, at);
+        const lastQuote = quotes
+          .filter((q) => q.leadId === lead.id)
+          .sort((a, b) => +new Date(b.sentAt) - +new Date(a.sentAt))[0];
 
-      let column: ColumnKey = "inbox";
-      if (lead.stage === "booked") column = "booked";
-      else if (lead.stage === "quote-sent" || lead.stage === "negotiation") column = "quoted";
-      else if (lead.stage === "on-tour") column = "onTour";
-      else if (lead.stage === "tour-scheduled") column = "scheduled";
-      else if (lastQuote && (lastQuote.status === "sent" || lastQuote.status === "paid")) column = "quoted";
-      else if (openTour && isToday(openTour.scheduledAt)) column = "onTour";
-      else if (openTour) column = "scheduled";
+        let column: ColumnKey = "inbox";
+        if (lead.stage === "booked") column = "booked";
+        else if (lead.stage === "quote-sent" || lead.stage === "negotiation") column = "quoted";
+        else if (lastQuote && (lastQuote.status === "sent" || lastQuote.status === "paid")) column = "quoted";
+        else if (openTour && isToday(openTour.scheduledAt)) column = "onTour";
+        else if (openTour || lead.stage === "tour-scheduled" || lead.stage === "on-tour") column = "scheduled";
 
-      const nba = computeNBA(lead, openTour, lastQuote);
-      const { score } = scoreLead(lead, openTour, lastQuote);
-      const tourBand =
-        column === "scheduled" || column === "onTour"
-          ? classifyTourBand(column, openTour, lead, nba, at)
-          : undefined;
-      const tourTimeHint =
-        openTour && (column === "scheduled" || column === "onTour")
-          ? buildTourTimeHint(openTour.scheduledAt, at) ?? undefined
-          : undefined;
-      return { lead, openTour, lastQuote, nba, score, column, tourBand, tourTimeHint };
-    });
-  }, [leads, tours, quotes, tcmFilter, query, tick]);
+        const nba = computeNBA(lead, openTour, lastQuote);
+        const { score } = scoreLead(lead, openTour, lastQuote);
+        const tourBand =
+          column === "scheduled" || column === "onTour"
+            ? classifyTourBand(column, openTour, lead, nba, at)
+            : undefined;
+        const tourTimeHint =
+          openTour && (column === "scheduled" || column === "onTour")
+            ? buildTourTimeHint(openTour.scheduledAt, at) ?? undefined
+            : undefined;
+        return { lead, openTour, lastQuote, nba, score, column, tourBand, tourTimeHint };
+      });
+  }, [leads, tours, quotes, tcmFilter, query, tick, canSelectTcmScope]);
 
   /* Auto-promote tour-scheduled → on-tour when tour day is today (IST). */
   const autoPromotedRef = useRef(new Set<string>());
@@ -578,7 +595,13 @@ export function ImpactQueue() {
     const scopedTours = tcmFilter === "all" ? tours : tours.filter((t) => t.tcmId === tcmFilter);
     const scopedQuotes = tcmFilter === "all" ? quotes : quotes.filter((q) => q.tcmId === tcmFilter);
     const scopedBookings = tcmFilter === "all" ? bookings : bookings.filter((b) => b.tcmId === tcmFilter);
-    const scopedLeads = tcmFilter === "all" ? leads : leads.filter((l) => l.assignedTcmId === tcmFilter);
+    const scopedLeads = tcmFilter === "all"
+      ? leads
+      : leads.filter((l) => {
+        const assignedTo = (l.assignedTcmId || l.assigneeId || "").trim();
+        if (assignedTo) return assignedTo === tcmFilter;
+        return canSelectTcmScope;
+      });
     const toursScheduledToday = scopedTours.filter((t) => isToday(t.scheduledAt)).length;
     const toursCompletedToday = scopedTours.filter((t) => t.status === "completed" && isToday(t.updatedAt)).length;
     const toursToday = toursScheduledToday + toursCompletedToday;
@@ -586,7 +609,7 @@ export function ImpactQueue() {
     const bookingsMonth = scopedBookings.filter((b) => isThisMonth(b.ts)).length;
     const leadsToday = scopedLeads.filter((l) => isToday(l.createdAt)).length;
     return { toursToday, quotesToday, bookingsMonth, leadsToday };
-  }, [tours, quotes, bookings, tcmFilter]);
+  }, [tours, quotes, bookings, leads, tcmFilter, canSelectTcmScope]);
 
   const quotesToday = useMemo(() => {
     const scoped = tcmFilter === "all" ? quotes : quotes.filter((q) => q.tcmId === tcmFilter);
@@ -605,6 +628,26 @@ export function ImpactQueue() {
   const escalations = stackSorted.filter((e) => e.nba.pressure === "escalate").length;
 
   const leadIdsOrdered = useMemo(() => stackSorted.map((e) => e.lead.id), [stackSorted]);
+
+  useEffect(() => {
+    if (!selectedLeadId || leadIdsOrdered.length <= 1) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+      const target = event.target as HTMLElement | null;
+      const tagName = target?.tagName;
+      if (tagName === "INPUT" || tagName === "TEXTAREA" || tagName === "SELECT" || target?.isContentEditable) return;
+      const currentIndex = leadIdsOrdered.indexOf(selectedLeadId);
+      if (currentIndex < 0) return;
+      const nextIndex = event.key === "ArrowRight"
+        ? Math.min(currentIndex + 1, leadIdsOrdered.length - 1)
+        : Math.max(currentIndex - 1, 0);
+      if (nextIndex === currentIndex) return;
+      event.preventDefault();
+      selectLead(leadIdsOrdered[nextIndex], "impact");
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [selectedLeadId, leadIdsOrdered, selectLead]);
 
   const { focusLeadId: keyboardLeadId } = useImpactQueueKeyboard({
     leadIds: leadIdsOrdered,
@@ -635,46 +678,10 @@ export function ImpactQueue() {
     <div className="space-y-3">
       <ImpactApiHealthBanner />
 
-      {unassignedLeads > 0 && role !== "tcm" && (
-        <div className="text-[11px] rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-warning">
-          {unassignedLeads} lead{unassignedLeads === 1 ? "" : "s"} without an assigned TCM — assign in lead panel so Hard Actions route correctly.
-        </div>
-      )}
-
-      <ImpactHardActionsBar
-        enriched={stackSorted}
-        tcms={tcms}
-        onPickLead={(leadId, _name, action) => {
-          selectLead(leadId, drawerTabForLeadFocusAction(action), action);
-          setFocusLeadId(null);
-          setFocusAction(null);
-        }}
-        onAddLead={() => setQuickAddOpen(true)}
-      />
-
-      <ImpactQueueQuickHelp />
-
-      {/* ---------------- 10x Command Bar ---------------- */}
-      <ImpactManagerEscalations stackSorted={stackSorted} tcms={tcms} role={role} />
-
-      <TenXCommandBar
-        lastRerank={lastRerank}
-        escalations={escalations}
-        counters={counters}
-        targets={targets}
-        stackSorted={stackSorted}
-        tick={tick}
-        digestOpen={digestOpen}
-        onDigestOpenChange={setDigestOpen}
-        onFocusLead={(leadId) => {
-          setFocusLeadId(leadId);
-          setFocusAction("auto");
-        }}
-      />
-
       {/* ---------------- Header ---------------- */}
-      <div className="flex flex-wrap items-end justify-between gap-3 border-b border-border pb-3">
-        <div>
+      <div className="rounded-lg border border-border bg-card px-4 py-3 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-[240px]">
           <div className="text-[10px] uppercase tracking-[0.2em] text-accent font-semibold">
             Conversion engine · one screen
           </div>
@@ -690,12 +697,17 @@ export function ImpactQueue() {
             Work top-down. Every lead has a Next Best Action. Nothing falls through.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <QuickAddLead
             defaultTcmId={tcmFilter !== "all" ? tcmFilter : currentTcmId}
             open={quickAddOpen}
             onOpenChange={setQuickAddOpen}
             tcmOptions={tcmOptions}
+            onLeadSaved={() => {
+              setChipFilter("all");
+              setQuery("");
+              setView("board");
+            }}
           />
           <div className="relative">
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -772,10 +784,59 @@ export function ImpactQueue() {
             J/K · Enter
           </span>
         </div>
+        </div>
       </div>
 
+      {unassignedLeads > 0 && role !== "tcm" && (
+        <div className="text-[11px] rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-warning">
+          {unassignedLeads} lead{unassignedLeads === 1 ? "" : "s"} without an assigned TCM — assign in lead panel so Hard Actions route correctly.
+        </div>
+      )}
+
+      <TenXCommandBar
+        lastRerank={lastRerank}
+        escalations={escalations}
+        counters={counters}
+        targets={targets}
+        stackSorted={stackSorted}
+        tick={tick}
+        digestOpen={digestOpen}
+        onDigestOpenChange={setDigestOpen}
+        onFocusLead={(leadId) => {
+          setFocusLeadId(leadId);
+          setFocusAction("auto");
+        }}
+      />
+
+      <ImpactHardActionsBar
+        enriched={stackSorted}
+        tcms={tcms}
+        onPickLead={(leadId, _name, action) => {
+          selectLead(leadId, drawerTabForLeadFocusAction(action), action);
+          setFocusLeadId(null);
+          setFocusAction(null);
+        }}
+      />
+
+      {/* ---------------- 10x Command Bar ---------------- */}
+      <ImpactManagerEscalations stackSorted={stackSorted} tcms={tcms} role={role} />
+
       {/* ---------------- Live counters ---------------- */}
-      <div className="grid grid-cols-4 gap-2">
+      <div className="rounded-lg border border-border bg-card p-3 space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-semibold">
+              Daily stats
+            </div>
+            <div className="text-[11px] text-muted-foreground">
+              Live counts for the selected member and current backend data.
+            </div>
+          </div>
+          <Badge variant="outline" className="text-[10px]">
+            {tcmFilter === "all" ? "All Members" : memberScopeOptions.find((m) => m.id === tcmFilter)?.name ?? "My queue"}
+          </Badge>
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
         <Counter label="Leads Added Today" got={counters.leadsToday} target={targets.leadsToday} tone={tone(counters.leadsToday, targets.leadsToday)} icon={ListOrdered} />
         <Counter label="Tours scheduled + completed today" got={counters.toursToday} target={targets.toursToday} tone={tone(counters.toursToday, targets.toursToday)} icon={Calendar} />
         <QuotesWeekCounter
@@ -790,6 +851,7 @@ export function ImpactQueue() {
           }}
         />
         <Counter label="Bookings this month" got={counters.bookingsMonth} target={targets.bookingsMonth} tone={tone(counters.bookingsMonth, targets.bookingsMonth)} icon={Target} />
+        </div>
       </div>
 
       {/* ---------------- Today's Focus Inventory + Message Lab ---------------- */}
@@ -972,16 +1034,20 @@ function Counter({
 }: { label: string; got: number; target: number; tone: string; icon: typeof Calendar }) {
   const pct = Math.min(100, Math.round((got / Math.max(target, 1)) * 100));
   return (
-    <div className={`rounded-lg border ${tone} p-3`}>
+    <div className="rounded-md border border-border bg-background p-2.5">
       <div className="flex items-center justify-between">
-        <div className="text-[10px] uppercase tracking-wider font-semibold flex items-center gap-1.5">
-          <Icon className="h-3 w-3" /> {label}
+        <div className="text-[10px] uppercase tracking-wider font-semibold flex items-center gap-1.5 min-w-0">
+          <Icon className="h-3 w-3 shrink-0 text-muted-foreground" />
+          <span className="truncate">{label}</span>
         </div>
-        <span className="text-[10px] font-mono opacity-80">{got}/{target}</span>
+        <span className="text-[10px] font-mono text-muted-foreground shrink-0">{got}/{target}</span>
       </div>
-      <div className="text-2xl font-display font-semibold mt-1">{got}</div>
-      <div className="h-1 rounded-full bg-background/40 mt-1 overflow-hidden">
-        <div className="h-full bg-current opacity-70" style={{ width: `${pct}%` }} />
+      <div className="flex items-end justify-between gap-2 mt-1.5">
+        <div className="text-2xl font-display font-semibold leading-none">{got}</div>
+        <div className="text-[10px] text-muted-foreground">{pct}%</div>
+      </div>
+      <div className="h-1.5 rounded-full bg-muted mt-2 overflow-hidden">
+        <div className={`h-full ${tone.includes("success") ? "bg-success" : tone.includes("warning") ? "bg-warning" : "bg-danger"} transition-all`} style={{ width: `${pct}%` }} />
       </div>
     </div>
   );
@@ -1019,19 +1085,22 @@ function QuotesWeekCounter({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className={`w-full rounded-lg border ${tone} p-3 text-left transition hover:ring-2 hover:ring-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent`}
+        className="w-full rounded-md border border-border bg-background p-2.5 text-left transition hover:ring-2 hover:ring-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
       >
         <div className="flex items-center justify-between">
-          <div className="text-[10px] uppercase tracking-wider font-semibold flex items-center gap-1.5">
-            <FileText className="h-3 w-3" /> Quotes today
+          <div className="text-[10px] uppercase tracking-wider font-semibold flex items-center gap-1.5 min-w-0">
+            <FileText className="h-3 w-3 shrink-0 text-muted-foreground" />
+            <span className="truncate">Quotes today</span>
           </div>
-          <span className="text-[10px] font-mono opacity-80">{got}/{target}</span>
+          <span className="text-[10px] font-mono text-muted-foreground shrink-0">{got}/{target}</span>
         </div>
-        <div className="text-2xl font-display font-semibold mt-1">{got}</div>
-        <div className="h-1 rounded-full bg-background/40 mt-1 overflow-hidden">
-          <div className="h-full bg-current opacity-70" style={{ width: `${pct}%` }} />
+        <div className="flex items-end justify-between gap-2 mt-1.5">
+          <div className="text-2xl font-display font-semibold leading-none">{got}</div>
+          <div className="text-[10px] text-muted-foreground">View quotes</div>
         </div>
-        <div className="text-[10px] text-muted-foreground mt-1.5">Tap to view all quotes →</div>
+        <div className="h-1.5 rounded-full bg-muted mt-2 overflow-hidden">
+          <div className={`h-full ${tone.includes("success") ? "bg-success" : tone.includes("warning") ? "bg-warning" : "bg-danger"} transition-all`} style={{ width: `${pct}%` }} />
+        </div>
       </button>
 
       <Sheet open={open} onOpenChange={setOpen}>
@@ -1289,11 +1358,22 @@ function LeadRow({
   const cancelTour = useApp((s) => s.cancelTour);
   const priority = classifyImpactPriority(enriched);
   const priorityMeta = IMPACT_PRIORITY_META[priority];
-  const tcm = tcms.find((t) => t.id === lead.assignedTcmId);
-  const catalogProperty = openTour
-    ? resolvePropertyById(openTour.propertyId, properties)
-    : undefined;
   const colMeta = COLUMNS.find((c) => c.key === column)!;
+  const areaText = (lead.areas?.filter(Boolean).join(", ") || lead.preferredArea || "").trim();
+  const blrText = lead.inBLR === true ? "In Bengaluru" : lead.inBLR === false ? "Out of Bengaluru" : "Bengaluru unknown";
+  const { data: interestedPropertyIds = [] } = useLeadInterests(lead.id);
+  const allObjections = useCRM10x((s) => s.objections);
+  const pickedProperty = useMemo(() => {
+    const firstId = interestedPropertyIds[0];
+    return firstId ? resolvePropertyById(firstId, properties) : undefined;
+  }, [interestedPropertyIds, properties]);
+  const latestObjection = useMemo(
+    () =>
+      allObjections
+        .filter((item) => item.leadId === lead.id)
+        .sort((a, b) => +new Date(b.ts) - +new Date(a.ts))[0],
+    [allObjections, lead.id],
+  );
 
   useEffect(() => {
     if (autoOpen) {
@@ -1359,40 +1439,39 @@ function LeadRow({
               title={priorityMeta.hint}
             />
             <span className="text-xs font-semibold truncate">{lead.name}</span>
-            <Badge variant="outline" className={`text-[9px] uppercase ${intentChip(lead.intent)}`}>{lead.intent}</Badge>
-            {!compact && (
-              <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
-                <colMeta.icon className="h-2.5 w-2.5" /> {colMeta.label}
+          </div>
+          <div className="mt-1 grid gap-1 text-[10px] text-muted-foreground">
+            <span className="inline-flex items-center gap-1 min-w-0">
+              <Phone className="h-2.5 w-2.5 shrink-0" />
+              <span className="truncate">{lead.phone}</span>
+            </span>
+            {areaText && <span className="truncate">Area: {areaText}</span>}
+            <span>{blrText}</span>
+            <span className="inline-flex items-center gap-1">
+              <Calendar className="h-2.5 w-2.5 shrink-0" />
+              Move-in: {fmtDate(lead.moveInDate)}
+            </span>
+            {openTour && (
+              <span className="text-[10px] font-semibold text-accent flex items-center gap-1">
+                  <Calendar className="h-2.5 w-2.5 shrink-0" />
+                  Tour: {fmtTourScheduleLabel(openTour.scheduledAt)}
               </span>
             )}
           </div>
-          <div className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5 truncate">
-            <Phone className="h-2.5 w-2.5" /> {lead.phone}
-            <span>·</span><span>{lead.preferredArea}</span>
-            {!compact && <><span>·</span><span>{formatINR(lead.budget)}</span></>}
-            {tcm && !compact && <><span>·</span><span>{tcm.name.split(" ")[0]}</span></>}
-          </div>
-          <div className="mt-1 space-y-0.5">
-            <div className="text-[10px] text-muted-foreground flex items-center gap-1">
-              <Calendar className="h-2.5 w-2.5 shrink-0" />
-              Move-in: {fmtDate(lead.moveInDate)}
+          {(pickedProperty || latestObjection) && (
+            <div className="mt-1 flex flex-wrap gap-1">
+              {pickedProperty && (
+                <Badge variant="outline" className="text-[9px] bg-success/10 text-success border-success/40">
+                  {pickedProperty.name}
+                </Badge>
+              )}
+              {latestObjection && (
+                <Badge variant="outline" className="text-[9px] bg-warning/10 text-warning border-warning/40">
+                  Objection: {latestObjection.code === "none" ? "None" : latestObjection.code.replace(/-/g, " ")}
+                </Badge>
+              )}
             </div>
-            {openTour && (
-              <>
-                <div className="text-[10px] font-semibold text-accent flex items-center gap-1">
-                  <Calendar className="h-2.5 w-2.5 shrink-0" />
-                  Tour: {fmtTourScheduleLabel(openTour.scheduledAt)}
-                </div>
-                {tourTimeHint && (
-                  <div className="text-[9px] text-muted-foreground">{tourTimeHint}</div>
-                )}
-              </>
-            )}
-          </div>
-          {/* NBA chip — always visible so users see the next move at a glance */}
-          <div className={`mt-1.5 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded border ${pressureColor(nba.pressure)}`}>
-            <Sparkles className="h-2.5 w-2.5" /> {nba.label}
-          </div>
+          )}
           {staleQuote && (
             <Badge variant="outline" className="mt-1 text-[9px] border-danger/50 text-danger bg-danger/10">
               Quote 24h+ · follow up
@@ -1961,12 +2040,16 @@ export function CommandActions({
         {column === "scheduled" && openTour && (
           <>
             <ConfirmTourButton lead={lead} tour={openTour} />
-            <Button size="sm" variant="outline" className={`h-7 text-[10px] gap-1 ${actionButtonClass}`}
-              onClick={() => { void markTourStarted(openTour.id).then(() => toast.success("Tour marked live")).catch(() => toast.error("Failed to start tour")); }}>
-              <UserCheck className="h-3 w-3" /> Move to on-tour
-            </Button>
+            {isTodayIST(openTour.scheduledAt) && (
+              <Button size="sm" variant="outline" className={`h-7 text-[10px] gap-1 ${actionButtonClass}`}
+                onClick={() => { void markTourStarted(openTour.id).then(() => toast.success("Tour marked live")).catch(() => toast.error("Failed to start tour")); }}>
+                <UserCheck className="h-3 w-3" /> Move to on-tour
+              </Button>
+            )}
             <span className="text-[10px] text-muted-foreground self-center">
-              Click this on tour day to unlock Tour done.
+              {isTodayIST(openTour.scheduledAt)
+                ? "Click this on tour day to unlock Tour done."
+                : "Move to on-tour unlocks automatically on the scheduled day."}
             </span>
           </>
         )}
@@ -2331,11 +2414,13 @@ function NegotiationPlaybook({
 function QuickAddLead({
   open: controlledOpen,
   onOpenChange: controlledOnOpenChange,
+  onLeadSaved,
 }: {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   defaultTcmId: string;
   tcmOptions: TCM[];
+  onLeadSaved?: () => void;
 }) {
   const [internalOpen, setInternalOpen] = useState(false);
   const open = controlledOpen ?? internalOpen;
@@ -2348,11 +2433,18 @@ function QuickAddLead({
           <Plus className="h-3 w-3" /> Add lead
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[96vw] max-w-[1180px] max-h-[calc(100dvh-16px)] overflow-y-auto p-4">
         <DialogHeader>
           <DialogTitle>Paste a lead - auto-extract every field</DialogTitle>
         </DialogHeader>
-        {open ? <LeadPasteParser onDone={() => setOpen(false)} /> : null}
+        {open ? (
+          <LeadPasteParser
+            onDone={() => {
+              onLeadSaved?.();
+              setOpen(false);
+            }}
+          />
+        ) : null}
       </DialogContent>
     </Dialog>
   );
@@ -3382,69 +3474,15 @@ function TenXCommandBar({
   const progress = Math.min(100, Math.round(((counters.bookingsMonth / Math.max(targets.bookingsMonth, 1)) * 100)));
 
   return (
-    <div className="relative overflow-hidden rounded-xl border border-border bg-gradient-to-br from-accent/10 via-card to-primary/5 backdrop-blur-xl">
-      <div className="h-px bg-gradient-to-r from-transparent via-accent/60 to-transparent" />
-      <div className="flex flex-wrap items-center gap-4 p-3">
-        <div className="flex items-center gap-2">
-          <div className="relative h-2.5 w-2.5">
-            <span className="absolute inset-0 rounded-full bg-success animate-ping opacity-60" />
-            <span className="absolute inset-0 rounded-full bg-success" />
-          </div>
-          <div>
-            <div className="text-[9px] uppercase tracking-[0.18em] text-muted-foreground font-semibold">Live re-rank</div>
-            <div className="text-xs font-mono">{agoLabel} · auto 60s</div>
-          </div>
-        </div>
-
-        <Separator />
-
-        <div className="flex items-center gap-2">
-          <div className="h-9 w-9 rounded-md bg-success/15 text-success flex items-center justify-center">
-            <TrendingUp className="h-4 w-4" />
-          </div>
-          <div>
-            <div className="text-[9px] uppercase tracking-[0.18em] text-muted-foreground font-semibold">Streak</div>
-            <div className="text-base font-display font-semibold leading-none">{moved}<span className="text-[10px] text-muted-foreground ml-1">moved</span></div>
-          </div>
-        </div>
-
-        <Separator />
-
-        <div className="flex items-center gap-2">
-          <div className={`relative h-9 w-9 rounded-md flex items-center justify-center ${breach > 0 ? "bg-danger/15 text-danger" : "bg-muted text-muted-foreground"}`}>
-            <Bell className="h-4 w-4" />
-            {breach > 0 && <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-danger animate-pulse" />}
-          </div>
-          <div>
-            <div className="text-[9px] uppercase tracking-[0.18em] text-muted-foreground font-semibold">SLA breach</div>
-            <div className={`text-base font-display font-semibold leading-none ${breach > 0 ? "text-danger" : ""}`}>{breach}<span className="text-[10px] text-muted-foreground ml-1">leads</span></div>
-          </div>
-        </div>
-
-        <Separator />
-
-        <div className="flex items-center gap-2 min-w-[160px]">
-          <div className="h-9 w-9 rounded-md bg-primary/15 text-primary flex items-center justify-center">
-            <Activity className="h-4 w-4" />
-          </div>
-          <div className="flex-1">
-            <div className="flex items-center justify-between">
-              <div className="text-[9px] uppercase tracking-[0.18em] text-muted-foreground font-semibold">Month target</div>
-              <div className="text-[10px] font-mono text-muted-foreground">{counters.bookingsMonth}/{targets.bookingsMonth}</div>
-            </div>
-            <div className="h-1.5 rounded-full bg-muted overflow-hidden mt-1">
-              <div className="h-full bg-gradient-to-r from-primary to-accent transition-all" style={{ width: `${progress}%` }} />
-            </div>
-          </div>
-        </div>
-
+    <div className="rounded-lg border border-border bg-card/80 px-2 py-1.5">
+      <div className="flex flex-wrap items-center gap-1.5">
         <Dialog open={digestOpen} onOpenChange={onDigestOpenChange}>
           <DialogTrigger asChild>
-            <Button size="sm" variant="outline" className="ml-auto gap-1.5 text-xs">
-              <Sunrise className="h-3.5 w-3.5" /> Daily digest
+            <Button size="sm" variant="outline" className="h-7 gap-1 text-[10px] px-2">
+              <Sunrise className="h-3 w-3" /> Daily digest
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2"><Sunrise className="h-4 w-4 text-accent" /> Today's digest</DialogTitle>
             </DialogHeader>
@@ -3520,13 +3558,62 @@ function TenXCommandBar({
             </div>
           </DialogContent>
         </Dialog>
+
+        <DigestMetric
+          label="Live re-rank"
+          value={`${agoLabel} · auto 60s`}
+          icon={<span className="relative h-2 w-2"><span className="absolute inset-0 rounded-full bg-success animate-ping opacity-60" /><span className="absolute inset-0 rounded-full bg-success" /></span>}
+        />
+        <DigestMetric
+          label="Streak"
+          value={`${moved} moved`}
+          icon={<TrendingUp className="h-3 w-3 text-success" />}
+        />
+        <DigestMetric
+          label="SLA breach"
+          value={`${breach} leads`}
+          danger={breach > 0}
+          icon={<Bell className={`h-3 w-3 ${breach > 0 ? "text-danger" : "text-muted-foreground"}`} />}
+        />
+        <div className="min-w-[150px] flex-1 rounded-md border border-border/80 bg-background/60 px-2 py-1">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <Activity className="h-3 w-3 text-primary shrink-0" />
+              <span className="text-[9px] uppercase tracking-[0.16em] text-muted-foreground font-semibold truncate">Month target</span>
+            </div>
+            <span className="text-[10px] font-mono text-muted-foreground shrink-0">{counters.bookingsMonth}/{targets.bookingsMonth}</span>
+          </div>
+          <div className="h-1 rounded-full bg-muted overflow-hidden mt-1">
+            <div className="h-full bg-gradient-to-r from-primary to-accent transition-all" style={{ width: `${progress}%` }} />
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
-function Separator() {
-  return <div className="h-8 w-px bg-border" />;
+function DigestMetric({
+  label,
+  value,
+  icon,
+  danger = false,
+}: {
+  label: string;
+  value: string;
+  icon: React.ReactNode;
+  danger?: boolean;
+}) {
+  return (
+    <div className="min-w-[132px] flex-1 rounded-md border border-border/80 bg-background/60 px-2 py-1">
+      <div className="flex items-center gap-1.5 min-w-0">
+        <span className="shrink-0">{icon}</span>
+        <span className="text-[9px] uppercase tracking-[0.16em] text-muted-foreground font-semibold truncate">{label}</span>
+      </div>
+      <div className={`text-[11px] font-semibold leading-tight truncate ${danger ? "text-danger" : "text-foreground"}`}>
+        {value}
+      </div>
+    </div>
+  );
 }
 
 /* ... rest of file omitted for brevity ... */
