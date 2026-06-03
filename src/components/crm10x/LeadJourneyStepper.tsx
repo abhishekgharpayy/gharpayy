@@ -3,6 +3,7 @@ import { useApp } from "@/lib/store";
 import { useQuotationsQuery } from "@/lib/crm10x/quotations";
 import { useCheckins } from "@/lib/checkins/store";
 import { useDossierReadiness } from "@/lib/crm10x/dossier-readiness";
+import { pickRelevantActiveTour } from "@/lib/lead-helpers";
 import type { Lead } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -38,21 +39,25 @@ export function LeadJourneyStepper({
 
   const steps: Step[] = useMemo(() => {
     const leadTours = tours.filter((t) => t.leadId === lead.id);
-    const openTour = leadTours.find((t) => t.status === "scheduled");
+    const openTour = pickRelevantActiveTour(leadTours);
     const completedTour = leadTours.find((t) => t.status === "completed");
     const pendingPost = leadTours.find((t) => t.status === "completed" && !t.postTour.filledAt);
     const paidQuote = leadQuotes.find((q) => q.status === "paid");
     const sentQuote = leadQuotes.find((q) => q.status === "sent");
 
-    const dossierDone = dossier.ready;
-    const tourDone = !!completedTour;
+    const hasTourProgress =
+      Boolean(openTour || completedTour) ||
+      ["tour-scheduled", "on-tour", "tour-done", "negotiation", "quote-sent", "booked"].includes(lead.stage);
+    const visitReady = lead.tags?.includes("impact:visit-ready") ?? false;
+    const dossierDone = visitReady || dossier.ready || hasTourProgress;
+    const tourDone = !!completedTour || ["tour-done", "negotiation", "quote-sent", "booked"].includes(lead.stage);
     const postDone = !!completedTour && !pendingPost;
     const bookingDone = lead.stage === "booked" || !!paidQuote;
     const checkinDone = !!checkin && (checkin.stage === "moved_in" || checkin.stage === "settled");
 
     const order = [
       { key: "impact" as const, done: dossierDone, unlock: true, label: "Impact", icon: ClipboardCheck, cta: "Complete profile",
-        hint: dossierDone ? "Ready" : `${dossier.filledCount}/${dossier.totalCount} dossier fields` },
+        hint: visitReady ? "Visit ready" : dossierDone ? "Ready" : `${dossier.filledCount}/${dossier.totalCount} dossier fields` },
       { key: "tour" as const, done: tourDone, unlock: dossierDone, label: "Tour", icon: Calendar,
         cta: openTour ? "Move to on-tour" : "Schedule tour",
         hint: openTour ? "Scheduled" : completedTour ? "Completed" : "Not scheduled" },
