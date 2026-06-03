@@ -8,12 +8,27 @@ export async function connectMongo(): Promise<Db> {
   if (db) return db;
   client = new MongoClient(env.MONGO_URL, {
     maxPoolSize: 50,
-    serverSelectionTimeoutMS: 8000,
+    serverSelectionTimeoutMS: 30000,
   });
-  await client.connect();
+  await connectWithRetry(client);
   db = client.db(env.MONGO_DB);
   await ensureIndexes(db);
   return db;
+}
+
+async function connectWithRetry(client: MongoClient): Promise<void> {
+  const attempts = 3;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      await client.connect();
+      return;
+    } catch (error) {
+      if (attempt === attempts) throw error;
+      const waitMs = attempt * 2000;
+      console.warn(`[mongo] connection failed, retrying in ${waitMs / 1000}s (${attempt}/${attempts})`);
+      await new Promise((resolve) => setTimeout(resolve, waitMs));
+    }
+  }
 }
 
 export function getDb(): Db {
