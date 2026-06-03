@@ -40,8 +40,14 @@ import { LeadDossierPanel } from "./crm10x/LeadDossierPanel";
 import { QuotationBuilder } from "./crm10x/QuotationBuilder";
 import { LeadJourneyStepper, type JourneyTab } from "./crm10x/LeadJourneyStepper";
 import { SmartDossier } from "./crm10x/SmartDossier";
+import { LeadDeepProfile } from "./crm10x/LeadDeepProfile";
+import { ObjectionLogger } from "./crm10x/ObjectionLogger";
 import { LeadPropertyDossier } from "./impact/LeadPropertyDossier";
-import { CommandActions, useImpactStateForLead } from "./impact/ImpactQueue";
+import { useImpactStateForLead } from "./impact/ImpactQueue";
+import { isTodayIST } from "@/lib/crm10x/dates";
+import { useCRM10x } from "@/lib/crm10x/store";
+import { computeBookingProbability, inferBestCallTime } from "@/lib/crm10x/intelligence";
+import type { CallOutcome, LangPref } from "@/lib/crm10x/types";
 import {
   Phone,
   MessageSquare,
@@ -50,6 +56,7 @@ import {
   ClipboardCheck,
   AlertTriangle,
   CheckCircle2,
+  Circle,
   X,
   Activity as ActivityIcon,
   MapPin,
@@ -63,13 +70,18 @@ import {
   Video,
   Briefcase,
   UserCheck,
+  Trophy,
+  Search,
+  Star,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { formatTime12h } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import {
   formatBudget,
   formatAssignee,
   normalizeLeadName,
+  pickRelevantActiveTour,
   resolveBestLeadName,
   resolveLeadLocation,
 } from "@/lib/lead-helpers";
@@ -81,10 +93,11 @@ import { ActivityTimeline } from "@/components/activities/ActivityTimeline";
 import { ActivityComposer } from "@/components/activities/ActivityComposer";
 import { TodoPanel } from "@/components/todos/TodoPanel";
 import { useActivities } from "@/hooks/useActivities";
-import { allCatalogProperties } from "@/lib/crm10x/property-catalog";
+import { allCatalogProperties, searchPropertyCatalog } from "@/lib/crm10x/property-catalog";
 import { pressureColor } from "@/lib/crm10x/impact-scoring";
 import type { LeadFocusAction } from "@/lib/crm10x/impact-hard-actions";
 import { CheckInPanel } from "@/components/checkins/CheckInPanel";
+import { useLeadInterests, useToggleInterest } from "@/lib/crm10x/lead-interests";
 
 const TAG_OPTIONS = [
   "price-issue",
@@ -303,7 +316,7 @@ export function LeadControlPanel() {
 
   const pendingPostTour = leadTours.find((t) => t.status === "completed" && !t.postTour.filledAt);
   const completedPostTour = leadTours.find((t) => t.status === "completed" && t.postTour.filledAt);
-  const upcomingTour = leadTours.find((t) => t.status === "scheduled");
+  const upcomingTour = pickRelevantActiveTour(leadTours);
   const hasScheduledTour = Boolean(upcomingTour) || lead?.stage === "tour-scheduled";
   const scheduledTourActivity =
     leadActivities.find(
@@ -314,6 +327,7 @@ export function LeadControlPanel() {
     : null;
   const tourToShow =
     upcomingTour ?? scheduledTourFromActivity ?? (hasScheduledTour ? (leadTours[0] ?? null) : null);
+  const preVisitReady = lead?.tags?.includes("impact:visit-ready") ?? false;
   const currentWorkTab: JourneyTab = (() => {
     if (!lead) return "impact";
     if (lead.stage === "booked") return "checkin";
@@ -321,6 +335,7 @@ export function LeadControlPanel() {
     if (completedPostTour) return "quote";
     if (pendingPostTour || lead.stage === "tour-done") return "post";
     if (hasScheduledTour || lead.stage === "tour-scheduled" || lead.stage === "on-tour") return "tour";
+    if (preVisitReady) return "tour";
     return "impact";
   })();
 
@@ -346,7 +361,7 @@ export function LeadControlPanel() {
     const requestedTab =
       selectedLeadTab === "dossier" ? "impact" : selectedLeadTab;
     setTab(
-      requestedTab === "impact" || requestedTab === currentWorkTab
+      requestedTab === currentWorkTab || (requestedTab === "impact" && currentWorkTab === "impact")
         ? requestedTab
         : currentWorkTab,
     );
@@ -357,6 +372,7 @@ export function LeadControlPanel() {
     defaultSelfAssigneeId,
     hasScheduledTour,
     lead,
+    preVisitReady,
     scheduleAssignees,
     selectedLeadTab,
     tourToShow,
@@ -494,12 +510,21 @@ export function LeadControlPanel() {
         : { area: "", propertyName: null, source: "fallback" as const },
     [lead, tours, properties],
   );
+  const drawerImpactState = useImpactStateForLead(lead);
 
   if (!lead) return null;
 
   const displayLeadName = resolveBestLeadName(lead);
-  const tcm = getTcm(lead.assignedTcmId);
-  const selectedMember = orgMembers.find((m) => m.id === lead.assignedTcmId) ?? null;
+  const assignedMemberId = lead.assignedTcmId || lead.assigneeId || "";
+  const tcm = getTcm(assignedMemberId);
+  const selectedMember = orgMembers.find((m) => m.id === assignedMemberId) ?? null;
+  const actualPropertyName =
+    tourToShow?.propertyId
+      ? tourPropertyOptions.find((property) => property.id === tourToShow.propertyId)?.name ??
+        getProperty(tourToShow.propertyId)?.name ??
+        null
+      : null;
+  const assignmentLabel = formatAssignee(assignedMemberId, selectedMember?.name ?? tcm?.name);
 
   const handleSchedule = async () => {
     if (!tcmId || !scheduledAt) {
@@ -583,6 +608,7 @@ export function LeadControlPanel() {
 
       notifyTourScheduled({
         tourId: tour.id,
+        leadId: lead.id,
         leadName: displayLeadName,
         senderId: scheduler?.id ?? currentMemberId ?? tcmId,
         senderName: scheduler?.name ?? "You",
@@ -597,6 +623,7 @@ export function LeadControlPanel() {
       setTcmId(defaultSelfAssigneeId);
       setPropertyId("");
       setScheduledAt("");
+      setTab("tour");
       toast.success("Tour scheduled");
     } catch (err) {
       console.error("[LeadControlPanel] Failed to schedule tour:", err);
@@ -609,37 +636,43 @@ export function LeadControlPanel() {
 
   return (
     <Sheet open={!!selectedLeadId} onOpenChange={(o) => !o && selectLead(null)}>
-      <SheetContent side="right" className="w-full p-0 flex flex-col" style={{ maxWidth: 560 }}>
+      <SheetContent side="right" className="w-full p-0 flex flex-col overflow-y-auto" style={{ maxWidth: 560 }}>
         {/* Header block */}
-        <SheetHeader className="px-5 py-4 border-b border-border space-y-2">
+        <SheetHeader className="px-4 py-3 border-b border-border space-y-2">
           <div className="flex items-start justify-between gap-3">
-            <div>
-              <SheetTitle className="font-display text-lg leading-tight">
+            <div className="min-w-0">
+              <SheetTitle className="font-display text-base leading-tight">
                 {displayLeadName}
               </SheetTitle>
               <SheetDescription className="text-xs">
                 {lead.phone} · via {lead.source}
               </SheetDescription>
             </div>
+            {drawerImpactState && (
+              <div className={`min-w-[118px] rounded-md border px-2 py-1.5 text-right ${pressureColor(drawerImpactState.nba.pressure)}`}>
+                <div className="text-[9px] uppercase tracking-wider opacity-70">Next action</div>
+                <div className="text-xs font-semibold truncate">{drawerImpactState.nba.label}</div>
+                <div className="flex items-center justify-end gap-1 text-[11px] font-semibold">
+                  <Trophy className="h-3 w-3" />
+                  {drawerImpactState.score}%
+                </div>
+              </div>
+            )}
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 flex-wrap">
             <StageBadge stage={lead.stage} />
             <IntentChip intent={lead.intent} />
             <ConfidenceBar value={lead.confidence} />
             <ObjectionTag leadId={lead.id} />
           </div>
-          <div className="grid grid-cols-3 gap-2 pt-1 text-xs">
-            <Meta
-              icon={CalendarIcon}
-              label="Move-in"
-              value={formatSafeDate(lead.moveInDate, "MMM d", "TBD")}
-            />
-            <Meta icon={Wallet} label="Budget" value={formatBudget(lead.budget)} />
-            <Meta icon={MapPin} label="Area" value={leadLocation.area} />
+          <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+            <span><CalendarIcon className="mr-1 inline h-3 w-3" />Move-in: <b className="font-medium text-foreground">{formatSafeDate(lead.moveInDate, "MMM d", "TBD")}</b></span>
+            <span><Wallet className="mr-1 inline h-3 w-3" />Budget: <b className="font-medium text-foreground">{formatBudget(lead.budget)}</b></span>
+            <span><MapPin className="mr-1 inline h-3 w-3" />Area: <b className="font-medium text-foreground">{leadLocation.area}</b></span>
           </div>
-          <div className="text-[11px] text-muted-foreground">
-            {leadLocation.propertyName ? <>{leadLocation.propertyName} · </> : null}
-            Assigned · {formatAssignee(lead.assignedTcmId, tcm?.name)}
+          <div className="truncate text-[11px] text-muted-foreground">
+            {actualPropertyName ? <>{actualPropertyName} · </> : null}
+            {assignmentLabel === "Unassigned" ? "Not assigned yet" : `Assigned · ${assignmentLabel}`}
           </div>
         </SheetHeader>
 
@@ -665,7 +698,7 @@ export function LeadControlPanel() {
         )}
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto scrollbar-thin">
+        <div className="flex-none">
           <Tabs value={tab} onValueChange={setTab} className="px-6 pt-5 pb-6">
             {/* Quiet underline tab bar — single horizontal scroll, no chrome */}
             <TabsList className="h-auto w-full justify-start gap-6 rounded-none border-b border-border/60 bg-transparent p-0 overflow-x-auto scrollbar-thin">
@@ -797,6 +830,7 @@ export function LeadControlPanel() {
                 lead={lead}
                 pendingAction={selectedLeadAction}
                 onPendingActionConsumed={consumeSelectedLeadAction}
+                onGoTour={() => setTab("tour")}
               />
             </TabsContent>
 
@@ -1447,12 +1481,49 @@ function ImpactTabContent({
   lead,
   pendingAction,
   onPendingActionConsumed,
+  onGoTour,
 }: {
   lead: Lead;
   pendingAction?: LeadFocusAction | null;
   onPendingActionConsumed?: () => void;
+  onGoTour?: () => void;
 }) {
   const state = useImpactStateForLead(lead);
+  const profile = useCRM10x((s) => s.profiles[lead.id]);
+  const allCalls = useCRM10x((s) => s.calls);
+  const allObjections = useCRM10x((s) => s.objections);
+  const calls = useMemo(
+    () => allCalls.filter((call) => call.leadId === lead.id),
+    [allCalls, lead.id],
+  );
+  const objections = useMemo(
+    () => allObjections.filter((item) => item.leadId === lead.id),
+    [allObjections, lead.id],
+  );
+  const tags = lead.tags ?? [];
+  const markDone = useApp((s) => s.addLeadTag);
+  const isDone = (key: PreVisitStepKey) => tags.includes(preVisitTag(key));
+  const profileScore = profileCompletionScore(profile);
+  const latestAnsweredCall = calls.find((call) => call.outcome === "answered") ?? null;
+  const hasObjectionCapture = objections.length > 0;
+  const activeStep = getPreVisitActiveStep({
+    profileDone: isDone("qualification"),
+    discoveryDone: isDone("discovery"),
+    callConnected: Boolean(latestAnsweredCall),
+    objectionDone: hasObjectionCapture,
+    dossierDone: isDone("dossier"),
+    visitReady: isDone("visit-ready"),
+  });
+
+  useEffect(() => {
+    if (!pendingAction) return;
+    if (pendingAction === "schedule" || pendingAction === "auto") {
+      if (!isDone("visit-ready")) {
+        toast.warning("Visit scheduling unlocks after the pre-visit workflow is complete.");
+      }
+    }
+    onPendingActionConsumed?.();
+  }, [pendingAction]); // eslint-disable-line react-hooks/exhaustive-deps -- one-shot drawer action
 
   if (!state) {
     return (
@@ -1463,30 +1534,537 @@ function ImpactTabContent({
   }
 
   return (
-    <div className="space-y-4">
-      <div className={`rounded-md border px-3 py-2 ${pressureColor(state.nba.pressure)}`}>
-        <div className="text-[10px] uppercase tracking-wider opacity-70">Next best action</div>
-        <div className="text-sm font-semibold">{state.nba.label}</div>
-        <div className="text-[10px] opacity-80">{state.nba.reason}</div>
+    <div className="space-y-3">
+      <PreVisitProgress activeStep={activeStep} done={{
+        "new-lead": true,
+        qualification: isDone("qualification"),
+        discovery: isDone("discovery"),
+        call: Boolean(latestAnsweredCall),
+        objection: hasObjectionCapture,
+        dossier: isDone("dossier"),
+        shortlist: isDone("visit-ready"),
+      }} />
+
+      {activeStep === "qualification" && (
+        <LifecycleCard
+          eyebrow="Qualification"
+          title="Complete deep profile"
+          helper="Capture the essentials first. This is what stops premature scheduling."
+        >
+          <LeadDeepProfile lead={state.lead} defaultOpen />
+          <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
+            Required profile strength: 80% · Current:{" "}
+            <span className={profileScore >= 80 ? "font-semibold text-success" : "font-semibold text-warning"}>
+              {profileScore}%
+            </span>
+          </div>
+          <Button
+            className="w-full h-9 text-xs"
+            disabled={profileScore < 80}
+            onClick={() => {
+              markDone(lead.id, preVisitTag("qualification"));
+              toast.success("Profile saved. Discovery unlocked.");
+            }}
+          >
+            Save profile and continue
+          </Button>
+        </LifecycleCard>
+      )}
+
+      {activeStep === "discovery" && (
+        <LifecycleCard
+          eyebrow="Discovery"
+          title="Confirm what the lead actually needs"
+          helper="Read this once before calling. It gives the TCM the talk track."
+        >
+          <DiscoverySnapshot lead={state.lead} score={state.score} nbaReason={state.nba.reason} />
+          <Button
+            className="w-full h-9 text-xs"
+            onClick={() => {
+              markDone(lead.id, preVisitTag("discovery"));
+              toast.success("Discovery checked. Call logging unlocked.");
+            }}
+          >
+            Discovery checked · start call
+          </Button>
+        </LifecycleCard>
+      )}
+
+      {activeStep === "call" && (
+        <LifecycleCard
+          eyebrow="Call connected"
+          title="Log the call outcome"
+          helper="A visit cannot be prepared until the TCM has spoken to the lead."
+        >
+          <ProfileCallBrief lead={state.lead} />
+          <PreVisitCallLogger lead={state.lead} calls={calls} />
+        </LifecycleCard>
+      )}
+
+      {activeStep === "objection" && (
+        <LifecycleCard
+          eyebrow="Objection capture"
+          title="Capture the blocker or mark none"
+          helper="This is mandatory. Even a positive lead should be marked as 'None - interested'."
+        >
+          <ObjectionLogger lead={state.lead} context="call" />
+        </LifecycleCard>
+      )}
+
+      {activeStep === "dossier" && (
+        <LifecycleCard
+          eyebrow="Property dossier"
+          title="Match properties from preferred areas"
+          helper="Suggestions prioritize the areas captured while adding the lead."
+        >
+          <PropertyMatchPreview lead={state.lead} />
+          <LeadPropertyDossier lead={state.lead} />
+          <Button
+            className="w-full h-9 text-xs"
+            onClick={() => {
+              markDone(lead.id, preVisitTag("dossier"));
+              toast.success("Dossier reviewed. Shortlist unlocked.");
+            }}
+          >
+            Property dossier reviewed
+          </Button>
+        </LifecycleCard>
+      )}
+
+      {activeStep === "shortlist" && (
+        <LifecycleCard
+          eyebrow="Shortlist created"
+          title="Pin visit-ready properties"
+          helper="Pick at least one property the TCM can confidently pitch before scheduling."
+        >
+          <PropertyShortlistStep lead={state.lead} />
+        </LifecycleCard>
+      )}
+
+      {activeStep === "visit-ready" && (
+        <LifecycleCard
+          eyebrow="Visit ready"
+          title="Pre-visit workflow complete"
+          helper="Tour scheduling is now unlocked."
+        >
+          <div className="rounded-md border border-success/40 bg-success/10 p-3 text-xs text-success">
+            Qualification, discovery, call, objection, dossier, and shortlist are complete.
+          </div>
+          <Button className="w-full h-9 text-xs" onClick={onGoTour}>
+            <CalendarIcon className="h-3.5 w-3.5 mr-1.5" />
+            Continue to Tour scheduling
+          </Button>
+        </LifecycleCard>
+      )}
+    </div>
+  );
+}
+
+type PreVisitStepKey = "qualification" | "discovery" | "call" | "objection" | "dossier" | "shortlist" | "visit-ready";
+type PreVisitProgressKey = "new-lead" | "qualification" | "discovery" | "call" | "objection" | "dossier" | "shortlist";
+
+const PRE_VISIT_STEPS: Array<{ key: PreVisitProgressKey; label: string }> = [
+  { key: "new-lead", label: "New lead" },
+  { key: "qualification", label: "Qualification" },
+  { key: "discovery", label: "Discovery" },
+  { key: "call", label: "Call connected" },
+  { key: "objection", label: "Objection" },
+  { key: "dossier", label: "Dossier" },
+  { key: "shortlist", label: "Visit ready" },
+];
+
+function preVisitTag(key: Exclude<PreVisitStepKey, "call" | "objection">) {
+  return `impact:${key}`;
+}
+
+function getPreVisitActiveStep(state: {
+  profileDone: boolean;
+  discoveryDone: boolean;
+  callConnected: boolean;
+  objectionDone: boolean;
+  dossierDone: boolean;
+  visitReady: boolean;
+}): PreVisitStepKey {
+  if (!state.profileDone) return "qualification";
+  if (!state.discoveryDone) return "discovery";
+  if (!state.callConnected) return "call";
+  if (!state.objectionDone) return "objection";
+  if (!state.dossierDone) return "dossier";
+  if (!state.visitReady) return "shortlist";
+  return "visit-ready";
+}
+
+function profileCompletionScore(profile: Record<string, unknown> | undefined): number {
+  if (!profile) return 0;
+  const required = [
+    "gender",
+    "roomType",
+    "source",
+    "decisionMaker",
+    "locationFeasible",
+    "companyOrCollege",
+    "budgetStated",
+    "verifiedBudget",
+    "verifiedMoveIn",
+    "flexibility",
+  ];
+  const filled = required.filter((key) => {
+    const value = profile[key];
+    return value !== undefined && value !== null && value !== "";
+  }).length;
+  return Math.min(100, Math.round((filled / required.length) * 100));
+}
+
+function PreVisitProgress({
+  activeStep,
+  done,
+}: {
+  activeStep: PreVisitStepKey;
+  done: Record<PreVisitProgressKey, boolean>;
+}) {
+  const activeProgressKey: PreVisitProgressKey =
+    activeStep === "visit-ready" ? "shortlist" : activeStep === "call" ? "call" : activeStep;
+  return (
+    <div className="rounded-lg border border-border bg-card p-3">
+      <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        Pre-visit lifecycle
       </div>
+      <div className="grid grid-cols-7 gap-1.5">
+        {PRE_VISIT_STEPS.map((step) => {
+          const complete = done[step.key];
+          const active = step.key === activeProgressKey;
+          return (
+            <div key={step.key} className="min-w-0">
+              <div
+                className={cn(
+                  "h-1.5 rounded-full",
+                  complete ? "bg-success" : active ? "bg-accent" : "bg-muted",
+                )}
+              />
+              <div
+                className={cn(
+                  "mt-1 truncate text-[9px]",
+                  complete || active ? "font-semibold text-foreground" : "text-muted-foreground",
+                )}
+              >
+                {step.label}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
-      <LeadDossierPanel lead={state.lead} />
-      <SmartDossier lead={state.lead} />
-      <LeadPropertyDossier lead={state.lead} />
+function LifecycleCard({
+  eyebrow,
+  title,
+  helper,
+  children,
+}: {
+  eyebrow: string;
+  title: string;
+  helper: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-lg border border-border bg-card p-4 space-y-3">
+      <div>
+        <div className="text-[10px] font-semibold uppercase tracking-wider text-accent">{eyebrow}</div>
+        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+        <p className="text-[11px] text-muted-foreground">{helper}</p>
+      </div>
+      {children}
+    </section>
+  );
+}
 
-      <CommandActions
-        lead={state.lead}
-        tcm={state.tcm}
-        tcmOptions={state.tcmOptions}
-        openTour={state.openTour}
-        lastQuote={state.lastQuote}
-        nba={state.nba}
-        catalogProperty={state.catalogProperty}
-        opsProperties={state.opsProperties}
-        column={state.column}
-        pendingAction={pendingAction}
-        onPendingActionConsumed={onPendingActionConsumed}
-      />
+function DiscoverySnapshot({ lead, score, nbaReason }: { lead: Lead; score: number; nbaReason: string }) {
+  const profile = useCRM10x((s) => s.profiles[lead.id]);
+  const allCalls = useCRM10x((s) => s.calls);
+  const calls = useMemo(
+    () => allCalls.filter((call) => call.leadId === lead.id),
+    [allCalls, lead.id],
+  );
+  const probability = computeBookingProbability({ lead, profile, tours: [], visits: [], objections: [], calls });
+  const items = [
+    ["Need", [lead.type, lead.room, lead.need].filter(Boolean).join(" · ") || "Not captured"],
+    ["Areas", lead.areas?.length ? lead.areas.join(", ") : lead.preferredArea || "Not captured"],
+    ["Budget", lead.budget ? formatBudget(lead.budget) : "Not captured"],
+    ["Move-in", formatSafeDate(lead.moveInDate, "MMM d", "TBD")],
+    ["PG type", profileLabel(profile?.gender) || "Not captured"],
+    ["Room fit", profileLabel(profile?.roomType) || "Not captured"],
+    ["Decision-maker", profileLabel(profile?.decisionMaker) || "Not captured"],
+    ["Location feasibility", locationFeasibilityLabel(profile?.locationFeasible) || "Ask on call"],
+    ["Best call time", inferBestCallTime(calls) ?? profile?.bestCallTime ?? "Ask on call"],
+    ["Special request", lead.specialReqs || lead.notes || "None captured"],
+  ];
+  const scoreTone = score >= 70
+    ? "border-success/40 bg-success/10 text-success"
+    : score >= 40
+      ? "border-warning/40 bg-warning/10 text-warning"
+      : "border-danger/40 bg-danger/10 text-danger";
+  return (
+    <div className="space-y-2">
+      <div className={`rounded-md border px-3 py-2 ${scoreTone}`}>
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <div className="text-[10px] uppercase tracking-wider opacity-70">Booking probability</div>
+            <div className="text-xs font-medium">{probability.recommendation || nbaReason}</div>
+          </div>
+          <div className="text-2xl font-display font-bold">{probability.score}%</div>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        {items.map(([label, value]) => (
+          <div key={label} className="rounded-md border border-border bg-muted/30 px-2.5 py-2">
+            <div className="text-[9px] uppercase tracking-wider text-muted-foreground">{label}</div>
+            <div className="text-xs font-medium text-foreground">{value}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ProfileCallBrief({ lead }: { lead: Lead }) {
+  const profile = useCRM10x((s) => s.profiles[lead.id]);
+  const items = [
+    ["Need", [lead.type, lead.room, lead.need].filter(Boolean).join(" · ") || "Not captured"],
+    ["Areas", lead.areas?.length ? lead.areas.join(", ") : lead.preferredArea || "Not captured"],
+    ["Budget", lead.budget ? formatBudget(lead.budget) : "Not captured"],
+    ["Decision-maker", profileLabel(profile?.decisionMaker) || "Ask who decides"],
+    ["Location feasibility", locationFeasibilityLabel(profile?.locationFeasible) || "Ask area inventory fit"],
+    ["Best time", profile?.bestCallTime || "Ask on call"],
+  ];
+  return (
+    <div className="rounded-md border border-border bg-muted/30 px-3 py-2">
+      <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        Call brief from profile
+      </div>
+      <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+        {items.map(([label, value]) => (
+          <div key={label} className="text-[11px]">
+            <span className="text-muted-foreground">{label}: </span>
+            <span className="font-medium text-foreground">{value}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function profileLabel(value?: string | number | null) {
+  if (value === undefined || value === null || value === "") return "";
+  const labels: Record<string, string> = {
+    "boys-pg": "Boys PG",
+    "girls-pg": "Girls PG",
+    "co-live": "Co-live",
+    single: "Single",
+    double: "Double",
+    triple: "Triple",
+    any: "Any",
+    whatsapp: "WhatsApp",
+    website: "Website",
+    referral: "Referral",
+    indiamart: "IndiaMart",
+    google: "Google",
+    "walk-in": "Walk-in",
+    self: "Self",
+    parents: "Parents",
+    "company-hr": "Company / HR",
+  };
+  return labels[String(value)] ?? String(value);
+}
+
+function locationFeasibilityLabel(value?: boolean | null) {
+  if (value === undefined || value === null) return "";
+  return value ? "Yes" : "No";
+}
+
+function PreVisitCallLogger({ lead, calls }: { lead: Lead; calls: ReturnType<typeof useCRM10x.getState>["calls"] }) {
+  const log = useCRM10x((s) => s.logCall);
+  const [duration, setDuration] = useState(60);
+  const [outcome, setOutcome] = useState<CallOutcome>("answered");
+  const [language, setLanguage] = useState<LangPref | "">("");
+  const [bestCallTime, setBestCallTime] = useState("");
+  const [notes, setNotes] = useState("");
+  const attempt = calls.length + 1;
+
+  const submit = () => {
+    log({
+      leadId: lead.id,
+      attemptNumber: attempt,
+      durationSec: duration,
+      outcome,
+      language: language || undefined,
+      bestCallTime: bestCallTime || undefined,
+      notes,
+      loggedBy: lead.assignedTcmId || lead.assigneeId || "unassigned",
+    });
+    toast.success(outcome === "answered" ? "Call connected. Objection capture unlocked." : "Call attempt logged.");
+    setNotes("");
+    setBestCallTime("");
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-2">
+        <Field label="Duration (sec)">
+          <Input type="number" className="h-8 text-xs" value={duration} onChange={(e) => setDuration(Number(e.target.value))} />
+        </Field>
+        <Field label="Outcome">
+          <Select value={outcome} onValueChange={(v) => setOutcome(v as CallOutcome)}>
+            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="answered">Answered</SelectItem>
+              <SelectItem value="not-answered">Not answered</SelectItem>
+              <SelectItem value="busy">Busy</SelectItem>
+              <SelectItem value="switched-off">Switched off</SelectItem>
+              <SelectItem value="wrong-number">Wrong number</SelectItem>
+              <SelectItem value="callback-requested">Callback requested</SelectItem>
+            </SelectContent>
+          </Select>
+        </Field>
+        <Field label="Language">
+          <Select value={language} onValueChange={(v) => setLanguage(v as LangPref)}>
+            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="-" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="english">English</SelectItem>
+              <SelectItem value="hindi">Hindi</SelectItem>
+              <SelectItem value="kannada">Kannada</SelectItem>
+              <SelectItem value="other">Other</SelectItem>
+            </SelectContent>
+          </Select>
+        </Field>
+        <Field label="Best call time">
+          <Input className="h-8 text-xs" placeholder="after 6 PM" value={bestCallTime} onChange={(e) => setBestCallTime(e.target.value)} />
+        </Field>
+      </div>
+      <Textarea rows={3} className="text-xs resize-none" placeholder="What did the lead say?" value={notes} onChange={(e) => setNotes(e.target.value)} />
+      <Button className="w-full h-9 text-xs" onClick={submit}>
+        Log call attempt #{attempt}
+      </Button>
+    </div>
+  );
+}
+
+function preferenceAreasForLead(lead: Lead): string[] {
+  return Array.from(new Set([...(lead.areas ?? []), lead.preferredArea].map((area) => area?.trim()).filter(Boolean) as string[]));
+}
+
+function PropertyMatchPreview({ lead }: { lead: Lead }) {
+  const properties = useApp((s) => s.properties);
+  const areas = preferenceAreasForLead(lead);
+  const matches = useMemo(() => {
+    const seen = new Set<string>();
+    const rows = areas.flatMap((area) =>
+      searchPropertyCatalog(area, properties, { preferredArea: area, limit: 4 }),
+    );
+    return rows.filter((property) => {
+      if (seen.has(property.id)) return false;
+      seen.add(property.id);
+      return true;
+    }).slice(0, 6);
+  }, [areas, properties]);
+
+  return (
+    <div className="rounded-md border border-border bg-muted/20 p-3 space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <div className="text-[11px] font-semibold">Suggested from preferred area</div>
+        <div className="text-[10px] text-muted-foreground truncate">{areas.join(", ") || "No area captured"}</div>
+      </div>
+      <div className="grid gap-1.5">
+        {matches.length > 0 ? matches.map((property) => (
+          <div key={property.id} className="rounded-md border border-border bg-card px-2.5 py-2 text-xs">
+            <div className="font-semibold">{property.name}</div>
+            <div className="text-[10px] text-muted-foreground">
+              {property.area} · {formatBudget(property.pricePerBed)}
+              {property.vacantBeds !== undefined ? ` · ${property.vacantBeds} vacant` : ""}
+            </div>
+          </div>
+        )) : (
+          <div className="text-xs text-muted-foreground">No property hub matches found for these areas yet.</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PropertyShortlistStep({ lead }: { lead: Lead }) {
+  const properties = useApp((s) => s.properties);
+  const { data: interests = [] } = useLeadInterests(lead.id);
+  const { mutate: toggleInterest } = useToggleInterest();
+  const markDone = useApp((s) => s.addLeadTag);
+  const areas = preferenceAreasForLead(lead);
+  const [query, setQuery] = useState("");
+  const list = useMemo(() => {
+    const base = query.trim()
+      ? searchPropertyCatalog(query, properties, { preferredArea: lead.preferredArea, limit: 12 })
+      : areas.flatMap((area) => searchPropertyCatalog(area, properties, { preferredArea: area, limit: 5 }));
+    const seen = new Set<string>();
+    return base.filter((property) => {
+      if (seen.has(property.id)) return false;
+      seen.add(property.id);
+      return true;
+    }).slice(0, 12);
+  }, [areas, lead.preferredArea, properties, query]);
+
+  return (
+    <div className="space-y-3">
+      <div className="relative">
+        <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          className="h-9 pl-8 text-xs"
+          placeholder="Search property or area"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+        />
+      </div>
+      <div className="max-h-72 overflow-y-auto rounded-md border border-border p-1.5 space-y-1.5">
+        {list.map((property) => {
+          const selected = interests.includes(property.id);
+          return (
+            <button
+              key={property.id}
+              type="button"
+              onClick={() => toggleInterest({ leadId: lead.id, propertyId: property.id })}
+              className={cn(
+                "w-full rounded-md border px-2.5 py-2 text-left text-xs transition-colors",
+                selected ? "border-accent bg-accent/10" : "border-border bg-card hover:bg-muted/40",
+              )}
+            >
+              <div className="flex items-center gap-2">
+                {selected ? <Star className="h-3.5 w-3.5 text-accent" /> : <Circle className="h-3.5 w-3.5 text-muted-foreground" />}
+                <div className="min-w-0 flex-1">
+                  <div className="truncate font-semibold">{property.name}</div>
+                  <div className="truncate text-[10px] text-muted-foreground">
+                    {property.area} · {formatBudget(property.pricePerBed)}
+                    {property.vacantBeds !== undefined ? ` · ${property.vacantBeds} vacant` : ""}
+                  </div>
+                </div>
+              </div>
+            </button>
+          );
+        })}
+        {list.length === 0 && (
+          <div className="py-5 text-center text-xs text-muted-foreground">No matching properties.</div>
+        )}
+      </div>
+      <div className="rounded-md bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
+        Selected: <span className="font-semibold text-foreground">{interests.length}</span> property{interests.length === 1 ? "" : "ies"}
+      </div>
+      <Button
+        className="w-full h-9 text-xs"
+        disabled={interests.length === 0}
+        onClick={() => {
+          markDone(lead.id, preVisitTag("visit-ready"));
+          toast.success("Shortlist created. Lead is visit ready.");
+        }}
+      >
+        Mark visit ready
+      </Button>
     </div>
   );
 }
@@ -1561,9 +2139,16 @@ function UpcomingTourCard({
   const phone = (tour as any).phone ?? "";
   const budget = (tour as any).budget ?? 0;
   const area = (tour as any).area ?? "";
+  const canMoveToOnTour = isTodayIST(tour.scheduledAt);
+  const tourTimeMs = +new Date(tour.scheduledAt);
+  const isPastTour = Number.isFinite(tourTimeMs) && tourTimeMs < Date.now() && !canMoveToOnTour;
 
   const [showReschedule, setShowReschedule] = useState(false);
-  const [newDateTime, setNewDateTime] = useState(() => toLocal(tour.scheduledAt));
+  const [newDateTime, setNewDateTime] = useState(() => nextRescheduleLocalValue(tour.scheduledAt));
+
+  useEffect(() => {
+    setNewDateTime(nextRescheduleLocalValue(tour.scheduledAt));
+  }, [tour.scheduledAt]);
 
   return (
     <div className="rounded-lg border border-accent/30 bg-accent/5 p-4 space-y-3">
@@ -1583,6 +2168,11 @@ function UpcomingTourCard({
           <CalendarIcon className="h-3 w-3" />
           {formatSafeDate(tour.scheduledAt, "EEE, MMM d · p", "time unknown")}
         </span>
+        {isPastTour && (
+          <Badge variant="outline" className="border-destructive/40 bg-destructive/10 text-destructive text-[10px]">
+            Date passed
+          </Badge>
+        )}
         <Badge variant="outline" className="text-[10px] capitalize">
           {tourType.replace("-", " ")}
         </Badge>
@@ -1734,7 +2324,7 @@ function UpcomingTourCard({
             </div>
           ) : (
             <>
-              {(tour.status === "scheduled" || tour.status === "confirmed") && (
+              {(tour.status === "scheduled" || tour.status === "confirmed") && canMoveToOnTour && (
                 <Button
                   size="sm"
                   className="h-7 text-[11px] gap-1"
@@ -1747,6 +2337,16 @@ function UpcomingTourCard({
                   }}
                 >
                   <UserCheck className="h-3 w-3" /> Move to on-tour
+                </Button>
+              )}
+              {(tour.status === "scheduled" || tour.status === "confirmed") && (
+                <Button
+                  size="sm"
+                  className="h-7 text-[11px] gap-1"
+                  variant={isPastTour ? "default" : "outline"}
+                  onClick={() => setShowReschedule(true)}
+                >
+                  <CalendarIcon className="h-3 w-3" /> {isPastTour ? "Reschedule overdue tour" : "Reschedule"}
                 </Button>
               )}
               {tour.status === "on-tour" && (
@@ -1764,27 +2364,21 @@ function UpcomingTourCard({
                   <CheckCircle2 className="h-3 w-3" /> Tour done
                 </Button>
               )}
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 text-[11px]"
-                onClick={() => setShowReschedule(true)}
-              >
-                <CalendarIcon className="h-3 w-3 mr-1" /> Reschedule
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 text-[11px] text-destructive hover:text-destructive"
-                onClick={() => {
-                  if (confirm("Cancel this tour?")) {
-                    cancelTour(tour.id);
-                    toast.success("Tour cancelled");
-                  }
-                }}
-              >
-                <X className="h-3 w-3 mr-1" /> Cancel Tour
-              </Button>
+              {(tour.status === "scheduled" || tour.status === "confirmed") && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-[11px] text-destructive hover:text-destructive"
+                  onClick={() => {
+                    if (confirm("Cancel this tour?")) {
+                      cancelTour(tour.id);
+                      toast.success("Tour cancelled");
+                    }
+                  }}
+                >
+                  <X className="h-3 w-3 mr-1" /> Cancel Tour
+                </Button>
+              )}
             </>
           )}
         </div>
@@ -2100,6 +2694,15 @@ function toLocal(iso: string) {
   if (!d) return "";
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function nextRescheduleLocalValue(iso: string) {
+  const d = parseSafeDate(iso);
+  if (!d || d.getTime() >= Date.now()) return toLocal(iso);
+  const next = new Date();
+  next.setDate(next.getDate() + 1);
+  next.setHours(d.getHours() || 11, d.getMinutes(), 0, 0);
+  return toLocal(next.toISOString());
 }
 
 function priorityFor(c: number): FollowUpPriority {
