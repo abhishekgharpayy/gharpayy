@@ -49,13 +49,6 @@ function byScore(a: ImpactEnrichedPick, b: ImpactEnrichedPick) {
   return b.score - a.score;
 }
 
-function firstMatch(
-  list: ImpactEnrichedPick[],
-  pred: (e: ImpactEnrichedPick) => boolean,
-): ImpactEnrichedPick | undefined {
-  return [...list].sort(byScore).find(pred);
-}
-
 function allMatch(list: ImpactEnrichedPick[], pred: (e: ImpactEnrichedPick) => boolean) {
   return [...list].sort(byScore).filter(pred);
 }
@@ -82,8 +75,7 @@ export function pickLeadsForHardAction(
         active,
         (e) =>
           e.nba.verb === "schedule" ||
-          (e.column === "inbox" && !e.openTour) ||
-          (e.lead.stage === "new" || e.lead.stage === "contacted"),
+          ((e.column === "inbox" || e.lead.stage === "new" || e.lead.stage === "contacted") && !e.openTour),
       );
       break;
     case "quote":
@@ -109,7 +101,7 @@ export function pickLeadsForHardAction(
       );
       break;
     case "checkin":
-      matches = allMatch(active, (e) => e.column === "booked" || e.lead.stage === "booked");
+      matches = allMatch(list, (e) => e.column === "booked" || e.lead.stage === "booked");
       break;
     case "revive":
       matches = allMatch(
@@ -119,18 +111,14 @@ export function pickLeadsForHardAction(
       break;
   }
 
-  if (matches.length === 0) {
-    const top = firstMatch(active, () => true);
-    return top ? [top] : [];
-  }
   return matches.slice(0, limit);
 }
 
 export function topSuggestion(list: ImpactEnrichedPick[]): ImpactEnrichedPick | undefined {
   const active = list.filter((e) => e.lead.stage !== "booked" && e.lead.stage !== "dropped");
-  const escalate = firstMatch(active, (e) => e.nba.pressure === "escalate");
+  const escalate = allMatch(active, (e) => e.nba.pressure === "escalate")[0];
   if (escalate) return escalate;
-  return firstMatch(active, (e) => e.nba.verb !== "rest");
+  return allMatch(active, (e) => e.nba.verb !== "rest")[0];
 }
 
 export function classifyImpactPriority(e: ImpactEnrichedPick): ImpactPriority {
