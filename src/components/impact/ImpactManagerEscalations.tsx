@@ -27,11 +27,11 @@ export function ImpactManagerEscalations({
   if (role === "tcm" || byTcm.length === 0) return null;
 
   return (
-    <div className="rounded-lg border border-danger/30 bg-danger/5 px-3 py-2 space-y-1.5">
-      <div className="text-[10px] uppercase tracking-wider font-semibold text-danger">
+    <div className="rounded-md border border-danger/30 bg-danger/5 px-2.5 py-1.5 flex flex-wrap items-center gap-2">
+      <div className="text-[10px] uppercase tracking-wider font-semibold text-danger shrink-0">
         Escalations by TCM
       </div>
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-1.5">
         {byTcm.map(([tcmId, leads]) => {
           const tcm = tcms.find((t) => t.id === tcmId);
           const label = tcm?.name.split(" ")[0] ?? (tcmId === "unassigned" ? "Unassigned" : tcmId);
@@ -39,7 +39,7 @@ export function ImpactManagerEscalations({
             <Badge
               key={tcmId}
               variant="outline"
-              className="text-[10px] gap-1 border-danger/40 bg-card"
+              className="text-[10px] gap-1 border-danger/40 bg-card h-6"
             >
               {label}
               <span className="font-mono font-bold text-danger">{leads.length}</span>
