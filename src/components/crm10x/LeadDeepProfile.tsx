@@ -1,23 +1,22 @@
 import { useState } from "react";
 import { useCRM10x } from "@/lib/crm10x/store";
 import type {
-  DecisionAuthority, FlexibilityScore, FoodPref, FurnishingPref,
-  Gender, LangPref, LeadSource, RoomTypePref,
+  DecisionAuthority, FlexibilityScore, Gender, LangPref, LeadSource, RoomTypePref,
 } from "@/lib/crm10x/types";
 import type { Lead } from "@/lib/types";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CalendarClock, CheckCircle2, ChevronDown, ChevronUp, History } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
-export function LeadDeepProfile({ lead }: { lead: Lead }) {
+export function LeadDeepProfile({ lead, defaultOpen = false }: { lead: Lead; defaultOpen?: boolean }) {
   const profile = useCRM10x((s) => s.profiles[lead.id]);
   const upsert = useCRM10x((s) => s.upsertProfile);
   const addShiftingDate = useCRM10x((s) => s.addShiftingDate);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const [newShift, setNewShift] = useState("");
   const [shiftReason, setShiftReason] = useState("");
 
@@ -54,82 +53,76 @@ export function LeadDeepProfile({ lead }: { lead: Lead }) {
         <div className="p-3 space-y-3 border-t border-border">
           <div className="grid grid-cols-2 gap-2">
             <Field label="PG type">
-              <Select value={f.gender ?? ""} onValueChange={(v) => upsert({ leadId: lead.id, gender: v as Gender })}>
-                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="-" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="boys-pg">Boys PG</SelectItem>
-                  <SelectItem value="girls-pg">Girls PG</SelectItem>
-                  <SelectItem value="co-live">Co-live</SelectItem>
-                </SelectContent>
-              </Select>
+              <OptionPills
+                value={f.gender ?? ""}
+                options={[
+                  { value: "boys-pg", label: "Boys PG" },
+                  { value: "girls-pg", label: "Girls PG" },
+                  { value: "co-live", label: "Co-live" },
+                ]}
+                onChange={(v) => upsert({ leadId: lead.id, gender: v as Gender })}
+              />
             </Field>
             <Field label="Room">
-              <Select value={f.roomType ?? ""} onValueChange={(v) => upsert({ leadId: lead.id, roomType: v as RoomTypePref })}>
-                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="-" /></SelectTrigger>
-                <SelectContent>
-                  {(["single","double","triple","any"] as const).map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </Field>
-            <Field label="Furnishing">
-              <Select value={f.furnishing ?? ""} onValueChange={(v) => upsert({ leadId: lead.id, furnishing: v as FurnishingPref })}>
-                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="-" /></SelectTrigger>
-                <SelectContent>
-                  {(["ac","non-ac","semi","any"] as const).map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </Field>
-            <Field label="Food">
-              <Select value={f.food ?? ""} onValueChange={(v) => upsert({ leadId: lead.id, food: v as FoodPref })}>
-                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="-" /></SelectTrigger>
-                <SelectContent>
-                  {(["veg","non-veg","no-food","any"] as const).map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <OptionPills
+                value={f.roomType ?? ""}
+                options={[
+                  { value: "single", label: "Single" },
+                  { value: "double", label: "Double" },
+                  { value: "triple", label: "Triple" },
+                  { value: "any", label: "Any" },
+                ]}
+                onChange={(v) => upsert({ leadId: lead.id, roomType: v as RoomTypePref })}
+              />
             </Field>
             <Field label="Source">
-              <Select value={f.source ?? ""} onValueChange={(v) => upsert({ leadId: lead.id, source: v as LeadSource })}>
-                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="-" /></SelectTrigger>
-                <SelectContent>
-                  {(["whatsapp","website","referral","indiamart","google","walk-in","other"] as const).map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <OptionPills
+                value={f.source ?? ""}
+                options={[
+                  { value: "whatsapp", label: "WhatsApp" },
+                  { value: "website", label: "Website" },
+                  { value: "referral", label: "Referral" },
+                  { value: "indiamart", label: "IndiaMart" },
+                  { value: "google", label: "Google" },
+                  { value: "walk-in", label: "Walk-in" },
+                  { value: "other", label: "Other" },
+                ]}
+                onChange={(v) => upsert({ leadId: lead.id, source: v as LeadSource })}
+              />
             </Field>
             <Field label="Decision-maker">
-              <Select value={f.decisionMaker ?? ""} onValueChange={(v) => upsert({ leadId: lead.id, decisionMaker: v as DecisionAuthority })}>
-                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="-" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="self">Self</SelectItem>
-                  <SelectItem value="parents">Parents</SelectItem>
-                  <SelectItem value="company-hr">Company / HR</SelectItem>
-                </SelectContent>
-              </Select>
+              <OptionPills
+                value={f.decisionMaker ?? ""}
+                options={[
+                  { value: "self", label: "Self" },
+                  { value: "parents", label: "Parents" },
+                  { value: "company-hr", label: "Company / HR" },
+                ]}
+                onChange={(v) => upsert({ leadId: lead.id, decisionMaker: v as DecisionAuthority })}
+              />
             </Field>
-            <Field label="Language">
-              <Select value={f.language ?? ""} onValueChange={(v) => upsert({ leadId: lead.id, language: v as LangPref })}>
-                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="-" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="english">English</SelectItem>
-                  <SelectItem value="hindi">Hindi</SelectItem>
-                  <SelectItem value="kannada">Kannada</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
-                </SelectContent>
-              </Select>
+            <Field label="Location feasibility">
+              <OptionPills
+                value={f.locationFeasible === undefined ? "" : f.locationFeasible ? "yes" : "no"}
+                options={[
+                  { value: "yes", label: "Yes" },
+                  { value: "no", label: "No" },
+                ]}
+                onChange={(v) => upsert({ leadId: lead.id, locationFeasible: v === "yes" })}
+              />
             </Field>
             <Field label="Flexibility">
-              <Select
+              <OptionPills
                 value={f.flexibility ? String(f.flexibility) : ""}
-                onValueChange={(v) => upsert({ leadId: lead.id, flexibility: Number(v) as FlexibilityScore })}
-              >
-                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="-" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1">1 - Rigid</SelectItem>
-                  <SelectItem value="2">2</SelectItem>
-                  <SelectItem value="3">3 - Mid</SelectItem>
-                  <SelectItem value="4">4</SelectItem>
-                  <SelectItem value="5">5 - Very flexible</SelectItem>
-                </SelectContent>
-              </Select>
+                options={[
+                  { value: "1", label: "Fixed only" },
+                  { value: "2", label: "Can adjust room" },
+                  { value: "3", label: "Can adjust area" },
+                  { value: "4", label: "Can adjust budget" },
+                  { value: "5", label: "Very flexible" },
+                ]}
+                onChange={(v) => upsert({ leadId: lead.id, flexibility: Number(v) as FlexibilityScore })}
+              />
             </Field>
           </div>
           <div className="grid grid-cols-2 gap-2">
@@ -254,10 +247,41 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
+function OptionPills<T extends string>({
+  options,
+  value,
+  onChange,
+}: {
+  options: Array<{ value: T; label: string }>;
+  value: string;
+  onChange: (value: T) => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {options.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          onClick={() => onChange(option.value)}
+          className={cn(
+            "min-h-8 rounded-md border px-2.5 py-1 text-[11px] font-medium transition-colors",
+            value === option.value
+              ? "border-primary bg-primary text-primary-foreground"
+              : "border-border bg-background hover:bg-muted",
+          )}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function countFilled(p: Record<string, unknown>): number {
   const keys = [
-    "gender","roomType","furnishing","food","source","decisionMaker",
-    "language","companyOrCollege","budgetStated","verifiedBudget",
+    "gender","roomType","source","decisionMaker",
+    "locationFeasible","companyOrCollege","budgetStated","verifiedBudget",
+    "verifiedMoveIn","flexibility",
   ];
   return keys.filter((k) => {
     const v = p[k];
