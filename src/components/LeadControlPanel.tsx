@@ -93,7 +93,7 @@ import { ActivityTimeline } from "@/components/activities/ActivityTimeline";
 import { ActivityComposer } from "@/components/activities/ActivityComposer";
 import { TodoPanel } from "@/components/todos/TodoPanel";
 import { useActivities } from "@/hooks/useActivities";
-import { allCatalogProperties, searchPropertyCatalog } from "@/lib/crm10x/property-catalog";
+import { allCatalogProperties, resolvePropertyById, searchPropertyCatalog } from "@/lib/crm10x/property-catalog";
 import { pressureColor } from "@/lib/crm10x/impact-scoring";
 import type { LeadFocusAction } from "@/lib/crm10x/impact-hard-actions";
 import { CheckInPanel } from "@/components/checkins/CheckInPanel";
@@ -1582,11 +1582,28 @@ function ImpactTabContent({
             className="w-full h-9 text-xs"
             onClick={() => {
               markDone(lead.id, preVisitTag("discovery"));
-              toast.success("Discovery checked. Call logging unlocked.");
+              toast.success("Discovery checked. Property dossier unlocked.");
             }}
           >
-            Discovery checked · start call
+            Discovery checked · build property dossier
           </Button>
+        </LifecycleCard>
+      )}
+
+      {activeStep === "dossier" && (
+        <LifecycleCard
+          eyebrow="Property dossier"
+          title="Select what to pitch on the call"
+          helper="Pick the property first, so the TCM knows exactly what to show before speaking to the lead."
+        >
+          <PropertyMatchPreview lead={state.lead} />
+          <LeadPropertyDossier lead={state.lead} />
+          <PropertyShortlistStep
+            lead={state.lead}
+            doneTag={preVisitTag("dossier")}
+            buttonLabel="Save dossier and start call"
+            toastMessage="Property dossier saved. Call logging unlocked."
+          />
         </LifecycleCard>
       )}
 
@@ -1594,7 +1611,7 @@ function ImpactTabContent({
         <LifecycleCard
           eyebrow="Call connected"
           title="Log the call outcome"
-          helper="A visit cannot be prepared until the TCM has spoken to the lead."
+          helper="Use the lead profile and selected property context while speaking to the lead."
         >
           <ProfileCallBrief lead={state.lead} />
           <PreVisitCallLogger lead={state.lead} calls={calls} />
@@ -1611,65 +1628,47 @@ function ImpactTabContent({
         </LifecycleCard>
       )}
 
-      {activeStep === "dossier" && (
-        <LifecycleCard
-          eyebrow="Property dossier"
-          title="Match properties from preferred areas"
-          helper="Suggestions prioritize the areas captured while adding the lead."
-        >
-          <PropertyMatchPreview lead={state.lead} />
-          <LeadPropertyDossier lead={state.lead} />
-          <Button
-            className="w-full h-9 text-xs"
-            onClick={() => {
-              markDone(lead.id, preVisitTag("dossier"));
-              toast.success("Dossier reviewed. Shortlist unlocked.");
-            }}
-          >
-            Property dossier reviewed
-          </Button>
-        </LifecycleCard>
-      )}
-
-      {activeStep === "shortlist" && (
-        <LifecycleCard
-          eyebrow="Shortlist created"
-          title="Pin visit-ready properties"
-          helper="Pick at least one property the TCM can confidently pitch before scheduling."
-        >
-          <PropertyShortlistStep lead={state.lead} />
-        </LifecycleCard>
-      )}
-
       {activeStep === "visit-ready" && (
         <LifecycleCard
           eyebrow="Visit ready"
-          title="Pre-visit workflow complete"
-          helper="Tour scheduling is now unlocked."
+          title={isDone("visit-ready") ? "Pre-visit workflow complete" : "Mark lead visit ready"}
+          helper={isDone("visit-ready") ? "Tour scheduling is now unlocked." : "Confirm that qualification, property, call, and objection capture are complete."}
         >
           <div className="rounded-md border border-success/40 bg-success/10 p-3 text-xs text-success">
-            Qualification, discovery, call, objection, dossier, and shortlist are complete.
+            Qualification, discovery, property dossier, call, and objection capture are complete.
           </div>
-          <Button className="w-full h-9 text-xs" onClick={onGoTour}>
-            <CalendarIcon className="h-3.5 w-3.5 mr-1.5" />
-            Continue to Tour scheduling
-          </Button>
+          {isDone("visit-ready") ? (
+            <Button className="w-full h-9 text-xs" onClick={onGoTour}>
+              <CalendarIcon className="h-3.5 w-3.5 mr-1.5" />
+              Continue to Tour scheduling
+            </Button>
+          ) : (
+            <Button
+              className="w-full h-9 text-xs"
+              onClick={() => {
+                markDone(lead.id, preVisitTag("visit-ready"));
+                toast.success("Lead is visit ready. Tour scheduling unlocked.");
+              }}
+            >
+              Mark visit ready
+            </Button>
+          )}
         </LifecycleCard>
       )}
     </div>
   );
 }
 
-type PreVisitStepKey = "qualification" | "discovery" | "call" | "objection" | "dossier" | "shortlist" | "visit-ready";
+type PreVisitStepKey = "qualification" | "discovery" | "call" | "objection" | "dossier" | "visit-ready";
 type PreVisitProgressKey = "new-lead" | "qualification" | "discovery" | "call" | "objection" | "dossier" | "shortlist";
 
 const PRE_VISIT_STEPS: Array<{ key: PreVisitProgressKey; label: string }> = [
   { key: "new-lead", label: "New lead" },
   { key: "qualification", label: "Qualification" },
   { key: "discovery", label: "Discovery" },
+  { key: "dossier", label: "Dossier" },
   { key: "call", label: "Call connected" },
   { key: "objection", label: "Objection" },
-  { key: "dossier", label: "Dossier" },
   { key: "shortlist", label: "Visit ready" },
 ];
 
@@ -1687,10 +1686,9 @@ function getPreVisitActiveStep(state: {
 }): PreVisitStepKey {
   if (!state.profileDone) return "qualification";
   if (!state.discoveryDone) return "discovery";
+  if (!state.dossierDone) return "dossier";
   if (!state.callConnected) return "call";
   if (!state.objectionDone) return "objection";
-  if (!state.dossierDone) return "dossier";
-  if (!state.visitReady) return "shortlist";
   return "visit-ready";
 }
 
@@ -1830,6 +1828,12 @@ function DiscoverySnapshot({ lead, score, nbaReason }: { lead: Lead; score: numb
 
 function ProfileCallBrief({ lead }: { lead: Lead }) {
   const profile = useCRM10x((s) => s.profiles[lead.id]);
+  const properties = useApp((s) => s.properties);
+  const { data: interests = [] } = useLeadInterests(lead.id);
+  const selectedProperties = useMemo(
+    () => interests.map((id) => resolvePropertyById(id, properties)).filter(Boolean).slice(0, 3),
+    [interests, properties],
+  );
   const items = [
     ["Need", [lead.type, lead.room, lead.need].filter(Boolean).join(" · ") || "Not captured"],
     ["Areas", lead.areas?.length ? lead.areas.join(", ") : lead.preferredArea || "Not captured"],
@@ -1839,17 +1843,42 @@ function ProfileCallBrief({ lead }: { lead: Lead }) {
     ["Best time", profile?.bestCallTime || "Ask on call"],
   ];
   return (
-    <div className="rounded-md border border-border bg-muted/30 px-3 py-2">
-      <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-        Call brief from profile
+    <div className="space-y-2">
+      <div className="rounded-md border border-border bg-muted/30 px-3 py-2">
+        <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          Call brief from profile
+        </div>
+        <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+          {items.map(([label, value]) => (
+            <div key={label} className="text-[11px]">
+              <span className="text-muted-foreground">{label}: </span>
+              <span className="font-medium text-foreground">{value}</span>
+            </div>
+          ))}
+        </div>
       </div>
-      <div className="grid grid-cols-2 gap-x-3 gap-y-1">
-        {items.map(([label, value]) => (
-          <div key={label} className="text-[11px]">
-            <span className="text-muted-foreground">{label}: </span>
-            <span className="font-medium text-foreground">{value}</span>
+
+      <div className="rounded-md border border-accent/30 bg-accent/5 px-3 py-2">
+        <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          Property to pitch
+        </div>
+        {selectedProperties.length > 0 ? (
+          <div className="grid gap-1.5">
+            {selectedProperties.map((property) => (
+              <div key={property.id} className="rounded-md border border-border bg-card px-2.5 py-2 text-xs">
+                <div className="font-semibold">{property.name}</div>
+                <div className="text-[10px] text-muted-foreground">
+                  {property.area} · {formatBudget(property.pricePerBed)}
+                  {property.vacantBeds !== undefined ? ` · ${property.vacantBeds} vacant` : ""}
+                </div>
+              </div>
+            ))}
           </div>
-        ))}
+        ) : (
+          <div className="text-xs text-muted-foreground">
+            No property selected yet. Go back to Property dossier before calling.
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1992,7 +2021,17 @@ function PropertyMatchPreview({ lead }: { lead: Lead }) {
   );
 }
 
-function PropertyShortlistStep({ lead }: { lead: Lead }) {
+function PropertyShortlistStep({
+  lead,
+  doneTag = preVisitTag("visit-ready"),
+  buttonLabel = "Mark visit ready",
+  toastMessage = "Shortlist created. Lead is visit ready.",
+}: {
+  lead: Lead;
+  doneTag?: string;
+  buttonLabel?: string;
+  toastMessage?: string;
+}) {
   const properties = useApp((s) => s.properties);
   const { data: interests = [] } = useLeadInterests(lead.id);
   const { mutate: toggleInterest } = useToggleInterest();
@@ -2059,11 +2098,11 @@ function PropertyShortlistStep({ lead }: { lead: Lead }) {
         className="w-full h-9 text-xs"
         disabled={interests.length === 0}
         onClick={() => {
-          markDone(lead.id, preVisitTag("visit-ready"));
-          toast.success("Shortlist created. Lead is visit ready.");
+          markDone(lead.id, doneTag);
+          toast.success(toastMessage);
         }}
       >
-        Mark visit ready
+        {buttonLabel}
       </Button>
     </div>
   );

@@ -1422,17 +1422,17 @@ function LeadRow({
           }
         }}
         className={cn(
-          "w-full cursor-pointer text-left rounded-md border bg-card hover:border-accent/60 hover:bg-muted/30 transition-colors px-3 py-2 flex items-center gap-3 group",
+          "relative w-full cursor-pointer text-left rounded-md border bg-card hover:border-accent/60 hover:bg-muted/30 transition-colors px-3 py-2 pr-16 group",
           keyboardHighlight && "ring-2 ring-accent border-accent",
           staleQuote && "border-danger/40",
         )}
       >
         {rank !== undefined && (
-          <div className="w-7 h-7 rounded-md bg-muted text-[11px] font-mono font-semibold flex items-center justify-center shrink-0 group-hover:bg-accent/20">
+          <div className="absolute left-3 top-2 w-7 h-7 rounded-md bg-muted text-[11px] font-mono font-semibold flex items-center justify-center group-hover:bg-accent/20">
             #{rank}
           </div>
         )}
-        <div className="min-w-0 flex-1">
+        <div className={cn("min-w-0", rank !== undefined && "pl-9")}>
           <div className="flex items-center gap-1.5 flex-wrap">
             <span
               className={`h-2 w-2 rounded-full shrink-0 ${priorityMeta.dot}`}
@@ -1478,25 +1478,22 @@ function LeadRow({
             </Badge>
           )}
         </div>
-        <div className="flex items-center gap-0.5 shrink-0" onClick={(event) => event.stopPropagation()}>
+        <div className="absolute right-2 top-2 flex items-center gap-0.5" onClick={(event) => event.stopPropagation()}>
           <button
             type="button"
             onClick={(event) => void shift(-1, event)}
             disabled={idx === 0}
             title={`Move back · current: ${COLUMNS.find((c) => c.key === column)?.label ?? lead.stage}`}
-            className="h-7 w-7 rounded-md border border-border bg-card hover:border-accent/60 hover:bg-accent/10 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center"
+            className="h-7 w-7 rounded-md border border-border bg-card/95 hover:border-accent/60 hover:bg-accent/10 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center shadow-sm"
           >
             <ChevronLeft className="h-3.5 w-3.5" />
           </button>
-          <span className="text-[9px] font-mono text-muted-foreground w-8 text-center hidden sm:block">
-            {idx + 1}/{COLUMN_FLOW.length}
-          </span>
           <button
             type="button"
             onClick={(event) => void shift(1, event)}
             disabled={idx === COLUMN_FLOW.length - 1}
             title={`Move forward · current: ${COLUMNS.find((c) => c.key === column)?.label ?? lead.stage}`}
-            className="h-7 w-7 rounded-md border border-border bg-card hover:border-accent/60 hover:bg-accent/10 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center"
+            className="h-7 w-7 rounded-md border border-border bg-card/95 hover:border-accent/60 hover:bg-accent/10 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center shadow-sm"
           >
             <ChevronRight className="h-3.5 w-3.5" />
           </button>
