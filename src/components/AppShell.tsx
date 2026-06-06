@@ -95,10 +95,27 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [now, mounted] = useMountedNow();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const filterTcm = role === "tcm" ? currentTcmId : undefined;
+  const canSeeAllQueue =
+    authUser?.role === "super_admin" || authUser?.role === "manager" || authUser?.role === "admin";
+  const queueSelfId = authUser?.id || (role === "tcm" ? currentTcmId : "");
+  const scopedQueueLeads = useMemo(() => {
+    if (canSeeAllQueue || !queueSelfId) return leads;
+    return leads.filter((lead) => {
+      const assignedTo = (lead.assignedTcmId || lead.assigneeId || "").trim();
+      return assignedTo === queueSelfId;
+    });
+  }, [canSeeAllQueue, queueSelfId, leads]);
+  const scopedQueueTours = useMemo(() => {
+    if (canSeeAllQueue || !queueSelfId) return tours;
+    return tours.filter((tour) => tour.tcmId === queueSelfId || tour.assignedTo === queueSelfId);
+  }, [canSeeAllQueue, queueSelfId, tours]);
+  const scopedQueueFollowUps = useMemo(() => {
+    if (canSeeAllQueue || !queueSelfId) return followUps;
+    return followUps.filter((followUp) => followUp.tcmId === queueSelfId);
+  }, [canSeeAllQueue, queueSelfId, followUps]);
   const queue = useMemo(
-    () => (mounted ? buildDoNextQueue(leads, tours, followUps, now, filterTcm) : []),
-    [leads, tours, followUps, now, filterTcm, mounted],
+    () => (mounted ? buildDoNextQueue(scopedQueueLeads, scopedQueueTours, scopedQueueFollowUps, now) : []),
+    [scopedQueueLeads, scopedQueueTours, scopedQueueFollowUps, now, mounted],
   );
   const overdueCount = mounted ? followUps.filter((f) => !f.done && +new Date(f.dueAt) <= now).length : 0;
   const incompletePostTour = tours.filter((t) => t.status === "completed" && !t.postTour.filledAt).length;
