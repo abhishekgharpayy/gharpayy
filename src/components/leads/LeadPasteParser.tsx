@@ -17,6 +17,7 @@ import { useIdentityStore } from "@/lib/lead-identity/store";
 import { useOrgMembers, useOrgZones, useActiveTcMs } from "@/hooks/useOrgDirectory";
 import { useAuthUser } from "@/lib/auth-store";
 import { dispatch } from "@/lib/api/command-bus";
+import { api } from "@/lib/api/client";
 import { QUICKAD_NEED_OPTIONS, QUICKAD_ROOM_OPTIONS, QUICKAD_TYPE_OPTIONS, parseBudgetAmount } from "@/lib/quickad-shared";
 import type { ParsedLeadDraft } from "@/lib/lead-identity/types";
 import { toast } from "sonner";
@@ -24,7 +25,6 @@ import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 import { useApp } from "@/lib/store";
-import { usePipSafe } from "@/components/pip/PipProvider";
 import type { LeadStage, Intent } from "@/lib/types";
 
 const SAMPLE = `Hi team, new lead 👇
@@ -32,7 +32,7 @@ Rahul Sharma 9876543210
 Email: rahul@example.com
 Looking in HSR Layout, BTM, Koramangala
 Budget: 8-12k
-Move in: 30/04/2026
+Move in: 30/06/2026
 Working professional, private room, boys
 Currently in Bangalore`;
 
@@ -68,7 +68,6 @@ interface Props {
 }
 
 export function LeadPasteParser({ onDone }: Props) {
-  const checkDup = useIdentityStore((s) => s.checkDuplicates);
   const create = useIdentityStore((s) => s.createLead);
   const { members: orgMembers } = useOrgMembers();
   const { tcms: activeTcms } = useActiveTcMs();
@@ -182,6 +181,7 @@ export function LeadPasteParser({ onDone }: Props) {
   if (!areasText.trim()) errors.push("Areas");
   if (!budget.trim()) errors.push("Budget");
   if (!moveIn) errors.push("Move-in date");
+  if (moveIn && moveIn < todayIso()) errors.push("Future move-in date");
   if (!type) errors.push("Type");
   if (!room) errors.push("Room");
   if (!need) errors.push("Need");
@@ -192,21 +192,17 @@ export function LeadPasteParser({ onDone }: Props) {
   if (!stage) errors.push("Lead stage");
   const blocking = errors.length > 0;
 
+  const selectedAssignee = sortedMembers.find((m: any) => m.id === assigneeId)
+    ?? orgMembers.find((m) => m.id === assigneeId)
+    ?? (activeTcms || []).find((a: any) => a.id === assigneeId);
+
   const save = async () => {
     if (savingRef.current) return;
     if (blocking) {
       toast.error(`Fill all required fields: ${errors.slice(0, 3).join(", ")}${errors.length > 3 ? "…" : ""}`);
       return;
     }
-    const dup = checkDup({ name, phone, email, location: areasText });
-    if (dup.type === "exact" || dup.type === "strong") {
-      const existing = dup.candidates[0]?.lead;
-      toast.warning(`Possible duplicate: ${existing?.name ?? "existing lead"}. Verifying with server...`);
-    }
     const areasArr = areasText.split(",").map((a) => a.trim()).filter(Boolean);
-    const assignee = sortedMembers.find((m: any) => m.id === assigneeId)
-      ?? orgMembers.find((m) => m.id === assigneeId)
-      ?? (activeTcms || []).find((a: any) => a.id === assigneeId);
     const zoneObj = orgZones.find((z) => z.name === zoneBucket);
     const budgetNum = parseBudgetAmount(budget);
 
@@ -221,6 +217,7 @@ export function LeadPasteParser({ onDone }: Props) {
           phone: `+91${phoneClean}`,
           source: "paste",
           budget: budgetNum,
+          budgetText: budget.trim(),
           moveInDate: moveIn,
           preferredArea: areasArr[0] ?? areasText.trim(),
           zoneId: zoneObj?.id ?? null,
@@ -233,7 +230,7 @@ export function LeadPasteParser({ onDone }: Props) {
           specialReqs: specialReqs.trim(),
           notes: notes.trim(),
           zoneCategory: zoneBucket,
-          assigneeId: assignee?.id ?? null,
+          assigneeId: selectedAssignee?.id ?? null,
           stageLabel: stage,
         },
       });
@@ -253,7 +250,60 @@ export function LeadPasteParser({ onDone }: Props) {
     const isServerDuplicate = Boolean((result as any).data?.duplicate);
     if (isServerDuplicate) {
       const existingLeadId = (result as any).data?.leadId;
-      toast.warning(`Lead already exists${existingLeadId ? ` (ID: ${existingLeadId})` : ""}. No new lead was created.`);
+      if (existingLeadId) {
+        try {
+          if (selectedAssignee?.id) {
+            const assignResult = await dispatch({
+              type: "cmd.lead.assign",
+              payload: { leadId: existingLeadId, tcmId: selectedAssignee.id },
+            });
+            if (!assignResult.ok) {
+              toast.warning(`Lead already exists, but could not assign it: ${assignResult.error}`);
+            }
+          }
+          const existing = await api.leads.get(existingLeadId) as any;
+          addLead({
+            id: existing._id,
+            name: existing.name,
+            phone: existing.phone,
+            source: existing.source ?? "manual",
+            budget: Number(existing.budget ?? 0),
+            budgetText: existing.budgetText ?? "",
+            moveInDate: existing.moveInDate,
+            preferredArea: existing.preferredArea ?? existing.areas?.[0] ?? "",
+            assignedTcmId: existing.assignedTcmId ?? selectedAssignee?.id ?? "",
+            assigneeId: existing.assigneeId ?? existing.assignedTcmId ?? selectedAssignee?.id ?? null,
+            createdBy: existing.createdBy ?? null,
+            stage: (existing.stage ?? "new") as LeadStage,
+            intent: (existing.intent ?? "warm") as Intent,
+            confidence: Number(existing.confidence ?? 50),
+            tags: existing.tags ?? [],
+            nextFollowUpAt: existing.nextFollowUpAt ?? null,
+            responseSpeedMins: Number(existing.responseSpeedMins ?? 0),
+            createdAt: existing.createdAt,
+            updatedAt: existing.updatedAt,
+            email: existing.email ?? "",
+            areas: existing.areas ?? [],
+            fullAddress: existing.fullAddress ?? "",
+            type: existing.type ?? "",
+            room: existing.room ?? "",
+            need: existing.need ?? "",
+            inBLR: existing.inBLR ?? null,
+            quality: existing.quality ?? null,
+            specialReqs: existing.specialReqs ?? "",
+            notes: existing.notes ?? "",
+            zoneCategory: existing.zoneCategory ?? "",
+            stageLabel: existing.stageLabel ?? "",
+          });
+          toast.info(`This phone already exists. Added ${existing.name ?? "existing lead"} to Inbox.`);
+          reset();
+          onDone?.();
+        } catch {
+          toast.warning("This phone already exists, but the existing lead is outside your visible queue. No duplicate was created.");
+        }
+      } else {
+        toast.warning("This phone already exists. No duplicate lead was created.");
+      }
       return;
     }
 
@@ -283,8 +333,8 @@ export function LeadPasteParser({ onDone }: Props) {
         quality,
         stage,
         zoneCategory: zoneBucket,
-        assigneeId: assignee?.id ?? null,
-        assigneeName: assignee?.name ?? null,
+        assigneeId: selectedAssignee?.id ?? null,
+        assigneeName: selectedAssignee?.name ?? null,
       },
     );
 
@@ -296,10 +346,11 @@ export function LeadPasteParser({ onDone }: Props) {
       phone: `+91${phoneClean}`,
       source: "paste",
       budget: budgetNum,
+      budgetText: budget.trim(),
       moveInDate: moveIn,
       preferredArea: areasArr[0] ?? areasText.trim(),
-      assignedTcmId: assignee?.id ?? "",
-      assigneeId: assignee?.id ?? null,
+      assignedTcmId: selectedAssignee?.id ?? "",
+      assigneeId: selectedAssignee?.id ?? null,
       createdBy: authUser?.id ?? null,
       stage: "new",
       intent: (quality === "hot" ? "hot" : quality === "bad" ? "cold" : "warm") as Intent,
@@ -320,255 +371,252 @@ export function LeadPasteParser({ onDone }: Props) {
       zoneCategory: zoneBucket,
       stageLabel: stage,
     });
-    toast.success(`Lead saved · ${name.trim()}`);
+    toast.success(`Lead saved · assigned to ${selectedAssignee?.name ?? "Unassigned"}`);
     reset();
     onDone?.();
   };
 
   return (
-    <div className="grid items-start gap-3 xl:grid-cols-[300px_minmax(0,1fr)]">
-      <div className="space-y-3">
+    <div className="grid min-h-0 flex-1 items-stretch gap-3 overflow-hidden xl:grid-cols-[minmax(360px,1.05fr)_minmax(420px,1.2fr)_280px]">
+      <div className="min-h-0">
         {/* Paste box */}
-        <Card className="h-fit p-3 space-y-3 bg-muted/20">
-          <div className="space-y-2">
+        <Card className="flex h-full min-h-0 flex-col overflow-hidden border-border/80 bg-card shadow-sm">
+          <div className="border-b border-border bg-muted/25 px-3 py-2">
             <div className="flex items-center gap-2">
               <Wand2 className="h-4 w-4 text-primary" />
               <h3 className="font-semibold text-sm">Paste the lead</h3>
             </div>
-            <p className="text-[11px] leading-relaxed text-muted-foreground">
-              Paste a WhatsApp, portal, or call note. The form on the right will fill automatically.
-            </p>
-          </div>
-          <Button variant="outline" size="sm" className="w-full justify-center" onClick={() => setRaw(SAMPLE)}>
-            <Sparkles className="h-3 w-3 mr-1" /> Try sample
-          </Button>
-          <Textarea
-            ref={textRef}
-            value={raw}
-            onChange={(e) => setRaw(e.target.value)}
-            placeholder="Paste WhatsApp message, portal lead, email signature, anything…"
-            rows={5}
-            className="font-mono text-xs resize-none min-h-[130px]"
-          />
-          {parsedOnce && (
-            <p className="flex items-center gap-1 text-[11px] text-green-600">
-              <CheckCircle2 className="h-3 w-3" /> Parsed - review fields before saving
-            </p>
-          )}
-        </Card>
-
-        <Card className="h-fit p-3 space-y-3 [&_button]:min-h-0 [&_button]:text-[11px]">
-          <div>
-            <h3 className="font-semibold text-sm">Manual setup</h3>
             <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-              These are not detected from paste, so set them before saving.
+              Paste a WhatsApp, portal, or call note. Parsed fields appear on the right.
             </p>
           </div>
-
-          <LeftField label="Zone *">
-            {usePipSafe() ? (
-              <select
-                value={zoneBucket}
-                onChange={(e) => setZoneBucket(e.target.value)}
-                className="w-full h-9 text-sm rounded-md border px-3"
-              >
-                <option value="">{orgZones.length ? "Select zone…" : "No zones configured"}</option>
-                {sortedZones.map((z) => <option key={z.id} value={z.name}>{z.name}</option>)}
-              </select>
-            ) : (
-              <Select value={zoneBucket} onValueChange={(v) => setZoneBucket(v)}>
-                <SelectTrigger className="w-full h-9 text-xs">
-                  <SelectValue placeholder={orgZones.length ? "Select zone…" : "No zones configured"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {sortedZones.map((z) => <SelectItem key={z.id} value={z.name}>{z.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+          <div className="flex min-h-0 flex-1 flex-col gap-2 p-3">
+            <Button variant="outline" size="sm" className="w-full justify-center" onClick={() => setRaw(SAMPLE)}>
+              <Sparkles className="h-3 w-3 mr-1" /> Try sample
+            </Button>
+            <Textarea
+              ref={textRef}
+              value={raw}
+              onChange={(e) => setRaw(e.target.value)}
+              placeholder="Paste WhatsApp message, portal lead, email signature, anything..."
+              rows={9}
+              className="min-h-[360px] flex-1 resize-none rounded-lg bg-background font-mono text-sm leading-relaxed"
+            />
+            {parsedOnce && (
+              <p className="flex items-center gap-1 rounded-md bg-success/10 px-2 py-1 text-[11px] text-success">
+                <CheckCircle2 className="h-3 w-3" /> Parsed. Review before saving.
+              </p>
             )}
-          </LeftField>
-
-          <LeftField label="Assign Member *">
-            {usePipSafe() ? (
-              <select value={assigneeId} onChange={(e) => setAssigneeId(e.target.value)} className="w-full h-9 text-sm rounded-md border px-3">
-                <option value="">{orgMembers.length ? "Select member…" : "No members yet"}</option>
-                {sortedMembers.map((m) => (
-                  <option key={m.id} value={m.id}>{m.name}</option>
-                ))}
-              </select>
-            ) : (
-              <Select value={assigneeId} onValueChange={(v) => setAssigneeId(v)}>
-                <SelectTrigger className="w-full h-9 text-xs">
-                  <SelectValue placeholder={orgMembers.length ? "Select member…" : "No members yet"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {sortedMembers.map((m) => (
-                    <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          </LeftField>
-
-          <LeftField label="Lead Stage">
-            {usePipSafe() ? (
-              <select value={stage} onChange={(e) => setStage(e.target.value)} className="w-full h-9 text-sm rounded-md border px-3">
-                <option value="">Select stage…</option>
-                {sortedStages.map((s) => <option key={s} value={s}>{s}</option>)}
-              </select>
-            ) : (
-              <Select value={stage} onValueChange={(v) => setStage(v)}>
-                <SelectTrigger className="w-full h-9 text-xs">
-                  <SelectValue placeholder="Select stage…" />
-                </SelectTrigger>
-                <SelectContent>
-                  {sortedStages.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            )}
-          </LeftField>
+          </div>
         </Card>
       </div>
 
       {/* Full Quick-Add field set (always visible so the person fills missing pieces) */}
-      <Card className="h-fit p-3 space-y-3 [&_input]:h-8 [&_input]:text-xs [&_button]:min-h-0 [&_button]:text-[11px] [&_textarea]:text-xs">
-        <div className="flex items-center justify-between gap-2">
-          <h3 className="font-semibold text-sm">Review & complete</h3>
+      <Card className="flex min-h-0 flex-col overflow-hidden border-border/80 bg-card shadow-sm [&_input]:h-8 [&_input]:text-xs [&_button]:min-h-0 [&_button]:text-[11px] [&_textarea]:text-xs">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-muted/20 px-4 py-2">
+          <div>
+            <h3 className="font-semibold text-sm">Review & complete</h3>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">
+              Confirm lead identity, requirement, preferences, and routing before it enters Inbox.
+            </p>
+          </div>
           {blocking ? (
-            <span className="flex items-center gap-1 text-xs text-destructive">
+            <span className="flex shrink-0 items-center gap-1 rounded-full border border-destructive/30 bg-destructive/10 px-2.5 py-1 text-xs text-destructive">
               <AlertCircle className="h-3 w-3" /> {errors.length} required
             </span>
           ) : (
-            <span className="flex items-center gap-1 text-xs text-green-600">
-              <CheckCircle2 className="h-3 w-3" /> Ready to save
+            <span className="flex shrink-0 items-center gap-1 rounded-full border border-success/30 bg-success/10 px-2.5 py-1 text-xs text-success">
+              <CheckCircle2 className="h-3 w-3" /> Ready
             </span>
           )}
         </div>
 
-        <div className="space-y-3">
-          <FormGroup title="Contact">
-          <Field label="Name *">
-            <div className="relative">
-              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Rahul Sharma" />
-              {parsedOnce && lastParsedConfidence.name && (
-                <div className="absolute right-1.5 top-1/2 -translate-y-1/2">
-                  {lastParsedConfidence.name >= 0.8 ? (
-                    <Badge className="text-[9px] bg-green-500">✓ High</Badge>
-                  ) : lastParsedConfidence.name >= 0.6 ? (
-                    <Badge variant="secondary" className="text-[9px]">~ Medium</Badge>
-                  ) : (
-                    <Badge variant="outline" className="text-[9px]">? Low</Badge>
+        <div className="min-h-0 flex-1 p-3">
+          <div className="grid h-full min-h-0 grid-cols-2 grid-rows-2 gap-2">
+            <FormGroup title="Contact">
+              <Field label="Name *">
+                <div className="relative">
+                  <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Rahul Sharma" />
+                  {parsedOnce && lastParsedConfidence.name && (
+                    <div className="absolute right-1.5 top-1/2 -translate-y-1/2">
+                      {lastParsedConfidence.name >= 0.8 ? (
+                        <Badge className="text-[9px] bg-green-500">✓ High</Badge>
+                      ) : lastParsedConfidence.name >= 0.6 ? (
+                        <Badge variant="secondary" className="text-[9px]">~ Medium</Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-[9px]">? Low</Badge>
+                      )}
+                    </div>
                   )}
                 </div>
-              )}
+              </Field>
+              <Field label="Phone *">
+                <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="98xxxxxxxx" inputMode="tel"
+                  className={cn(!phoneValid && phone ? "border-destructive" : "")} />
+              </Field>
+              <Field label="Email">
+                <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.com" inputMode="email" />
+              </Field>
+              <Field label="Areas *">
+                <div className="relative">
+                  <Input
+                    value={areasText}
+                    onChange={(e) => setAreasText(e.target.value)}
+                    placeholder="HSR, BTM, Koramangala"
+                  />
+                  {detectedZone && (
+                    <Badge variant="secondary" className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px]">
+                      {detectedZone}
+                    </Badge>
+                  )}
+                </div>
+              </Field>
+            </FormGroup>
+
+            <FormGroup title="Requirement">
+              <Field label="Budget">
+                <Input value={budget} onChange={(e) => setBudget(e.target.value)} placeholder="8-12k" />
+              </Field>
+              <Field label="Move-in">
+                <Input
+                  type="date"
+                  min={todayIso()}
+                  value={moveIn}
+                  onChange={(e) => setMoveIn(e.target.value)}
+                  className={cn(moveIn && moveIn < todayIso() ? "border-destructive" : "")}
+                />
+              </Field>
+              <Field label="Address / map">
+                <Input
+                  value={fullAddress}
+                  onChange={(e) => setFullAddress(e.target.value)}
+                  placeholder="Door, landmark or Maps URL"
+                />
+              </Field>
+              <Field label="Type">
+                <ChipGroup options={QUICKAD_TYPE_OPTIONS} value={type} onChange={setType} />
+              </Field>
+            </FormGroup>
+
+            <FormGroup title="Preferences">
+              <Field label="Room">
+                <ChipGroup options={QUICKAD_ROOM_OPTIONS} value={room} onChange={setRoom} />
+              </Field>
+              <Field label="Need">
+                <ChipGroup options={QUICKAD_NEED_OPTIONS} value={need} onChange={setNeed} />
+              </Field>
+              <Field label="Currently in Bangalore?">
+                <ChipGroup
+                  options={BLR_OPTS.map((o) => o.label)}
+                  value={BLR_OPTS.find((o) => o.v === inBLR)?.label ?? ""}
+                  onChange={(label) => {
+                    const opt = BLR_OPTS.find((o) => o.label === label);
+                    if (opt !== undefined) setInBLR(opt.v);
+                  }}
+                />
+              </Field>
+              <Field label="Lead Quality">
+                <ChipGroup
+                  options={QUALITY_OPTS.map((o) => o.label)}
+                  value={QUALITY_OPTS.find((o) => o.v === quality)?.label ?? ""}
+                  onChange={(label) => setQuality(QUALITY_OPTS.find((o) => o.label === label)?.v ?? null)}
+                />
+              </Field>
+            </FormGroup>
+
+            <FormGroup title="Notes">
+              <Field label="Requests">
+                <Textarea
+                  value={specialReqs}
+                  onChange={(e) => setSpecialReqs(e.target.value)}
+                  rows={1}
+                  placeholder="Veg, attached washroom, top floor..."
+                  className="min-h-[38px] resize-none"
+                />
+              </Field>
+              <Field label="Internal notes">
+                <Textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  rows={1}
+                  placeholder="Internal notes for TCM..."
+                  className="min-h-[38px] resize-none"
+                />
+              </Field>
+            </FormGroup>
+          </div>
+
+          {blocking && (
+            <div className="mt-2 truncate rounded-md border border-destructive/20 bg-destructive/5 px-3 py-1.5 text-[11px] text-destructive">
+              Missing: {errors.join(", ")}
             </div>
-          </Field>
-          <Field label="Phone *">
-            <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="98xxxxxxxx" inputMode="tel"
-              className={cn(!phoneValid && phone ? "border-destructive" : "")} />
-          </Field>
+          )}
+        </div>
+      </Card>
 
-          <Field label="Email">
-            <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.com" inputMode="email" />
-          </Field>
+      <Card className="flex min-h-0 flex-col overflow-hidden border-border/80 bg-card shadow-sm [&_button]:min-h-0 [&_button]:text-[11px]">
+        <div className="border-b border-border bg-muted/25 px-3 py-2">
+          <h3 className="font-semibold text-sm">Manual setup</h3>
+          <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+            Choose routing, assignee, and stage before saving.
+          </p>
+        </div>
+        <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
+          <LeftField label="Zone *">
+            <Select value={zoneBucket} onValueChange={(v) => setZoneBucket(v)}>
+              <SelectTrigger className="h-8 w-full text-xs">
+                <SelectValue placeholder={orgZones.length ? "Select zone..." : "No zones configured"} />
+              </SelectTrigger>
+              <SelectContent>
+                {sortedZones.map((z) => <SelectItem key={z.id} value={z.name}>{z.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </LeftField>
 
-          <Field label="Areas *">
-            <div className="relative">
-              <Input
-                value={areasText}
-                onChange={(e) => setAreasText(e.target.value)}
-                placeholder="HSR, BTM, Koramangala"
-              />
-              {detectedZone && (
-                <Badge variant="secondary" className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px]">
-                  {detectedZone}
-                </Badge>
-              )}
-            </div>
-            {areasText.includes(",") && (
-              <p className="text-[10px] text-primary mt-1 flex items-center gap-1">
-                <MapPin className="h-2.5 w-2.5" /> Multiple Areas Detected
-              </p>
-            )}
-          </Field>
-          </FormGroup>
+          <LeftField label="Assign member *">
+            <Select value={assigneeId} onValueChange={(v) => setAssigneeId(v)}>
+              <SelectTrigger className="h-8 w-full text-xs">
+                <SelectValue placeholder={orgMembers.length ? "Select member..." : "No members yet"} />
+              </SelectTrigger>
+              <SelectContent>
+                {sortedMembers.map((m) => (
+                  <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </LeftField>
 
-          <FormGroup title="Requirement">
-          <Field label="Budget">
-            <Input value={budget} onChange={(e) => setBudget(e.target.value)} placeholder="8-12k" />
-          </Field>
-          <Field label="Move-in">
-            <Input type="date" value={moveIn} onChange={(e) => setMoveIn(e.target.value)} />
-          </Field>
+          <div className="rounded-md border border-primary/20 bg-primary/5 px-2 py-1.5 text-[11px]">
+            <div className="text-muted-foreground">Lead will be assigned to</div>
+            <div className="font-semibold text-foreground">{selectedAssignee?.name ?? "Unassigned"}</div>
+          </div>
 
-          <Field label="Address / map">
-            <Input
-              value={fullAddress}
-              onChange={(e) => setFullAddress(e.target.value)}
-              placeholder="Door, landmark or Maps URL"
-            />
-          </Field>
-
-          <Field label="Type">
-            <ChipGroup options={QUICKAD_TYPE_OPTIONS} value={type} onChange={setType} />
-          </Field>
-          <Field label="Room">
-            <ChipGroup options={QUICKAD_ROOM_OPTIONS} value={room} onChange={setRoom} />
-          </Field>
-          <Field label="Need">
-            <ChipGroup options={QUICKAD_NEED_OPTIONS} value={need} onChange={setNeed} />
-          </Field>
-          <Field label="Currently in Bangalore?">
-            <ChipGroup
-              options={BLR_OPTS.map((o) => o.label)}
-              value={BLR_OPTS.find((o) => o.v === inBLR)?.label ?? ""}
-              onChange={(label) => {
-                const opt = BLR_OPTS.find((o) => o.label === label);
-                if (opt !== undefined) setInBLR(opt.v);
-              }}
-            />
-          </Field>
-
-          <Field label="Lead Quality">
-            <ChipGroup
-              options={QUALITY_OPTS.map((o) => o.label)}
-              value={QUALITY_OPTS.find((o) => o.v === quality)?.label ?? ""}
-              onChange={(label) => setQuality(QUALITY_OPTS.find((o) => o.label === label)?.v ?? null)}
-            />
-          </Field>
-          </FormGroup>
-
-          <FormGroup title="Notes">
-          <Field label="Requests">
-            <Textarea
-              value={specialReqs}
-              onChange={(e) => setSpecialReqs(e.target.value)}
-              rows={1}
-              placeholder="Veg · attached washroom…"
-              className="resize-none min-h-8"
-            />
-          </Field>
-
-          <Field label="Internal notes">
-            <Textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={1}
-              placeholder="Internal notes…"
-              className="resize-none min-h-8"
-            />
-          </Field>
-          </FormGroup>
+          <LeftField label="Lead stage">
+            <Select value={stage} onValueChange={(v) => setStage(v)}>
+              <SelectTrigger className="h-8 w-full text-xs">
+                <SelectValue placeholder="Select stage..." />
+              </SelectTrigger>
+              <SelectContent>
+                {sortedStages.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </LeftField>
         </div>
 
-        {blocking && (
-          <div className="truncate text-[11px] text-destructive">
-            Missing: {errors.join(", ")}
+        <div className="space-y-2 border-t bg-muted/15 p-3">
+          {blocking ? (
+            <div className="rounded-md border border-destructive/20 bg-destructive/5 px-2 py-1.5 text-[11px] text-destructive">
+              {errors.length} fields still needed.
+            </div>
+          ) : (
+            <div className="rounded-md border border-success/20 bg-success/10 px-2 py-1.5 text-[11px] text-success">
+              Ready to save into Inbox.
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-2">
+            <Button variant="outline" size="sm" onClick={reset} disabled={saving}>Clear</Button>
+            <Button size="sm" disabled={blocking || saving} onClick={save}>{saving ? "Saving..." : "Save lead"}</Button>
           </div>
-        )}
-
-        <div className="flex justify-end gap-2 pt-1.5 border-t">
-          <Button variant="ghost" size="sm" onClick={reset} disabled={saving}>Clear</Button>
-          <Button size="sm" disabled={blocking || saving} onClick={save}>{saving ? "Saving…" : "Save lead"}</Button>
         </div>
       </Card>
     </div>
@@ -577,8 +625,8 @@ export function LeadPasteParser({ onDone }: Props) {
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="space-y-1">
-      <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</Label>
+    <div className="space-y-0.5">
+      <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</Label>
       {children}
     </div>
   );
@@ -586,20 +634,26 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 function LeftField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-1">
       <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</Label>
       {children}
     </div>
   );
 }
 
-function FormGroup({ title, children }: { title: string; children: React.ReactNode }) {
+function FormGroup({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
-    <section className="space-y-1.5">
-      <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+    <section className="min-h-0 overflow-hidden rounded-xl border border-border/80 bg-background/70 p-2 shadow-[0_1px_0_rgba(15,23,42,0.03)]">
+      <div className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
         {title}
       </div>
-      <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-1">
         {children}
       </div>
     </section>
@@ -612,14 +666,14 @@ function ChipGroup<T extends string>({ options, value, onChange }: {
   onChange: (v: string) => void;
 }) {
   return (
-    <div className="flex flex-wrap gap-1.5">
+    <div className="flex flex-wrap gap-1">
       {options.map((o) => (
         <button
           type="button"
           key={o}
           onClick={() => onChange(value === o ? "" : o)}
           className={cn(
-            "px-2 py-1 rounded-md border text-[11px] transition-colors",
+            "rounded-md border px-2 py-0.5 text-[10px] transition-colors",
             value === o
               ? "bg-primary text-primary-foreground border-primary"
               : "bg-background border-border hover:bg-muted",
