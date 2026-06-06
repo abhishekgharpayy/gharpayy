@@ -70,6 +70,9 @@ import {
   Trophy,
   Search,
   Star,
+  ExternalLink,
+  Send,
+  Sparkles,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { formatTime12h } from "@/lib/utils";
@@ -1252,6 +1255,12 @@ export function LeadControlPanel() {
                   );
                 }
                 const prop = getProperty(target.propertyId, properties);
+                const postTourPropertyName =
+                  prop?.name ??
+                  (target as any).propertyName ??
+                  target.customPropertyName ??
+                  lead.propertyName ??
+                  "Property not selected";
                 const pt = target.postTour;
                 const applyPostTourOutcome = async (outcome: NonNullable<typeof pt.outcome>) => {
                   const nowIso = new Date().toISOString();
@@ -1304,7 +1313,9 @@ export function LeadControlPanel() {
                       <div className="mb-3 grid grid-cols-3 gap-2 text-xs">
                         <div className="rounded-md bg-muted/50 px-3 py-2">
                           <div className="text-muted-foreground">Property</div>
-                          <div className="truncate font-medium">{prop?.name ?? "Property"}</div>
+                          <div className="truncate font-medium" title={postTourPropertyName}>
+                            {postTourPropertyName}
+                          </div>
                         </div>
                         <div className="rounded-md bg-muted/50 px-3 py-2">
                           <div className="text-muted-foreground">Tour time</div>
@@ -1331,55 +1342,10 @@ export function LeadControlPanel() {
                         </Button>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-2">
-                        {(
-                          [
-                            {
-                              o: "booked",
-                              label: "Booked",
-                              hint: "Ready for quote",
-                            },
-                            {
-                              o: "thinking",
-                              label: "Still deciding",
-                              hint: "Move to negotiation",
-                            },
-                            {
-                              o: "not-interested",
-                              label: "Not interested",
-                              hint: "Drop this lead",
-                            },
-                            {
-                              o: "awaiting",
-                              label: "Awaiting outcome",
-                              hint: "Save follow-up",
-                            },
-                          ] as const
-                        ).map((opt) => {
-                          const selected = pt.outcome === opt.o;
-                          return (
-                            <Button
-                              key={opt.o}
-                              variant={selected ? "default" : "outline"}
-                              size="sm"
-                              className="h-auto min-h-12 whitespace-normal flex-col items-start justify-center gap-0.5 px-3 text-left"
-                              onClick={async () => {
-                                try {
-                                  await applyPostTourOutcome(opt.o);
-                                } catch (error) {
-                                  toast.error(error instanceof Error ? error.message : "Post-tour action failed");
-                                }
-                              }}
-                            >
-                              <span className="w-full text-sm font-medium">{opt.label}</span>
-                              <span className={`w-full break-words text-xs leading-snug ${selected ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
-                                {opt.hint}
-                              </span>
-                            </Button>
-                          );
-                        })}
-                      </div>
                     </Section>
+
+                    {/* ── SCORECARD ─────────────────────────────────────── */}
+                    <PostTourScorecard tourId={target.id} />
 
                     <Section title={`Deal confidence - ${pt.confidence}%`}>
                       <input
@@ -1450,6 +1416,119 @@ export function LeadControlPanel() {
                       </Section>
                     </div>
 
+                    {/* ── PROPERTY RATING + BOOKING PROBABILITY ─────── */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <Section title="Property rating (1–10)">
+                        <Input
+                          type="number"
+                          min={1}
+                          max={10}
+                          placeholder="—"
+                          value={(pt as any).propertyRating ?? ""}
+                          onChange={(e) =>
+                            updatePostTour(target.id, {
+                              ...(pt as any),
+                              propertyRating: e.target.value ? +e.target.value : null,
+                            } as any)
+                          }
+                          className="h-11 text-sm rounded-xl"
+                        />
+                      </Section>
+                      <Section title="Booking probability (%)">
+                        <Input
+                          type="number"
+                          min={0}
+                          max={100}
+                          placeholder="—"
+                          value={(pt as any).bookingProbability ?? ""}
+                          onChange={(e) =>
+                            updatePostTour(target.id, {
+                              ...(pt as any),
+                              bookingProbability: e.target.value ? +e.target.value : null,
+                            } as any)
+                          }
+                          className="h-11 text-sm rounded-xl"
+                        />
+                      </Section>
+                    </div>
+
+                    {/* ── BIGGEST OBJECTION + EXPECTED BOOKING DATE ───── */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <Section title="Biggest objection">
+                        <Select
+                          value={pt.objection ?? ""}
+                          onValueChange={(v) => updatePostTour(target.id, { objection: v })}
+                        >
+                          <SelectTrigger className="h-11 text-sm rounded-xl">
+                            <SelectValue placeholder="—" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {OBJECTIONS.map((o) => (
+                              <SelectItem key={o} value={o} className="text-sm">{o}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </Section>
+                      <Section title="Expected booking date">
+                        <Input
+                          type="date"
+                          value={pt.expectedDecisionAt ? pt.expectedDecisionAt.slice(0, 10) : ""}
+                          onChange={(e) =>
+                            updatePostTour(target.id, {
+                              expectedDecisionAt: e.target.value
+                                ? new Date(e.target.value).toISOString()
+                                : null,
+                            })
+                          }
+                          className="h-11 text-sm rounded-xl"
+                        />
+                      </Section>
+                    </div>
+
+                    {/* ── ACTION BUTTONS ───────────────────────────────── */}
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1 gap-1.5 text-xs h-9"
+                        onClick={() => {
+                          const msg = `Hi ${lead.name.split(" ")[0]}, thank you for visiting ${prop?.name ?? "our property"} today! Hope you enjoyed the tour. Let us know if you have any questions 😊`;
+                          window.open(`https://wa.me/${lead.phone.replace(/\D/g, "")}?text=${encodeURIComponent(msg)}`, "_blank", "noopener,noreferrer");
+                        }}
+                      >
+                        <ExternalLink className="h-3 w-3" /> Thank-you msg
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1 gap-1.5 text-xs h-9"
+                        onClick={() => {
+                          const msg = `Hi ${lead.name.split(" ")[0]}, just wanted to follow up on your visit to ${prop?.name ?? "the property"}. Have you had a chance to think about it?`;
+                          window.open(`https://wa.me/${lead.phone.replace(/\D/g, "")}?text=${encodeURIComponent(msg)}`, "_blank", "noopener,noreferrer");
+                        }}
+                      >
+                        <Send className="h-3 w-3" /> Send update
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1 gap-1.5 text-xs h-9"
+                        onClick={() => {
+                          const dueAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+                          setLeadFollowUp(lead.id, dueAt, priorityFor(pt.confidence), "Post-tour follow-up reminder");
+                          toast.success("Reminder set for tomorrow");
+                        }}
+                      >
+                        <BellRing className="h-3 w-3" /> Set reminder
+                      </Button>
+                    </div>
+
+                    <PostTourOutcomeActions
+                      tourId={target.id}
+                      pt={pt}
+                      onApply={applyPostTourOutcome}
+                    />
+
                     {pt.filledAt ? (
                       <div className="rounded-lg border border-success/30 bg-success/5 p-3 flex items-center gap-2 text-xs">
                         <CheckCircle2 className="h-4 w-4 text-success" />
@@ -1467,26 +1546,6 @@ export function LeadControlPanel() {
                       </div>
                     )}
 
-                    {!pt.filledAt && pt.outcome && (
-                      <Button
-                        size="lg"
-                        className="w-full"
-                        disabled={!pt.outcome}
-                        onClick={async () => {
-                          if (!pt.outcome) {
-                            toast.error("Select a post-tour outcome first");
-                            return;
-                          }
-                          try {
-                            await applyPostTourOutcome(pt.outcome);
-                          } catch (error) {
-                            toast.error(error instanceof Error ? error.message : "Post-tour action failed");
-                          }
-                        }}
-                      >
-                        Apply selected outcome
-                      </Button>
-                    )}
                     {lead.stage === "booked" && (
                       <div className="rounded-lg border border-success/40 bg-success/10 p-3 flex items-center gap-2 text-sm">
                         <CheckCircle2 className="h-5 w-5 text-success" />
@@ -3049,6 +3108,201 @@ function InlineScheduleTour({
           </Button>
         </div>
       </div>
+    </Section>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   POST-TOUR SCORECARD
+   5 quick-tap sections matching the design: Property Fit, Budget Fit,
+   Location Fit, Decision Readiness, Move-in Urgency.
+   Stored in component local state (session-only — lightweight signal for TCM).
+───────────────────────────────────────────────────────────────────────────── */
+
+type ScoreState = {
+  propertyFit: string;
+  budgetFit: string;
+  locationFit: string;
+  decisionReadiness: string;
+  moveInUrgency: string;
+};
+
+const SCORECARD_SECTIONS: Array<{
+  key: keyof ScoreState;
+  label: string;
+  options: string[];
+}> = [
+  {
+    key: "propertyFit",
+    label: "Property fit",
+    options: ["Perfect — loved it", "Liked, few concerns", "Did not like"],
+  },
+  {
+    key: "budgetFit",
+    label: "Budget fit",
+    options: ["Within budget", "Slightly above", "Budget objection"],
+  },
+  {
+    key: "locationFit",
+    label: "Location fit",
+    options: ["Near office/college", "Slightly far · OK", "Travel concern", "Wrong area"],
+  },
+  {
+    key: "decisionReadiness",
+    label: "Decision readiness",
+    options: [
+      "Self · can book now",
+      "Parent approval pending",
+      "Group decision pending",
+      "Company approval pending",
+    ],
+  },
+  {
+    key: "moveInUrgency",
+    label: "Move-in urgency",
+    options: [
+      "0–3 days · immediate",
+      "4–7 days · high intent",
+      "8–15 days · medium",
+      "15+ days · future",
+    ],
+  },
+];
+
+// Per-tour scorecard store (localStorage, keyed by tourId)
+function useTourScorecard(tourId: string) {
+  const storageKey = `gh-scorecard-${tourId}`;
+  const [score, setScore] = useState<ScoreState>(() => {
+    try {
+      const raw = localStorage.getItem(storageKey);
+      return raw ? JSON.parse(raw) : { propertyFit: "", budgetFit: "", locationFit: "", decisionReadiness: "", moveInUrgency: "" };
+    } catch {
+      return { propertyFit: "", budgetFit: "", locationFit: "", decisionReadiness: "", moveInUrgency: "" };
+    }
+  });
+
+  const pick = (key: keyof ScoreState, value: string) => {
+    const next = { ...score, [key]: score[key] === value ? "" : value };
+    setScore(next);
+    try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch {}
+  };
+
+  const filledCount = Object.values(score).filter(Boolean).length;
+  const pct = Math.round((filledCount / SCORECARD_SECTIONS.length) * 100);
+
+  return { score, pick, filledCount, pct };
+}
+
+function PostTourScorecard({ tourId }: { tourId: string }) {
+  const { score, pick, pct } = useTourScorecard(tourId);
+
+  return (
+    <div className="space-y-2">
+      {SCORECARD_SECTIONS.map((sec, i) => (
+        <div key={sec.key} className="rounded-xl border border-border p-3 space-y-2">
+          <div className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
+            {i + 1} · {sec.label}
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {sec.options.map((opt) => {
+              const selected = score[sec.key] === opt;
+              return (
+                <button
+                  key={opt}
+                  type="button"
+                  onClick={() => pick(sec.key, opt)}
+                  className={cn(
+                    "rounded-full border px-3 py-1 text-xs transition-colors",
+                    selected
+                      ? "bg-foreground text-background border-foreground font-medium"
+                      : "border-border bg-background text-foreground hover:bg-muted/50",
+                  )}
+                >
+                  {opt}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+      {/* progress hint */}
+      {pct > 0 && pct < 100 && (
+        <p className="text-[10px] text-muted-foreground pl-1">{pct}% of scorecard filled</p>
+      )}
+    </div>
+  );
+}
+
+function PostTourOutcomeActions({
+  tourId,
+  pt,
+  onApply,
+}: {
+  tourId: string;
+  pt: {
+    outcome: string | null;
+    confidence: number;
+    objection: string | null;
+    expectedDecisionAt: string | null;
+    nextFollowUpAt: string | null;
+    filledAt: string | null;
+  };
+  onApply: (outcome: "booked" | "thinking" | "not-interested" | "awaiting") => Promise<void>;
+}) {
+  const { filledCount, pct } = useTourScorecard(tourId);
+  const scorecardComplete = filledCount === SCORECARD_SECTIONS.length;
+  const formReady =
+    scorecardComplete &&
+    pt.confidence > 0 &&
+    Boolean(pt.objection) &&
+    Boolean(pt.expectedDecisionAt) &&
+    Boolean(pt.nextFollowUpAt);
+  const remaining: string[] = [];
+  if (!scorecardComplete) remaining.push("scorecard");
+  if (pt.confidence <= 0) remaining.push("confidence");
+  if (!pt.objection) remaining.push("objection");
+  if (!pt.expectedDecisionAt) remaining.push("expected date");
+  if (!pt.nextFollowUpAt) remaining.push("follow-up");
+  const options = [
+    { o: "booked" as const, label: "Booked", hint: "Ready for quote" },
+    { o: "thinking" as const, label: "Still deciding", hint: "Move to negotiation" },
+    { o: "not-interested" as const, label: "Not interested", hint: "Drop this lead" },
+    { o: "awaiting" as const, label: "Awaiting outcome", hint: "Save follow-up" },
+  ];
+
+  return (
+    <Section title="Outcome">
+      <div className="grid grid-cols-2 gap-2">
+        {options.map((opt) => {
+          const selected = pt.outcome === opt.o;
+          return (
+            <Button
+              key={opt.o}
+              variant={selected ? "default" : "outline"}
+              size="sm"
+              disabled={!formReady || Boolean(pt.filledAt)}
+              className="h-auto min-h-12 whitespace-normal flex-col items-start justify-center gap-0.5 px-3 text-left disabled:opacity-55"
+              onClick={async () => {
+                try {
+                  await onApply(opt.o);
+                } catch (error) {
+                  toast.error(error instanceof Error ? error.message : "Post-tour action failed");
+                }
+              }}
+            >
+              <span className="w-full text-sm font-medium">{opt.label}</span>
+              <span className={`w-full break-words text-xs leading-snug ${selected ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
+                {opt.hint}
+              </span>
+            </Button>
+          );
+        })}
+      </div>
+      {!formReady && !pt.filledAt && (
+        <div className="rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-muted-foreground">
+          Complete {remaining.join(", ")} before selecting the final outcome. Scorecard is {pct}% filled.
+        </div>
+      )}
     </Section>
   );
 }
