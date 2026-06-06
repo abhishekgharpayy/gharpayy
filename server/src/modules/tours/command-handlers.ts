@@ -201,6 +201,13 @@ export async function applyTourCommand(cmd: Command, user: JwtClaims) {
         { $set: { ...(p.patch as any), updatedAt: now } }
       );
 
+      if ((p.patch as any).status === "no-show" && (tour as any).leadId) {
+        await col<Lead>("leads").updateOne(
+          { _id: (tour as any).leadId, tenantId: user.tenantId },
+          { $set: { stage: "contacted", updatedAt: now } },
+        );
+      }
+
       await emit({
         _id: newEventId(),
         type: "evt.tour.updated",
