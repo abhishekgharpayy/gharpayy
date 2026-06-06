@@ -41,6 +41,7 @@ import { useLeadInterests, useToggleInterest } from "@/lib/crm10x/lead-interests
 import { useCRM10x } from "@/lib/crm10x/store";
 import { useCheckin, useUpsertCheckin, usePatchCheckin, STAGE_LABEL, riskLevel, RISK_CLASS, RISK_LABEL, type CheckIn } from "@/lib/checkins/store";
 import type { ActivityLog, Lead, Property, TCM, Tour } from "@/lib/types";
+import { scarcity } from "@/supply-hub/lib/intel";
 import {
   resolvePropertyById,
   searchPropertyCatalog,
@@ -874,30 +875,34 @@ export function ImpactQueue() {
         </div>
 
         <div className="border-t border-border/70 bg-background px-3 py-2">
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="grid gap-2 lg:grid-cols-2 lg:items-stretch">
             <FocusInventoryStrip tcmFilter={tcmFilter} tcmOptions={tcmOptions} />
-            <div className="flex flex-wrap items-center gap-1.5 basis-full">
-              <Chip active={chipFilter === "all"} onClick={() => selectChip("all")}>All</Chip>
-              <Chip active={chipFilter === "hot"} onClick={() => selectChip("hot")} tone="danger"><Flame className="h-3 w-3" /> Hot</Chip>
-              <Chip active={chipFilter === "warm"} onClick={() => selectChip("warm")} tone="warning">Warm</Chip>
-              <Chip active={chipFilter === "cold"} onClick={() => selectChip("cold")}>Cold</Chip>
-              <Chip active={chipFilter === "overdue"} onClick={() => selectChip("overdue")} tone="danger">
-                Overdue only
-              </Chip>
-              <MoreFiltersMenu
-                activeFilter={chipFilter}
-                onSelectFilter={selectChip}
-                tcmOptions={tcmOptions}
-              />
+            <div className="rounded-lg border border-border bg-card px-3 py-2 min-w-0">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <Chip active={chipFilter === "all"} onClick={() => selectChip("all")}>All</Chip>
+                <Chip active={chipFilter === "hot"} onClick={() => selectChip("hot")} tone="danger"><Flame className="h-3 w-3" /> Hot</Chip>
+                <Chip active={chipFilter === "warm"} onClick={() => selectChip("warm")} tone="warning">Warm</Chip>
+                <Chip active={chipFilter === "cold"} onClick={() => selectChip("cold")}>Cold</Chip>
+                <Chip active={chipFilter === "overdue"} onClick={() => selectChip("overdue")} tone="danger">
+                  Overdue only
+                </Chip>
+                <MoreFiltersMenu
+                  activeFilter={chipFilter}
+                  onSelectFilter={selectChip}
+                  tcmOptions={tcmOptions}
+                />
+              </div>
+              <div className="mt-2 flex flex-wrap items-center justify-end gap-2 border-t border-border/60 pt-2">
+                <span className="whitespace-nowrap text-[10px] text-muted-foreground">
+                  {filtered.length} lead{filtered.length !== 1 ? "s" : ""} in queue
+                </span>
+                {view === "board" && (
+                  <span className="whitespace-nowrap text-[10px] text-muted-foreground">
+                    Drag cards to move stage.
+                  </span>
+                )}
+              </div>
             </div>
-            <span className="ml-auto whitespace-nowrap text-[10px] text-muted-foreground">
-              {filtered.length} lead{filtered.length !== 1 ? "s" : ""} in queue
-            </span>
-            {view === "board" && (
-              <span className="whitespace-nowrap text-[10px] text-muted-foreground">
-                Drag cards to move stage.
-              </span>
-            )}
           </div>
         </div>
       </div>
@@ -3253,6 +3258,36 @@ function tmZone(t: any): string {
   return "";
 }
 
+function catalogVacantBeds(property: CatalogProperty): number {
+  if (property.source === "ops") return Number(property.vacantBeds ?? 0) || 0;
+  if (!property.pg) return 0;
+  const live = scarcity(property.pg).perBed;
+  return Object.values(live).reduce((sum, count) => sum + (count ?? 0), 0);
+}
+
+function catalogTotalBeds(property: CatalogProperty): number | null {
+  if (property.source === "ops") return Number(property.totalBeds ?? 0) || null;
+  if (!property.pg) return null;
+  return [property.pg.prices.single, property.pg.prices.double, property.pg.prices.triple]
+    .filter((price) => price > 0).length;
+}
+
+function normalizeInventoryText(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function propertyMatchesTcmZone(property: CatalogProperty, tcm: any): boolean {
+  const zoneText = normalizeInventoryText(tmZone(tcm));
+  if (!zoneText) return false;
+  const propertyText = normalizeInventoryText([
+    property.area,
+    property.name,
+    property.pg?.locality,
+    property.ops?.area,
+  ].filter(Boolean).join(" "));
+  return propertyText.includes(zoneText) || zoneText.includes(normalizeInventoryText(property.area));
+}
+
 function FocusInventoryStrip({ tcmFilter, tcmOptions }: { tcmFilter: string; tcmOptions: any[] }) {
   const properties = useApp((s) => s.properties);
   const focusProps = useTcmContacts((s) => s.focusProps);
@@ -3263,31 +3298,37 @@ function FocusInventoryStrip({ tcmFilter, tcmOptions }: { tcmFilter: string; tcm
 
   const rows = useMemo(() => {
     const list = activeTcm ? [activeTcm] : tcmOptions;
+    const catalog = allCatalogProperties(properties);
     return list.map((t) => {
       const ids = focusProps[t.id] ?? [];
       const props = ids
         .map((id: string) => resolvePropertyById(id, properties))
         .filter(Boolean) as CatalogProperty[];
-      const vacant = props.reduce((a, p) => a + (p.vacantBeds ?? 0), 0);
-      return { tcm: t, props, vacant };
+      const inventoryScope = props.length
+        ? props
+        : catalog.filter((property) => propertyMatchesTcmZone(property, t));
+      const scopedInventory = inventoryScope.length ? inventoryScope : catalog;
+      const vacant = scopedInventory.reduce((a, p) => a + catalogVacantBeds(p), 0);
+      const label = props.length ? "beds free" : "hub beds";
+      return { tcm: t, props, vacant, label };
     });
   }, [activeTcm, tcmOptions, focusProps, properties]);
 
   return (
-    <div className="basis-full rounded-lg border border-border bg-card px-4 py-3">
+    <div className="rounded-lg border border-border bg-card px-3 py-2 min-w-0">
       {/* Header */}
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
           <Pin className="h-3.5 w-3.5 text-accent" />
-          <span className="text-[11px] uppercase tracking-wider font-semibold text-foreground">
+          <span className="whitespace-nowrap text-[11px] uppercase tracking-wider font-semibold text-foreground">
             Today's Focus Inventory
           </span>
-          <span className="text-[11px] text-muted-foreground">· what to push first</span>
+          <span className="hidden truncate text-[11px] text-muted-foreground sm:inline">· what to push first</span>
         </div>
         <Button
           size="sm"
           variant="outline"
-          className="h-7 text-[11px] gap-1.5 font-medium"
+          className="h-7 shrink-0 text-[11px] gap-1.5 font-medium"
           onClick={() => setManageOpen(true)}
         >
           <Home className="h-3 w-3" /> Manage focus
@@ -3295,17 +3336,17 @@ function FocusInventoryStrip({ tcmFilter, tcmOptions }: { tcmFilter: string; tcm
       </div>
 
       {/* Per-TCM rows */}
-      <div className="space-y-2">
-        {rows.map(({ tcm, props, vacant }) => (
-          <div key={tcm.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 min-h-[28px]">
+      <div className="max-h-20 space-y-1 overflow-y-auto pr-1">
+        {rows.map(({ tcm, props, vacant, label }) => (
+          <div key={tcm.id} className="flex min-h-[28px] flex-wrap items-center gap-x-3 gap-y-1">
             {/* Avatar + name + beds free */}
-            <div className="flex items-center gap-1.5 shrink-0 w-[180px]">
-              <div className="h-7 w-7 rounded-full bg-accent/20 text-accent text-[11px] font-bold flex items-center justify-center shrink-0">
+            <div className="flex min-w-[160px] shrink-0 items-center gap-1.5">
+              <div className="h-7 w-7 shrink-0 rounded-full bg-accent/20 text-accent text-[11px] font-bold flex items-center justify-center">
                 {tmInitials(tcm)}
               </div>
-              <span className="text-sm font-semibold truncate">{tmName(tcm).split(" ")[0]}</span>
+              <span className="max-w-20 truncate text-sm font-semibold">{tmName(tcm).split(" ")[0]}</span>
               <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide whitespace-nowrap">
-                {vacant} beds free
+                {vacant} {label}
               </span>
             </div>
 
@@ -3324,12 +3365,12 @@ function FocusInventoryStrip({ tcmFilter, tcmOptions }: { tcmFilter: string; tcm
                     <Badge
                       variant="outline"
                       className={`text-[10px] font-mono px-1.5 ${
-                        (p.vacantBeds ?? 0) > 0
+                        catalogVacantBeds(p) > 0
                           ? "bg-success/10 text-success border-success/40"
                           : "bg-danger/10 text-danger border-danger/40"
                       }`}
                     >
-                      {p.vacantBeds ?? 0}/{p.totalBeds ?? "—"}
+                      {catalogVacantBeds(p)}/{catalogTotalBeds(p) ?? "—"}
                     </Badge>
                     <span className="text-muted-foreground">{formatINR(p.pricePerBed)}</span>
                   </div>
@@ -3458,8 +3499,8 @@ function ManageFocusDialog({
         <div className="flex-1 overflow-y-auto px-4 pb-2 space-y-1.5">
           {list.map((p) => {
             const on = focused.includes(p.id);
-            const vacant = p.vacantBeds ?? 0;
-            const total = p.totalBeds ?? 0;
+            const vacant = catalogVacantBeds(p);
+            const total = catalogTotalBeds(p);
             return (
               <button
                 key={p.id}
@@ -3509,7 +3550,7 @@ function ManageFocusDialog({
                       : "text-danger border-danger/40 bg-danger/10",
                   )}
                 >
-                  {vacant}/{total}
+                  {vacant}/{total ?? "—"}
                 </div>
               </button>
             );
