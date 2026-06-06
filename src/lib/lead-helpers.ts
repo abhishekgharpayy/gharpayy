@@ -351,8 +351,8 @@ export interface ResolvedLocation {
 
 export function resolveLeadLocation(
   lead: Lead,
-  tours: Tour[],
-  properties: Property[],
+  tours: Tour[] = [],
+  properties: Property[] = [],
 ): ResolvedLocation {
   const leadTours = tours.filter((t) => t.leadId === lead.id);
   const hubTour = leadTours.find(
