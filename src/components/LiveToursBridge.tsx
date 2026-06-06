@@ -5,6 +5,8 @@ import { useAppState } from "@/myt/lib/app-context";
 import type { DomainEvent, Tour as WireTour, Lead as WireLead } from "@/contracts";
 import type { Tour as MytTour } from "@/myt/lib/types";
 import type { Property } from "@/lib/types";
+import { resolvePropertyById, searchPropertyCatalog } from "@/lib/crm10x/property-catalog";
+import { resolveBestLeadName } from "@/lib/lead-helpers";
 
 type LiveTourEvent = {
   _id: string;
@@ -56,7 +58,17 @@ function toWireTour(tour: LiveTourEvent & Partial<WireTour>): WireTour {
 
 function toMytTour(tour: WireTour, leads: Record<string, WireLead>, properties: Record<string, Property>, users: Record<string, string>): MytTour & { leadId: string } {
   const lead = leads[tour.leadId];
-  const property = tour.propertyId ? properties[tour.propertyId] : undefined;
+  const opsProperties = Object.values(properties);
+  const property = tour.propertyId
+    ? resolvePropertyById(tour.propertyId, opsProperties)
+    : undefined;
+  const fallbackProperty =
+    tour.customPropertyName ||
+    searchPropertyCatalog("", opsProperties, {
+      preferredArea: lead?.preferredArea,
+      limit: 1,
+    })[0]?.name ||
+    "Property Hub option";
   const dateObj = new Date(tour.scheduledAt);
   const pad = (n: number) => String(n).padStart(2, '0');
   const datePart = `${dateObj.getFullYear()}-${pad(dateObj.getMonth() + 1)}-${pad(dateObj.getDate())}`;
@@ -64,11 +76,11 @@ function toMytTour(tour: WireTour, leads: Record<string, WireLead>, properties: 
   return {
     id: tour._id,
     leadId: tour.leadId,
-    leadName: lead?.name ?? tour.leadId,
+    leadName: lead ? resolveBestLeadName(lead) : `Customer ${tour.leadId.slice(-4).toUpperCase()}`,
     phone: lead?.phone ?? "",
     assignedTo: tour.assignedTo,
     assignedToName: users[tour.assignedTo] ?? tour.assignedTo,
-    propertyName: tour.propertyId ? (properties[tour.propertyId]?.name ?? "Property Tour") : (tour.customPropertyName || "Property Tour"),
+    propertyName: property?.name ?? fallbackProperty,
     propertyId: tour.propertyId ?? undefined,
 	    area: lead?.preferredArea ?? property?.area ?? "",
     zoneId: "",

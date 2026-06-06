@@ -9,17 +9,21 @@ import { api } from "@/lib/api/client";
 import { onEvent, getSocket } from "@/lib/api/socket";
 import type { Lead as LegacyLead, LeadStage, Intent } from "@/lib/types";
 import type { Lead as WireLead, DomainEvent } from "@/contracts";
+import { normalizeLeadRecord } from "@/lib/lead-helpers";
 
 function toLegacy(w: WireLead, fallbackTcmId = ""): LegacyLead {
-  return {
+  return normalizeLeadRecord({
     id: w._id,
     name: w.name,
     phone: w.phone,
     source: w.source ?? "manual",
     budget: w.budget ?? 0,
+    budgetText: w.budgetText ?? "",
     moveInDate: w.moveInDate ?? new Date().toISOString().slice(0, 10),
     preferredArea: w.preferredArea ?? "",
     assignedTcmId: w.assignedTcmId ?? fallbackTcmId,
+    assigneeId: w.assigneeId ?? w.assignedTcmId ?? null,
+    createdBy: w.createdBy ?? null,
     stage: (w.stage as LeadStage) ?? "new",
     intent: (w.intent as Intent) ?? "warm",
     confidence: w.confidence ?? 50,
@@ -41,7 +45,7 @@ function toLegacy(w: WireLead, fallbackTcmId = ""): LegacyLead {
     notes: w.notes,
     zoneCategory: w.zoneCategory,
     stageLabel: w.stageLabel,
-  };
+  });
 }
 
 export function LiveLeadsBridge() {
@@ -88,7 +92,7 @@ export function LiveLeadsBridge() {
           : l)));
       } else if (e.type === "evt.lead.assigned") {
         setLeads(cur.map((l) => (l.id === e.payload.leadId
-          ? { ...l, assignedTcmId: e.payload.tcmId, updatedAt: new Date().toISOString() }
+          ? { ...l, assignedTcmId: e.payload.tcmId, assigneeId: e.payload.tcmId, updatedAt: new Date().toISOString() }
           : l)));
       } else if (e.type === "evt.lead.stage_changed") {
         setLeads(cur.map((l) => (l.id === e.payload.leadId
@@ -104,4 +108,3 @@ export function LiveLeadsBridge() {
 
   return null;
 }
-

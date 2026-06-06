@@ -146,7 +146,7 @@ export const useCheckins = create<CheckInsState>()(
           const updates: Partial<CheckIn> = {};
           if (args.bookingId && !existing.bookingId) updates.bookingId = args.bookingId;
           if (args.rent && !existing.rent) updates.rent = args.rent;
-          if (args.deposit && !existing.deposit) updates.deposit = args.deposit;
+          if (args.deposit !== undefined && existing.deposit !== args.deposit) updates.deposit = args.deposit;
           if (args.propertyId && !existing.propertyId) {
             updates.propertyId = args.propertyId;
             updates.propertyName = args.propertyName;
@@ -164,7 +164,7 @@ export const useCheckins = create<CheckInsState>()(
         }
         const now = new Date().toISOString();
         const rent = args.rent ?? 0;
-        const deposit = args.deposit ?? Math.round(rent * 2);
+        const deposit = args.deposit ?? 0;
         const rec: CheckIn = {
           id: uid(),
           leadId: args.leadId,
@@ -174,7 +174,7 @@ export const useCheckins = create<CheckInsState>()(
           propertyName: args.propertyName,
           rent,
           deposit,
-          balanceDue: rent + deposit,
+          balanceDue: recalcBalance({ rent, deposit }),
           delays: [],
           issues: [],
           history: [{ stage: "booked", at: now }],
@@ -316,9 +316,8 @@ const uid = (p = "ci") => `${p}-${Math.random().toString(36).slice(2, 9)}`;
 
 function recalcBalance(c: Partial<CheckIn>): number {
   const rent = c.rent ?? 0;
-  const deposit = c.deposit ?? 0;
   const token = c.tokenAmount ?? 0;
-  return Math.max(0, rent + deposit - token);
+  return Math.max(0, rent - token);
 }
 
 export function useCheckin(leadId: string) {
@@ -350,7 +349,7 @@ export function useUpsertCheckin() {
           const updates: Partial<CheckIn> = {};
           if (args.bookingId && !existing.bookingId) updates.bookingId = args.bookingId;
           if (args.rent && !existing.rent) updates.rent = args.rent;
-          if (args.deposit && !existing.deposit) updates.deposit = args.deposit;
+          if (args.deposit !== undefined && existing.deposit !== args.deposit) updates.deposit = args.deposit;
           if (args.propertyId && !existing.propertyId) {
             updates.propertyId = args.propertyId;
             updates.propertyName = args.propertyName;
@@ -363,7 +362,7 @@ export function useUpsertCheckin() {
         }
         const now = new Date().toISOString();
         const rent = args.rent ?? 0;
-        const deposit = args.deposit ?? Math.round(rent * 2);
+        const deposit = args.deposit ?? 0;
         const rec: CheckIn = {
           id: uid(),
           leadId: args.leadId,
@@ -373,7 +372,7 @@ export function useUpsertCheckin() {
           propertyName: args.propertyName,
           rent,
           deposit,
-          balanceDue: rent + deposit,
+          balanceDue: recalcBalance({ rent, deposit }),
           delays: [],
           issues: [],
           history: [{ stage: "booked", at: now }],

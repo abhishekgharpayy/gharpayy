@@ -71,7 +71,7 @@ export function registerLeadsRoutes(app: FastifyInstance) {
     //  - super_admin / manager: see everything in tenant
     //  - admin: see leads inside any of their zones (zoneId or zoneCategory match users.zones[])
     //  - member: see leads they created OR are assigned to
-    //  - tcm: see only leads they created
+    //  - tcm: see assigned leads, created leads, and leads with their tours
     //  - owner: not allowed (no lead.read scope) — handled by requireScope above
     const role = req.user!.role;
     const myId = req.user!.sub;
@@ -103,7 +103,8 @@ export function registerLeadsRoutes(app: FastifyInstance) {
         { createdBy: myId },
       ];
     } else if (role === "tcm") {
-      // TCM can see leads they created OR leads they have tours assigned for
+      // TCM inboxes are assignment-driven. They can see leads assigned to them,
+      // leads they created, or leads where a tour is assigned to them.
       const myTours = await col("tours")
         .find({ assignedTo: myId, tenantId: req.user!.tenantId })
         .project({ leadId: 1 })
@@ -111,6 +112,8 @@ export function registerLeadsRoutes(app: FastifyInstance) {
       const tourLeadIds = myTours.map((t) => t.leadId);
       
       filter.$or = [
+        { assignedTcmId: myId },
+        { assigneeId: myId },
         { createdBy: myId },
         { _id: { $in: tourLeadIds } },
       ];
@@ -148,7 +151,7 @@ export function registerLeadsRoutes(app: FastifyInstance) {
       role === "super_admin" || role === "manager" ||
       (role === "admin" && (inMyZone || isMine)) ||
       (role === "member" && (isMine || hasTour)) ||
-      (role === "tcm" && (isTcmOwned || hasTour));
+      (role === "tcm" && (isMine || isTcmOwned || hasTour));
     if (!allowed) return reply.code(404).send({ code: "NOT_FOUND", message: "Lead not found" });
     return reply.send(lead);
   });

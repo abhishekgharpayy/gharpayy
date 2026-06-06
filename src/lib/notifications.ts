@@ -60,6 +60,7 @@ interface NotifState {
   markRead: (id: string) => void;
   toggleTodoDone: (id: string) => void;
   markAllRead: (forRole?: Role, recipientId?: string) => void;
+  removeMany: (ids: string[]) => void;
   clear: () => void;
 }
 
@@ -141,6 +142,11 @@ export const useNotifications = create<NotifState>()(
           return n;
         }),
       })),
+      removeMany: (ids) => set((s) => {
+        if (ids.length === 0) return s;
+        const blocked = new Set(ids);
+        return { items: s.items.filter((n) => !blocked.has(n.id)) };
+      }),
       clear: () => set({ items: [] }),
     }),
     { name: "gharpayy.notifications.v1" },
@@ -255,6 +261,7 @@ export function startNotificationsBridge() {
 
 export function notifyTourScheduled(input: {
   tourId: string;
+  leadId: string;
   leadName: string;
   senderId: string;
   senderName: string;
@@ -277,6 +284,7 @@ export function notifyTourScheduled(input: {
         : `${input.senderName} assigned ${input.leadName}'s tour to you`,
       href: "/inbox",
       kind: "tour.scheduled",
+      leadId: input.leadId,
       tourId: input.tourId,
       senderId: input.senderId,
       senderName: input.senderName,

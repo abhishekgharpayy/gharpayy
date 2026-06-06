@@ -8,9 +8,11 @@ import { ACTIVITIES, FOLLOWUPS, PROPERTIES, TCMS, HANDOFFS, SEQUENCES_INIT } fro
 import { autoAssign as autoAssignFn } from "./routing";
 import { api } from "@/lib/api/client";
 import { isTodayIST } from "@/lib/crm10x/dates";
+import type { LeadFocusAction } from "@/lib/crm10x/impact-hard-actions";
 import { pushObjectionToOwner, pushTourViewToOwner } from "@/owner/team-bridge";
 import { emit as emitConnector } from "./connectors";
 import { personName } from "./people";
+import { normalizeLeadRecord } from "./lead-helpers";
 
 const uid = (p: string) => `${p}-${Math.random().toString(36).slice(2, 14)}`;
 
@@ -24,6 +26,8 @@ type AddLeadInput = {
   moveInDate?: string;
   intent?: Intent;
   assignedTcmId?: string;
+  assigneeId?: string | null;
+  createdBy?: string | null;
   stage?: LeadStage;
   confidence?: number;
   tags?: string[];
@@ -56,7 +60,10 @@ interface AppState {
   setCurrentTcmId: (id: string) => void;
 
   selectedLeadId: string | null;
-  selectLead: (id: string | null) => void;
+  selectedLeadTab: string | null;
+  selectedLeadAction: LeadFocusAction | null;
+  selectLead: (id: string | null, tab?: string | null, action?: LeadFocusAction | null) => void;
+  consumeSelectedLeadAction: () => void;
 
   tcms: TCM[];
   properties: Property[];
@@ -71,6 +78,7 @@ interface AppState {
   addLead: (input: AddLeadInput) => Lead;
   setLeads: (leads: Lead[]) => void;
   setTours: (tours: Tour[]) => void;
+  setProperties: (properties: Property[]) => void;
   setLeadStage: (leadId: string, stage: LeadStage) => Promise<void>;
   setLeadIntent: (leadId: string, intent: Intent) => void;
   setLeadFollowUp: (leadId: string, dueAt: string, priority: FollowUp["priority"], reason?: string) => void;
@@ -115,7 +123,14 @@ export const useApp = create<AppState>((set, get) => ({
   setCurrentTcmId: (id) => set({ currentTcmId: id }),
 
   selectedLeadId: null,
-  selectLead: (id) => set({ selectedLeadId: id }),
+  selectedLeadTab: null,
+  selectedLeadAction: null,
+  selectLead: (id, tab = null, action = null) => set({
+    selectedLeadId: id,
+    selectedLeadTab: id ? tab : null,
+    selectedLeadAction: id ? action : null,
+  }),
+  consumeSelectedLeadAction: () => set({ selectedLeadAction: null }),
 
   tcms: TCMS,
   properties: PROPERTIES,
@@ -128,17 +143,22 @@ export const useApp = create<AppState>((set, get) => ({
   sequences: SEQUENCES_INIT,
   bookings: [],
 
+  setProperties: (properties) => set({ properties }),
+
   addLead: (input) => {
     const now = new Date().toISOString();
     const lead: Lead = {
       id: input.id ?? uid("lead"),
-      name: input.name,
+      name: normalizeLeadRecord({ name: input.name }).name,
       phone: input.phone,
       source: input.source ?? "manual",
       budget: input.budget,
+      budgetText: input.budgetText,
       moveInDate: input.moveInDate ?? now,
       preferredArea: input.preferredArea,
       assignedTcmId: input.assignedTcmId ?? get().currentTcmId,
+      assigneeId: input.assigneeId ?? input.assignedTcmId ?? null,
+      createdBy: input.createdBy ?? null,
       stage: input.stage ?? "new",
       intent: input.intent ?? "warm",
       confidence: input.confidence ?? (input.intent === "hot" ? 75 : input.intent === "cold" ? 25 : 50),
@@ -161,10 +181,14 @@ export const useApp = create<AppState>((set, get) => ({
       zoneCategory: input.zoneCategory,
       stageLabel: input.stageLabel,
     };
-    set((s) => ({ leads: [lead, ...s.leads] }));
+    set((s) => ({
+      leads: s.leads.some((existing) => existing.id === lead.id)
+        ? s.leads.map((existing) => existing.id === lead.id ? { ...existing, ...lead } : existing)
+        : [lead, ...s.leads],
+    }));
     return lead;
   },
-  setLeads: (leads: Lead[]) => set({ leads }),
+  setLeads: (leads: Lead[]) => set({ leads: leads.map(normalizeLeadRecord) }),
   setTours: (tours: Tour[]) => set({ tours }),
 
   setLeadStage: async (leadId, stage) => {
@@ -222,19 +246,45 @@ export const useApp = create<AppState>((set, get) => ({
   },
 
   addLeadTag: (leadId, tag) => {
+    const prevLead = get().leads.find((l) => l.id === leadId);
+    if (!prevLead || prevLead.tags.includes(tag)) return;
+    const nextTags = [...prevLead.tags, tag];
     set((s) => ({
       leads: s.leads.map((l) =>
-        l.id === leadId && !l.tags.includes(tag) ? { ...l, tags: [...l.tags, tag] } : l,
+        l.id === leadId ? { ...l, tags: nextTags, updatedAt: new Date().toISOString() } : l,
       ),
     }));
+    void api.command({
+      _id: uid("c"),
+      type: "cmd.lead.update",
+      issuedAt: new Date().toISOString(),
+      payload: { leadId, patch: { tags: nextTags } },
+    }).catch(() => {
+      set((s) => ({
+        leads: s.leads.map((l) => (l.id === leadId ? prevLead : l)),
+      }));
+    });
   },
 
   removeLeadTag: (leadId, tag) => {
+    const prevLead = get().leads.find((l) => l.id === leadId);
+    if (!prevLead || !prevLead.tags.includes(tag)) return;
+    const nextTags = prevLead.tags.filter((t) => t !== tag);
     set((s) => ({
       leads: s.leads.map((l) =>
-        l.id === leadId ? { ...l, tags: l.tags.filter((t) => t !== tag) } : l,
+        l.id === leadId ? { ...l, tags: nextTags, updatedAt: new Date().toISOString() } : l,
       ),
     }));
+    void api.command({
+      _id: uid("c"),
+      type: "cmd.lead.update",
+      issuedAt: new Date().toISOString(),
+      payload: { leadId, patch: { tags: nextTags } },
+    }).catch(() => {
+      set((s) => ({
+        leads: s.leads.map((l) => (l.id === leadId ? prevLead : l)),
+      }));
+    });
   },
 
   scheduleTour: async ({ leadId, propertyId, tcmId, scheduledAt }) => {
@@ -331,18 +381,29 @@ export const useApp = create<AppState>((set, get) => ({
   },
 
   cancelTour: async (tourId) => {
-    await api.command({
+    const result = await api.command({
       _id: uid("c"),
       type: "cmd.tour.cancel",
       issuedAt: new Date().toISOString(),
       payload: { tourId },
     });
+    if ((result as any)?.ok === false) {
+      throw new Error((result as any).error ?? "Tour cancel failed on server");
+    }
     const t = get().tours.find((x) => x.id === tourId);
     if (!t) return;
     set((s) => ({
       tours: s.tours.map((x) =>
         x.id === tourId ? { ...x, status: "cancelled", updatedAt: new Date().toISOString() } : x,
       ),
+      leads: s.leads.map((lead) => {
+        if (lead.id !== t.leadId) return lead;
+        const hasOtherActiveTour = s.tours.some(
+          (tour) => tour.id !== tourId && tour.leadId === t.leadId && (tour.status === "scheduled" || tour.status === "confirmed"),
+        );
+        if (hasOtherActiveTour || (lead.stage !== "tour-scheduled" && lead.stage !== "on-tour")) return lead;
+        return { ...lead, stage: "contacted", tourDate: undefined, updatedAt: new Date().toISOString() };
+      }),
     }));
     pushActivity(set, get, { kind: "tour_cancelled", actor: get().role, leadId: t.leadId, tourId, text: "Tour cancelled" });
   },
@@ -416,9 +477,26 @@ export const useApp = create<AppState>((set, get) => ({
       issuedAt: new Date().toISOString(),
       payload: { tourId, patch },
     });
+    const t = get().tours.find((x) => x.id === tourId);
     set((s) => ({
       tours: s.tours.map((x) => (x.id === tourId ? { ...x, ...patch, updatedAt: new Date().toISOString() } : x)),
+      leads: t && patch.status === "no-show"
+        ? s.leads.map((l) =>
+            l.id === t.leadId
+              ? { ...l, stage: "contacted", updatedAt: new Date().toISOString() }
+              : l,
+          )
+        : s.leads,
     }));
+    if (t && patch.status === "no-show") {
+      void api.command({
+        _id: uid("c"),
+        type: "cmd.lead.change_stage",
+        issuedAt: new Date().toISOString(),
+        payload: { leadId: t.leadId, to: "contacted", tourId },
+      }).catch(() => {});
+      pushActivity(set, get, { kind: "tour_cancelled", actor: t.tcmId, leadId: t.leadId, tourId, text: "Tour marked no-show" });
+    }
   },
 
   markTourStarted: async (tourId) => {
@@ -451,20 +529,27 @@ export const useApp = create<AppState>((set, get) => ({
   setDecision: (tourId, decision) => {
     const t = get().tours.find((x) => x.id === tourId);
     if (!t) return;
+    const nextStage: LeadStage =
+      decision === "booked" ? "booked" :
+      decision === "dropped" ? "dropped" : "negotiation";
     set((s) => ({
       tours: s.tours.map((x) => (x.id === tourId ? { ...x, decision, updatedAt: new Date().toISOString() } : x)),
       leads: s.leads.map((l) =>
         l.id === t.leadId
           ? {
               ...l,
-              stage:
-                decision === "booked" ? "booked" :
-                decision === "dropped" ? "dropped" : "negotiation",
+              stage: nextStage,
               updatedAt: new Date().toISOString(),
             }
           : l,
       ),
     }));
+    void api.command({
+      _id: uid("c"),
+      type: "cmd.lead.change_stage",
+      issuedAt: new Date().toISOString(),
+      payload: { leadId: t.leadId, to: nextStage },
+    }).catch(() => {});
     pushActivity(set, get, {
       kind: "decision_logged", actor: t.tcmId, leadId: t.leadId, tourId,
       text: `Decision: ${decision ?? "-"}`,
@@ -484,6 +569,7 @@ export const useApp = create<AppState>((set, get) => ({
     const next: PostTourUpdate = { ...t.postTour, ...patch };
     const complete =
       next.outcome !== null &&
+      next.outcome !== "awaiting" &&
       next.confidence > 0 &&
       next.expectedDecisionAt !== null &&
       next.nextFollowUpAt !== null;
@@ -678,6 +764,12 @@ export const useApp = create<AppState>((set, get) => ({
         seq.leadId === leadId && !seq.stoppedReason ? { ...seq, stoppedReason: "Booked" } : seq,
       ),
     }));
+    void api.command({
+      _id: uid("c"),
+      type: "cmd.lead.change_stage",
+      issuedAt: new Date().toISOString(),
+      payload: { leadId, to: "booked" },
+    }).catch(() => {});
     pushActivity(set, get, { kind: "booking_confirmed", actor: tcmId, leadId, tourId, propertyId, text: `Deal closed · ₹${amount.toLocaleString("en-IN")}/mo` });
     // Connector - find which Flop scheduled this lead's tour, give them assist XP.
     const sched = get().activities.find(

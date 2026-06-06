@@ -19,6 +19,7 @@ import { cmdCounter, cmdLatency } from "../../platform/metrics.js";
 const LEADS = "leads";
 const LEDGER = "command_ledger";
 const PHONE_INDEX = "lead_phone_index";
+const LEAD_NAME_NOT_CAPTURED = "Lead name not captured";
 
 interface LedgerDoc {
   _id: string;
@@ -36,6 +37,36 @@ interface PhoneIndexDoc {
   phoneE164: string;
   leadId: string;
   createdAt: string;
+}
+
+function looksLikeKeyboardSmash(value: string): boolean {
+  const compact = value.toLowerCase().replace(/[^a-z]/g, "");
+  if (compact.length < 4 || /\s/.test(value)) return false;
+  const vowels = compact.match(/[aeiou]/g)?.length ?? 0;
+  if (vowels === 0) return true;
+  return compact.length >= 6 && vowels / compact.length <= 0.15;
+}
+
+function normalizeLeadName(value: string | null | undefined): string {
+  if (!value) return LEAD_NAME_NOT_CAPTURED;
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.length === 1) return LEAD_NAME_NOT_CAPTURED;
+  const lower = trimmed.toLowerCase();
+  if (
+    /^-+$/.test(lower) ||
+    /^—+$/.test(lower) ||
+    /^_+$/.test(lower) ||
+    /^\.+$/.test(lower) ||
+    /^(n\/?a|na|none|null|undefined)$/i.test(lower) ||
+    /^(test|demo|sample|temp|testing|dummy)$/i.test(lower) ||
+    /^(uploaded lead|lead \d+|customer \d+)$/i.test(lower) ||
+    (/^(.)\1{2,}$/.test(trimmed) && trimmed.length <= 4) ||
+    /^\d+$/.test(trimmed) ||
+    looksLikeKeyboardSmash(trimmed)
+  ) {
+    return LEAD_NAME_NOT_CAPTURED;
+  }
+  return trimmed;
 }
 
 /** Idempotent: same command._id → same result. Two-tier dedup + conflict-aware retry. */
@@ -150,7 +181,14 @@ async function applyCommand(cmd: Command, user: JwtClaims): Promise<LedgerDoc["r
         if (existingLeadId) {
           const existingLead = await col(LEADS).findOne({ _id: existingLeadId, tenantId: user.tenantId });
           if (existingLead) {
-            const lead = Lead.parse(existingLead);
+            let lead = Lead.parse(existingLead);
+            if (p.assigneeId && (lead.assignedTcmId !== p.assigneeId || lead.assigneeId !== p.assigneeId)) {
+              await col(LEADS).updateOne(
+                { _id: existingLeadId, tenantId: user.tenantId },
+                { $set: { assignedTcmId: p.assigneeId, assigneeId: p.assigneeId, updatedAt: now }, $inc: { __v: 1 } },
+              );
+              lead = { ...lead, assignedTcmId: p.assigneeId, assigneeId: p.assigneeId, updatedAt: now };
+            }
             const evtId = newEventId();
             await emit({
               _id: evtId, type: "evt.lead.created", occurredAt: now,
@@ -186,6 +224,7 @@ async function applyCommand(cmd: Command, user: JwtClaims): Promise<LedgerDoc["r
       const lead = Lead.parse({
         _id: leadId,
         ...p,
+        name: normalizeLeadName(p.name),
         phone: phoneE164,                  // store the canonical form
         intent: p.intent ?? (p.quality === "hot" ? "hot" : p.quality === "bad" ? "cold" : "warm"),
         tags: p.tags ?? [],
@@ -195,6 +234,7 @@ async function applyCommand(cmd: Command, user: JwtClaims): Promise<LedgerDoc["r
         confidence: p.quality === "hot" ? 90 : p.quality === "good" ? 70 : p.quality === "bad" ? 30 : 50,
         nextFollowUpAt: null,
         responseSpeedMins: 0,
+        budgetText: p.budgetText ?? "",
         email: p.email ?? "",
         areas: p.areas ?? [],
         fullAddress: p.fullAddress ?? "",
@@ -233,7 +273,11 @@ async function applyCommand(cmd: Command, user: JwtClaims): Promise<LedgerDoc["r
 
     case "cmd.lead.update": {
       const p = UpdateLeadCmd.parse(cmd).payload;
-      const patch = { ...p.patch, updatedAt: now };
+      const patch = {
+        ...p.patch,
+        ...(p.patch.name != null ? { name: normalizeLeadName(p.patch.name) } : {}),
+        updatedAt: now,
+      };
       // Optimistic concurrency: $inc __v atomically. If client supplied
       // expectedVersion (future-proof), enforce it; otherwise just bump.
       const expected = (cmd as unknown as { expectedVersion?: number }).expectedVersion;
@@ -268,7 +312,7 @@ async function applyCommand(cmd: Command, user: JwtClaims): Promise<LedgerDoc["r
       const p = AssignLeadCmd.parse(cmd).payload;
       const r = await col(LEADS).updateOne(
         { _id: p.leadId, tenantId: user.tenantId },
-        { $set: { assignedTcmId: p.tcmId, updatedAt: now }, $inc: { __v: 1 } },
+        { $set: { assignedTcmId: p.tcmId, assigneeId: p.tcmId, updatedAt: now }, $inc: { __v: 1 } },
       );
       if (r.matchedCount === 0) throw Object.assign(new Error("Lead not found"), { code: "NOT_FOUND" });
       const evtId = newEventId();
@@ -336,4 +380,3 @@ async function applyCommand(cmd: Command, user: JwtClaims): Promise<LedgerDoc["r
   }
   throw Object.assign(new Error(`Unknown command type: ${(cmd as { type: string }).type}`), { code: "BAD_COMMAND" });
 }
-

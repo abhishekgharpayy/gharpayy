@@ -4,6 +4,7 @@
 // or the server is unreachable.
 import { ulid } from "@/contracts";
 import type { Todo, Activity, DomainEvent, Lead, Tour } from "@/contracts";
+import { normalizeLeadName } from "@/lib/lead-helpers";
 
 const TODOS_KEY = "gharpayy.local.todos";
 const ACTS_KEY = "gharpayy.local.activities";
@@ -178,10 +179,11 @@ export const localAdapter = {
         const p = cmd.payload as Record<string, unknown>;
         const lead: Lead = {
           _id: ulid(),
-          name: String(p.name ?? ""),
+          name: normalizeLeadName(String(p.name ?? "")),
           phone: String(p.phone ?? ""),
           source: (p.source as string) ?? "manual",
           budget: Number(p.budget ?? 0),
+          budgetText: String(p.budgetText ?? ""),
           moveInDate: String(p.moveInDate ?? new Date().toISOString().slice(0, 10)),
           preferredArea: String(p.preferredArea ?? ""),
           zoneId: (p.zoneId as string | null) ?? null,
@@ -219,7 +221,11 @@ export const localAdapter = {
         const list = read<Lead>(LEADS_KEY);
         const idx = list.findIndex((l) => l._id === p.leadId);
         if (idx < 0) return { ok: false, error: "Lead not found" };
-        const patch = { ...p.patch, updatedAt: nowISO() };
+        const patch = {
+          ...p.patch,
+          ...(p.patch.name != null ? { name: normalizeLeadName(p.patch.name) } : {}),
+          updatedAt: nowISO(),
+        };
         list[idx] = { ...list[idx], ...patch } as Lead;
         write(LEADS_KEY, list);
         const evt = { ...env(correlationId), type: "evt.lead.updated" as const, payload: { leadId: p.leadId, patch } };
@@ -232,7 +238,7 @@ export const localAdapter = {
         const list = read<Lead>(LEADS_KEY);
         const idx = list.findIndex((l) => l._id === p.leadId);
         if (idx < 0) return { ok: false, error: "Lead not found" };
-        list[idx] = { ...list[idx], assignedTcmId: p.tcmId, updatedAt: nowISO() };
+        list[idx] = { ...list[idx], assignedTcmId: p.tcmId, assigneeId: p.tcmId, updatedAt: nowISO() };
         write(LEADS_KEY, list);
         const evt = { ...env(correlationId), type: "evt.lead.assigned" as const, payload: { leadId: p.leadId, tcmId: p.tcmId } };
         emit(evt as DomainEvent);
@@ -317,7 +323,33 @@ export const localAdapter = {
         if (idx < 0) return { ok: false, error: "Tour not found" };
         list[idx] = { ...list[idx], status: "completed", updatedAt: nowISO() };
         write(TOURS_KEY, list);
+        const leads = read<Lead>(LEADS_KEY);
+        const leadIdx = leads.findIndex((l) => l._id === list[idx].leadId);
+        if (leadIdx >= 0) {
+          leads[leadIdx] = { ...leads[leadIdx], stage: "tour-done", updatedAt: nowISO() };
+          write(LEADS_KEY, leads);
+        }
         const evt = { ...env(correlationId), type: "evt.tour.completed" as const, payload: { tourId: p.tourId } };
+        emit(evt as DomainEvent);
+        return { ok: true, eventIds: [evt._id], data: { tour: list[idx] } };
+      }
+
+      if (t === "cmd.tour.update") {
+        const p = cmd.payload as { tourId: string; patch: Partial<Tour> };
+        const list = read<Tour>(TOURS_KEY);
+        const idx = list.findIndex((x) => x._id === p.tourId);
+        if (idx < 0) return { ok: false, error: "Tour not found" };
+        list[idx] = { ...list[idx], ...p.patch, updatedAt: nowISO() };
+        write(TOURS_KEY, list);
+        if (p.patch.status === "no-show") {
+          const leads = read<Lead>(LEADS_KEY);
+          const leadIdx = leads.findIndex((l) => l._id === list[idx].leadId);
+          if (leadIdx >= 0) {
+            leads[leadIdx] = { ...leads[leadIdx], stage: "contacted", updatedAt: nowISO() };
+            write(LEADS_KEY, leads);
+          }
+        }
+        const evt = { ...env(correlationId), type: "evt.tour.updated" as const, payload: { tourId: p.tourId, patch: p.patch } };
         emit(evt as DomainEvent);
         return { ok: true, eventIds: [evt._id], data: { tour: list[idx] } };
       }

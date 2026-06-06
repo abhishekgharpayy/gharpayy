@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Inbox as InboxIcon, Bell, ListTodo, CalendarDays, Mail, CheckCircle2, Filter, Send, AlertCircle } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { useApp } from "@/lib/store";
 import { useNotifications, selectInboxFor, type NotifChannel } from "@/lib/notifications";
 import { activePersona, PERSONA_BY_ID } from "@/lib/personas";
 import { cn } from "@/lib/utils";
+import { hasCapturedLeadName } from "@/lib/lead-helpers";
 import { formatDistanceToNow } from "date-fns";
 import { HRBroadcastComposer } from "@/components/HRBroadcastComposer";
 import { useAppState } from "@/myt/lib/app-context";
@@ -22,6 +23,8 @@ type Tab = "all" | "todo" | "calendar" | "email" | "broadcasts" | "tours";
 function InboxPage() {
   const role = useApp((s) => s.role);
   const currentTcmId = useApp((s) => s.currentTcmId);
+  const leads = useApp((s) => s.leads);
+  const tours = useApp((s) => s.tours);
   const { currentMemberId } = useAppState();
   const recipientId = currentMemberId ?? (role === "tcm" ? currentTcmId : undefined);
   const me = activePersona(role, role === "tcm" ? currentTcmId : undefined);
@@ -30,8 +33,33 @@ function InboxPage() {
   const markRead = useNotifications((s) => s.markRead);
   const markAllRead = useNotifications((s) => s.markAllRead);
   const toggleTodoDone = useNotifications((s) => s.toggleTodoDone);
+  const removeNotifications = useNotifications((s) => s.removeMany);
 
-  const inbox = useMemo(() => selectInboxFor(items, role, recipientId), [items, role, recipientId]);
+  const currentLeadIds = useMemo(() => new Set(leads.map((lead) => lead.id)), [leads]);
+  const currentTourIds = useMemo(() => new Set(tours.map((tour) => tour.id)), [tours]);
+  const capturedLeadIds = useMemo(
+    () => new Set(leads.filter((lead) => hasCapturedLeadName(lead)).map((lead) => lead.id)),
+    [leads],
+  );
+  const isStaleTourNotification = useMemo(() => {
+    return (item: typeof items[number]) => {
+      if (item.kind !== "tour.scheduled") return false;
+      if (item.tourId && !currentTourIds.has(item.tourId)) return true;
+      if (item.leadId && !currentLeadIds.has(item.leadId)) return true;
+      if (item.leadId && !capturedLeadIds.has(item.leadId)) return true;
+      return item.body.includes("Lead name not captured");
+    };
+  }, [capturedLeadIds, currentLeadIds, currentTourIds]);
+  const inbox = useMemo(() => {
+    return selectInboxFor(items, role, recipientId).filter((item) => !isStaleTourNotification(item));
+  }, [isStaleTourNotification, items, role, recipientId]);
+
+  useEffect(() => {
+    const staleIds = selectInboxFor(items, role, recipientId)
+      .filter(isStaleTourNotification)
+      .map((item) => item.id);
+    removeNotifications(staleIds);
+  }, [isStaleTourNotification, items, recipientId, removeNotifications, role]);
   const [tab, setTab] = useState<Tab>("all");
 
   const filtered = useMemo(() => {

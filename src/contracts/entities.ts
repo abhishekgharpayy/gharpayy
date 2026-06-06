@@ -22,6 +22,7 @@ export const Lead = z.object({
   phone: z.string().min(7).max(20),
   source: z.string().max(60).default("manual"),
   budget: z.number().int().min(0),
+  budgetText: z.string().max(80).default(""),
   moveInDate: z.string(),                // ISO date
   preferredArea: z.string().max(120),
   zoneId: z.string().nullable().default(null),
@@ -172,11 +173,14 @@ export type TourStatus = z.infer<typeof TourStatus>;
 
 export const TourOutcome = z.enum([
   "booked",
+  "thinking",
+  "awaiting",
   "token-paid",
   "draft",
   "follow-up",
   "rejected",
   "not-interested",
+  "dropped",
 ]).nullable();
 export type TourOutcome = z.infer<typeof TourOutcome>;
 

@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Copy, ExternalLink, Plus, FileText, Check, X, ChevronDown, ChevronUp } from "lucide-react";
+import { Copy, Plus, FileText, Check, X, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
 import {
   renderQuotationMessage,
@@ -20,7 +20,6 @@ import {
   useAddQuotation,
   useSetQuotationStatus,
 } from "@/lib/crm10x/quotations";
-import { waLink } from "@/lib/crm10x/templates";
 
 const ROOM_TYPES = ["Shared", "Private", "Double Sharing", "Triple Sharing"];
 const QUICK_VALIDITY = [
@@ -46,9 +45,10 @@ type Props = {
   /** When true, form is shown inline (Impact Queue dialog) — no nested New quote dialog */
   embedded?: boolean;
   onSent?: () => void;
+  onPaid?: () => void;
 };
 
-export function QuotationBuilder({ lead, embedded, onSent }: Props) {
+export function QuotationBuilder({ lead, embedded, onSent, onPaid }: Props) {
   const setLeadStage = useApp((s) => s.setLeadStage);
   const { mutate: add } = useAddQuotation();
   const { data: leadQuotes = [], isLoading } = useQuotationsQuery(lead.id);
@@ -137,13 +137,13 @@ export function QuotationBuilder({ lead, embedded, onSent }: Props) {
     }, {
       onSuccess: (quote) => {
         void setLeadStage(lead.id, "quote-sent");
-        if (quote) toast.success(`Quotation sent · ${formatINR(quote.discountedPrice)}`);
-        window.open(waLink(lead.phone, message), "_blank", "noopener,noreferrer");
+        void navigator.clipboard.writeText(message);
+        if (quote) toast.success(`Quotation copied · ${formatINR(quote.discountedPrice)}`);
         if (embedded) onSent?.();
         else setOpen(false);
       },
       onError: () => {
-        toast.error("Failed to save quotation — WhatsApp not opened");
+        toast.error("Failed to save quotation");
       },
     });
   };
@@ -270,7 +270,7 @@ export function QuotationBuilder({ lead, embedded, onSent }: Props) {
             <Copy className="h-3 w-3" /> Copy
           </Button>
           <Button size="sm" className="flex-1 h-8 text-xs gap-1" onClick={handleSend} disabled={!canSend}>
-            <ExternalLink className="h-3 w-3" /> Send via WhatsApp
+            <Copy className="h-3 w-3" /> Save + copy quote
           </Button>
         </div>
       </div>
@@ -282,7 +282,20 @@ export function QuotationBuilder({ lead, embedded, onSent }: Props) {
       lead={lead}
       quotes={leadQuotes}
       loading={isLoading}
-      onSetStatus={setStatus}
+      onSetStatus={(payload) => {
+        setStatus(payload, {
+          onSuccess: () => {
+            if (payload.status === "paid") {
+              void setLeadStage(lead.id, "booked");
+              toast.success("Quote paid. Check-in unlocked.");
+              onPaid?.();
+            }
+          },
+          onError: () => {
+            toast.error("Could not update quote status");
+          },
+        });
+      }}
     />
   );
 
@@ -317,7 +330,7 @@ export function QuotationBuilder({ lead, embedded, onSent }: Props) {
           </DialogTrigger>
           <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle className="text-sm">Send quotation to {lead.name}</DialogTitle>
+              <DialogTitle className="text-sm">Create quotation for {lead.name}</DialogTitle>
             </DialogHeader>
             <div className="mt-2">{form}</div>
           </DialogContent>
@@ -394,12 +407,9 @@ function PreviousQuotesList({
                   size="sm"
                   variant="outline"
                   className="h-6 text-[10px] px-2 gap-1"
-                  onClick={() => {
-                    window.open(waLink(lead.phone, q.message), "_blank", "noopener,noreferrer");
-                    toast.success("Opened WhatsApp");
-                  }}
+                  onClick={() => void navigator.clipboard.writeText(q.message).then(() => toast.success("Quote copied"))}
                 >
-                  <ExternalLink className="h-2.5 w-2.5" /> Resend
+                  <Copy className="h-2.5 w-2.5" /> Copy again
                 </Button>
                 <Button
                   size="sm"

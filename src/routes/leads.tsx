@@ -3,21 +3,50 @@ import { AppShell } from "@/components/AppShell";
 import { useApp } from "@/lib/store";
 import { ConfidenceBar, IntentChip, StageBadge } from "@/components/atoms";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  Flame, AlertTriangle, TrendingUp, CheckCircle2,
-  ChevronDown, ChevronRight, Telescope, Moon,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Flame,
+  AlertTriangle,
+  TrendingUp,
+  CheckCircle2,
+  ChevronDown,
+  ChevronRight,
+  Telescope,
+  Moon,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import type { Lead, LeadStage } from "@/lib/types";
+import type { ResolvedLocation } from "@/lib/lead-helpers";
 import { useMountedNow } from "@/hooks/use-now";
 import { useUserMap } from "@/hooks/useUserMap";
 import { cn } from "@/lib/utils";
+import {
+  daysUntil,
+  daysSince,
+  formatArea,
+  formatBudget,
+  formatAssignee,
+  formatMoveInLabel,
+  resolveBestLeadName,
+  resolveLeadLocation,
+} from "@/lib/lead-helpers";
 
 export const Route = createFileRoute("/leads")({
   head: () => ({
-    meta: [{ title: "Leads - Gharpayy" }, { name: "description", content: "Every lead, ranked by deal probability, one click into the control panel." }],
+    meta: [
+      { title: "Leads - Gharpayy" },
+      {
+        name: "description",
+        content: "Every lead, ranked by deal probability, one click into the control panel.",
+      },
+    ],
   }),
   component: LeadsPage,
 });
@@ -29,6 +58,9 @@ const STAGE_MAX_DAYS: Record<string, number> = {
   "tour-scheduled": 2,
   "tour-done": 2,
   negotiation: 5,
+  "quote-sent": 3,
+  "not-responding-3d": 3,
+  "not-responding-7d": 7,
 };
 
 type BandKey = "fire" | "stuck" | "active" | "future" | "dormant" | "closed";
@@ -37,9 +69,9 @@ interface BandConfig {
   label: string;
   subtitle: string;
   icon: React.ElementType;
-  color: string;          // text colour token
-  bg: string;             // header bg token
-  ring: string;           // border/ring token
+  color: string; // text colour token
+  bg: string; // header bg token
+  ring: string; // border/ring token
   defaultOpen: boolean;
 }
 
@@ -102,21 +134,7 @@ const BANDS: Record<BandKey, BandConfig> = {
 
 const BAND_ORDER: BandKey[] = ["fire", "stuck", "active", "future", "dormant", "closed"];
 
-// ─── Helpers ─────────────────────────────────────────────────────
-function daysUntil(iso: string | null | undefined): number | null {
-  if (!iso) return null;
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const target = new Date(iso); target.setHours(0, 0, 0, 0);
-  const diff = (target.getTime() - today.getTime()) / 86_400_000;
-  return Number.isNaN(diff) ? null : Math.floor(diff);
-}
-
-function daysSince(iso: string | null | undefined): number | null {
-  if (!iso) return null;
-  const diff = (Date.now() - new Date(iso).getTime()) / 86_400_000;
-  return Number.isNaN(diff) ? null : Math.floor(diff);
-}
-
+// ─── Helpers (shared pure logic in lead-helpers.ts) ──────────────
 function getBand(l: Lead): BandKey {
   const closed = ["booked", "dropped"];
   if (closed.includes(l.stage)) return "closed";
@@ -151,33 +169,31 @@ function getStuckReason(l: Lead): string {
 }
 
 function getMoveInLabel(iso: string | null | undefined): string {
-  const d = daysUntil(iso);
-  if (d === null) return "-";
-  if (d < 0) return `${Math.abs(d)}d overdue`;
-  if (d === 0) return "TODAY";
-  if (d === 1) return "Tomorrow";
-  return `in ${d}d`;
+  return formatMoveInLabel(iso);
 }
 
 // ─── Page ────────────────────────────────────────────────────────
 function LeadsPage() {
-  const { leads, selectLead } = useApp();
+  const { leads, tours, properties, selectLead } = useApp();
   const [, mounted] = useMountedNow();
   const userMap = useUserMap();
 
   const [q, setQ] = useState("");
   const [stageFilter, setStageFilter] = useState<string>("all");
   const [openBands, setOpenBands] = useState<Record<BandKey, boolean>>(
-    Object.fromEntries(BAND_ORDER.map((k) => [k, BANDS[k].defaultOpen])) as Record<BandKey, boolean>
+    Object.fromEntries(BAND_ORDER.map((k) => [k, BANDS[k].defaultOpen])) as Record<
+      BandKey,
+      boolean
+    >,
   );
 
-  const toggleBand = (band: BandKey) =>
-    setOpenBands((prev) => ({ ...prev, [band]: !prev[band] }));
+  const toggleBand = (band: BandKey) => setOpenBands((prev) => ({ ...prev, [band]: !prev[band] }));
 
   // Filter
   const filtered = useMemo(() => {
     return leads.filter((l) => {
-      if (q && !l.name.toLowerCase().includes(q.toLowerCase()) && !l.phone.includes(q)) return false;
+      if (q && !l.name.toLowerCase().includes(q.toLowerCase()) && !l.phone.includes(q))
+        return false;
       if (stageFilter !== "all" && l.stage !== stageFilter) return false;
       return true;
     });
@@ -185,14 +201,21 @@ function LeadsPage() {
 
   // Group into bands
   const grouped = useMemo(() => {
-    const groups: Record<BandKey, Lead[]> = { fire: [], stuck: [], active: [], future: [], dormant: [], closed: [] };
+    const groups: Record<BandKey, Lead[]> = {
+      fire: [],
+      stuck: [],
+      active: [],
+      future: [],
+      dormant: [],
+      closed: [],
+    };
     for (const l of filtered) groups[getBand(l)].push(l);
-    // Sort each band by move-in date ascending (nulls last)
+    // Sort each band by move-in date ascending (nulls last), then leadId as tiebreaker
     for (const band of BAND_ORDER) {
       groups[band].sort((a, b) => {
         const da = a.moveInDate ? new Date(a.moveInDate).getTime() : Infinity;
         const db = b.moveInDate ? new Date(b.moveInDate).getTime() : Infinity;
-        return da - db;
+        return da - db || a.id.localeCompare(b.id);
       });
     }
     return groups;
@@ -201,6 +224,14 @@ function LeadsPage() {
   const totalLeads = leads.length;
   const shownLeads = filtered.length;
 
+  const locationMap = useMemo(() => {
+    const map = new Map<string, ResolvedLocation>();
+    for (const l of filtered) {
+      map.set(l.id, resolveLeadLocation(l, tours, properties));
+    }
+    return map;
+  }, [filtered, tours, properties]);
+
   return (
     <AppShell>
       <div className="space-y-4">
@@ -208,7 +239,9 @@ function LeadsPage() {
         <header className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-baseline gap-2">
             <h1 className="font-display text-2xl font-semibold tracking-tight">Leads</h1>
-            <span className="text-sm text-muted-foreground">{shownLeads} of {totalLeads}</span>
+            <span className="text-sm text-muted-foreground">
+              {shownLeads} of {totalLeads}
+            </span>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <Input
@@ -218,11 +251,27 @@ function LeadsPage() {
               className="h-9 w-52 text-sm"
             />
             <Select value={stageFilter} onValueChange={setStageFilter}>
-              <SelectTrigger className="h-9 w-40 text-sm"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-9 w-40 text-sm">
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All stages</SelectItem>
-                {(["new", "contacted", "tour-scheduled", "tour-done", "negotiation", "booked", "dropped", "not-responding-3d", "not-responding-7d"] as LeadStage[]).map((s) => (
-                  <SelectItem key={s} value={s} className="capitalize">{s.replace("-", " ")}</SelectItem>
+                {(
+                  [
+                    "new",
+                    "contacted",
+                    "tour-scheduled",
+                    "tour-done",
+                    "negotiation",
+                    "booked",
+                    "dropped",
+                    "not-responding-3d",
+                    "not-responding-7d",
+                  ] as LeadStage[]
+                ).map((s) => (
+                  <SelectItem key={s} value={s} className="capitalize">
+                    {s.replace("-", " ")}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -237,7 +286,11 @@ function LeadsPage() {
           const isOpen = openBands[band];
 
           return (
-            <section key={band} id={`band-${band}`} className={cn("rounded-xl border overflow-hidden", cfg.ring)}>
+            <section
+              key={band}
+              id={`band-${band}`}
+              className={cn("rounded-xl border overflow-hidden", cfg.ring)}
+            >
               {/* Section header */}
               <button
                 onClick={() => toggleBand(band)}
@@ -251,19 +304,27 @@ function LeadsPage() {
                   <div className={cn("text-sm font-semibold", cfg.color)}>{cfg.label}</div>
                   <div className="text-[11px] text-muted-foreground">{cfg.subtitle}</div>
                 </div>
-                <span className={cn("text-xs font-mono font-bold px-2 py-0.5 rounded-full border", cfg.ring, cfg.color)}>
+                <span
+                  className={cn(
+                    "text-xs font-mono font-bold px-2 py-0.5 rounded-full border",
+                    cfg.ring,
+                    cfg.color,
+                  )}
+                >
                   {items.length}
                 </span>
-                {isOpen
-                  ? <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
-                  : <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />}
+                {isOpen ? (
+                  <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                ) : (
+                  <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                )}
               </button>
 
               {/* Column headers */}
               {isOpen && (
                 <>
                   <div className="grid grid-cols-12 px-4 py-2 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold border-t border-b border-border bg-muted/20">
-                    <div className="col-span-3">Lead</div>
+                    <div className="col-span-3">Lead · phone</div>
                     <div className="col-span-2">Stage</div>
                     <div className="col-span-2">Intent · score</div>
                     <div className="col-span-2">Area · budget</div>
@@ -273,11 +334,14 @@ function LeadsPage() {
 
                   <div className="divide-y divide-border bg-card">
                     {items.map((l) => {
-                      const assignee = l.assignedTcmId ? userMap.get(l.assignedTcmId) : null;
+                      const assigneeName = l.assignedTcmId
+                        ? (userMap.get(l.assignedTcmId)?.name ?? null)
+                        : null;
                       const moveInLabel = getMoveInLabel(l.moveInDate);
                       const stuckReason = band === "stuck" ? getStuckReason(l) : null;
                       const isFire = band === "fire";
                       const daysToMoveIn = daysUntil(l.moveInDate);
+                      const loc = locationMap.get(l.id);
 
                       return (
                         <button
@@ -287,15 +351,21 @@ function LeadsPage() {
                         >
                           {/* Lead name + phone */}
                           <div className="col-span-3 min-w-0 pr-2">
-                            <div className="font-medium text-sm truncate">{l.name}</div>
-                            <div className="text-[11px] text-muted-foreground">{l.phone} · {l.source}</div>
+                            <div className="font-medium text-sm truncate">
+                              {resolveBestLeadName(l)}
+                            </div>
+                            <div className="text-[11px] text-muted-foreground truncate">
+                              {l.phone} · {l.source || "Unknown"}
+                            </div>
                             {stuckReason && (
                               <div className="text-[10px] text-warning mt-0.5">{stuckReason}</div>
                             )}
                           </div>
 
                           {/* Stage */}
-                          <div className="col-span-2"><StageBadge stage={l.stage} /></div>
+                          <div className="col-span-2">
+                            <StageBadge stage={l.stage} />
+                          </div>
 
                           {/* Intent + confidence */}
                           <div className="col-span-2 flex items-center gap-2">
@@ -305,25 +375,34 @@ function LeadsPage() {
 
                           {/* Area + budget */}
                           <div className="col-span-2 text-xs">
-                            <div className="truncate">{l.preferredArea || "-"}</div>
-                            <div className="text-muted-foreground">₹{(l.budget / 1000).toFixed(0)}k</div>
+                            <div className="truncate">{loc?.area ?? formatArea(l)}</div>
+                            <div className="text-muted-foreground">{formatBudget(l.budget)}</div>
                           </div>
 
                           {/* Move-in + assigned */}
                           <div className="col-span-2 text-xs">
-                            <div className={cn(
-                              "font-medium",
-                              isFire && daysToMoveIn !== null && daysToMoveIn <= 3 ? "text-destructive" :
-                              isFire ? "text-warning" : "text-foreground"
-                            )}>
+                            <div
+                              className={cn(
+                                "font-medium",
+                                isFire && daysToMoveIn !== null && daysToMoveIn <= 3
+                                  ? "text-destructive"
+                                  : isFire
+                                    ? "text-warning"
+                                    : "text-foreground",
+                              )}
+                            >
                               {moveInLabel}
                             </div>
-                            <div className="text-muted-foreground truncate">{assignee?.name ?? "-"}</div>
+                            <div className="text-muted-foreground truncate">
+                              {formatAssignee(l.assignedTcmId, assigneeName)}
+                            </div>
                           </div>
 
                           {/* Updated */}
                           <div className="col-span-1 text-right text-[11px] text-muted-foreground">
-                            {mounted ? formatDistanceToNow(new Date(l.updatedAt), { addSuffix: true }) : "-"}
+                            {mounted
+                              ? formatDistanceToNow(new Date(l.updatedAt), { addSuffix: true })
+                              : "-"}
                           </div>
                         </button>
                       );
@@ -337,7 +416,9 @@ function LeadsPage() {
 
         {filtered.length === 0 && (
           <div className="text-center py-16 text-sm text-muted-foreground">
-            No leads match your filters.
+            {q || stageFilter !== "all"
+              ? "No leads match your filters. Try a different search or stage."
+              : "No leads yet. New leads will appear here once assigned."}
           </div>
         )}
       </div>

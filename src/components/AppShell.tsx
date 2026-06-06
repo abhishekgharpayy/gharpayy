@@ -4,6 +4,7 @@ import {
   Building2, Search, Sun, Command, Trophy, Sparkles, MessageSquare,
   IndianRupee, MapPin, Zap, Users, Home, Calendar, Store, Swords, Settings, AlertTriangle,
   ShieldCheck, Inbox, Camera, HelpCircle, Layers, HeartPulse, ListTodo, Gauge, Radio,
+  Menu, X,
 } from "lucide-react";
 import { MemberDailyReminderPopup } from "@/components/stats/MemberDailyReminderPopup";
 import { NotificationCenter } from "./NotificationCenter";
@@ -19,7 +20,7 @@ import { useNow, useMountedNow } from "@/hooks/use-now";
 import { buildDoNextQueue } from "@/lib/engine";
 import { useGame, whoKey } from "@/lib/gamification";
 import { useCRM10x } from "@/lib/crm10x/store";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { PictureInPictureProvider, PipMount, usePip } from "./pip/PipProvider";
 import { PipButton } from "./pip/PipButton";
 import { usePipRouteSync } from "./pip/usePipSync";
@@ -92,11 +93,29 @@ export function AppShell({ children }: { children: ReactNode }) {
   const router = useRouterState();
   const path = router.location.pathname;
   const [now, mounted] = useMountedNow();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const filterTcm = role === "tcm" ? currentTcmId : undefined;
+  const canSeeAllQueue =
+    authUser?.role === "super_admin" || authUser?.role === "manager" || authUser?.role === "admin";
+  const queueSelfId = authUser?.id || (role === "tcm" ? currentTcmId : "");
+  const scopedQueueLeads = useMemo(() => {
+    if (canSeeAllQueue || !queueSelfId) return leads;
+    return leads.filter((lead) => {
+      const assignedTo = (lead.assignedTcmId || lead.assigneeId || "").trim();
+      return assignedTo === queueSelfId;
+    });
+  }, [canSeeAllQueue, queueSelfId, leads]);
+  const scopedQueueTours = useMemo(() => {
+    if (canSeeAllQueue || !queueSelfId) return tours;
+    return tours.filter((tour) => tour.tcmId === queueSelfId || tour.assignedTo === queueSelfId);
+  }, [canSeeAllQueue, queueSelfId, tours]);
+  const scopedQueueFollowUps = useMemo(() => {
+    if (canSeeAllQueue || !queueSelfId) return followUps;
+    return followUps.filter((followUp) => followUp.tcmId === queueSelfId);
+  }, [canSeeAllQueue, queueSelfId, followUps]);
   const queue = useMemo(
-    () => (mounted ? buildDoNextQueue(leads, tours, followUps, now, filterTcm) : []),
-    [leads, tours, followUps, now, filterTcm, mounted],
+    () => (mounted ? buildDoNextQueue(scopedQueueLeads, scopedQueueTours, scopedQueueFollowUps, now) : []),
+    [scopedQueueLeads, scopedQueueTours, scopedQueueFollowUps, now, mounted],
   );
   const overdueCount = mounted ? followUps.filter((f) => !f.done && +new Date(f.dueAt) <= now).length : 0;
   const incompletePostTour = tours.filter((t) => t.status === "completed" && !t.postTour.filledAt).length;
@@ -220,17 +239,44 @@ export function AppShell({ children }: { children: ReactNode }) {
       <LiveToursAppBridge />
       {shouldMountMytBridges ? <LiveToursBridge /> : null}
       <div className="min-h-screen flex w-full bg-background text-foreground">
+      {sidebarOpen && (
+        <button
+          type="button"
+          aria-label="Close sidebar"
+          className="fixed inset-0 z-40 bg-background/70 backdrop-blur-sm"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
       {/* Sidebar */}
-      <aside className="hidden md:flex w-60 flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border sticky top-0 h-screen">
-        <Link to={role === "super-admin" ? "/admin" : "/"} className="px-5 py-5 flex items-center gap-2 border-b border-sidebar-border hover:opacity-80 transition-opacity">
-          <div className="h-9 w-9 rounded-lg bg-accent flex items-center justify-center">
-            <Building2 className="h-4 w-4 text-accent-foreground" />
-          </div>
-          <div className="leading-tight">
-            <div className="text-sidebar-accent-foreground font-display font-semibold text-sm">Gharpayy</div>
-            <div className="text-[10px] uppercase tracking-wider text-sidebar-foreground">Arena Infrastructure</div>
-          </div>
-        </Link>
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-50 flex w-72 max-w-[86vw] flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border shadow-xl transition-transform duration-200",
+          sidebarOpen ? "translate-x-0" : "-translate-x-full",
+        )}
+      >
+        <div className="px-5 py-5 flex items-center gap-2 border-b border-sidebar-border">
+          <Link
+            to={role === "super-admin" ? "/admin" : "/"}
+            className="flex min-w-0 flex-1 items-center gap-2 hover:opacity-80 transition-opacity"
+            onClick={() => setSidebarOpen(false)}
+          >
+            <div className="h-9 w-9 rounded-lg bg-accent flex items-center justify-center">
+              <Building2 className="h-4 w-4 text-accent-foreground" />
+            </div>
+            <div className="leading-tight">
+              <div className="text-sidebar-accent-foreground font-display font-semibold text-sm">Gharpayy</div>
+              <div className="text-[10px] uppercase tracking-wider text-sidebar-foreground">Arena Infrastructure</div>
+            </div>
+          </Link>
+          <button
+            type="button"
+            aria-label="Close sidebar"
+            className="ml-auto inline-flex h-8 w-8 items-center justify-center rounded-md border border-sidebar-border bg-sidebar-accent/60 text-sidebar-foreground hover:bg-sidebar-accent"
+            onClick={() => setSidebarOpen(false)}
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
 
         {(() => {
           const roleMeta = {
@@ -261,6 +307,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Link
                 key={it.to}
                 to={it.to}
+                onClick={() => setSidebarOpen(false)}
                 className={cn(
                   "flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] transition-colors",
                   active
@@ -327,7 +374,16 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* Main */}
       <div className="flex-1 flex flex-col min-w-0">
         <header className="sticky top-0 z-30 h-14 bg-background/85 backdrop-blur border-b border-border flex items-center gap-3 px-4 md:px-6">
-          <div className="md:hidden font-display font-semibold">Gharpayy</div>
+          <button
+            type="button"
+            onClick={() => setSidebarOpen(true)}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border bg-card text-foreground shadow-sm hover:bg-muted/60"
+            aria-label="Open sidebar"
+            aria-expanded={sidebarOpen}
+          >
+            <Menu className="h-4 w-4" />
+          </button>
+          <div className="font-display font-semibold md:hidden">Gharpayy</div>
           <button
             onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }))}
             className="md:hidden inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-card text-muted-foreground"

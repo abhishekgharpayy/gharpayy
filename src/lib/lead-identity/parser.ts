@@ -235,10 +235,18 @@ function parseHumanDate(dateStr: string): string {
 
   const pad2 = (n: number): string => String(n).padStart(2, "0");
   const localIso = (d: Date): string => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
-  const ymd = (year: number, month: number, day: number): string => {
+  const isBeforeToday = (d: Date): boolean => {
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const candidate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    return candidate < today;
+  };
+  const ymd = (year: number, month: number, day: number, rollForwardPastDate = false): string => {
     if (month < 1 || month > 12 || day < 1 || day > 31) return "";
     const check = new Date(year, month - 1, day);
     if (check.getFullYear() !== year || check.getMonth() !== month - 1 || check.getDate() !== day) return "";
+    if (rollForwardPastDate && isBeforeToday(check)) {
+      return ymd(year + 1, month, day, false);
+    }
     return `${year}-${pad2(month)}-${pad2(day)}`;
   };
   
@@ -264,7 +272,7 @@ function parseHumanDate(dateStr: string): string {
     const monthStr = match[2].toLowerCase();
     const monthNum = months[monthStr.slice(0, 3)];
     if (monthNum) {
-      return ymd(currentYear, monthNum, day);
+      return ymd(currentYear, monthNum, day, true);
     }
   }
   
@@ -275,7 +283,7 @@ function parseHumanDate(dateStr: string): string {
     const monthNum = months[monthStr.slice(0, 3)];
     const day = parseInt(match[2], 10);
     if (monthNum) {
-      return ymd(currentYear, monthNum, day);
+      return ymd(currentYear, monthNum, day, true);
     }
   }
   
@@ -284,7 +292,7 @@ function parseHumanDate(dateStr: string): string {
   if (match) {
     const day = parseInt(match[1], 10);
     const month = parseInt(match[2], 10);
-    return ymd(currentYear, month, day);
+    return ymd(currentYear, month, day, true);
   }
   
   // Pattern: "07/05/2026" or "07-05-2026"

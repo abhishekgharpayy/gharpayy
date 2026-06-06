@@ -113,7 +113,7 @@ export function QuickAddLeadPanel({ open, onClose }: Props) {
   const [quality, setQuality] = useState<"hot" | "good" | "bad" | null>(null);
   const [zoneBucket, setZoneBucket] = useState<string>("");
   // Default to the current member when a regular member is adding a lead
-  const defaultAssigneeId = authUser?.role === "member" ? authUser.id : "";
+  const defaultAssigneeId = authUser?.role === "member" || authUser?.role === "tcm" ? authUser.id : "";
   const [assigneeId, setAssigneeId] = useState<string>(defaultAssigneeId);
   const [stage, setStage] = useState<string>(STAGES[0]);
   const [notes, setNotes] = useState("");
@@ -240,7 +240,9 @@ export function QuickAddLeadPanel({ open, onClose }: Props) {
       });
     }
     const areasArr = areasText.split(",").map((a) => a.trim()).filter(Boolean);
-    const assignee = orgMembers.find((m) => m.id === assigneeId) ?? (activeTcms || []).find((a: any) => a.id === assigneeId);
+    const assignee = sortedMembers.find((m: any) => m.id === assigneeId)
+      ?? orgMembers.find((m) => m.id === assigneeId)
+      ?? (activeTcms || []).find((a: any) => a.id === assigneeId);
     const zoneObj = orgZones.find((z) => z.name === zoneBucket);
     const budgetNum = parseBudgetAmount(budget);
 
@@ -253,6 +255,7 @@ export function QuickAddLeadPanel({ open, onClose }: Props) {
         phone: `+91${phoneClean}`,
         source: "quick-add",
         budget: budgetNum,
+        budgetText: budget.trim(),
         moveInDate: moveIn,
         preferredArea: areasArr[0] ?? areasText.trim(),
         zoneId: zoneObj?.id ?? null,
@@ -322,10 +325,11 @@ export function QuickAddLeadPanel({ open, onClose }: Props) {
       phone: `+91${phoneClean}`,
       source: "quick-add",
       budget: budgetNum,
+      budgetText: budget.trim(),
       moveInDate: moveIn,
       preferredArea: areasArr[0] ?? areasText.trim(),
       assignedTcmId: assignee?.id ?? "",
-      stage: (stage as LeadStage) || "new",
+      stage: "new",
       intent: (quality === "hot" ? "hot" : quality === "bad" ? "cold" : "warm") as Intent,
       confidence: quality === "hot" ? 90 : quality === "good" ? 70 : quality === "bad" ? 30 : 50,
       tags: [],

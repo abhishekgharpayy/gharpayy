@@ -1,7 +1,7 @@
 export type Role = "flow-ops" | "tcm" | "hr" | "owner" | "super-admin";
 export type Intent = "hot" | "warm" | "cold";
 export type TourStatus = "scheduled" | "confirmed" | "completed" | "no-show" | "cancelled";
-export type ClientDecision = "booked" | "thinking" | "dropped" | "token-paid" | "draft" | "follow-up" | "rejected" | "not-interested" | null;
+export type ClientDecision = "booked" | "thinking" | "awaiting" | "dropped" | "token-paid" | "draft" | "follow-up" | "rejected" | "not-interested" | null;
 export type LeadStage =
   | "new"
   | "contacted"
@@ -42,9 +42,12 @@ export interface Lead {
   phone: string;
   source: string;
   budget: number;
+  budgetText?: string;
   moveInDate: string;
   preferredArea: string;
   assignedTcmId: string;
+  assigneeId?: string | null;
+  createdBy?: string | null;
   stage: LeadStage;
   intent: Intent;
   confidence: number; // 0-100 (deal probability)

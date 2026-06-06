@@ -25,10 +25,10 @@ export function AuthGate({ children }: { children: ReactNode }) {
   const isLoginRoute = pathname === "/login";
 
   useEffect(() => {
-    if (user || isLoginRoute || !hasToken) return;
+    if (user || isLoginRoute || loading) return;
     const redirect = pathname || "/";
     void navigate({ to: "/login", search: { redirect }, replace: true }).catch(() => undefined);
-  }, [user, isLoginRoute, hasToken, pathname, navigate]);
+  }, [user, isLoginRoute, loading, pathname, navigate]);
 
   // Resolving auth: token present but user not yet loaded
   if (hasToken && !user && loading) {

@@ -12,6 +12,16 @@ export let io: SocketServer | null = null;
 const MAX_AD_HOC_ROOMS = 50;       // cap per socket; LRU-evict on overflow
 const REPLAY_CAP_PER_AGG = 500;    // beyond this, client must refetch snapshot
 
+function isAllowedSocketOrigin(origin: string | undefined): boolean {
+  if (!origin) return true;
+  if (corsOrigins.includes(origin)) return true;
+  if (/^https:\/\/[a-z0-9-]+\.trycloudflare\.com$/.test(origin)) return true;
+  if (process.env.NODE_ENV === "development" && /^(https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?)$/.test(origin)) {
+    return true;
+  }
+  return false;
+}
+
 interface SocketState {
   user: JwtClaims;
   adHocRooms: string[];            // lru: oldest first
@@ -44,7 +54,10 @@ function evictOldestIfNeeded(socket: Socket, state: SocketState) {
 
 export async function attachSocketIO(app: FastifyInstance) {
   io = new SocketServer(app.server, {
-    cors: { origin: corsOrigins, credentials: true },
+    cors: {
+      origin: (origin, cb) => cb(null, isAllowedSocketOrigin(origin)),
+      credentials: true,
+    },
     transports: ["websocket", "polling"],
     // Idle WS gets pinged every 25s; client without pong in 60s = dead.
     pingInterval: 25_000,
