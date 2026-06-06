@@ -321,7 +321,30 @@ export function ImpactQueue() {
   const selfScopeId = authUser?.id || currentTcmId;
   const { tcms: activeTcms } = useActiveTcMs();
   const { members: orgMembers } = useOrgMembers();
-  const tcmOptions = activeTcms.length > 0 ? activeTcms : tcms;
+  const tcmOptions = useMemo(() => {
+    const fromActive = activeTcms.map((t: any) => ({
+      ...t,
+      name: t.fullName ?? t.name,
+      zones: t.zones ?? (t.zone ? [t.zone] : []),
+    }));
+    const fromDirectory = orgMembers
+      .filter((m) => m.role === "member" || m.role === "tcm")
+      .map((m: any) => ({
+        ...m,
+        name: m.fullName ?? m.name,
+        zones: m.zones ?? [],
+      }));
+    const fromLegacy = tcms.map((t: any) => ({
+      ...t,
+      name: t.fullName ?? t.name,
+      zones: t.zones ?? (t.zone ? [t.zone] : []),
+    }));
+    const byId = new Map<string, any>();
+    [...fromActive, ...fromDirectory, ...fromLegacy].forEach((member) => {
+      if (member?.id) byId.set(member.id, member);
+    });
+    return Array.from(byId.values()).sort((a, b) => tmName(a).localeCompare(tmName(b)));
+  }, [activeTcms, orgMembers, tcms]);
   const memberScopeOptions = useMemo(() => {
     const normalize = (zones?: string[]) =>
       (zones ?? []).map((z) => String(z).trim().toLowerCase()).filter(Boolean);
@@ -853,7 +876,7 @@ export function ImpactQueue() {
         <div className="border-t border-border/70 bg-background px-3 py-2">
           <div className="flex flex-wrap items-center gap-2">
             <FocusInventoryStrip tcmFilter={tcmFilter} tcmOptions={tcmOptions} />
-            <div className="flex flex-wrap items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-1.5 basis-full">
               <Chip active={chipFilter === "all"} onClick={() => selectChip("all")}>All</Chip>
               <Chip active={chipFilter === "hot"} onClick={() => selectChip("hot")} tone="danger"><Flame className="h-3 w-3" /> Hot</Chip>
               <Chip active={chipFilter === "warm"} onClick={() => selectChip("warm")} tone="warning">Warm</Chip>
@@ -3251,7 +3274,7 @@ function FocusInventoryStrip({ tcmFilter, tcmOptions }: { tcmFilter: string; tcm
   }, [activeTcm, tcmOptions, focusProps, properties]);
 
   return (
-    <div className="rounded-lg border border-border bg-card px-4 py-3">
+    <div className="basis-full rounded-lg border border-border bg-card px-4 py-3">
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
@@ -3316,7 +3339,9 @@ function FocusInventoryStrip({ tcmFilter, tcmOptions }: { tcmFilter: string; tcm
           </div>
         ))}
         {rows.length === 0 && (
-          <p className="text-[11px] text-muted-foreground italic">No team members found.</p>
+          <p className="text-[11px] text-muted-foreground italic">
+            No TCMs available. Add a TCM/member first, then pin focus properties here.
+          </p>
         )}
       </div>
 

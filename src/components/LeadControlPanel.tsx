@@ -1255,12 +1255,21 @@ export function LeadControlPanel() {
                   );
                 }
                 const prop = getProperty(target.propertyId, properties);
-                const postTourPropertyName =
+                const catalogPostTourProperty = target.propertyId
+                  ? resolvePropertyById(target.propertyId, properties)
+                  : null;
+                const rawPostTourPropertyName =
                   prop?.name ??
+                  catalogPostTourProperty?.name ??
                   (target as any).propertyName ??
                   target.customPropertyName ??
+                  leadLocation.propertyName ??
                   lead.propertyName ??
-                  "Property not selected";
+                  "";
+                const postTourPropertyName =
+                  rawPostTourPropertyName.trim() && rawPostTourPropertyName.trim().toLowerCase() !== "property"
+                    ? rawPostTourPropertyName.trim()
+                    : "Property not selected";
                 const pt = target.postTour;
                 const applyPostTourOutcome = async (outcome: NonNullable<typeof pt.outcome>) => {
                   const nowIso = new Date().toISOString();
@@ -1423,7 +1432,7 @@ export function LeadControlPanel() {
                           type="number"
                           min={1}
                           max={10}
-                          placeholder="—"
+                          placeholder="1-10"
                           value={(pt as any).propertyRating ?? ""}
                           onChange={(e) =>
                             updatePostTour(target.id, {
@@ -1439,7 +1448,7 @@ export function LeadControlPanel() {
                           type="number"
                           min={0}
                           max={100}
-                          placeholder="—"
+                          placeholder="0-100"
                           value={(pt as any).bookingProbability ?? ""}
                           onChange={(e) =>
                             updatePostTour(target.id, {
@@ -1460,7 +1469,7 @@ export function LeadControlPanel() {
                           onValueChange={(v) => updatePostTour(target.id, { objection: v })}
                         >
                           <SelectTrigger className="h-11 text-sm rounded-xl">
-                            <SelectValue placeholder="—" />
+                            <SelectValue placeholder="Select objection" />
                           </SelectTrigger>
                           <SelectContent>
                             {OBJECTIONS.map((o) => (
