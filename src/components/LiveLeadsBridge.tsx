@@ -18,6 +18,7 @@ function toLegacy(w: WireLead, fallbackTcmId = ""): LegacyLead {
     phone: w.phone,
     source: w.source ?? "manual",
     budget: w.budget ?? 0,
+    budgetText: w.budgetText ?? "",
     moveInDate: w.moveInDate ?? new Date().toISOString().slice(0, 10),
     preferredArea: w.preferredArea ?? "",
     assignedTcmId: w.assignedTcmId ?? fallbackTcmId,
@@ -91,7 +92,7 @@ export function LiveLeadsBridge() {
           : l)));
       } else if (e.type === "evt.lead.assigned") {
         setLeads(cur.map((l) => (l.id === e.payload.leadId
-          ? { ...l, assignedTcmId: e.payload.tcmId, updatedAt: new Date().toISOString() }
+          ? { ...l, assignedTcmId: e.payload.tcmId, assigneeId: e.payload.tcmId, updatedAt: new Date().toISOString() }
           : l)));
       } else if (e.type === "evt.lead.stage_changed") {
         setLeads(cur.map((l) => (l.id === e.payload.leadId
