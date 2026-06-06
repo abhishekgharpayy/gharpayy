@@ -1338,25 +1338,21 @@ export function LeadControlPanel() {
                               o: "booked",
                               label: "Booked",
                               hint: "Ready for quote",
-                              action: "Move to Quote",
                             },
                             {
                               o: "thinking",
                               label: "Still deciding",
                               hint: "Move to negotiation",
-                              action: "Move to Negotiation",
                             },
                             {
                               o: "not-interested",
                               label: "Not interested",
                               hint: "Drop this lead",
-                              action: "Move to Dropped",
                             },
                             {
                               o: "awaiting",
                               label: "Awaiting outcome",
-                              hint: "Keep stage unchanged",
-                              action: "Save follow-up",
+                              hint: "Save follow-up",
                             },
                           ] as const
                         ).map((opt) => {
@@ -1366,7 +1362,7 @@ export function LeadControlPanel() {
                               key={opt.o}
                               variant={selected ? "default" : "outline"}
                               size="sm"
-                              className="h-auto min-h-12 flex-col items-start justify-center gap-0.5 px-3 text-left"
+                              className="h-auto min-h-12 whitespace-normal flex-col items-start justify-center gap-0.5 px-3 text-left"
                               onClick={async () => {
                                 try {
                                   await applyPostTourOutcome(opt.o);
@@ -1376,8 +1372,8 @@ export function LeadControlPanel() {
                               }}
                             >
                               <span className="w-full text-sm font-medium">{opt.label}</span>
-                              <span className={selected ? "text-primary-foreground/70" : "text-muted-foreground"}>
-                                {opt.action} · {opt.hint}
+                              <span className={`w-full break-words text-xs leading-snug ${selected ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
+                                {opt.hint}
                               </span>
                             </Button>
                           );
