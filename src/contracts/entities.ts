@@ -173,12 +173,14 @@ export type TourStatus = z.infer<typeof TourStatus>;
 
 export const TourOutcome = z.enum([
   "booked",
+  "thinking",
   "awaiting",
   "token-paid",
   "draft",
   "follow-up",
   "rejected",
   "not-interested",
+  "dropped",
 ]).nullable();
 export type TourOutcome = z.infer<typeof TourOutcome>;
 

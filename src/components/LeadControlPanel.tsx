@@ -1253,6 +1253,51 @@ export function LeadControlPanel() {
                 }
                 const prop = getProperty(target.propertyId, properties);
                 const pt = target.postTour;
+                const applyPostTourOutcome = async (outcome: NonNullable<typeof pt.outcome>) => {
+                  const nowIso = new Date().toISOString();
+                  const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
+                  tomorrow.setHours(11, 0, 0, 0);
+                  const confidence =
+                    pt.confidence > 0
+                      ? pt.confidence
+                      : outcome === "booked"
+                        ? 85
+                        : outcome === "thinking"
+                          ? 55
+                          : outcome === "not-interested" || outcome === "dropped"
+                            ? 10
+                            : 35;
+                  const shouldComplete = outcome !== "awaiting";
+                  await updatePostTour(target.id, {
+                    outcome,
+                    confidence,
+                    expectedDecisionAt: pt.expectedDecisionAt ?? tomorrow.toISOString(),
+                    nextFollowUpAt: pt.nextFollowUpAt ?? tomorrow.toISOString(),
+                    filledAt: shouldComplete ? nowIso : null,
+                  });
+
+                  if (outcome === "booked") {
+                    await setLeadStage(lead.id, "quote-sent");
+                    setTab("quote");
+                    toast.success("Post-tour complete. Quote is unlocked.");
+                    return;
+                  }
+                  if (outcome === "thinking") {
+                    await setLeadStage(lead.id, "negotiation");
+                    setTab("negotiation");
+                    toast.success("Post-tour complete. Negotiation is unlocked.");
+                    return;
+                  }
+                  if (outcome === "not-interested" || outcome === "dropped") {
+                    await setLeadStage(lead.id, "dropped");
+                    toast.success("Lead moved to dropped.");
+                    return;
+                  }
+
+                  await setLeadStage(lead.id, "tour-done");
+                  setTab("post");
+                  toast.success("Awaiting outcome saved. Follow-up remains in post-tour.");
+                };
                 return (
                   <div className="space-y-4">
                     <Section title="Post-tour">
@@ -1293,21 +1338,25 @@ export function LeadControlPanel() {
                               o: "booked",
                               label: "Booked",
                               hint: "Ready for quote",
+                              action: "Move to Quote",
                             },
                             {
                               o: "thinking",
                               label: "Still deciding",
                               hint: "Move to negotiation",
+                              action: "Move to Negotiation",
                             },
                             {
                               o: "not-interested",
                               label: "Not interested",
                               hint: "Drop this lead",
+                              action: "Move to Dropped",
                             },
                             {
                               o: "awaiting",
                               label: "Awaiting outcome",
                               hint: "Keep stage unchanged",
+                              action: "Save follow-up",
                             },
                           ] as const
                         ).map((opt) => {
@@ -1318,14 +1367,17 @@ export function LeadControlPanel() {
                               variant={selected ? "default" : "outline"}
                               size="sm"
                               className="h-auto min-h-12 flex-col items-start justify-center gap-0.5 px-3 text-left"
-                              onClick={() => {
-                                updatePostTour(target.id, { outcome: opt.o });
-                                toast.success(`Selected: ${opt.label}`);
+                              onClick={async () => {
+                                try {
+                                  await applyPostTourOutcome(opt.o);
+                                } catch (error) {
+                                  toast.error(error instanceof Error ? error.message : "Post-tour action failed");
+                                }
                               }}
                             >
                               <span className="w-full text-sm font-medium">{opt.label}</span>
                               <span className={selected ? "text-primary-foreground/70" : "text-muted-foreground"}>
-                                {opt.hint}
+                                {opt.action} · {opt.hint}
                               </span>
                             </Button>
                           );
@@ -1419,7 +1471,7 @@ export function LeadControlPanel() {
                       </div>
                     )}
 
-                    {!pt.filledAt && (
+                    {!pt.filledAt && pt.outcome && (
                       <Button
                         size="lg"
                         className="w-full"
@@ -1429,42 +1481,14 @@ export function LeadControlPanel() {
                             toast.error("Select a post-tour outcome first");
                             return;
                           }
-                          const nowIso = new Date().toISOString();
-                          const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
-                          tomorrow.setHours(11, 0, 0, 0);
-                          const confidence =
-                            pt.confidence > 0
-                              ? pt.confidence
-                              : pt.outcome === "booked"
-                                ? 85
-                                : pt.outcome === "thinking"
-                                  ? 55
-                                  : pt.outcome === "not-interested"
-                                    ? 10
-                                    : 35;
-                          await updatePostTour(target.id, {
-                            confidence,
-                            expectedDecisionAt: pt.expectedDecisionAt ?? tomorrow.toISOString(),
-                            nextFollowUpAt: pt.nextFollowUpAt ?? tomorrow.toISOString(),
-                            filledAt: nowIso,
-                          });
-                          if (pt.outcome === "booked") {
-                            await setLeadStage(lead.id, "quote-sent");
-                            setTab("quote");
-                            toast.success("Post-tour complete. Quote is unlocked.");
-                          } else if (pt.outcome === "thinking") {
-                            await setLeadStage(lead.id, "negotiation");
-                            setTab("negotiation");
-                            toast.success("Post-tour complete. Negotiation is unlocked.");
-                          } else if (pt.outcome === "not-interested") {
-                            await setLeadStage(lead.id, "dropped");
-                            toast.success("Post-tour complete. Lead marked not interested.");
-                          } else {
-                            toast.success("Post-tour saved. Lead remains awaiting outcome.");
+                          try {
+                            await applyPostTourOutcome(pt.outcome);
+                          } catch (error) {
+                            toast.error(error instanceof Error ? error.message : "Post-tour action failed");
                           }
                         }}
                       >
-                        Complete post-tour
+                        Apply selected outcome
                       </Button>
                     )}
                     {lead.stage === "booked" && (

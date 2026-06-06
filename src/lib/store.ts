@@ -569,6 +569,7 @@ export const useApp = create<AppState>((set, get) => ({
     const next: PostTourUpdate = { ...t.postTour, ...patch };
     const complete =
       next.outcome !== null &&
+      next.outcome !== "awaiting" &&
       next.confidence > 0 &&
       next.expectedDecisionAt !== null &&
       next.nextFollowUpAt !== null;
