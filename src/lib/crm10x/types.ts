@@ -28,6 +28,7 @@ export type ObjectionCode =
   | "no-ac"
   | "safety-concern"
   | "no-response-to-offer"
+  | "other"
   | "none";
 
 export type ObjectionResolution = "yes" | "partially" | "no";
@@ -65,6 +66,8 @@ export interface DeepLeadProfile {
   flexibility?: FlexibilityScore;
   verifiedBudget?: boolean;
   verifiedMoveIn?: boolean;
+  qualificationCompleteAt?: string;
+  visitReadyAt?: string;
   updatedAt: string;
 }
 
