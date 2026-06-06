@@ -153,6 +153,7 @@ export const useApp = create<AppState>((set, get) => ({
       phone: input.phone,
       source: input.source ?? "manual",
       budget: input.budget,
+      budgetText: input.budgetText,
       moveInDate: input.moveInDate ?? now,
       preferredArea: input.preferredArea,
       assignedTcmId: input.assignedTcmId ?? get().currentTcmId,
@@ -476,9 +477,26 @@ export const useApp = create<AppState>((set, get) => ({
       issuedAt: new Date().toISOString(),
       payload: { tourId, patch },
     });
+    const t = get().tours.find((x) => x.id === tourId);
     set((s) => ({
       tours: s.tours.map((x) => (x.id === tourId ? { ...x, ...patch, updatedAt: new Date().toISOString() } : x)),
+      leads: t && patch.status === "no-show"
+        ? s.leads.map((l) =>
+            l.id === t.leadId
+              ? { ...l, stage: "contacted", updatedAt: new Date().toISOString() }
+              : l,
+          )
+        : s.leads,
     }));
+    if (t && patch.status === "no-show") {
+      void api.command({
+        _id: uid("c"),
+        type: "cmd.lead.change_stage",
+        issuedAt: new Date().toISOString(),
+        payload: { leadId: t.leadId, to: "contacted", tourId },
+      }).catch(() => {});
+      pushActivity(set, get, { kind: "tour_cancelled", actor: t.tcmId, leadId: t.leadId, tourId, text: "Tour marked no-show" });
+    }
   },
 
   markTourStarted: async (tourId) => {
