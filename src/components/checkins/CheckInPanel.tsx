@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   useCheckin, useUpsertCheckin, useSetCheckinStage, usePatchCheckin, useAddCheckinDelay, useAddCheckinIssue, useSetCheckinIssueStatus,
   STAGE_LABEL, STAGE_ORDER, DELAY_REASONS, ISSUE_CATEGORIES,
@@ -20,10 +20,11 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { useMountedNow } from "@/hooks/use-now";
+import { useQuotationsQuery } from "@/lib/crm10x/quotations";
 import {
   CheckCircle2, MessageSquare, IndianRupee, Home, Calendar as CalendarIcon,
   AlertTriangle, KeyRound, Sparkles, Copy, RotateCcw, Wrench,
-  ScrollText,
+  ScrollText, ImagePlus, Search,
 } from "lucide-react";
 import type { Lead } from "@/lib/types";
 
@@ -36,7 +37,9 @@ function copyWA(msg: string) {
 
 export function CheckInPanel({ lead }: { lead: Lead }) {
   const properties = useApp((s) => s.properties);
+  const setLeadStage = useApp((s) => s.setLeadStage);
   const { data: checkin } = useCheckin(lead.id);
+  const { data: quotes = [] } = useQuotationsQuery(lead.id);
   const { mutate: upsert } = useUpsertCheckin();
   const { mutate: setStage } = useSetCheckinStage();
   const { mutate: patch } = usePatchCheckin();
@@ -60,18 +63,121 @@ export function CheckInPanel({ lead }: { lead: Lead }) {
   const [issueCat, setIssueCat] = useState<IssueCategory>("wifi");
   const [issueDesc, setIssueDesc] = useState("");
   const [nps, setNps] = useState("");
+  const [propertySearch, setPropertySearch] = useState("");
+  const autoStartedLeadRef = useRef<string | null>(null);
+
+  const paidQuote = useMemo(() => {
+    return quotes
+      .filter((quote) => quote.status === "paid")
+      .sort((a, b) => {
+        const aTime = new Date(a.paidAt || a.sentAt).getTime();
+        const bTime = new Date(b.paidAt || b.sentAt).getTime();
+        return bTime - aTime;
+      })[0];
+  }, [quotes]);
+
+  const quoteProperty = useMemo(() => {
+    if (!paidQuote) return null;
+    return (
+      properties.find((property) => property.id === paidQuote.propertyId) ??
+      properties.find((property) => property.name.toLowerCase() === paidQuote.propertyName.toLowerCase()) ??
+      null
+    );
+  }, [paidQuote, properties]);
+
+  const checkinSeed = useMemo(() => {
+    const rent = paidQuote?.discountedPrice || lead.quotedPrice || lead.budget || quoteProperty?.pricePerBed || 0;
+    return {
+      rent,
+      deposit: 0,
+      propertyId: paidQuote?.propertyId || quoteProperty?.id,
+      propertyName: paidQuote?.propertyName || quoteProperty?.name,
+      checkInDate: lead.moveInDate ? new Date(lead.moveInDate).toISOString() : undefined,
+    };
+  }, [lead.budget, lead.moveInDate, lead.quotedPrice, paidQuote, quoteProperty]);
+
+  const propertyOptions = useMemo(() => {
+    const map = new Map<string, { id: string; name: string; area?: string; price?: number }>();
+    const add = (item?: { id?: string; name?: string; area?: string; price?: number } | null) => {
+      if (!item?.id || !item.name) return;
+      map.set(item.id, item);
+    };
+    add(
+      paidQuote
+        ? {
+            id: paidQuote.propertyId || `quote-${paidQuote.id}`,
+            name: paidQuote.propertyName,
+            price: paidQuote.discountedPrice,
+          }
+        : null,
+    );
+    add(
+      checkin?.propertyId && checkin.propertyName
+        ? {
+            id: checkin.propertyId,
+            name: checkin.propertyName,
+            price: checkin.rent,
+          }
+        : null,
+    );
+    properties.forEach((property) =>
+      add({
+        id: property.id,
+        name: property.name,
+        area: property.area,
+        price: property.pricePerBed,
+      }),
+    );
+    const query = propertySearch.trim().toLowerCase();
+    return Array.from(map.values()).filter((property) =>
+      query
+        ? [property.name, property.area].filter(Boolean).some((value) => String(value).toLowerCase().includes(query))
+        : true,
+    );
+  }, [checkin?.propertyId, checkin?.propertyName, checkin?.rent, paidQuote, properties, propertySearch]);
+
+  useEffect(() => {
+    const shouldStart = lead.stage === "booked" || Boolean(paidQuote);
+    if (checkin || !shouldStart || autoStartedLeadRef.current === lead.id) return;
+    autoStartedLeadRef.current = lead.id;
+    upsert({
+      leadId: lead.id,
+      rent: checkinSeed.rent,
+      deposit: checkinSeed.deposit,
+      propertyId: checkinSeed.propertyId,
+      propertyName: checkinSeed.propertyName,
+    });
+  }, [checkin, checkinSeed, lead.id, lead.stage, paidQuote, upsert]);
+
+  useEffect(() => {
+    if (!checkin || !paidQuote) return;
+    const patchData: Record<string, unknown> = {};
+    if (checkinSeed.rent && checkin.rent !== checkinSeed.rent) patchData.rent = checkinSeed.rent;
+    if (checkin.deposit !== checkinSeed.deposit) patchData.deposit = checkinSeed.deposit;
+    if (checkinSeed.propertyId && checkin.propertyId !== checkinSeed.propertyId) patchData.propertyId = checkinSeed.propertyId;
+    if (checkinSeed.propertyName && checkin.propertyName !== checkinSeed.propertyName) patchData.propertyName = checkinSeed.propertyName;
+    if (!checkin.checkInDate && checkinSeed.checkInDate) patchData.checkInDate = checkinSeed.checkInDate;
+    if (Object.keys(patchData).length === 0) return;
+    patch({ id: checkin.id, leadId: lead.id, patch: patchData });
+  }, [checkin, checkinSeed, lead.id, paidQuote, patch]);
 
   if (!checkin) {
     return (
       <div className="rounded-lg border border-dashed border-border p-6 text-center space-y-3">
         <Sparkles className="h-8 w-8 mx-auto text-muted-foreground" />
         <div className="text-sm text-muted-foreground">
-          Check-in starts once the lead is booked.
+          Preparing check-in from the paid quote.
         </div>
         <Button
           size="sm"
           onClick={() => {
-            upsert({ leadId: lead.id, rent: 12000 });
+            upsert({
+              leadId: lead.id,
+              rent: checkinSeed.rent,
+              deposit: checkinSeed.deposit,
+              propertyId: checkinSeed.propertyId,
+              propertyName: checkinSeed.propertyName,
+            });
             toast.success("Check-in record created");
           }}
         >
@@ -82,7 +188,9 @@ export function CheckInPanel({ lead }: { lead: Lead }) {
   }
 
   const propertyName =
-    properties.find((p) => p.id === propertyId)?.name ?? checkin.propertyName;
+    propertyOptions.find((p) => p.id === propertyId)?.name ??
+    properties.find((p) => p.id === propertyId)?.name ??
+    checkin.propertyName;
 
   return (
     <div className="space-y-4">
@@ -119,7 +227,7 @@ export function CheckInPanel({ lead }: { lead: Lead }) {
         done={stageIdx > STAGE_ORDER.indexOf("booked")}
         icon={MessageSquare}
         title="Paste customer's confirmation"
-        helper="WhatsApp reply text. Optional: paste screenshot URL."
+        helper="WhatsApp reply text. Optional: attach confirmation screenshot."
       >
         <Textarea
           value={ackText || checkin.ackText || ""}
@@ -127,11 +235,10 @@ export function CheckInPanel({ lead }: { lead: Lead }) {
           placeholder='e.g. "Yes confirmed, please proceed"'
           className="min-h-[64px] text-xs"
         />
-        <Input
-          value={checkin.ackScreenshotUrl ?? ""}
-          onChange={(e) => patch({ id: checkin.id, leadId: lead.id, patch: { ackScreenshotUrl: e.target.value } })}
-          placeholder="Screenshot URL (optional)"
-          className="h-8 text-xs"
+        <ImageUploadInput
+          label="Add confirmation screenshot image"
+          value={checkin.ackScreenshotUrl}
+          onChange={(value) => patch({ id: checkin.id, leadId: lead.id, patch: { ackScreenshotUrl: value } })}
         />
         <div className="flex gap-2">
           <Button size="sm" variant="outline" className="h-8 text-xs flex-1"
@@ -161,7 +268,7 @@ export function CheckInPanel({ lead }: { lead: Lead }) {
       >
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <Label className="text-[10px] uppercase text-muted-foreground">Amount (₹)</Label>
+            <Label className="text-[10px] uppercase text-muted-foreground">Amount received (₹)</Label>
             <Input type="number" value={tokenAmount || String(checkin.tokenAmount ?? "")}
               onChange={(e) => setTokenAmount(e.target.value)}
               placeholder="5000" className="h-8 text-xs" />
@@ -173,11 +280,10 @@ export function CheckInPanel({ lead }: { lead: Lead }) {
               placeholder="e.g. 4523XXX9871" className="h-8 text-xs" />
           </div>
         </div>
-        <Input
-          value={checkin.tokenScreenshotUrl ?? ""}
-          onChange={(e) => patch({ id: checkin.id, leadId: lead.id, patch: { tokenScreenshotUrl: e.target.value } })}
-          placeholder="Payment screenshot URL (optional)"
-          className="h-8 text-xs"
+        <ImageUploadInput
+          label="Add payment screenshot image"
+          value={checkin.tokenScreenshotUrl}
+          onChange={(value) => patch({ id: checkin.id, leadId: lead.id, patch: { tokenScreenshotUrl: value } })}
         />
         <div className="flex gap-2">
           <Button size="sm" variant="outline" className="h-8 text-xs flex-1"
@@ -196,7 +302,7 @@ export function CheckInPanel({ lead }: { lead: Lead }) {
               setStage({ id: checkin.id, leadId: lead.id, stage: "token_paid" });
               copyWA(waTokenReceipt({
                 ...checkin, tokenAmount: amt, tokenUpiRef: tokenRef,
-                balanceDue: Math.max(0, checkin.rent + checkin.deposit - amt),
+                balanceDue: Math.max(0, checkin.rent - amt),
               }));
               toast.success("Token recorded");
             }}
@@ -217,9 +323,28 @@ export function CheckInPanel({ lead }: { lead: Lead }) {
           <Select value={propertyId || checkin.propertyId || ""} onValueChange={setPropertyId}>
             <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Property" /></SelectTrigger>
             <SelectContent>
-              {properties.map((p) => (
-                <SelectItem key={p.id} value={p.id} className="text-xs">{p.name}</SelectItem>
+              <div className="sticky top-0 z-10 border-b border-border bg-popover p-2">
+                <div className="relative">
+                  <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    className="h-8 pl-7 text-xs"
+                    placeholder="Search property"
+                    value={propertySearch}
+                    onChange={(event) => setPropertySearch(event.target.value)}
+                    onKeyDown={(event) => event.stopPropagation()}
+                  />
+                </div>
+              </div>
+              {propertyOptions.map((p) => (
+                <SelectItem key={p.id} value={p.id} className="text-xs">
+                  {p.name}{p.area ? ` · ${p.area}` : ""}{p.price ? ` · ${formatINR(p.price)}` : ""}
+                </SelectItem>
               ))}
+              {propertyOptions.length === 0 && (
+                <div className="px-2 py-3 text-center text-xs text-muted-foreground">
+                  No property found.
+                </div>
+              )}
             </SelectContent>
           </Select>
           <Input value={roomNumber || checkin.roomNumber || ""}
@@ -231,10 +356,12 @@ export function CheckInPanel({ lead }: { lead: Lead }) {
           onClick={() => {
             const pid = propertyId || checkin.propertyId!;
             const rn = roomNumber || checkin.roomNumber!;
-            const pn = properties.find((p) => p.id === pid)?.name ?? propertyName;
+            const selectedProperty = propertyOptions.find((p) => p.id === pid);
+            const pn = selectedProperty?.name ?? propertyName;
             patch({ id: checkin.id, leadId: lead.id, patch: {
               propertyId: pid, propertyName: pn,
               roomNumber: rn, roomAssignedAt: new Date().toISOString(),
+              ...(selectedProperty?.price ? { rent: selectedProperty.price } : {}),
             }});
             setStage({ id: checkin.id, leadId: lead.id, stage: "room_assigned" });
             copyWA(waRoomAssigned({ ...checkin, propertyId: pid, propertyName: pn, roomNumber: rn }));
@@ -299,25 +426,54 @@ export function CheckInPanel({ lead }: { lead: Lead }) {
         </StageCard>
       )}
 
+      {(checkin.stage === "date_set" || checkin.stage === "moved_in") && checkin.balanceDue > 0 && (
+        <StageCard active icon={IndianRupee} title="Collect remaining balance">
+          <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-xs">
+            Balance pending: <span className="font-semibold">{formatINR(checkin.balanceDue)}</span>. Clear this before key handover/final check-in.
+          </div>
+          <Button
+            size="sm"
+            className="h-8 w-full text-xs"
+            onClick={() => {
+              patch({
+                id: checkin.id,
+                leadId: lead.id,
+                patch: {
+                  tokenAmount: checkin.rent,
+                  tokenAt: new Date().toISOString(),
+                },
+              });
+              toast.success("Balance marked collected");
+            }}
+          >
+            <CheckCircle2 className="mr-1 h-3 w-3" /> Mark full payment received
+          </Button>
+        </StageCard>
+      )}
+
       <StageCard
         active={checkin.stage === "date_set"}
         done={stageIdx > STAGE_ORDER.indexOf("date_set")}
         icon={KeyRound}
-        title="Hand over keys"
-        helper="Mark the customer as moved in. Opens 7-day care window."
+        title="Key handover"
+        helper="Hand over keys only after balance is clear. This marks the customer moved in."
       >
-        <Input value={checkin.keyHandoverPhotoUrl ?? ""}
-          onChange={(e) => patch({ id: checkin.id, leadId: lead.id, patch: { keyHandoverPhotoUrl: e.target.value } })}
-          placeholder="Key handover photo URL (optional)"
-          className="h-8 text-xs" />
+        <ImageUploadInput
+          label="Add key handover photo"
+          value={checkin.keyHandoverPhotoUrl}
+          onChange={(value) => patch({ id: checkin.id, leadId: lead.id, patch: { keyHandoverPhotoUrl: value } })}
+        />
         <Button size="sm" className="h-8 text-xs w-full bg-success text-success-foreground hover:bg-success/90"
+          disabled={checkin.balanceDue > 0}
+          title={checkin.balanceDue > 0 ? "Collect remaining balance before key handover" : undefined}
           onClick={() => {
+            void setLeadStage(lead.id, "booked");
             setStage({ id: checkin.id, leadId: lead.id, stage: "moved_in" });
             copyWA(waMovedIn(lead.name));
-            toast.success("Moved in — welcome message copied");
+            toast.success("Keys handed over · moved-in recorded");
           }}
         >
-          <CheckCircle2 className="h-3 w-3 mr-1" /> Mark moved in
+          <CheckCircle2 className="h-3 w-3 mr-1" /> Mark keys handed over
         </Button>
       </StageCard>
 
@@ -373,24 +529,41 @@ export function CheckInPanel({ lead }: { lead: Lead }) {
       )}
 
       {checkin.stage === "moved_in" && (
-        <StageCard active icon={Sparkles} title="Day-7 settle check">
+        <StageCard active icon={Sparkles} title="Complete check-in">
+          {checkin.balanceDue > 0 && (
+            <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-xs">
+              Cannot complete check-in while {formatINR(checkin.balanceDue)} is pending.
+            </div>
+          )}
           <div className="flex items-center gap-2">
             <Input type="number" min={1} max={5}
               value={nps} onChange={(e) => setNps(e.target.value)}
-              placeholder="NPS 1-5" className="h-8 text-xs w-24" />
+              placeholder="NPS 1-5 optional" className="h-8 text-xs flex-1" />
             <Button size="sm" className="h-8 text-xs flex-1"
-              disabled={!nps || Number(nps) < 1 || Number(nps) > 5}
+              disabled={checkin.balanceDue > 0 || (Boolean(nps) && (Number(nps) < 1 || Number(nps) > 5))}
               onClick={() => {
-                patch({ id: checkin.id, leadId: lead.id, patch: { npsScore: Number(nps) } });
+                if (nps) patch({ id: checkin.id, leadId: lead.id, patch: { npsScore: Number(nps) } });
+                void setLeadStage(lead.id, "booked");
                 setStage({ id: checkin.id, leadId: lead.id, stage: "settled" });
                 copyWA(waSettleCheck(lead.name));
-                toast.success("Settled. WA survey copied.");
+                toast.success("Check-in complete");
               }}
             >
-              <CheckCircle2 className="h-3 w-3 mr-1" /> Mark settled
+              <CheckCircle2 className="h-3 w-3 mr-1" /> Complete check-in
             </Button>
           </div>
         </StageCard>
+      )}
+
+      {checkin.stage === "settled" && (
+        <div className="rounded-lg border border-success/40 bg-success/10 p-3 text-sm">
+          <div className="flex items-center gap-2 font-semibold text-success">
+            <CheckCircle2 className="h-4 w-4" /> Check-in complete
+          </div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            Booking is final, keys are handed over, and balance is {formatINR(checkin.balanceDue)}.
+          </div>
+        </div>
       )}
 
       {checkin.stage === "date_set" && checkin.checkInDate && (
@@ -430,6 +603,59 @@ function AuditBox({ label, value, danger }: { label: string; value: string; dang
   );
 }
 
+function ImageUploadInput({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value?: string;
+  onChange: (value: string) => void;
+}) {
+  const inputId = useMemo(() => `checkin-image-${Math.random().toString(36).slice(2, 9)}`, []);
+
+  const handleFile = (file?: File) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please choose an image file");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        onChange(reader.result);
+        toast.success("Image attached");
+      }
+    };
+    reader.onerror = () => toast.error("Could not attach image");
+    reader.readAsDataURL(file);
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      <input
+        id={inputId}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={(event) => handleFile(event.target.files?.[0])}
+      />
+      <Button asChild size="sm" variant="outline" className="h-8 flex-1 cursor-pointer justify-center text-xs">
+        <label htmlFor={inputId}>
+          <ImagePlus className="mr-1.5 h-3.5 w-3.5" />
+          {value ? "Change image" : label}
+        </label>
+      </Button>
+      {value && (
+        <Badge variant="outline" className="h-8 shrink-0 border-success/40 bg-success/10 text-[10px] text-success">
+          Attached
+        </Badge>
+      )}
+    </div>
+  );
+}
+
 function StageCard({
   active, done, icon: Icon, title, helper, children,
 }: {
@@ -448,8 +674,8 @@ function StageCard({
         <span className="text-xs font-semibold">{title}</span>
         {done && <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 ml-auto" />}
       </div>
-      {helper && <div className="text-[11px] text-muted-foreground">{helper}</div>}
-      {children}
+      {helper && !done && <div className="text-[11px] text-muted-foreground">{helper}</div>}
+      {!done && children}
     </div>
   );
 }
