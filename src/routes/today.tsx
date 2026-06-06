@@ -17,6 +17,7 @@ import { format, formatDistanceToNow } from "date-fns";
 import { Sun, Flame, AlertTriangle, Phone, Trophy, Zap, ArrowUpRight } from "lucide-react";
 import { KpiCard } from "@/components/atoms";
 import { isLeadActive, resolveBestLeadName } from "@/lib/lead-helpers";
+import { useAuthUser } from "@/lib/auth-store";
 
 export const Route = createFileRoute("/today")({
   head: () => ({
@@ -33,16 +34,36 @@ export const Route = createFileRoute("/today")({
 
 function TodayPage() {
   const { role, currentTcmId, leads, tours, followUps, tcms, completeFollowUp } = useApp();
+  const authUser = useAuthUser((s) => s.user);
   const [now, mounted] = useMountedNow(15_000);
+  const canSeeAll =
+    authUser?.role === "super_admin" || authUser?.role === "manager" || authUser?.role === "admin";
+  const selfId = authUser?.id || (role === "tcm" ? currentTcmId : "");
+  const scopedLeads = useMemo(() => {
+    if (canSeeAll || !selfId) return leads;
+    return leads.filter((lead) => {
+      const assignedTo = (lead.assignedTcmId || lead.assigneeId || "").trim();
+      return assignedTo === selfId;
+    });
+  }, [canSeeAll, selfId, leads]);
 
-  const filterTcm = role === "tcm" ? currentTcmId : undefined;
+  const scopedTours = useMemo(() => {
+    if (canSeeAll || !selfId) return tours;
+    return tours.filter((tour) => tour.tcmId === selfId || tour.assignedTo === selfId);
+  }, [canSeeAll, selfId, tours]);
+
+  const scopedFollowUps = useMemo(() => {
+    if (canSeeAll || !selfId) return followUps;
+    return followUps.filter((followUp) => followUp.tcmId === selfId);
+  }, [canSeeAll, selfId, followUps]);
+
   const queue = useMemo(
-    () => buildDoNextQueue(leads, tours, followUps, now || Date.now(), filterTcm),
-    [leads, tours, followUps, now, filterTcm],
+    () => buildDoNextQueue(scopedLeads, scopedTours, scopedFollowUps, now || Date.now()),
+    [scopedLeads, scopedTours, scopedFollowUps, now],
   );
 
-  const me = role === "tcm" ? tcms.find((t) => t.id === currentTcmId) : null;
-  const perf = me ? computeTcmPerformance(me.id, leads, tours, followUps, now || Date.now()) : null;
+  const me = !canSeeAll && selfId ? tcms.find((t) => t.id === selfId) : null;
+  const perf = me ? computeTcmPerformance(me.id, scopedLeads, scopedTours, scopedFollowUps, now || Date.now()) : null;
 
   const visibleQueue = useMemo(() => uniqueByLead(queue), [queue]);
   const top = visibleQueue.slice(0, 12);
@@ -132,7 +153,7 @@ function TodayPage() {
           ) : (
             <div className="divide-y divide-border">
               {top.map((a) => {
-                const lead = leads.find((l) => l.id === a.leadId);
+                const lead = scopedLeads.find((l) => l.id === a.leadId);
                 if (!lead) return null;
                 const tone = toneFor(a);
                 const onDone =
@@ -172,7 +193,7 @@ function TodayPage() {
               .filter((a) => a.kind === "post-tour-overdue" || a.kind === "first-response")
               .filter(uniqueLeadActionFilter())
               .slice(0, 5)}
-            leads={leads}
+            leads={scopedLeads}
           />
           <Mini
             title="Hot pipeline"
@@ -181,15 +202,15 @@ function TodayPage() {
             count={grouped.hot}
             items={queue
               .filter((a) => {
-                const lead = leads.find((l) => l.id === a.leadId);
+                const lead = scopedLeads.find((l) => l.id === a.leadId);
                 if (!lead || !isLeadActive(lead)) return false;
                 const nowTs = now || Date.now();
-                const conf = liveConfidence(lead, tours, nowTs);
+                const conf = liveConfidence(lead, scopedTours, nowTs);
                 return intentFor(conf) === "hot";
               })
               .filter(uniqueLeadActionFilter())
               .slice(0, 5)}
-            leads={leads}
+            leads={scopedLeads}
           />
         </section>
       </div>
