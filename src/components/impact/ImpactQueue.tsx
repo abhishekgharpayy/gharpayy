@@ -82,19 +82,23 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { dispatch } from "@/lib/api/command-bus";
 import {
   Calendar, CheckCircle2, ChevronLeft, ChevronRight, ClipboardCopy,
-  ExternalLink, FileText, Flame, LayoutGrid, ListOrdered, Phone, Plus,
-  Search, Send, Sparkles, Target, Timer, UserCheck, Wallet, Zap,
-  Beaker, Home, Pin, X, Heart, Star, Activity, TrendingUp, Bell, Sunrise,
-  RotateCcw, KeyRound, ScrollText, Building2,
+  FileText, Flame, LayoutGrid, ListOrdered, Phone, Plus,
+  Search, Sparkles, Target, Timer, UserCheck, Wallet, Zap,
+  Beaker, Home, Pin, X, Heart, Star, Activity, Sunrise, MapPin,
+  RotateCcw, KeyRound, ScrollText, Building2, Info, MoreHorizontal, AlertTriangle, MessageSquareCode,
+  ArchiveX, UserRound,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useMountedNow } from "@/hooks/use-now";
 import { useAuditLog } from "@/lib/crm10x/audit-log";
 import { useIdentityStore } from "@/lib/lead-identity/store";
-import { waLink } from "@/lib/crm10x/templates";
 import { LeadPasteParser } from "@/components/leads/LeadPasteParser";
 import { hasCapturedLeadName, pickRelevantActiveTour, resolveBestLeadName } from "@/lib/lead-helpers";
 
@@ -119,6 +123,22 @@ function phonesMatch(a: string, b: string): boolean {
   const db = b.replace(/\D/g, "").slice(-10);
   return da.length >= 10 && da === db;
 }
+
+const COLUMN_HELP: Record<ColumnKey, string> = {
+  inbox: "New/contacted leads without an active tour or quote appear here.",
+  scheduled: "Tours that are scheduled and need confirmation or preparation.",
+  onTour: "Tours happening today or currently in progress.",
+  quoted: "Leads where a quote has been sent and payment/follow-up is pending.",
+  booked: "Leads converted to booking.",
+};
+
+const COLUMN_HEADER_TONE: Record<ColumnKey, string> = {
+  inbox: "border-info/35 bg-info/5 text-info",
+  scheduled: "border-accent/35 bg-accent/5 text-accent",
+  onTour: "border-warning/40 bg-warning/5 text-warning",
+  quoted: "border-primary/35 bg-primary/5 text-primary",
+  booked: "border-success/40 bg-success/5 text-success",
+};
 function isToday(iso: string) {
   return isTodayIST(iso);
 }
@@ -194,18 +214,12 @@ function shouldShowInImpactQueue(lead: Lead, tours: Tour[], quotes: Quotation[])
   if (!hasCapturedLeadName(lead)) return false;
 
   const leadTours = tours.filter((tour) => tour.leadId === lead.id);
-  const hasOpenTour = leadTours.some((tour) => tour.status === "scheduled" || tour.status === "confirmed");
-  const hasQuote = quotes.some((quote) => quote.leadId === lead.id);
-
-  // Post-tour work is handled outside this simplified Impact flow.
-  // Keep quoted/booked leads visible, but do not surface tour-done rows as inbox work.
-  if (lead.stage === "tour-done" && !hasOpenTour && !hasQuote) return false;
-
   return true;
 }
 
 export function drawerTabForLeadFocusAction(action?: LeadFocusAction | null) {
   if (action === "quote") return "quote";
+  if (action === "negotiate") return "negotiation";
   if (action === "schedule") return "tour";
   if (action === "checkin") return "checkin";
   return "impact";
@@ -235,7 +249,7 @@ export function useImpactStateForLead(leadInput?: Lead | null) {
     else if (lead.stage === "quote-sent" || lead.stage === "negotiation") column = "quoted";
     else if (lastQuote && (lastQuote.status === "sent" || lastQuote.status === "paid")) column = "quoted";
     else if (openTour && isToday(openTour.scheduledAt)) column = "onTour";
-    else if (openTour || lead.stage === "tour-scheduled" || lead.stage === "on-tour") column = "scheduled";
+    else if (openTour || lead.stage === "tour-scheduled" || lead.stage === "on-tour" || lead.stage === "tour-done") column = "scheduled";
 
     const nba = computeNBA(lead, openTour, lastQuote);
     const { score } = scoreLead(lead, openTour, lastQuote);
@@ -264,11 +278,6 @@ async function copyText(text: string, label = "Copied — paste in WhatsApp") {
   } catch {
     toast.error("Copy failed");
   }
-}
-
-function openWhatsApp(phone: string, text: string) {
-  window.open(waLink(phone, text), "_blank", "noopener,noreferrer");
-  toast.success("Opened WhatsApp");
 }
 
 const actionButtonClass =
@@ -366,6 +375,7 @@ export function ImpactQueue() {
     to: ColumnKey;
   } | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<ColumnKey | null>(null);
+  const [droppedSheetOpen, setDroppedSheetOpen] = useState(false);
 
   useEffect(() => {
     writeStoredView(view);
@@ -513,7 +523,7 @@ export function ImpactQueue() {
         else if (lead.stage === "quote-sent" || lead.stage === "negotiation") column = "quoted";
         else if (lastQuote && (lastQuote.status === "sent" || lastQuote.status === "paid")) column = "quoted";
         else if (openTour && isToday(openTour.scheduledAt)) column = "onTour";
-        else if (openTour || lead.stage === "tour-scheduled" || lead.stage === "on-tour") column = "scheduled";
+        else if (openTour || lead.stage === "tour-scheduled" || lead.stage === "on-tour" || lead.stage === "tour-done") column = "scheduled";
 
         const nba = computeNBA(lead, openTour, lastQuote);
         const { score } = scoreLead(lead, openTour, lastQuote);
@@ -592,24 +602,37 @@ export function ImpactQueue() {
 
   /* --------- live counters --------- */
   const counters = useMemo(() => {
-    const scopedTours = tcmFilter === "all" ? tours : tours.filter((t) => t.tcmId === tcmFilter);
-    const scopedQuotes = tcmFilter === "all" ? quotes : quotes.filter((q) => q.tcmId === tcmFilter);
-    const scopedBookings = tcmFilter === "all" ? bookings : bookings.filter((b) => b.tcmId === tcmFilter);
-    const scopedLeads = tcmFilter === "all"
-      ? leads
-      : leads.filter((l) => {
-        const assignedTo = (l.assignedTcmId || l.assigneeId || "").trim();
-        if (assignedTo) return assignedTo === tcmFilter;
-        return canSelectTcmScope;
-      });
-    const toursScheduledToday = scopedTours.filter((t) => isToday(t.scheduledAt)).length;
-    const toursCompletedToday = scopedTours.filter((t) => t.status === "completed" && isToday(t.updatedAt)).length;
-    const toursToday = toursScheduledToday + toursCompletedToday;
-    const quotesToday = scopedQuotes.filter((q) => isToday(q.sentAt)).length;
-    const bookingsMonth = scopedBookings.filter((b) => isThisMonth(b.ts)).length;
-    const leadsToday = scopedLeads.filter((l) => isToday(l.createdAt)).length;
-    return { toursToday, quotesToday, bookingsMonth, leadsToday };
-  }, [tours, quotes, bookings, leads, tcmFilter, canSelectTcmScope]);
+  const safeTours = tours ?? [];
+  const safeQuotes = quotes ?? [];
+  const safeBookings = bookings ?? [];
+  const safeLeads = leads ?? [];
+
+  const scopedTours =
+    tcmFilter === "all" ? safeTours : safeTours.filter(t => t.tcmId === tcmFilter);
+  const scopedQuotes =
+    tcmFilter === "all" ? safeQuotes : safeQuotes.filter(q => q.tcmId === tcmFilter);
+  const scopedBookings =
+    tcmFilter === "all" ? safeBookings : safeBookings.filter(b => b.tcmId === tcmFilter);
+  const scopedLeads =
+    tcmFilter === "all"
+      ? safeLeads
+      : safeLeads.filter(l => {
+          const assignedTo = (l.assignedTcmId || l.assigneeId || "").trim();
+          if (assignedTo) return assignedTo === tcmFilter;
+          return canSelectTcmScope;
+        });
+
+  const toursScheduledToday = scopedTours.filter(t => isToday(t.scheduledAt)).length;
+  const toursCompletedToday = scopedTours.filter(
+    t => t.status === "completed" && isToday(t.updatedAt),
+  ).length;
+  const toursToday = toursScheduledToday + toursCompletedToday;
+  const quotesToday = scopedQuotes.filter(q => isToday(q.sentAt)).length;
+  const bookingsMonth = scopedBookings.filter(b => isThisMonth(b.ts)).length;
+  const leadsToday = scopedLeads.filter(l => isToday(l.createdAt)).length;
+
+  return { toursToday, quotesToday, bookingsMonth, leadsToday };
+}, [tours, quotes, bookings, leads, tcmFilter, canSelectTcmScope]);
 
   const quotesToday = useMemo(() => {
     const scoped = tcmFilter === "all" ? quotes : quotes.filter((q) => q.tcmId === tcmFilter);
@@ -643,7 +666,7 @@ export function ImpactQueue() {
         : Math.max(currentIndex - 1, 0);
       if (nextIndex === currentIndex) return;
       event.preventDefault();
-      selectLead(leadIdsOrdered[nextIndex], "impact");
+      selectLead(leadIdsOrdered[nextIndex]);
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
@@ -678,112 +701,181 @@ export function ImpactQueue() {
     <div className="space-y-3">
       <ImpactApiHealthBanner />
 
-      {/* ---------------- Header ---------------- */}
-      <div className="rounded-lg border border-border bg-card px-4 py-3 shadow-sm">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-[240px]">
-          <div className="text-[10px] uppercase tracking-[0.2em] text-accent font-semibold">
-            Conversion engine · one screen
-          </div>
-          <h1 className="text-xl font-display font-semibold flex items-center gap-2">
-            Impact Queue
-            {escalations > 0 && (
-              <Badge variant="outline" className="text-[9px] bg-danger/10 text-danger border-danger/40 gap-1">
-                <Zap className="h-3 w-3" /> {escalations} escalating
-              </Badge>
-            )}
-          </h1>
-          <p className="text-[11px] text-muted-foreground">
-            Work top-down. Every lead has a Next Best Action. Nothing falls through.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <QuickAddLead
-            defaultTcmId={tcmFilter !== "all" ? tcmFilter : currentTcmId}
-            open={quickAddOpen}
-            onOpenChange={setQuickAddOpen}
-            tcmOptions={tcmOptions}
-            onLeadSaved={() => {
-              setChipFilter("all");
-              setQuery("");
-              setView("board");
-            }}
-          />
-          <div className="relative">
-            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-            <Input
-              className={`h-8 pl-7 text-[11px] w-52 ${query.trim() ? "pr-7" : ""}`}
-              placeholder="Search lead or phone"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
-            {query.trim() && (
-              <button
-                type="button"
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                aria-label="Clear search"
-                onClick={() => setQuery("")}
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={handleFixProperties}
-            disabled={fixing}
-            className="h-8 px-2 text-[9px] font-semibold rounded-md border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-accent/10 transition-colors disabled:opacity-50 flex items-center gap-1"
-            title="Fix leads with invalid properties"
-          >
-            <Building2 className="h-3 w-3" />
-            {fixing ? "Fixing…" : "Fix props"}
-          </button>
-          {!canSelectTcmScope ? (
-            <div className="h-8 min-w-[10rem] rounded-md border border-border bg-card px-3 py-2 text-[11px] font-semibold text-foreground flex items-center">
-              {authUser?.fullName ?? "My queue"}
+      {/* ---------------- Command deck ---------------- */}
+      <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+          <div className="min-w-[240px]">
+            <div className="text-[10px] uppercase tracking-[0.2em] text-accent font-semibold">
+              Conversion engine · one screen
             </div>
-          ) : (
-            <Select value={tcmFilter} onValueChange={setTcmFilter}>
-              <SelectTrigger className="h-8 text-[11px] w-40"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all" className="text-[11px]">All Members</SelectItem>
-                {memberScopeOptions.map((m) => (
-                  <SelectItem key={m.id} value={m.id} className="text-[11px]">{m.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-          <div className="flex rounded-md border border-border overflow-hidden">
-            <button
-              className={`h-8 px-2 text-[9px] uppercase tracking-wider font-semibold flex items-center gap-1 ${view === "stack" ? "bg-accent text-accent-foreground" : "bg-card text-muted-foreground"}`}
-              onClick={() => setView("stack")}>
-              <ListOrdered className="h-3 w-3" /> Stack
-            </button>
-            <button
-              className={`h-8 px-2 text-[9px] uppercase tracking-wider font-semibold flex items-center gap-1 ${view === "board" ? "bg-accent text-accent-foreground" : "bg-card text-muted-foreground"}`}
-              onClick={() => setView("board")}>
-              <LayoutGrid className="h-3 w-3" /> Board
-            </button>
+            <h1 className="text-xl font-display font-semibold flex items-center gap-2">
+              Impact Queue
+              {escalations > 0 && (
+                <Badge variant="outline" className="text-[9px] bg-danger/10 text-danger border-danger/40 gap-1">
+                  <Zap className="h-3 w-3" /> {escalations} escalating
+                </Badge>
+              )}
+            </h1>
+            <p className="text-[11px] text-muted-foreground">
+              Work top-down. Every lead has a Next Best Action. Nothing falls through.
+            </p>
           </div>
-          {role === "tcm" && (
-            <label className="flex items-center gap-1.5 text-[10px] text-muted-foreground cursor-pointer select-none">
-              <input
-                type="checkbox"
-                className="rounded border-border"
-                checked={overdueHome}
-                onChange={(e) => {
-                  setOverdueHome(e.target.checked);
-                  writeOverdueHomeEnabled(e.target.checked);
-                  setChipFilter(e.target.checked ? "overdue" : "all");
-                }}
+
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <TenXCommandBar
+              lastRerank={lastRerank}
+              escalations={escalations}
+              counters={counters}
+              targets={targets}
+              stackSorted={stackSorted}
+              tick={tick}
+              digestOpen={digestOpen}
+              onDigestOpenChange={setDigestOpen}
+              onFocusLead={(leadId) => {
+                setFocusLeadId(leadId);
+                setFocusAction("auto");
+              }}
+            />
+            <QuickAddLead
+              defaultTcmId={tcmFilter !== "all" ? tcmFilter : currentTcmId}
+              open={quickAddOpen}
+              onOpenChange={setQuickAddOpen}
+              tcmOptions={tcmOptions}
+              onLeadSaved={() => {
+                setChipFilter("all");
+                setQuery("");
+                setView("board");
+              }}
+            />
+            <div className="relative">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                className={`h-8 pl-7 text-[11px] w-56 bg-background ${query.trim() ? "pr-7" : ""}`}
+                placeholder="Search lead or phone"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
               />
-              Start on overdue
-            </label>
-          )}
-          <span className="text-[8px] text-muted-foreground hidden lg:inline" title="Keyboard shortcuts">
-            J/K · Enter
-          </span>
+              {query.trim() && (
+                <button
+                  type="button"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  aria-label="Clear search"
+                  onClick={() => setQuery("")}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="h-8 px-2 text-[9px] font-semibold rounded-md border border-border bg-background text-muted-foreground hover:text-foreground hover:bg-accent/10 transition-colors flex items-center gap-1"
+                  title="Queue tools"
+                >
+                  <MoreHorizontal className="h-3.5 w-3.5" />
+                  Tools
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                  Queue tools
+                </DropdownMenuLabel>
+                <DropdownMenuItem
+                  className="text-xs"
+                  disabled={fixing}
+                  onSelect={() => void handleFixProperties()}
+                >
+                  <Building2 className="h-3.5 w-3.5" />
+                  {fixing ? "Fixing properties..." : "Fix invalid properties"}
+                </DropdownMenuItem>
+                {role === "tcm" ? (
+                  <DropdownMenuItem
+                    className="text-xs"
+                    onSelect={() => {
+                      const next = !overdueHome;
+                      setOverdueHome(next);
+                      writeOverdueHomeEnabled(next);
+                      setChipFilter(next ? "overdue" : "all");
+                    }}
+                  >
+                    <Timer className="h-3.5 w-3.5" />
+                    {overdueHome ? "Disable overdue start" : "Start on overdue"}
+                  </DropdownMenuItem>
+                ) : null}
+                <DropdownMenuItem disabled className="text-xs">
+                  J/K to move · Enter to open
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {!canSelectTcmScope ? (
+              <div className="h-8 min-w-[10rem] rounded-md border border-border bg-background px-3 py-2 text-[11px] font-semibold text-foreground flex items-center">
+                {authUser?.fullName ?? "My queue"}
+              </div>
+            ) : (
+              <Select value={tcmFilter} onValueChange={setTcmFilter}>
+                <SelectTrigger className="h-8 text-[11px] w-40 bg-background"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all" className="text-[11px]">All Members</SelectItem>
+                  {memberScopeOptions.map((m) => (
+                    <SelectItem key={m.id} value={m.id} className="text-[11px]">{m.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            <div className="flex rounded-md border border-border overflow-hidden bg-background">
+              <button
+                className={`h-8 px-2 text-[9px] uppercase tracking-wider font-semibold flex items-center gap-1 ${view === "stack" ? "bg-accent text-accent-foreground" : "text-muted-foreground"}`}
+                onClick={() => setView("stack")}>
+                <ListOrdered className="h-3 w-3" /> Stack
+              </button>
+              <button
+                className={`h-8 px-2 text-[9px] uppercase tracking-wider font-semibold flex items-center gap-1 ${view === "board" ? "bg-accent text-accent-foreground" : "text-muted-foreground"}`}
+                onClick={() => setView("board")}>
+                <LayoutGrid className="h-3 w-3" /> Board
+              </button>
+            </div>
+          </div>
         </div>
+
+        <div className="border-t border-border/70 px-3 py-2 bg-muted/10">
+          <ImpactHardActionsBar
+            enriched={stackSorted}
+            onPickLead={(leadId, _name, action) => {
+              selectLead(leadId, drawerTabForLeadFocusAction(action), action);
+              setFocusLeadId(null);
+              setFocusAction(null);
+            }}
+            onOpenDropped={() => setDroppedSheetOpen(true)}
+          />
+        </div>
+
+        <div className="border-t border-border/70 bg-background px-3 py-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <FocusInventoryStrip tcmFilter={tcmFilter} tcmOptions={tcmOptions} />
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Chip active={chipFilter === "all"} onClick={() => selectChip("all")}>All</Chip>
+              <Chip active={chipFilter === "hot"} onClick={() => selectChip("hot")} tone="danger"><Flame className="h-3 w-3" /> Hot</Chip>
+              <Chip active={chipFilter === "warm"} onClick={() => selectChip("warm")} tone="warning">Warm</Chip>
+              <Chip active={chipFilter === "cold"} onClick={() => selectChip("cold")}>Cold</Chip>
+              <Chip active={chipFilter === "overdue"} onClick={() => selectChip("overdue")} tone="danger">
+                Overdue only
+              </Chip>
+              <MoreFiltersMenu
+                activeFilter={chipFilter}
+                onSelectFilter={selectChip}
+                tcmOptions={tcmOptions}
+              />
+            </div>
+            <span className="ml-auto whitespace-nowrap text-[10px] text-muted-foreground">
+              {filtered.length} lead{filtered.length !== 1 ? "s" : ""} in queue
+            </span>
+            {view === "board" && (
+              <span className="whitespace-nowrap text-[10px] text-muted-foreground">
+                Drag cards to move stage.
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -793,97 +885,8 @@ export function ImpactQueue() {
         </div>
       )}
 
-      <TenXCommandBar
-        lastRerank={lastRerank}
-        escalations={escalations}
-        counters={counters}
-        targets={targets}
-        stackSorted={stackSorted}
-        tick={tick}
-        digestOpen={digestOpen}
-        onDigestOpenChange={setDigestOpen}
-        onFocusLead={(leadId) => {
-          setFocusLeadId(leadId);
-          setFocusAction("auto");
-        }}
-      />
-
-      <ImpactHardActionsBar
-        enriched={stackSorted}
-        tcms={tcms}
-        onPickLead={(leadId, _name, action) => {
-          selectLead(leadId, drawerTabForLeadFocusAction(action), action);
-          setFocusLeadId(null);
-          setFocusAction(null);
-        }}
-      />
-
       {/* ---------------- 10x Command Bar ---------------- */}
       <ImpactManagerEscalations stackSorted={stackSorted} tcms={tcms} role={role} />
-
-      {/* ---------------- Live counters ---------------- */}
-      <div className="rounded-lg border border-border bg-card p-3 space-y-2">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-semibold">
-              Daily stats
-            </div>
-            <div className="text-[11px] text-muted-foreground">
-              Live counts for the selected member and current backend data.
-            </div>
-          </div>
-          <Badge variant="outline" className="text-[10px]">
-            {tcmFilter === "all" ? "All Members" : memberScopeOptions.find((m) => m.id === tcmFilter)?.name ?? "My queue"}
-          </Badge>
-        </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-        <Counter label="Leads Added Today" got={counters.leadsToday} target={targets.leadsToday} tone={tone(counters.leadsToday, targets.leadsToday)} icon={ListOrdered} />
-        <Counter label="Tours scheduled + completed today" got={counters.toursToday} target={targets.toursToday} tone={tone(counters.toursToday, targets.toursToday)} icon={Calendar} />
-        <QuotesWeekCounter
-          quotes={quotesToday}
-          leads={leads}
-          got={counters.quotesToday}
-          target={targets.quotesToday}
-          tone={tone(counters.quotesToday, targets.quotesToday)}
-          onFocusLead={(leadId) => {
-            setFocusLeadId(leadId);
-            setFocusAction("auto");
-          }}
-        />
-        <Counter label="Bookings this month" got={counters.bookingsMonth} target={targets.bookingsMonth} tone={tone(counters.bookingsMonth, targets.bookingsMonth)} icon={Target} />
-        </div>
-      </div>
-
-      {/* ---------------- Today's Focus Inventory + Message Lab ---------------- */}
-      <FocusInventoryStrip tcmFilter={tcmFilter} tcmOptions={tcmOptions} />
-
-      {/* ---------------- Filter chips ---------------- */}
-      <div className="flex flex-wrap gap-1.5 items-center">
-        <Chip active={chipFilter === "all"} onClick={() => selectChip("all")}>All</Chip>
-        <Chip active={chipFilter === "hot"} onClick={() => selectChip("hot")} tone="danger"><Flame className="h-3 w-3" /> Hot</Chip>
-        <Chip active={chipFilter === "warm"} onClick={() => selectChip("warm")} tone="warning">Warm</Chip>
-        <Chip active={chipFilter === "cold"} onClick={() => selectChip("cold")}>Cold</Chip>
-        <span className="text-muted-foreground/40">·</span>
-        <Chip active={chipFilter === "overdue"} onClick={() => selectChip("overdue")} tone="danger">
-          Overdue only
-        </Chip>
-        <Chip active={chipFilter === "tour-today"} onClick={() => selectChip("tour-today")} tone="warning">
-          Tour today
-        </Chip>
-        <Chip active={chipFilter === "quote-pending"} onClick={() => selectChip("quote-pending")}>
-          Quote pending
-        </Chip>
-        <MessageLabButton tcmOptions={tcmOptions} />
-        <span className="ml-auto text-[10px] text-muted-foreground">
-          {filtered.length} lead{filtered.length !== 1 ? "s" : ""} in queue
-        </span>
-      </div>
-
-      {view === "board" && (
-        <p className="text-[10px] text-muted-foreground -mt-1">
-          Drag a card to another column to move stage (confirm in dialog).
-        </p>
-      )}
 
       {(chipFilter !== "all" || query.trim()) && (
         <div className="flex flex-wrap items-center gap-2 text-[11px] rounded-md border border-border bg-muted/30 px-2.5 py-1.5">
@@ -968,11 +971,11 @@ export function ImpactQueue() {
         </div>
       ) : (
         <div className="w-full min-w-0 overflow-x-auto pb-1">
-          <div className="grid grid-cols-5 gap-2 h-[calc(100vh-360px)] min-h-[360px] min-w-[720px]">
+          <div className="grid grid-cols-5 gap-2 h-[calc(100vh-270px)] min-h-[430px] min-w-[720px]">
             {COLUMNS.map((c) => (
               <div
                 key={c.key}
-                className={`min-w-0 h-full overflow-y-auto overflow-x-hidden rounded-lg border-l-2 ${c.tint} border-t border-r border-b border-border bg-muted/20 p-2 transition-colors ${
+                className={`min-w-0 h-full overflow-hidden rounded-xl border-l-2 ${c.tint} border-t border-r border-b border-border bg-background shadow-sm transition-colors ${
                   dragOverColumn === c.key ? "ring-2 ring-accent/50 bg-accent/5" : ""
                 }`}
                 onDragOver={(ev) => {
@@ -988,39 +991,62 @@ export function ImpactQueue() {
                   if (leadId && from) requestStageMove(leadId, from, c.key);
                 }}
               >
-              <div className="sticky top-0 z-10 flex items-center justify-between px-1 pb-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-                <div className="text-[11px] font-semibold flex items-center gap-1.5">
-                  <c.icon className="h-3 w-3" /> {c.label}
+                <div
+                  className={cn(
+                    "flex h-11 shrink-0 items-center justify-between gap-2 border-b px-3",
+                    COLUMN_HEADER_TONE[c.key],
+                  )}
+                  title={COLUMN_HELP[c.key]}
+                >
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-background/80">
+                      <c.icon className="h-3.5 w-3.5" />
+                    </span>
+                    <div className="min-w-0">
+                      <div className="truncate text-[12px] font-semibold text-foreground">
+                        {c.label}
+                      </div>
+                      <div className="truncate text-[9px] text-muted-foreground">
+                        {COLUMN_HELP[c.key]}
+                      </div>
+                    </div>
+                  </div>
+                  <span className="shrink-0 rounded-full border border-border bg-background px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                    {boardBuckets[c.key].length}
+                  </span>
                 </div>
-                <span className="text-[10px] text-muted-foreground font-mono">
-                  {boardBuckets[c.key].length}
-                </span>
-              </div>
-              {c.key === "inbox" && boardBuckets.inbox.length === 0 && chipFilter === "all" && query.trim() === "" && (
-                <div className="mb-2 rounded-md border border-dashed border-border bg-background/70 px-2 py-2 text-[11px] text-muted-foreground">
-                  No unworked leads in this scope. New/contacted leads without an active tour or quote appear here.
+                <div className="h-[calc(100%-2.75rem)] overflow-y-auto overflow-x-hidden bg-muted/15 p-2">
+                  {c.key === "inbox" && boardBuckets.inbox.length === 0 && chipFilter === "all" && query.trim() === "" && (
+                    <div
+                      className="mb-2 rounded-lg border border-dashed border-border bg-background/80 px-2 py-1.5 text-[10px] text-muted-foreground"
+                      title="New/contacted leads without an active tour or quote appear here."
+                    >
+                      No unworked leads in this scope.
+                    </div>
+                  )}
+                  <BoardColumnBody
+                    columnKey={c.key}
+                    items={boardBuckets[c.key]}
+                    tcms={tcms}
+                    tcmOptions={tcmOptions}
+                    properties={properties}
+                    nowMs={tick ? Date.now() : 0}
+                    focusLeadId={focusLeadId}
+                    focusAction={focusAction}
+                    onFocusConsumed={() => {
+                      setFocusLeadId(null);
+                      setFocusAction(null);
+                    }}
+                    onRequestStageMove={requestStageMove}
+                  />
                 </div>
-              )}
-              <BoardColumnBody
-                columnKey={c.key}
-                items={boardBuckets[c.key]}
-                tcms={tcms}
-                tcmOptions={tcmOptions}
-                properties={properties}
-                nowMs={tick ? Date.now() : 0}
-                focusLeadId={focusLeadId}
-                focusAction={focusAction}
-                onFocusConsumed={() => {
-                  setFocusLeadId(null);
-                  setFocusAction(null);
-                }}
-                onRequestStageMove={requestStageMove}
-              />
               </div>
             ))}
           </div>
         </div>
       )) : null}
+
+      <DroppedLeadsSheet open={droppedSheetOpen} onOpenChange={setDroppedSheetOpen} />
     </div>
   );
 }
@@ -1032,22 +1058,18 @@ export function ImpactQueue() {
 function Counter({
   label, got, target, tone, icon: Icon,
 }: { label: string; got: number; target: number; tone: string; icon: typeof Calendar }) {
-  const pct = Math.min(100, Math.round((got / Math.max(target, 1)) * 100));
+  void tone;
   return (
-    <div className="rounded-md border border-border bg-background p-2.5">
-      <div className="flex items-center justify-between">
-        <div className="text-[10px] uppercase tracking-wider font-semibold flex items-center gap-1.5 min-w-0">
-          <Icon className="h-3 w-3 shrink-0 text-muted-foreground" />
-          <span className="truncate">{label}</span>
+    <div className="min-w-0 flex-1 rounded-md bg-muted/35 px-2.5 py-1.5">
+      <div className="flex items-center gap-2">
+        <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">{label}</div>
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-lg font-display font-semibold leading-none">{got}</span>
+            <span className="text-[10px] font-mono text-muted-foreground">/ {target}</span>
+          </div>
         </div>
-        <span className="text-[10px] font-mono text-muted-foreground shrink-0">{got}/{target}</span>
-      </div>
-      <div className="flex items-end justify-between gap-2 mt-1.5">
-        <div className="text-2xl font-display font-semibold leading-none">{got}</div>
-        <div className="text-[10px] text-muted-foreground">{pct}%</div>
-      </div>
-      <div className="h-1.5 rounded-full bg-muted mt-2 overflow-hidden">
-        <div className={`h-full ${tone.includes("success") ? "bg-success" : tone.includes("warning") ? "bg-warning" : "bg-danger"} transition-all`} style={{ width: `${pct}%` }} />
       </div>
     </div>
   );
@@ -1077,7 +1099,7 @@ function QuotesWeekCounter({
   onFocusLead: (leadId: string) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const pct = Math.min(100, Math.round((got / Math.max(target, 1)) * 100));
+  void tone;
   const leadById = useMemo(() => new Map(leads.map((l) => [l.id, l])), [leads]);
 
   return (
@@ -1085,21 +1107,18 @@ function QuotesWeekCounter({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="w-full rounded-md border border-border bg-background p-2.5 text-left transition hover:ring-2 hover:ring-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        className="min-w-0 flex-1 rounded-md bg-muted/35 px-2.5 py-1.5 text-left transition hover:bg-muted/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
       >
-        <div className="flex items-center justify-between">
-          <div className="text-[10px] uppercase tracking-wider font-semibold flex items-center gap-1.5 min-w-0">
-            <FileText className="h-3 w-3 shrink-0 text-muted-foreground" />
-            <span className="truncate">Quotes today</span>
+        <div className="flex items-center gap-2">
+          <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">Quotes today</div>
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-lg font-display font-semibold leading-none">{got}</span>
+              <span className="text-[10px] font-mono text-muted-foreground">/ {target}</span>
+            </div>
           </div>
-          <span className="text-[10px] font-mono text-muted-foreground shrink-0">{got}/{target}</span>
-        </div>
-        <div className="flex items-end justify-between gap-2 mt-1.5">
-          <div className="text-2xl font-display font-semibold leading-none">{got}</div>
-          <div className="text-[10px] text-muted-foreground">View quotes</div>
-        </div>
-        <div className="h-1.5 rounded-full bg-muted mt-2 overflow-hidden">
-          <div className={`h-full ${tone.includes("success") ? "bg-success" : tone.includes("warning") ? "bg-warning" : "bg-danger"} transition-all`} style={{ width: `${pct}%` }} />
+          <span className="shrink-0 text-[10px] text-muted-foreground">View</span>
         </div>
       </button>
 
@@ -1156,12 +1175,9 @@ function QuotesWeekCounter({
                           size="sm"
                           variant="outline"
                           className="h-7 text-[10px] gap-1"
-                          onClick={() => {
-                            window.open(waLink(lead.phone, q.message), "_blank", "noopener,noreferrer");
-                            toast.success("Opened WhatsApp");
-                          }}
+                          onClick={() => void copyText(q.message, "Quote copied")}
                         >
-                          <ExternalLink className="h-3 w-3" /> Resend
+                          <ClipboardCopy className="h-3 w-3" /> Copy again
                         </Button>
                       )}
                       <Button
@@ -1205,6 +1221,70 @@ function Chip({
   );
 }
 
+function MoreFiltersMenu({
+  activeFilter,
+  onSelectFilter,
+  tcmOptions,
+}: {
+  activeFilter: QueueChipFilter;
+  onSelectFilter: (next: QueueChipFilter) => void;
+  tcmOptions: TCM[];
+}) {
+  const [messageLabOpen, setMessageLabOpen] = useState(false);
+  const secondaryFilters: Array<{ key: QueueChipFilter; label: string; tone?: "warning" | "default" }> = [
+    { key: "tour-today", label: "Tour today", tone: "warning" },
+    { key: "quote-pending", label: "Quote pending" },
+  ];
+  const activeSecondary = secondaryFilters.find((item) => item.key === activeFilter);
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            className={cn(
+              "h-6 rounded-full border px-2 text-[10px] uppercase tracking-wider font-semibold flex items-center gap-1 transition",
+              activeSecondary
+                ? "border-warning bg-warning text-warning-foreground"
+                : "border-border bg-card text-muted-foreground hover:border-foreground/40",
+            )}
+          >
+            <MoreHorizontal className="h-3 w-3" />
+            {activeSecondary ? activeSecondary.label : "More filters"}
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-44">
+          <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            Secondary
+          </DropdownMenuLabel>
+          {secondaryFilters.map((item) => (
+            <DropdownMenuItem
+              key={item.key}
+              className="text-xs"
+              onSelect={() => onSelectFilter(item.key)}
+            >
+              {item.label}
+              {activeFilter === item.key ? <CheckCircle2 className="ml-auto h-3 w-3 text-success" /> : null}
+            </DropdownMenuItem>
+          ))}
+          <DropdownMenuItem
+            className="text-xs"
+            onSelect={(event) => {
+              event.preventDefault();
+              setMessageLabOpen(true);
+            }}
+          >
+            <Beaker className="mr-1 h-3 w-3 text-accent" />
+            Message lab
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <MessageLabSheet open={messageLabOpen} onOpenChange={setMessageLabOpen} tcmOptions={tcmOptions} />
+    </>
+  );
+}
+
 /* ================================================================== */
 /*  Board column — action-queue bands for tour lanes                   */
 /* ================================================================== */
@@ -1233,6 +1313,13 @@ function BoardColumnBody({
   onRequestStageMove: (leadId: string, from: ColumnKey, to: ColumnKey) => void;
 }) {
   const useBands = columnKey === "scheduled" || columnKey === "onTour";
+  const [postTourOpen, setPostTourOpen] = useState(true);
+  const postTourItems = columnKey === "scheduled"
+    ? items.filter((item) => item.lead.stage === "tour-done")
+    : [];
+  const activeItems = postTourItems.length
+    ? items.filter((item) => item.lead.stage !== "tour-done")
+    : items;
 
   const grouped = useMemo(() => {
     const map: Record<TourQueueBand, Enriched[]> = {
@@ -1240,7 +1327,7 @@ function BoardColumnBody({
     };
     if (!useBands) return map;
     const at = nowMs || Date.now();
-    for (const e of items) {
+    for (const e of activeItems) {
       const band =
         e.tourBand ??
         classifyTourBand(columnKey as "scheduled" | "onTour", e.openTour, e.lead, e.nba, at);
@@ -1254,12 +1341,17 @@ function BoardColumnBody({
       });
     }
     return map;
-  }, [items, columnKey, useBands, nowMs]);
+  }, [activeItems, columnKey, useBands, nowMs]);
 
   if (items.length === 0) {
     return (
-      <div className="text-[11px] italic text-muted-foreground px-2 py-6 text-center">
-        Nothing here.
+      <div className="flex min-h-[220px] items-center justify-center px-2 py-8 text-center text-[10px] text-muted-foreground">
+        <div className="rounded-full border border-border bg-background/80 px-3 py-1.5 shadow-sm">
+          <div className="inline-flex items-center gap-1.5">
+            <Sparkles className="h-3 w-3 opacity-60" />
+            No leads in this stage yet
+          </div>
+        </div>
       </div>
     );
   }
@@ -1267,7 +1359,7 @@ function BoardColumnBody({
   if (!useBands) {
     return (
       <div className="space-y-2">
-        {items.map((e) => (
+        {activeItems.map((e) => (
           <LeadRow
             key={e.lead.id}
             enriched={e}
@@ -1289,6 +1381,45 @@ function BoardColumnBody({
 
   return (
     <div className="space-y-2">
+      {postTourItems.length > 0 && (
+        <Collapsible open={postTourOpen} onOpenChange={setPostTourOpen}>
+          <section className="overflow-hidden rounded-md border border-success/35 bg-success/5">
+            <CollapsibleTrigger asChild>
+              <button type="button" className="flex w-full items-center justify-between gap-2 px-2 py-1.5 text-left">
+                <span>
+                  <span className="block text-[9px] font-bold uppercase tracking-wider text-success">
+                    Post-tour · {postTourItems.length}
+                  </span>
+                  <span className="block text-[8px] leading-tight text-success/80">
+                    Fill outcome, objection, follow-up
+                  </span>
+                </span>
+                <ChevronRight className={cn("h-3 w-3 text-success transition-transform", postTourOpen && "rotate-90")} />
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="space-y-1.5 border-t border-success/20 bg-card/70 p-1.5">
+                {postTourItems.map((e) => (
+                  <LeadRow
+                    key={e.lead.id}
+                    enriched={e}
+                    tcms={tcms}
+                    tcmOptions={tcmOptions}
+                    properties={properties}
+                    compact
+                    draggable
+                    dragColumn={columnKey}
+                    onRequestStageMove={onRequestStageMove}
+                    autoOpen={focusLeadId === e.lead.id}
+                    focusAction={focusLeadId === e.lead.id ? focusAction : null}
+                    onAutoOpenConsumed={onFocusConsumed}
+                  />
+                ))}
+              </div>
+            </CollapsibleContent>
+          </section>
+        </Collapsible>
+      )}
       {TOUR_BAND_ORDER.map((band) => {
         const list = grouped[band];
         if (list.length === 0) return null;
@@ -1361,6 +1492,12 @@ function LeadRow({
   const colMeta = COLUMNS.find((c) => c.key === column)!;
   const areaText = (lead.areas?.filter(Boolean).join(", ") || lead.preferredArea || "").trim();
   const blrText = lead.inBLR === true ? "In Bengaluru" : lead.inBLR === false ? "Out of Bengaluru" : "Bengaluru unknown";
+  const assignedToName = lead.assignedTcmId
+    ? tcmOptions.find((item) => item.id === lead.assignedTcmId)?.name ?? lead.assignedTcmId.slice(-6)
+    : "Unassigned";
+  const assignedByName = lead.createdBy
+    ? tcmOptions.find((item) => item.id === lead.createdBy)?.name ?? lead.createdBy.slice(-6)
+    : "System";
   const { data: interestedPropertyIds = [] } = useLeadInterests(lead.id);
   const allObjections = useCRM10x((s) => s.objections);
   const pickedProperty = useMemo(() => {
@@ -1414,15 +1551,15 @@ function LeadRow({
           ev.dataTransfer.setData("text/from-column", dragColumn);
           ev.dataTransfer.effectAllowed = "move";
         }}
-        onClick={() => selectLead(lead.id, "impact")}
+        onClick={() => selectLead(lead.id)}
         onKeyDown={(ev) => {
           if (ev.key === "Enter" || ev.key === " ") {
             ev.preventDefault();
-            selectLead(lead.id, "impact");
+            selectLead(lead.id);
           }
         }}
         className={cn(
-          "relative w-full cursor-pointer text-left rounded-md border bg-card hover:border-accent/60 hover:bg-muted/30 transition-colors px-3 py-2 pr-16 group",
+          "relative w-full cursor-pointer text-left rounded-md border bg-card hover:border-accent/60 hover:bg-muted/30 transition-colors px-3 py-2 pr-12 group",
           keyboardHighlight && "ring-2 ring-accent border-accent",
           staleQuote && "border-danger/40",
         )}
@@ -1445,11 +1582,19 @@ function LeadRow({
               <Phone className="h-2.5 w-2.5 shrink-0" />
               <span className="truncate">{lead.phone}</span>
             </span>
-            {areaText && <span className="truncate">Area: {areaText}</span>}
+            {areaText && (
+              <span className="inline-flex min-w-0 items-center gap-1">
+                <MapPin className="h-2.5 w-2.5 shrink-0" />
+                <span className="truncate">{areaText}</span>
+              </span>
+            )}
             <span>{blrText}</span>
             <span className="inline-flex items-center gap-1">
               <Calendar className="h-2.5 w-2.5 shrink-0" />
               Move-in: {fmtDate(lead.moveInDate)}
+            </span>
+            <span className="truncate">
+              Assigned by {assignedByName} → {assignedToName}
             </span>
             {openTour && (
               <span className="text-[10px] font-semibold text-accent flex items-center gap-1">
@@ -1484,18 +1629,18 @@ function LeadRow({
             onClick={(event) => void shift(-1, event)}
             disabled={idx === 0}
             title={`Move back · current: ${COLUMNS.find((c) => c.key === column)?.label ?? lead.stage}`}
-            className="h-7 w-7 rounded-md border border-border bg-card/95 hover:border-accent/60 hover:bg-accent/10 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center shadow-sm"
+            className="h-5 w-5 rounded border border-border bg-card/95 hover:border-accent/60 hover:bg-accent/10 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center shadow-sm"
           >
-            <ChevronLeft className="h-3.5 w-3.5" />
+            <ChevronLeft className="h-2.5 w-2.5" />
           </button>
           <button
             type="button"
             onClick={(event) => void shift(1, event)}
             disabled={idx === COLUMN_FLOW.length - 1}
             title={`Move forward · current: ${COLUMNS.find((c) => c.key === column)?.label ?? lead.stage}`}
-            className="h-7 w-7 rounded-md border border-border bg-card/95 hover:border-accent/60 hover:bg-accent/10 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center shadow-sm"
+            className="h-5 w-5 rounded border border-border bg-card/95 hover:border-accent/60 hover:bg-accent/10 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center shadow-sm"
           >
-            <ChevronRight className="h-3.5 w-3.5" />
+            <ChevronRight className="h-2.5 w-2.5" />
           </button>
         </div>
       </div>
@@ -1842,6 +1987,7 @@ export function CommandActions({
 }) {
   const completeTour = useApp((s) => s.completeTour);
   const markTourStarted = useApp((s) => s.markTourStarted);
+  const updateTourDetails = useApp((s) => s.updateTourDetails);
   const setQuotationStatus = useSetQuotationStatus();
   const setLeadIntent = useApp((s) => s.setLeadIntent);
   const setLeadStage = useApp((s) => s.setLeadStage);
@@ -2043,9 +2189,29 @@ export function CommandActions({
                 <UserCheck className="h-3 w-3" /> Move to on-tour
               </Button>
             )}
+            {+new Date(openTour.scheduledAt) <= now && (
+              <>
+                <Button size="sm" className={`h-7 text-[10px] gap-1 ${actionButtonClass}`}
+                  onClick={() => {
+                    void completeTour(openTour.id)
+                      .then(() => toast.success("Visit completed · post-tour unlocked"))
+                      .catch((err) => toast.error(err instanceof Error ? err.message : "Failed to complete tour"));
+                  }}>
+                  <CheckCircle2 className="h-3 w-3" /> Visit done
+                </Button>
+                <Button size="sm" variant="outline" className={`h-7 text-[10px] gap-1 text-destructive hover:text-destructive ${actionButtonClass}`}
+                  onClick={() => {
+                    void updateTourDetails(openTour.id, { status: "no-show", showUp: false })
+                      .then(() => toast("Marked no-show · lead returned for follow-up"))
+                      .catch((err) => toast.error(err instanceof Error ? err.message : "Failed to mark no-show"));
+                  }}>
+                  <AlertTriangle className="h-3 w-3" /> No-show
+                </Button>
+              </>
+            )}
             <span className="text-[10px] text-muted-foreground self-center">
               {isTodayIST(openTour.scheduledAt)
-                ? "Click this on tour day to unlock Tour done."
+                ? "When visit ends, mark Visit done or No-show."
                 : "Move to on-tour unlocks automatically on the scheduled day."}
             </span>
           </>
@@ -2060,6 +2226,14 @@ export function CommandActions({
                   .catch((err) => toast.error(err instanceof Error ? err.message : "Failed to complete tour"));
               }}>
               <CheckCircle2 className="h-3 w-3" /> Tour done
+            </Button>
+            <Button size="sm" variant="outline" className={`h-7 text-[10px] gap-1 text-destructive hover:text-destructive ${actionButtonClass}`}
+              onClick={() => {
+                void updateTourDetails(openTour.id, { status: "no-show", showUp: false })
+                  .then(() => toast("Marked no-show · lead returned for follow-up"))
+                  .catch((err) => toast.error(err instanceof Error ? err.message : "Failed to mark no-show"));
+              }}>
+              <AlertTriangle className="h-3 w-3" /> No-show
             </Button>
           </>
         )}
@@ -2199,14 +2373,6 @@ function TemplateMessenger({
     setCopied(true);
     window.setTimeout(() => setCopied(false), 2000);
   };
-  const send = () => {
-    if (!leadPhone.trim()) {
-      toast.warning("Set lead phone first");
-      return;
-    }
-    openWhatsApp(leadPhone, draft);
-  };
-
   const scenarioSets: Record<string, { label: string; scenario: ImpactScenario }> = {
     first: { label: "First touch", scenario: "first-touch" },
     follow: { label: "Follow up", scenario: "quote-followup" },
@@ -2251,8 +2417,8 @@ function TemplateMessenger({
       />
 
       <div className="flex flex-wrap gap-1.5">
-        <Button size="sm" className={`h-7 text-[10px] gap-1 ${actionButtonClass}`} onClick={send}>
-          <ExternalLink className="h-3 w-3" /> Send via WhatsApp
+        <Button size="sm" className={`h-7 text-[10px] gap-1 ${actionButtonClass}`} onClick={() => void copy()}>
+          <ClipboardCopy className="h-3 w-3" /> {copied ? "Copied!" : "Copy template"}
         </Button>
         <Button size="sm" variant="outline" className={`h-7 text-[10px] gap-1 ${actionButtonClass}`} onClick={() => void copy()}>
           <ClipboardCopy className="h-3 w-3" /> {copied ? "Copied!" : "Copy text"}
@@ -2335,14 +2501,10 @@ function NegotiationPlaybook({
       .replace(/\{[^}]+\}/g, "");
   }
 
-  const send = (msg: string, label: string) => {
-    if (!leadPhone.trim()) {
-      toast.warning("Set lead phone first");
-      return;
-    }
-    openWhatsApp(leadPhone, msg);
+  const copyNegotiation = (msg: string, label: string) => {
+    void copyText(msg, "Copied!");
     setLeadStage(lead.id, "negotiation");
-    toast.success(`${label} sent`);
+    toast.success(`${label} copied`);
   };
 
   const paths: { key: ImpactScenario; title: string; tag: string }[] = [
@@ -2386,8 +2548,8 @@ function NegotiationPlaybook({
                             <ClipboardCopy className="h-3 w-3" /> {copiedId === tpl.id ? "Copied!" : "Copy"}
                           </Button>
                           <Button size="sm" className="h-6 text-[10px] gap-1"
-                            onClick={() => send(msg, tpl.label)}>
-                            <Send className="h-3 w-3" /> Send
+                            onClick={() => copyNegotiation(msg, tpl.label)}>
+                            <ClipboardCopy className="h-3 w-3" /> Copy
                           </Button>
                         </div>
                       </div>
@@ -2430,9 +2592,9 @@ function QuickAddLead({
           <Plus className="h-3 w-3" /> Add lead
         </Button>
       </DialogTrigger>
-      <DialogContent className="w-[96vw] max-w-[1180px] max-h-[calc(100dvh-16px)] overflow-y-auto p-4">
-        <DialogHeader>
-          <DialogTitle>Paste a lead - auto-extract every field</DialogTitle>
+      <DialogContent className="flex h-[calc(100dvh-24px)] w-[98vw] max-w-[1360px] flex-col gap-2 overflow-hidden p-3">
+        <DialogHeader className="shrink-0">
+          <DialogTitle className="text-lg">Paste a lead - auto-extract every field</DialogTitle>
         </DialogHeader>
         {open ? (
           <LeadPasteParser
@@ -2685,8 +2847,7 @@ function ConfirmTourButton({ lead, tour }: { lead: Lead; tour: Tour }) {
 
   const handleSend = () => {
     if (phone) setPhone(tour.tcmId, normalizePhone(phone));
-    openWhatsApp(lead.phone, message);
-    toast.success("Confirmation ready");
+    void copyText(message, "Tour confirmation copied");
     setOpen(false);
   };
 
@@ -2694,7 +2855,7 @@ function ConfirmTourButton({ lead, tour }: { lead: Lead; tour: Tour }) {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1">
-          <Send className="h-3 w-3" /> Confirm tour
+          <ClipboardCopy className="h-3 w-3" /> Confirm tour
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-md">
@@ -2710,7 +2871,7 @@ function ConfirmTourButton({ lead, tour }: { lead: Lead; tour: Tour }) {
             </div>
           </div>
           <Button className="w-full h-8 text-xs gap-1" onClick={handleSend}>
-            <ExternalLink className="h-3 w-3" /> Send via WhatsApp
+            <ClipboardCopy className="h-3 w-3" /> Copy confirmation
           </Button>
           <ReminderRow tour={tour} />
         </div>
@@ -2755,7 +2916,7 @@ function ReminderRow({ tour }: { tour: Tour }) {
 }
 
 function QuotationDialog({
-  lead, label = "Send quotation", variant = "default",
+  lead, label = "Create quote", variant = "default",
   open: controlledOpen, onOpenChange: controlledOnOpenChange, hideTrigger = false,
 }: {
   lead: Lead; label?: string; variant?: "default" | "ghost";
@@ -3076,21 +3237,24 @@ function FocusInventoryStrip({ tcmFilter, tcmOptions }: { tcmFilter: string; tcm
   const allEmpty = rows.every((r) => r.props.length === 0);
 
   return (
-    <div className="rounded-lg border border-border bg-card/40 p-3">
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-1.5">
+    <div className="rounded-lg bg-transparent">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex min-w-0 items-center gap-1.5">
           <Pin className="h-3.5 w-3.5 text-accent" />
           <span className="text-[11px] uppercase tracking-wider font-semibold">
             Today's focus inventory
           </span>
-          <span className="text-[10px] text-muted-foreground">
-            · what to push first
+          <span
+            className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border text-muted-foreground"
+            title="Pin 3-5 focus properties per teammate so TCMs know what to push first today."
+          >
+            <Info className="h-3 w-3" />
           </span>
         </div>
         <Button
           size="sm"
           variant="outline"
-          className="h-7 text-[10px] gap-1"
+          className="ml-auto h-7 text-[10px] gap-1"
           onClick={() => setManageOpen(true)}
         >
           <Home className="h-3 w-3" /> Manage focus
@@ -3098,11 +3262,9 @@ function FocusInventoryStrip({ tcmFilter, tcmOptions }: { tcmFilter: string; tcm
       </div>
 
       {allEmpty ? (
-        <p className="text-[11px] text-muted-foreground italic">
-          No focus properties yet. Click <span className="font-semibold">Manage focus</span> to pin 3–5 properties per teammate so they know exactly what to push first today.
-        </p>
+        null
       ) : (
-        <div className="space-y-2">
+        <div className="mt-2 space-y-1.5">
           {rows.map(({ tcm, props, vacant }) => (
             <div key={tcm.id} className="flex flex-wrap items-center gap-2">
               <div className="flex items-center gap-1.5 shrink-0">
@@ -3360,27 +3522,38 @@ function MessageLabSheet({ open, onOpenChange, tcmOptions }: { open: boolean; on
 
   const scenarios = Object.keys(IMPACT_TEMPLATES) as ImpactScenario[];
   const copy = (text: string) => copyText(text);
-  const send = (text: string) => {
-    if (!leadPhone.trim()) {
-      toast.warning("Set lead phone first");
-      return;
-    }
-    openWhatsApp(leadPhone, text);
-  };
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-2xl p-0 flex flex-col gap-0 overflow-hidden">
-        <SheetHeader className="px-5 pt-5 pb-3 border-b border-border space-y-2">
-          <SheetTitle className="text-base font-display flex items-center gap-2">
-            <Beaker className="h-4 w-4 text-accent" /> Message Lab
-          </SheetTitle>
-          <SheetDescription className="text-[11px]">
-            Every template, every variant. Tweak the context, then copy or send each one.
-          </SheetDescription>
-          <div className="grid grid-cols-2 gap-2 pt-1">
-            <Field label="Lead name"><Input className="h-8 text-xs" value={leadName} onChange={(event) => setLeadName(event.target.value)} /></Field>
-            <Field label="Lead phone"><Input className="h-8 text-xs" placeholder="+91 9xxxxxxxxx" value={leadPhone} onChange={(event) => setLeadPhone(event.target.value)} /></Field>
+      <SheetContent side="right" className="w-full sm:max-w-4xl p-0 flex flex-col gap-0 overflow-hidden">
+        <SheetHeader className="border-b border-border bg-card px-5 py-4 space-y-3">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <SheetTitle className="text-base font-display flex items-center gap-2">
+                <Beaker className="h-4 w-4 text-accent" /> Message Lab
+              </SheetTitle>
+              <SheetDescription className="text-[11px]">
+                Tune the context once, then copy or send the right template fast.
+              </SheetDescription>
+            </div>
+            <div className="rounded-lg border border-border bg-muted/35 px-3 py-2 text-right">
+              <div className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">Ready for</div>
+              <div className="text-sm font-semibold">{leadName || "Lead"} · {property?.area ?? "Area"}</div>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-border bg-background p-3">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                Message context
+              </div>
+              <Badge variant="outline" className="text-[9px]">
+                {property?.name ?? "No property selected"}
+              </Badge>
+            </div>
+            <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+              <Field label="Lead name"><Input className="h-8 text-xs" value={leadName} onChange={(event) => setLeadName(event.target.value)} /></Field>
+              <Field label="Lead phone"><Input className="h-8 text-xs" placeholder="+91 9xxxxxxxxx" value={leadPhone} onChange={(event) => setLeadPhone(event.target.value)} /></Field>
             <Field label="TCM">
               <Select value={tcmId} onValueChange={setTcmId}>
                 <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
@@ -3407,33 +3580,40 @@ function MessageLabSheet({ open, onOpenChange, tcmOptions }: { open: boolean; on
             <Field label="Budget"><Input className="h-8 text-xs" type="number" value={budget} onChange={(event) => setBudget(Number(event.target.value))} /></Field>
             <Field label="Price"><Input className="h-8 text-xs" type="number" value={price} onChange={(event) => setPrice(Number(event.target.value))} /></Field>
             <Field label="Alt price"><Input className="h-8 text-xs" type="number" value={altPrice} onChange={(event) => setAltPrice(Number(event.target.value))} /></Field>
+            </div>
           </div>
         </SheetHeader>
-        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+        <div className="flex-1 overflow-y-auto bg-muted/15 p-5">
+          <div className="grid gap-4 xl:grid-cols-2">
           {scenarios.map((scenario) => (
             <section key={scenario} className="space-y-2">
-              <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">{scenario.replace(/-/g, " ")}</div>
+              <div className="sticky top-0 z-10 -mx-1 bg-muted/15 px-1 py-1 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold backdrop-blur">
+                {scenario.replace(/-/g, " ")}
+              </div>
               {IMPACT_TEMPLATES[scenario].map((tpl) => {
                 const text = renderImpactTemplate(tpl, ctx);
                 return (
-                  <div key={tpl.id} className="rounded-lg border border-border bg-card p-2 space-y-2">
+                  <div key={tpl.id} className="rounded-xl border border-border bg-card p-3 shadow-sm">
                     <div className="flex items-center justify-between gap-2">
-                      <Badge variant="outline" className="text-[9px] uppercase">{tpl.label}</Badge>
+                      <Badge variant="outline" className="text-[9px] uppercase bg-background">{tpl.label}</Badge>
                       <div className="flex gap-1">
-                        <Button size="sm" variant="ghost" className="h-6 text-[10px] gap-1" onClick={() => copy(text)}>
+                        <Button size="sm" variant="ghost" className="h-7 text-[10px] gap-1" onClick={() => copy(text)}>
                           <ClipboardCopy className="h-3 w-3" /> Copy
                         </Button>
-                        <Button size="sm" className="h-6 text-[10px] gap-1" onClick={() => send(text)}>
-                          <Send className="h-3 w-3" /> Send
+                        <Button size="sm" className="h-7 text-[10px] gap-1" onClick={() => copy(text)}>
+                          <ClipboardCopy className="h-3 w-3" /> Copy
                         </Button>
                       </div>
                     </div>
-                    <div className="text-[11px] whitespace-pre-wrap font-mono leading-relaxed">{text}</div>
+                    <div className="mt-2 rounded-lg bg-muted/35 p-2.5 text-[11px] whitespace-pre-wrap font-mono leading-relaxed text-foreground">
+                      {text}
+                    </div>
                   </div>
                 );
               })}
             </section>
           ))}
+          </div>
         </div>
       </SheetContent>
     </Sheet>
@@ -3450,8 +3630,8 @@ function TenXCommandBar({
 }: {
   lastRerank: number;
   escalations: number;
-  counters: { toursToday: number; quotesToday: number; bookingsMonth: number };
-  targets: { toursToday: number; quotesToday: number; bookingsMonth: number };
+  counters: { leadsToday: number; toursToday: number; quotesToday: number; bookingsMonth: number };
+  targets: { leadsToday: number; toursToday: number; quotesToday: number; bookingsMonth: number };
   stackSorted: Array<{ lead: { id: string; name: string }; score: number; nba: { label: string; pressure: string }; column: string }>;
   tick: number;
   onFocusLead?: (leadId: string) => void;
@@ -3471,33 +3651,52 @@ function TenXCommandBar({
   const progress = Math.min(100, Math.round(((counters.bookingsMonth / Math.max(targets.bookingsMonth, 1)) * 100)));
 
   return (
-    <div className="rounded-lg border border-border bg-card/80 px-2 py-1.5">
-      <div className="flex flex-wrap items-center gap-1.5">
-        <Dialog open={digestOpen} onOpenChange={onDigestOpenChange}>
-          <DialogTrigger asChild>
-            <Button size="sm" variant="outline" className="h-7 gap-1 text-[10px] px-2">
-              <Sunrise className="h-3 w-3" /> Daily digest
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2"><Sunrise className="h-4 w-4 text-accent" /> Today's digest</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-3 text-sm">
-              <div className="grid grid-cols-3 gap-2">
-                <div className="rounded-md border border-border p-2 text-center">
-                  <div className="text-[9px] uppercase tracking-wider text-muted-foreground">Moved</div>
-                  <div className="text-xl font-display font-semibold">{moved}</div>
-                </div>
-                <div className="rounded-md border border-border p-2 text-center">
-                  <div className="text-[9px] uppercase tracking-wider text-muted-foreground">Stalled</div>
-                  <div className="text-xl font-display font-semibold text-danger">{stalled.length}</div>
-                </div>
-                <div className="rounded-md border border-border p-2 text-center">
-                  <div className="text-[9px] uppercase tracking-wider text-muted-foreground">Booked</div>
-                  <div className="text-xl font-display font-semibold text-success">{counters.bookingsMonth}</div>
-                </div>
-              </div>
+    <Dialog open={digestOpen} onOpenChange={onDigestOpenChange}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="outline" className="h-8 gap-1.5 text-[11px] px-2.5 bg-background">
+          <Sunrise className="h-3.5 w-3.5" /> Daily digest
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Sunrise className="h-4 w-4 text-accent" /> Today's digest
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 text-sm">
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+            <DigestStat label="Live re-rank" value={`${agoLabel} · auto 60s`} />
+            <DigestStat label="Streak" value={`${moved} moved`} tone="success" />
+            <DigestStat label="SLA breach" value={`${breach} leads`} tone={breach > 0 ? "danger" : "default"} />
+            <DigestStat label="Month target" value={`${counters.bookingsMonth}/${targets.bookingsMonth}`} sub={`${progress}%`} />
+          </div>
+
+          <div className="rounded-lg border border-border bg-muted/25 p-3">
+            <div className="mb-2 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+              Today
+            </div>
+            <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+              <DigestStat label="Leads" value={`${counters.leadsToday}/${targets.leadsToday}`} />
+              <DigestStat label="Tours" value={`${counters.toursToday}/${targets.toursToday}`} />
+              <DigestStat label="Quotes" value={`${counters.quotesToday}/${targets.quotesToday}`} />
+              <DigestStat label="Bookings" value={`${counters.bookingsMonth}/${targets.bookingsMonth}`} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2">
+            <div className="rounded-md border border-border p-2 text-center">
+              <div className="text-[9px] uppercase tracking-wider text-muted-foreground">Moved</div>
+              <div className="text-xl font-display font-semibold">{moved}</div>
+            </div>
+            <div className="rounded-md border border-border p-2 text-center">
+              <div className="text-[9px] uppercase tracking-wider text-muted-foreground">Stalled</div>
+              <div className="text-xl font-display font-semibold text-danger">{stalled.length}</div>
+            </div>
+            <div className="rounded-md border border-border p-2 text-center">
+              <div className="text-[9px] uppercase tracking-wider text-muted-foreground">Booked</div>
+              <div className="text-xl font-display font-semibold text-success">{counters.bookingsMonth}</div>
+            </div>
+          </div>
 
               <div>
                 <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Tomorrow's top 5</div>
@@ -3552,65 +3751,102 @@ function TenXCommandBar({
               >
                 <ClipboardCopy className="h-3.5 w-3.5" /> Copy digest for WhatsApp
               </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        <DigestMetric
-          label="Live re-rank"
-          value={`${agoLabel} · auto 60s`}
-          icon={<span className="relative h-2 w-2"><span className="absolute inset-0 rounded-full bg-success animate-ping opacity-60" /><span className="absolute inset-0 rounded-full bg-success" /></span>}
-        />
-        <DigestMetric
-          label="Streak"
-          value={`${moved} moved`}
-          icon={<TrendingUp className="h-3 w-3 text-success" />}
-        />
-        <DigestMetric
-          label="SLA breach"
-          value={`${breach} leads`}
-          danger={breach > 0}
-          icon={<Bell className={`h-3 w-3 ${breach > 0 ? "text-danger" : "text-muted-foreground"}`} />}
-        />
-        <div className="min-w-[150px] flex-1 rounded-md border border-border/80 bg-background/60 px-2 py-1">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5 min-w-0">
-              <Activity className="h-3 w-3 text-primary shrink-0" />
-              <span className="text-[9px] uppercase tracking-[0.16em] text-muted-foreground font-semibold truncate">Month target</span>
-            </div>
-            <span className="text-[10px] font-mono text-muted-foreground shrink-0">{counters.bookingsMonth}/{targets.bookingsMonth}</span>
-          </div>
-          <div className="h-1 rounded-full bg-muted overflow-hidden mt-1">
-            <div className="h-full bg-gradient-to-r from-primary to-accent transition-all" style={{ width: `${progress}%` }} />
-          </div>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
-function DigestMetric({
+function DigestStat({
   label,
   value,
-  icon,
-  danger = false,
+  sub,
+  tone = "default",
 }: {
   label: string;
   value: string;
-  icon: React.ReactNode;
-  danger?: boolean;
+  sub?: string;
+  tone?: "default" | "success" | "danger";
 }) {
   return (
-    <div className="min-w-[132px] flex-1 rounded-md border border-border/80 bg-background/60 px-2 py-1">
-      <div className="flex items-center gap-1.5 min-w-0">
-        <span className="shrink-0">{icon}</span>
-        <span className="text-[9px] uppercase tracking-[0.16em] text-muted-foreground font-semibold truncate">{label}</span>
-      </div>
-      <div className={`text-[11px] font-semibold leading-tight truncate ${danger ? "text-danger" : "text-foreground"}`}>
+    <div className="rounded-md border border-border bg-card px-2.5 py-2">
+      <div className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">{label}</div>
+      <div className={cn(
+        "mt-1 text-lg font-display font-semibold leading-none",
+        tone === "success" ? "text-success" : tone === "danger" ? "text-danger" : "text-foreground",
+      )}>
         {value}
       </div>
+      {sub ? <div className="mt-1 text-[10px] text-muted-foreground">{sub}</div> : null}
     </div>
   );
 }
 
-/* ... rest of file omitted for brevity ... */
+function DroppedLeadsSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
+  const leads = useApp((s) => s.leads);
+  const tcms = useApp((s) => s.tcms);
+  
+  const droppedLeads = useMemo(() => {
+    return leads.filter(l => l.stage === "dropped").sort((a, b) => {
+      const ta = new Date(a.updatedAt).getTime();
+      const tb = new Date(b.updatedAt).getTime();
+      return tb - ta;
+    });
+  }, [leads]);
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto p-0 flex flex-col">
+        <SheetHeader className="p-4 border-b border-border bg-card space-y-1">
+          <SheetTitle className="text-sm flex items-center gap-2">
+            <ArchiveX className="h-4 w-4 text-destructive" />
+            Dropped / Lost Leads
+          </SheetTitle>
+          <SheetDescription className="text-xs">
+            Leads marked as not interested or no-show without follow-up.
+          </SheetDescription>
+        </SheetHeader>
+        <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-muted/10">
+          {droppedLeads.length === 0 ? (
+            <div className="text-xs text-muted-foreground italic text-center py-8">
+              No dropped leads.
+            </div>
+          ) : (
+            droppedLeads.map(lead => (
+              <button 
+                key={lead.id} 
+                type="button"
+                onClick={() => {
+                  useApp.getState().selectLead(lead.id);
+                  onOpenChange(false);
+                }}
+                className="w-full text-left rounded-xl border border-border bg-card p-3 space-y-2 relative overflow-hidden transition hover:border-destructive/40 hover:bg-destructive/5"
+              >
+                <div className="absolute top-0 left-0 bottom-0 w-1 bg-destructive/60" />
+                <div className="flex justify-between items-start">
+                  <div className="font-medium text-sm text-foreground truncate pl-2">{lead.name || "Unknown Lead"}</div>
+                  <Badge variant="outline" className="text-[9px] text-destructive border-destructive/20 bg-destructive/5 shrink-0">Dropped</Badge>
+                </div>
+                <div className="text-xs text-muted-foreground pl-2 space-y-1">
+                  <div className="flex items-center gap-1.5 truncate">
+                    <Phone className="h-3 w-3" /> {lead.phone}
+                  </div>
+                  {lead.preferredArea && (
+                    <div className="flex items-center gap-1.5 truncate">
+                      <MapPin className="h-3 w-3" /> {lead.preferredArea}
+                    </div>
+                  )}
+                  {lead.assignedTcmId && (
+                    <div className="flex items-center gap-1.5 truncate pt-1">
+                      <UserRound className="h-3 w-3" /> Assigned to {tcms.find(t => t.id === lead.assignedTcmId)?.name || lead.assignedTcmId}
+                    </div>
+                  )}
+                </div>
+              </button>
+            ))
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
