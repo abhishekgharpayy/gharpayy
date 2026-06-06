@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useApp } from "@/lib/store";
 import { useQuotationsQuery } from "@/lib/crm10x/quotations";
-import { useCheckins } from "@/lib/checkins/store";
+import { useCheckin } from "@/lib/checkins/store";
 import { useDossierReadiness } from "@/lib/crm10x/dossier-readiness";
 import { pickRelevantActiveTour } from "@/lib/lead-helpers";
 import type { Lead } from "@/lib/types";
@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 
 export type JourneyTab =
-  | "impact" | "tour" | "post" | "quote" | "checkin";
+  | "impact" | "tour" | "post" | "quote" | "negotiation" | "checkin";
 
 type StepState = "done" | "active" | "todo" | "locked";
 
@@ -34,7 +34,7 @@ export function LeadJourneyStepper({
 }) {
   const tours = useApp((s) => s.tours);
   const { data: leadQuotes = [] } = useQuotationsQuery(lead.id);
-  const checkin = useCheckins((s) => s.checkins.find((c) => c.leadId === lead.id));
+  const { data: checkin } = useCheckin(lead.id);
   const dossier = useDossierReadiness(lead);
 
   const steps: Step[] = useMemo(() => {
@@ -53,7 +53,7 @@ export function LeadJourneyStepper({
     const tourDone = !!completedTour || ["tour-done", "negotiation", "quote-sent", "booked"].includes(lead.stage);
     const postDone = !!completedTour && !pendingPost;
     const bookingDone = lead.stage === "booked" || !!paidQuote;
-    const checkinDone = !!checkin && (checkin.stage === "moved_in" || checkin.stage === "settled");
+    const checkinDone = !!checkin && checkin.stage === "settled";
 
     const order = [
       { key: "impact" as const, done: dossierDone, unlock: true, label: "Impact", icon: ClipboardCheck, cta: "Complete profile",
@@ -68,7 +68,7 @@ export function LeadJourneyStepper({
         cta: bookingDone ? "View booking" : "Send quote",
         hint: bookingDone ? "Booked" : sentQuote ? "Quote sent" : "Pending" },
       { key: "checkin" as const, done: checkinDone, unlock: bookingDone, label: "Check-in", icon: KeyRound,
-        cta: checkinDone ? "View check-in" : "Start check-in",
+        cta: checkinDone ? "View check-in" : checkin?.stage === "moved_in" ? "Complete check-in" : "Start check-in",
         hint: checkin ? checkin.stage.replace(/_/g, " ") : bookingDone ? "Pending" : "Locked" },
     ];
 
@@ -87,7 +87,7 @@ export function LeadJourneyStepper({
   const nextLabel = activeStep ? activeStep.cta : "All steps complete";
 
   return (
-    <div className="border-b border-border bg-muted/20 px-5 py-3 space-y-2.5">
+    <div className="border-b border-border bg-muted/20 px-4 py-2 space-y-2">
       {/* Step row with arrows */}
       <div className="flex items-center gap-0 overflow-x-auto scrollbar-thin">
         {steps.map((s, i) => {
@@ -104,19 +104,19 @@ export function LeadJourneyStepper({
                 onClick={() => (s.state === "done" || s.state === "active") && onJump(s.key)}
                 disabled={s.state === "locked" || s.state === "todo"}
                 aria-current={isCurrent ? "step" : undefined}
-                className={`group flex flex-col items-center gap-1 rounded-md border px-3 py-2 min-w-[104px] transition-all ${tone} ${isCurrent ? "scale-[1.02] shadow-sm" : ""} ${s.state === "locked" || s.state === "todo" ? "cursor-not-allowed" : "hover:brightness-110"}`}
+                className={`group flex flex-col items-center gap-0.5 rounded-md border px-2 py-1.5 min-w-[92px] transition-all ${tone} ${isCurrent ? "shadow-sm" : ""} ${s.state === "locked" || s.state === "todo" ? "cursor-not-allowed" : "hover:brightness-110"}`}
                 title={s.state === "locked" || s.state === "todo" ? "Complete previous step first" : s.label}
               >
                 <div className="flex items-center gap-1">
                   {s.state === "done" ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
                     : s.state === "locked" ? <Lock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                     : <Icon className="h-3.5 w-3.5 shrink-0" />}
-                  <span className="text-[11px] font-semibold whitespace-nowrap">{s.label}</span>
+                  <span className="text-[10px] font-semibold whitespace-nowrap">{s.label}</span>
                 </div>
-                {s.hint && <span className="text-[10px] text-muted-foreground whitespace-nowrap leading-none">{s.hint}</span>}
+                {s.hint && <span className="max-w-[84px] truncate text-[9px] text-muted-foreground leading-none">{s.hint}</span>}
               </button>
               {i < steps.length - 1 && (
-                <ChevronRight className="h-3.5 w-3.5 mx-1 shrink-0 text-muted-foreground" />
+                <ChevronRight className="h-3 w-3 mx-0.5 shrink-0 text-muted-foreground" />
               )}
             </div>
           );
@@ -126,7 +126,7 @@ export function LeadJourneyStepper({
       {activeStep && (
         <Button
           size="sm"
-          className="w-full h-8 text-xs gap-1.5 font-semibold"
+          className="w-full h-7 text-[11px] gap-1.5 font-semibold"
           onClick={() => onJump(activeStep.key)}
         >
           <ArrowRight className="h-3.5 w-3.5" />
