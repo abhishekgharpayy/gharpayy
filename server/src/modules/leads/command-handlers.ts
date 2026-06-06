@@ -181,7 +181,14 @@ async function applyCommand(cmd: Command, user: JwtClaims): Promise<LedgerDoc["r
         if (existingLeadId) {
           const existingLead = await col(LEADS).findOne({ _id: existingLeadId, tenantId: user.tenantId });
           if (existingLead) {
-            const lead = Lead.parse(existingLead);
+            let lead = Lead.parse(existingLead);
+            if (p.assigneeId && (lead.assignedTcmId !== p.assigneeId || lead.assigneeId !== p.assigneeId)) {
+              await col(LEADS).updateOne(
+                { _id: existingLeadId, tenantId: user.tenantId },
+                { $set: { assignedTcmId: p.assigneeId, assigneeId: p.assigneeId, updatedAt: now }, $inc: { __v: 1 } },
+              );
+              lead = { ...lead, assignedTcmId: p.assigneeId, assigneeId: p.assigneeId, updatedAt: now };
+            }
             const evtId = newEventId();
             await emit({
               _id: evtId, type: "evt.lead.created", occurredAt: now,
@@ -227,6 +234,7 @@ async function applyCommand(cmd: Command, user: JwtClaims): Promise<LedgerDoc["r
         confidence: p.quality === "hot" ? 90 : p.quality === "good" ? 70 : p.quality === "bad" ? 30 : 50,
         nextFollowUpAt: null,
         responseSpeedMins: 0,
+        budgetText: p.budgetText ?? "",
         email: p.email ?? "",
         areas: p.areas ?? [],
         fullAddress: p.fullAddress ?? "",
@@ -304,7 +312,7 @@ async function applyCommand(cmd: Command, user: JwtClaims): Promise<LedgerDoc["r
       const p = AssignLeadCmd.parse(cmd).payload;
       const r = await col(LEADS).updateOne(
         { _id: p.leadId, tenantId: user.tenantId },
-        { $set: { assignedTcmId: p.tcmId, updatedAt: now }, $inc: { __v: 1 } },
+        { $set: { assignedTcmId: p.tcmId, assigneeId: p.tcmId, updatedAt: now }, $inc: { __v: 1 } },
       );
       if (r.matchedCount === 0) throw Object.assign(new Error("Lead not found"), { code: "NOT_FOUND" });
       const evtId = newEventId();
