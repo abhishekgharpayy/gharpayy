@@ -45,6 +45,7 @@ export const CreateLeadCmd = Base.extend({
     phone: true,
     source: true,
     budget: true,
+    budgetText: true,
     moveInDate: true,
     preferredArea: true,
     zoneId: true,
