@@ -3214,7 +3214,23 @@ function AuditMetric({ label, value, danger }: { label: string; value: string; d
 /*  Focus Inventory Strip — what each TCM is pushing TODAY             */
 /* ================================================================== */
 
-function FocusInventoryStrip({ tcmFilter, tcmOptions }: { tcmFilter: string; tcmOptions: TCM[] }) {
+// ── helpers for ManagedUser / TCM shape compatibility ──────────────────────────
+function tmName(t: any): string {
+  return t.fullName ?? t.name ?? "—";
+}
+function tmInitials(t: any): string {
+  const n = tmName(t);
+  const parts = n.trim().split(/\s+/);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return n.slice(0, 2).toUpperCase();
+}
+function tmZone(t: any): string {
+  if (t.zone) return t.zone;
+  if (Array.isArray(t.zones) && t.zones.length > 0) return t.zones[0];
+  return "";
+}
+
+function FocusInventoryStrip({ tcmFilter, tcmOptions }: { tcmFilter: string; tcmOptions: any[] }) {
   const properties = useApp((s) => s.properties);
   const focusProps = useTcmContacts((s) => s.focusProps);
   const [manageOpen, setManageOpen] = useState(false);
@@ -3227,94 +3243,82 @@ function FocusInventoryStrip({ tcmFilter, tcmOptions }: { tcmFilter: string; tcm
     return list.map((t) => {
       const ids = focusProps[t.id] ?? [];
       const props = ids
-        .map((id) => resolvePropertyById(id, properties))
+        .map((id: string) => resolvePropertyById(id, properties))
         .filter(Boolean) as CatalogProperty[];
       const vacant = props.reduce((a, p) => a + (p.vacantBeds ?? 0), 0);
       return { tcm: t, props, vacant };
     });
   }, [activeTcm, tcmOptions, focusProps, properties]);
 
-  const allEmpty = rows.every((r) => r.props.length === 0);
-
   return (
-    <div className="rounded-lg bg-transparent">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="flex min-w-0 items-center gap-1.5">
+    <div className="rounded-lg border border-border bg-card px-4 py-3">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
           <Pin className="h-3.5 w-3.5 text-accent" />
-          <span className="text-[11px] uppercase tracking-wider font-semibold">
-            Today's focus inventory
+          <span className="text-[11px] uppercase tracking-wider font-semibold text-foreground">
+            Today's Focus Inventory
           </span>
-          <span
-            className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border text-muted-foreground"
-            title="Pin 3-5 focus properties per teammate so TCMs know what to push first today."
-          >
-            <Info className="h-3 w-3" />
-          </span>
+          <span className="text-[11px] text-muted-foreground">· what to push first</span>
         </div>
         <Button
           size="sm"
           variant="outline"
-          className="ml-auto h-7 text-[10px] gap-1"
+          className="h-7 text-[11px] gap-1.5 font-medium"
           onClick={() => setManageOpen(true)}
         >
           <Home className="h-3 w-3" /> Manage focus
         </Button>
       </div>
 
-      {allEmpty ? (
-        null
-      ) : (
-        <div className="mt-2 space-y-1.5">
-          {rows.map(({ tcm, props, vacant }) => (
-            <div key={tcm.id} className="flex flex-wrap items-center gap-2">
-              <div className="flex items-center gap-1.5 shrink-0">
-                <div className="w-6 h-6 rounded-full bg-accent/20 text-accent text-[10px] font-bold flex items-center justify-center">
-                  {tcm.initials}
-                </div>
-                <span className="text-[11px] font-semibold">{tcm.name.split(" ")[0]}</span>
-                <Badge variant="outline" className="text-[9px] uppercase">
-                  {vacant} beds free
-                </Badge>
+      {/* Per-TCM rows */}
+      <div className="space-y-2">
+        {rows.map(({ tcm, props, vacant }) => (
+          <div key={tcm.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 min-h-[28px]">
+            {/* Avatar + name + beds free */}
+            <div className="flex items-center gap-1.5 shrink-0 w-[180px]">
+              <div className="h-7 w-7 rounded-full bg-accent/20 text-accent text-[11px] font-bold flex items-center justify-center shrink-0">
+                {tmInitials(tcm)}
               </div>
-              {props.length === 0 ? (
-                <span className="text-[10px] text-muted-foreground italic">No focus set</span>
-              ) : (
-                <div className="flex flex-wrap gap-1.5">
-                  {props.map((p) => (
-                    <div
-                      key={p.id}
-                      className={`text-[10px] rounded-md border px-2 py-1 flex items-center gap-1.5 ${
-                        (p.vacantBeds ?? 1) === 0
-                          ? "border-danger/40 bg-danger/5 text-muted-foreground"
-                          : "border-border bg-card"
+              <span className="text-sm font-semibold truncate">{tmName(tcm).split(" ")[0]}</span>
+              <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide whitespace-nowrap">
+                {vacant} beds free
+              </span>
+            </div>
+
+            {/* Property chips */}
+            {props.length === 0 ? (
+              <span className="text-[11px] text-muted-foreground italic">No focus set</span>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {props.map((p) => (
+                  <div
+                    key={p.id}
+                    className="flex items-center gap-1.5 rounded-md border border-border bg-background px-2 py-0.5 text-[11px]"
+                  >
+                    <span className="font-semibold text-foreground">{p.name}</span>
+                    <span className="text-muted-foreground">{p.area}</span>
+                    <Badge
+                      variant="outline"
+                      className={`text-[10px] font-mono px-1.5 ${
+                        (p.vacantBeds ?? 0) > 0
+                          ? "bg-success/10 text-success border-success/40"
+                          : "bg-danger/10 text-danger border-danger/40"
                       }`}
                     >
-                      <span className="font-semibold">{p.name}</span>
-                      <span className="text-muted-foreground">· {p.area}</span>
-                      {p.source === "hub" && (
-                        <Badge variant="outline" className="text-[8px]">Hub</Badge>
-                      )}
-                      {p.vacantBeds !== undefined && (
-                        <Badge
-                          variant="outline"
-                          className={`text-[9px] ${
-                            p.vacantBeds > 0
-                              ? "bg-success/10 text-success border-success/40"
-                              : "bg-danger/10 text-danger border-danger/40"
-                          }`}
-                        >
-                          {p.vacantBeds}/{p.totalBeds ?? "—"}
-                        </Badge>
-                      )}
-                      <span className="text-muted-foreground">{formatINR(p.pricePerBed)}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
+                      {p.vacantBeds ?? 0}/{p.totalBeds ?? "—"}
+                    </Badge>
+                    <span className="text-muted-foreground">{formatINR(p.pricePerBed)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+        {rows.length === 0 && (
+          <p className="text-[11px] text-muted-foreground italic">No team members found.</p>
+        )}
+      </div>
 
       <ManageFocusDialog
         open={manageOpen}
@@ -3332,7 +3336,7 @@ function ManageFocusDialog({
   open: boolean;
   onOpenChange: (v: boolean) => void;
   defaultTcmId: string;
-  tcmOptions: TCM[];
+  tcmOptions: any[];
 }) {
   const properties = useApp((s) => s.properties);
   const focusProps = useTcmContacts((s) => s.focusProps);
@@ -3349,6 +3353,7 @@ function ManageFocusDialog({
   }, [open, defaultTcmId]);
 
   const focused = focusProps[tcmId] ?? [];
+
   const list = useMemo(() => {
     const q = query.trim();
     const base = q
@@ -3362,109 +3367,142 @@ function ManageFocusDialog({
     });
   }, [properties, query, focused]);
 
+  const selectedTcm = tcmOptions.find((t) => t.id === tcmId);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl">
-        <DialogHeader>
-          <DialogTitle className="text-sm flex items-center gap-2">
-            <Pin className="h-4 w-4" /> Manage focus inventory
+      <DialogContent className="max-w-2xl p-0 gap-0 overflow-hidden flex flex-col max-h-[90vh]">
+        {/* Header */}
+        <div className="flex items-center gap-3 px-6 pt-6 pb-4 border-b border-border shrink-0">
+          <Pin className="h-5 w-5 text-foreground" />
+          <DialogTitle className="text-base font-semibold text-foreground">
+            Manage focus inventory
           </DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <Label className="text-[10px] uppercase text-muted-foreground">TCM</Label>
-              <Select value={tcmId} onValueChange={setTcmId}>
-                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {tcmOptions.map((t: any) => (
-                    <SelectItem key={t.id} value={t.id} className="text-xs">
-                      {t.fullName ?? t.name}{t.zone ? <> · {t.zone}</> : null}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-[10px] uppercase text-muted-foreground">Search</Label>
-              <Input
-                className="h-8 text-xs"
-                placeholder="Property name or area"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-              />
-            </div>
-          </div>
+        </div>
 
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] text-muted-foreground">
-              {focused.length} property{focused.length === 1 ? "" : "ies"} pinned
-            </span>
-            {focused.length > 0 && (
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-7 text-[10px] gap-1 text-danger"
-                onClick={() => { clearFocus(tcmId); toast("Focus cleared"); }}
+        {/* TCM selector + Search */}
+        <div className="grid grid-cols-2 gap-4 px-6 pt-5 pb-4 shrink-0">
+          <div className="space-y-1.5">
+            <Label className="text-[11px] uppercase tracking-widest text-muted-foreground font-semibold">TCM</Label>
+            <Select value={tcmId} onValueChange={setTcmId}>
+              <SelectTrigger className="h-11 text-sm rounded-xl border-border bg-background">
+                <SelectValue>
+                  {selectedTcm
+                    ? `${tmName(selectedTcm)}${tmZone(selectedTcm) ? ` · ${tmZone(selectedTcm)}` : ""}`
+                    : "Select TCM"}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {tcmOptions.map((t) => (
+                  <SelectItem key={t.id} value={t.id} className="text-sm">
+                    <span className="font-medium">{tmName(t)}</span>
+                    {tmZone(t) && <span className="text-muted-foreground"> · {tmZone(t)}</span>}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-[11px] uppercase tracking-widest text-muted-foreground font-semibold">Search</Label>
+            <Input
+              className="h-11 text-sm rounded-xl border-border bg-background"
+              placeholder="Property name or area"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {/* Pinned count + Clear all */}
+        <div className="flex items-center justify-between px-6 pb-3 shrink-0">
+          <span className="text-sm text-foreground">
+            {focused.length} {focused.length === 1 ? "property" : "properties"} pinned
+          </span>
+          {focused.length > 0 && (
+            <button
+              type="button"
+              className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              onClick={() => { clearFocus(tcmId); toast("Focus cleared"); }}
+            >
+              <X className="h-3.5 w-3.5" /> Clear all
+            </button>
+          )}
+        </div>
+
+        {/* Property list */}
+        <div className="flex-1 overflow-y-auto px-4 pb-2 space-y-1.5">
+          {list.map((p) => {
+            const on = focused.includes(p.id);
+            const vacant = p.vacantBeds ?? 0;
+            const total = p.totalBeds ?? 0;
+            return (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => {
+                  const wasOn = focused.includes(p.id);
+                  toggleFocusProp(tcmId, p.id);
+                  toast.success(wasOn ? `Removed ${p.name}` : `Pinned ${p.name}`);
+                }}
+                className={cn(
+                  "w-full text-left rounded-xl border px-4 py-3.5 flex items-center gap-4 transition-colors",
+                  on
+                    ? "bg-orange-50 border-orange-400 dark:bg-orange-950/30 dark:border-orange-500"
+                    : "bg-background border-border hover:bg-muted/40",
+                )}
               >
-                <X className="h-3 w-3" /> Clear all
-              </Button>
-            )}
-          </div>
-
-          <div className="max-h-80 overflow-y-auto space-y-1 border border-border rounded-md p-2">
-            {list.map((p) => {
-              const on = focused.includes(p.id);
-              return (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => {
-                    const wasOn = focused.includes(p.id);
-                    toggleFocusProp(tcmId, p.id);
-                    toast.success(wasOn ? `Removed ${p.name} from focus` : `Pinned ${p.name} to focus`);
-                  }}
-                  className={`w-full text-left text-xs px-2 py-1.5 rounded border flex items-center gap-2 transition ${
-                    on
-                      ? "bg-accent/10 border-accent/50"
-                      : "border-border hover:bg-muted/50"
-                  }`}
-                >
-                  <div className={`w-4 h-4 rounded border flex items-center justify-center ${on ? "bg-accent border-accent text-accent-foreground" : "border-border"}`}>
-                    {on && <CheckCircle2 className="h-3 w-3" />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium truncate">{p.name}</div>
-                    <div className="text-[10px] text-muted-foreground truncate">
-                      {p.area} · {formatINR(p.pricePerBed)}/bed
-                      {p.source === "hub" ? " · Property Hub" : ""}
-                    </div>
-                  </div>
-                  {p.vacantBeds !== undefined && (
-                    <Badge
-                      variant="outline"
-                      className={`text-[9px] ${
-                        p.vacantBeds > 0
-                          ? "bg-success/10 text-success border-success/40"
-                          : "bg-danger/10 text-danger border-danger/40"
-                      }`}
-                    >
-                      {p.vacantBeds}/{p.totalBeds ?? "—"}
-                    </Badge>
+                {/* Checkbox */}
+                <div
+                  className={cn(
+                    "h-5 w-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors",
+                    on ? "bg-orange-500 border-orange-500" : "border-muted-foreground/40 bg-background",
                   )}
-                </button>
-              );
-            })}
-            {list.length === 0 && (
-              <p className="text-[11px] text-muted-foreground text-center py-4">
-                No properties match.
-              </p>
-            )}
-          </div>
+                >
+                  {on && (
+                    <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 12 12">
+                      <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  )}
+                </div>
 
-          <Button className="w-full h-8 text-xs" onClick={() => onOpenChange(false)}>
+                {/* Name + area · price */}
+                <div className="flex-1 min-w-0">
+                  <div className={cn("text-sm font-semibold truncate", on ? "text-orange-700 dark:text-orange-300" : "text-foreground")}>
+                    {p.name}
+                  </div>
+                  <div className="text-[12px] text-muted-foreground truncate">
+                    {p.area} · {formatINR(p.pricePerBed)}/bed
+                  </div>
+                </div>
+
+                {/* Vacant/total badge */}
+                <div
+                  className={cn(
+                    "shrink-0 text-[12px] font-semibold tabular-nums px-2.5 py-0.5 rounded-full border",
+                    vacant > 0
+                      ? "text-success border-success/40 bg-success/10"
+                      : "text-danger border-danger/40 bg-danger/10",
+                  )}
+                >
+                  {vacant}/{total}
+                </div>
+              </button>
+            );
+          })}
+          {list.length === 0 && (
+            <p className="text-sm text-muted-foreground text-center py-8">No properties match.</p>
+          )}
+        </div>
+
+        {/* Done button */}
+        <div className="px-4 pb-5 pt-3 shrink-0 border-t border-border">
+          <button
+            type="button"
+            onClick={() => onOpenChange(false)}
+            className="w-full h-12 rounded-xl bg-foreground text-background text-sm font-semibold hover:opacity-90 transition-opacity"
+          >
             Done
-          </Button>
+          </button>
         </div>
       </DialogContent>
     </Dialog>
