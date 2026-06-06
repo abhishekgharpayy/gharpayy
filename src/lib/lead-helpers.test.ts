@@ -397,6 +397,14 @@ describe("resolveLeadLocation", () => {
     expect(result.source).toBe("hub");
   });
 
+  it("works without tours and properties arrays passed", () => {
+    const lead = makeLead({ preferredArea: "HSR Layout" });
+    const result = resolveLeadLocation(lead);
+    expect(result.area).toBe("HSR Layout");
+    expect(result.propertyName).not.toBeNull();
+    expect(result.source).toBe("hub");
+  });
+
   it("rejects invalid preferredArea values", () => {
     const lead = makeLead({ preferredArea: "ss" });
     const result = resolveLeadLocation(lead, [], []);
