@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { AlertCircle, CheckCircle2, MapPin, Sparkles, Wand2 } from "lucide-react";
 import { parseLead, detectZone } from "@/lib/lead-identity/parser";
 import { useIdentityStore } from "@/lib/lead-identity/store";
-import { memberOptionLabel, memberShortLabel, useOrgMembers, useOrgZones, useActiveTcMs } from "@/hooks/useOrgDirectory";
+import { memberOptionLabel, memberShortLabel, resolveMemberPrimaryZone, useOrgMembers, useOrgZones, useActiveTcMs } from "@/hooks/useOrgDirectory";
 import { useAuthUser } from "@/lib/auth-store";
 import { dispatch } from "@/lib/api/command-bus";
 import { api } from "@/lib/api/client";
@@ -120,6 +120,16 @@ export function LeadPasteParser({ onDone }: Props) {
     }
   }, [assigneeId, defaultAssigneeId]);
 
+  const selectedAssignee = sortedMembers.find((m: any) => m.id === assigneeId)
+    ?? orgMembers.find((m) => m.id === assigneeId)
+    ?? (activeTcms || []).find((a: any) => a.id === assigneeId);
+  const assigneeZone = useMemo(() => resolveMemberPrimaryZone(selectedAssignee, orgZones), [selectedAssignee, orgZones]);
+
+  useEffect(() => {
+    if (!assigneeZone) return;
+    setZoneBucket(assigneeZone);
+  }, [assigneeId, assigneeZone]);
+
   const textRef = useRef<HTMLTextAreaElement>(null);
 
   const detectedZone = useMemo(
@@ -204,10 +214,6 @@ export function LeadPasteParser({ onDone }: Props) {
   const fieldHint = (key: (typeof validationItems)[number]["key"]) => (
     isPending(key) ? <p className="text-[10px] font-medium text-destructive">{validationItems.find((item) => item.key === key)?.label} required</p> : null
   );
-
-  const selectedAssignee = sortedMembers.find((m: any) => m.id === assigneeId)
-    ?? orgMembers.find((m) => m.id === assigneeId)
-    ?? (activeTcms || []).find((a: any) => a.id === assigneeId);
 
   const save = async () => {
     if (savingRef.current) return;

@@ -20,7 +20,7 @@ import {
 import { toast } from "sonner";
 import { DuplicateModal } from "./DuplicateModal";
 import { QUICKAD_NEED_OPTIONS, QUICKAD_ROOM_OPTIONS, QUICKAD_TYPE_OPTIONS, parseBudgetAmount } from "@/lib/quickad-shared";
-import { memberOptionLabel, useOrgMembers, useOrgZones, useActiveTcMs } from "@/hooks/useOrgDirectory";
+import { memberOptionLabel, resolveMemberPrimaryZone, useOrgMembers, useOrgZones, useActiveTcMs } from "@/hooks/useOrgDirectory";
 import { useAuthUser } from "@/lib/auth-store";
 import { dispatch } from "@/lib/api/command-bus";
 import { useApp } from "@/lib/store";
@@ -124,6 +124,15 @@ export function DirectLeadForm({ onCreated }: Props) {
     }
     return base.slice().sort((a, b) => a.name.localeCompare(b.name));
   }, [orgMembers, activeTcms, authUser]);
+  const selectedAssignee = sortedMembers.find((m: any) => m.id === draft.assigneeId)
+    ?? orgMembers.find((m) => m.id === draft.assigneeId)
+    ?? (activeTcms || []).find((a: any) => a.id === draft.assigneeId);
+  const assigneeZone = useMemo(() => resolveMemberPrimaryZone(selectedAssignee, orgZones), [selectedAssignee, orgZones]);
+
+  useEffect(() => {
+    if (!assigneeZone) return;
+    setDraft((d) => ({ ...d, zoneBucket: assigneeZone }));
+  }, [draft.assigneeId, assigneeZone]);
 
   // Auto-detect zone (informational) when location changes
   useEffect(() => {

@@ -18,7 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useIdentityStore } from "@/lib/lead-identity/store";
 import { detectZone, parseLead } from "@/lib/lead-identity/parser";
-import { memberOptionLabel, useOrgMembers, useOrgZones, useActiveTcMs } from "@/hooks/useOrgDirectory";
+import { memberOptionLabel, resolveMemberPrimaryZone, useOrgMembers, useOrgZones, useActiveTcMs } from "@/hooks/useOrgDirectory";
 import { useAuthUser } from "@/lib/auth-store";
 import { dispatch } from "@/lib/api/command-bus";
 import { toast } from "sonner";
@@ -124,6 +124,16 @@ export function QuickAddLeadPanel({ open, onClose }: Props) {
       setAssigneeId(defaultAssigneeId);
     }
   }, [assigneeId, defaultAssigneeId]);
+
+  const selectedAssignee = sortedMembers.find((m: any) => m.id === assigneeId)
+    ?? orgMembers.find((m) => m.id === assigneeId)
+    ?? (activeTcms || []).find((a: any) => a.id === assigneeId);
+  const assigneeZone = useMemo(() => resolveMemberPrimaryZone(selectedAssignee, orgZones), [selectedAssignee, orgZones]);
+
+  useEffect(() => {
+    if (!assigneeZone) return;
+    setZoneBucket(assigneeZone);
+  }, [assigneeId, assigneeZone]);
 
   const nameRef = useRef<HTMLInputElement>(null);
   useEffect(() => { if (open) setTimeout(() => nameRef.current?.focus(), 50); }, [open]);

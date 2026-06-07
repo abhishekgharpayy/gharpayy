@@ -45,6 +45,30 @@ export function memberShortLabel(member?: DirectoryPersonLike | null, fallback =
   return area ? `${memberDisplayName(member, fallback)} · ${area}` : memberDisplayName(member, fallback);
 }
 
+export function resolveMemberPrimaryZone(member?: DirectoryPersonLike | null, zones: Zone[] = []) {
+  const memberZones = Array.isArray(member?.zones)
+    ? member.zones.map((zone) => String(zone).trim()).filter(Boolean)
+    : [];
+  if (member?.zone?.trim()) memberZones.push(member.zone.trim());
+  if (!memberZones.length) return "";
+
+  const normalizedMemberZones = memberZones.map((zone) => zone.toLowerCase());
+  const matchedZone = zones.find((zone) => {
+    const zoneAliases = [
+      zone.id,
+      zone.name,
+      zone.city,
+      ...(zone.areas ?? []),
+    ].map((value) => String(value ?? "").trim().toLowerCase()).filter(Boolean);
+    return normalizedMemberZones.some((memberZone) =>
+      zoneAliases.includes(memberZone) ||
+      zoneAliases.some((alias) => alias.includes(memberZone) || memberZone.includes(alias)),
+    );
+  });
+
+  return matchedZone?.name ?? memberZones[0];
+}
+
 export function useOrgMembers() {
   const [members, setMembers] = useState<DirectoryMember[]>([]);
   const [loading, setLoading] = useState(true);
