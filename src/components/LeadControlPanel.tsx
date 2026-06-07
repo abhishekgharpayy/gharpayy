@@ -76,8 +76,6 @@ import {
   Trophy,
   Search,
   Star,
-  ExternalLink,
-  Send,
   Sparkles,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
@@ -146,6 +144,12 @@ const CALL_DURATION_OPTIONS = [
   { value: "7.5", label: "7 min 30 sec" },
   { value: "10", label: "10 min" },
 ];
+const FOLLOW_UP_TIME_OPTIONS = Array.from({ length: 29 }, (_, index) => {
+  const totalMinutes = 8 * 60 + index * 30;
+  const hour = Math.floor(totalMinutes / 60);
+  const minute = totalMinutes % 60;
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+});
 const WORKFLOW_TAB_LABELS: Record<JourneyTab, string> = {
   impact: "Impact",
   tour: "Tour",
@@ -206,6 +210,7 @@ type DrawerScheduleAnswers = {
 };
 
 export function LeadControlPanel() {
+  const reminderTimersRef = useRef<Map<string, number>>(new Map());
   const {
     selectedLeadId,
     selectedLeadTab,
@@ -236,6 +241,46 @@ export function LeadControlPanel() {
   const { currentMemberId, setTours } = useAppState();
   const { members: orgMembers } = useOrgMembers();
   const authUser = useAuthUser((s) => s.user);
+
+  useEffect(() => {
+    return () => {
+      reminderTimersRef.current.forEach((timerId) => window.clearTimeout(timerId));
+      reminderTimersRef.current.clear();
+    };
+  }, []);
+
+  const scheduleLocalReminderAlert = (
+    key: string,
+    dueAt: string,
+    title: string,
+    description: string,
+  ) => {
+    if (typeof window === "undefined") return;
+    const due = parseSafeDate(dueAt);
+    if (!due) return;
+    const existing = reminderTimersRef.current.get(key);
+    if (existing) window.clearTimeout(existing);
+
+    const notify = () => {
+      toast.warning(title, { description, duration: 12000 });
+      if ("Notification" in window && window.Notification.permission === "granted") {
+        new window.Notification(title, { body: description });
+      }
+    };
+
+    const ms = due.getTime() - Date.now();
+    if (ms <= 0) {
+      notify();
+      return;
+    }
+    if (ms > 2_147_483_647) return;
+
+    const timerId = window.setTimeout(notify, ms);
+    reminderTimersRef.current.set(key, timerId);
+    if ("Notification" in window && window.Notification.permission === "default") {
+      void window.Notification.requestPermission();
+    }
+  };
 
   const lead = useMemo(
     () => leads.find((l) => l.id === selectedLeadId) ?? null,
@@ -1296,6 +1341,50 @@ export function LeadControlPanel() {
                     ? rawPostTourPropertyName.trim()
                     : "Property not selected";
                 const pt = target.postTour;
+                const leadFirstName = resolveBestLeadName(lead).split(" ")[0] || "there";
+                const postTourFollowUpAt = () => {
+                  if (pt.nextFollowUpAt && parseSafeDate(pt.nextFollowUpAt)) return pt.nextFollowUpAt;
+                  const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
+                  tomorrow.setHours(11, 0, 0, 0);
+                  return tomorrow.toISOString();
+                };
+                const setPostTourReminder = async () => {
+                  const dueAt = postTourFollowUpAt();
+                  await updatePostTour(target.id, { nextFollowUpAt: dueAt });
+                  setLeadFollowUp(
+                    lead.id,
+                    dueAt,
+                    priorityFor(pt.confidence),
+                    `Post-tour follow-up · ${postTourPropertyName}`,
+                  );
+                  scheduleLocalReminderAlert(
+                    `post-tour:${target.id}`,
+                    dueAt,
+                    `Follow up with ${resolveBestLeadName(lead)}`,
+                    `Post-tour follow-up for ${postTourPropertyName}`,
+                  );
+                  toast.success(`Reminder set for ${formatSafeDate(dueAt, "MMM d, p", "the selected time")}`);
+                };
+                const copyPostTourMessage = async (kind: "thanks" | "update") => {
+                  const propertyText =
+                    postTourPropertyName === "Property not selected" ? "the property" : postTourPropertyName;
+                  const message =
+                    kind === "thanks"
+                      ? `Hi ${leadFirstName}, thank you for visiting ${propertyText}. I have noted your feedback and will help you with the next step.`
+                      : `Hi ${leadFirstName}, quick update after your visit to ${propertyText}: the option is available around ${formatBudget(lead.budget)}. Please tell me if you want to proceed or compare one more option.`;
+                  await navigator.clipboard.writeText(message);
+                  toast.success(kind === "thanks" ? "Thank-you message copied" : "Post-tour update copied");
+                };
+                const nextFollowUpLocal = pt.nextFollowUpAt ? toLocal(pt.nextFollowUpAt) : "";
+                const nextFollowUpDate = nextFollowUpLocal.slice(0, 10);
+                const nextFollowUpTime = nextFollowUpLocal.slice(11, 16);
+                const updateNextFollowUp = (date: string, time: string) => {
+                  if (!date || !time) {
+                    updatePostTour(target.id, { nextFollowUpAt: null });
+                    return;
+                  }
+                  updatePostTour(target.id, { nextFollowUpAt: new Date(`${date}T${time}`).toISOString() });
+                };
                 const applyPostTourOutcome = async (outcome: NonNullable<typeof pt.outcome>) => {
                   const nowIso = new Date().toISOString();
                   const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
@@ -1361,16 +1450,7 @@ export function LeadControlPanel() {
                           size="sm"
                           variant="outline"
                           className="h-auto justify-center gap-1.5 text-xs"
-                          onClick={() => {
-                            const dueAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-                            setLeadFollowUp(
-                              lead.id,
-                              dueAt,
-                              priorityFor(pt.confidence),
-                              "Post-tour reminder",
-                            );
-                            toast.success("Reminder set for tomorrow");
-                          }}
+                          onClick={() => void setPostTourReminder()}
                         >
                           <BellRing className="h-3 w-3" /> Reminder
                         </Button>
@@ -1409,17 +1489,18 @@ export function LeadControlPanel() {
                         </SelectContent>
                       </Select>
                       <Textarea
-                        rows={2}
-                        placeholder="Note…"
-                        value={pt.objectionNote}
-                        onChange={(e) =>
-                          updatePostTour(target.id, { objectionNote: e.target.value })
-                        }
-                        className="text-sm resize-none mt-2"
+                        key={`${target.id}:${pt.objection ?? "none"}`}
+                        rows={3}
+                        placeholder={pt.objection === "Other" ? "Write the objection clearly..." : "Add context for the objection..."}
+                        defaultValue={pt.objectionNote}
+                        onBlur={(e) => updatePostTour(target.id, { objectionNote: e.target.value })}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={(e) => e.stopPropagation()}
+                        className="mt-2 min-h-20 resize-y rounded-xl text-sm"
                       />
                     </Section>
 
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid gap-3">
                       <Section title="Expected decision">
                         <Input
                           type="date"
@@ -1431,22 +1512,35 @@ export function LeadControlPanel() {
                                 : null,
                             })
                           }
-                          className="h-9 text-sm"
+                          className="h-9 max-w-72 text-sm"
                         />
                       </Section>
                       <Section title="Next follow-up">
-                        <Input
-                          type="datetime-local"
-                          value={pt.nextFollowUpAt ? toLocal(pt.nextFollowUpAt) : ""}
-                          onChange={(e) =>
-                            updatePostTour(target.id, {
-                              nextFollowUpAt: e.target.value
-                                ? new Date(e.target.value).toISOString()
-                                : null,
-                            })
-                          }
-                          className="h-9 text-sm"
-                        />
+                        <div className="grid grid-cols-[minmax(0,1fr)_140px] gap-2">
+                          <Input
+                            type="date"
+                            value={nextFollowUpDate}
+                            onChange={(e) => updateNextFollowUp(e.target.value, nextFollowUpTime || "11:00")}
+                            className="h-9 min-w-0 text-sm"
+                          />
+                          <Select
+                            value={nextFollowUpTime}
+                            onValueChange={(value) =>
+                              updateNextFollowUp(nextFollowUpDate || localDateISO(), value)
+                            }
+                          >
+                            <SelectTrigger className="h-9 min-w-0 text-sm">
+                              <SelectValue placeholder="Time" />
+                            </SelectTrigger>
+                            <SelectContent align="end">
+                              {FOLLOW_UP_TIME_OPTIONS.map((time) => (
+                                <SelectItem key={time} value={time} className="text-sm">
+                                  {formatTime12h(time)}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </Section>
                     </div>
 
@@ -1525,33 +1619,23 @@ export function LeadControlPanel() {
                         size="sm"
                         variant="outline"
                         className="flex-1 gap-1.5 text-xs h-9"
-                        onClick={() => {
-                          const msg = `Hi ${lead.name.split(" ")[0]}, thank you for visiting ${prop?.name ?? "our property"} today! Hope you enjoyed the tour. Let us know if you have any questions 😊`;
-                          window.open(`https://wa.me/${lead.phone.replace(/\D/g, "")}?text=${encodeURIComponent(msg)}`, "_blank", "noopener,noreferrer");
-                        }}
+                        onClick={() => void copyPostTourMessage("thanks")}
                       >
-                        <ExternalLink className="h-3 w-3" /> Thank-you msg
+                        <Copy className="h-3 w-3" /> Thank-you msg
                       </Button>
                       <Button
                         size="sm"
                         variant="outline"
                         className="flex-1 gap-1.5 text-xs h-9"
-                        onClick={() => {
-                          const msg = `Hi ${lead.name.split(" ")[0]}, just wanted to follow up on your visit to ${prop?.name ?? "the property"}. Have you had a chance to think about it?`;
-                          window.open(`https://wa.me/${lead.phone.replace(/\D/g, "")}?text=${encodeURIComponent(msg)}`, "_blank", "noopener,noreferrer");
-                        }}
+                        onClick={() => void copyPostTourMessage("update")}
                       >
-                        <Send className="h-3 w-3" /> Send update
+                        <Copy className="h-3 w-3" /> Send update
                       </Button>
                       <Button
                         size="sm"
                         variant="outline"
                         className="flex-1 gap-1.5 text-xs h-9"
-                        onClick={() => {
-                          const dueAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-                          setLeadFollowUp(lead.id, dueAt, priorityFor(pt.confidence), "Post-tour follow-up reminder");
-                          toast.success("Reminder set for tomorrow");
-                        }}
+                        onClick={() => void setPostTourReminder()}
                       >
                         <BellRing className="h-3 w-3" /> Set reminder
                       </Button>
