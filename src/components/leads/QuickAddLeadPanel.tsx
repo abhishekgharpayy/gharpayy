@@ -18,7 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useIdentityStore } from "@/lib/lead-identity/store";
 import { detectZone, parseLead } from "@/lib/lead-identity/parser";
-import { useOrgMembers, useOrgZones, useActiveTcMs } from "@/hooks/useOrgDirectory";
+import { memberOptionLabel, useOrgMembers, useOrgZones, useActiveTcMs } from "@/hooks/useOrgDirectory";
 import { useAuthUser } from "@/lib/auth-store";
 import { dispatch } from "@/lib/api/command-bus";
 import { toast } from "sonner";
@@ -83,11 +83,11 @@ export function QuickAddLeadPanel({ open, onClose }: Props) {
   const sortedZones = useMemo(() => orgZones.slice().sort((a, b) => a.name.localeCompare(b.name)), [orgZones]);
   const sortedMembers = useMemo(() => {
     const base = (activeTcms && activeTcms.length > 0)
-      ? activeTcms.map((a: any) => ({ id: a.id, name: a.fullName ?? a.name, role: a.role ?? 'tcm', zones: a.zones ?? [] }))
-      : orgMembers.filter((m) => m.role === 'member' || m.role === 'tcm').map((m) => ({ id: m.id, name: m.fullName ?? m.name, role: m.role, zones: (m as any).zones ?? [] }));
+      ? activeTcms.map((a: any) => ({ id: a.id, name: a.fullName ?? a.name, role: a.role ?? 'tcm', zones: a.zones ?? (a.zone ? [a.zone] : []) }))
+      : orgMembers.filter((m) => m.role === 'member' || m.role === 'tcm').map((m: any) => ({ id: m.id, name: m.fullName ?? m.name, role: m.role, zones: m.zones ?? (m.zone ? [m.zone] : []) }));
     // Ensure current user appears in the assignee list so they can assign to themselves
     if (authUser && !base.find((b: any) => b.id === authUser.id)) {
-      base.unshift({ id: authUser.id, name: authUser.fullName ?? authUser.name, role: authUser.role ?? 'member', zones: (authUser as any).zones ?? [] });
+      base.unshift({ id: authUser.id, name: authUser.fullName ?? authUser.name, role: authUser.role ?? 'member', zones: (authUser as any).zones ?? ((authUser as any).zone ? [(authUser as any).zone] : []) });
     }
     return base.slice().sort((a, b) => a.name.localeCompare(b.name));
   }, [orgMembers, activeTcms, authUser]);
@@ -593,7 +593,7 @@ export function QuickAddLeadPanel({ open, onClose }: Props) {
               </SelectTrigger>
               <SelectContent>
                 {sortedMembers.map((m) => (
-                  <SelectItem key={m.id} value={m.id}>{m.name} · {m.role}</SelectItem>
+                  <SelectItem key={m.id} value={m.id}>{memberOptionLabel(m)}</SelectItem>
                 ))}
               </SelectContent>
             </Select>

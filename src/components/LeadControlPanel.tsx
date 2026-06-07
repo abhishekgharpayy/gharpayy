@@ -6,7 +6,13 @@ import { useApp, getProperty, getTcm } from "@/lib/store";
 import type { Tour as CrmTour } from "@/lib/types";
 import { useAppState } from "@/myt/lib/app-context";
 import { Tour } from "@/myt/lib/types";
-import { useOrgMembers, useActiveTcMs } from "@/hooks/useOrgDirectory";
+import {
+  memberDisplayName,
+  memberOptionLabel,
+  memberShortLabel,
+  useOrgMembers,
+  useActiveTcMs,
+} from "@/hooks/useOrgDirectory";
 import { notifyTourScheduled } from "@/lib/notifications";
 import {
   Sheet,
@@ -274,7 +280,7 @@ export function LeadControlPanel() {
           id: a.id,
           name: a.fullName ?? a.name,
           role: a.role ?? "tcm",
-          zones: a.zones ?? [],
+          zones: a.zones ?? (a.zone ? [a.zone] : []),
         }))
         .sort((a, b) => a.name.localeCompare(b.name));
     }
@@ -292,7 +298,7 @@ export function LeadControlPanel() {
           id: authUser.id,
           name: authUser.fullName || authUser.username || authUser.email,
           role: "member",
-          zones: authUser.zones ?? [],
+          zones: (authUser as any).zones ?? ((authUser as any).zone ? [(authUser as any).zone] : []),
         };
 
     const unique = new Map<string, typeof selfOption>();
@@ -465,7 +471,7 @@ export function LeadControlPanel() {
           leadName: resolveBestLeadName(lead),
           phone: lead.phone || "",
           assignedTo: wireTour.assignedTo,
-          assignedToName: assignedTo?.name ?? wireTour.assignedTo,
+          assignedToName: assignedTo ? memberShortLabel(assignedTo) : wireTour.assignedTo,
           propertyName: property?.name ?? hydratedLocation.propertyName ?? "Property Hub option",
           propertyId: wireTour.propertyId ?? undefined,
           area: hydratedLocation.area,
@@ -474,7 +480,7 @@ export function LeadControlPanel() {
           tourTime: wireTour.scheduledAt.slice(11, 16),
           bookingSource: wireTour.bookingSource as Tour["bookingSource"],
           scheduledBy: wireTour.scheduledBy,
-          scheduledByName: scheduledBy?.name ?? wireTour.scheduledBy,
+          scheduledByName: scheduledBy ? memberShortLabel(scheduledBy) : wireTour.scheduledBy,
           leadType: "future",
           status: wireTour.status as Tour["status"],
           showUp: null,
@@ -555,7 +561,9 @@ export function LeadControlPanel() {
         getProperty(tourToShow.propertyId)?.name ??
         null
       : null;
-  const assignmentLabel = formatAssignee(assignedMemberId, selectedMember?.name ?? tcm?.name);
+  const assignmentLabel = selectedMember
+    ? memberShortLabel(selectedMember)
+    : formatAssignee(assignedMemberId, tcm?.name);
 
   const handleSchedule = async () => {
     if (!tcmId || !scheduledAt) {
@@ -587,7 +595,7 @@ export function LeadControlPanel() {
         leadName: displayLeadName,
         phone: lead.phone || "",
         assignedTo: tcmId,
-        assignedToName: assignee?.name ?? "Member",
+        assignedToName: assignee ? memberShortLabel(assignee) : "Member",
         propertyName: selectedPropertyId
           ? (tourPropertyOptions.find((p) => p.id === selectedPropertyId)?.name ??
             leadLocation.propertyName ??
@@ -600,7 +608,7 @@ export function LeadControlPanel() {
         tourTime: scheduledDateTime.toTimeString().split(" ")[0].substring(0, 5),
         bookingSource: scheduleAnswers.bookingSource as Tour["bookingSource"],
         scheduledBy: scheduler?.id ?? currentMemberId ?? tcmId,
-        scheduledByName: scheduler?.name ?? "You",
+        scheduledByName: scheduler ? memberShortLabel(scheduler) : "You",
         leadType: "future" as const,
         status: "scheduled" as const,
         showUp: null,
@@ -645,7 +653,7 @@ export function LeadControlPanel() {
         senderName: scheduler?.name ?? "You",
         assigneeName: assignee?.name ?? "Member",
         recipientIds: [
-          { id: tcmId, name: assignee?.name ?? "Member" },
+          { id: tcmId, name: memberDisplayName(assignee, "Member") },
           ...(scheduler?.id && scheduler.id !== tcmId
             ? [{ id: scheduler.id, name: scheduler.name }]
             : []),
@@ -924,7 +932,9 @@ export function LeadControlPanel() {
                 </div>
                 <div className="text-[11px] text-muted-foreground">
                   Currently with{" "}
-                  <span className="text-foreground font-medium">{selectedMember?.name ?? "-"}</span>
+                  <span className="text-foreground font-medium">
+                    {selectedMember ? memberShortLabel(selectedMember) : "-"}
+                  </span>
                 </div>
               </Section>
 
@@ -2513,17 +2523,15 @@ function UpcomingTourCard({
 
   // Handle both old CRM tour format (tcmId) and new MYT tour format (assignedTo, assignedToName)
   const assignedToId = (tour as any).assignedTo ?? (tour as any).tcmId;
-  const assignedToName =
-    (tour as any).assignedToName ??
-    members.find((m) => m.id === assignedToId)?.name ??
-    assignedToId ??
-    "TBD";
+  const assignedToMember = members.find((m) => m.id === assignedToId);
+  const assignedToName = assignedToMember
+    ? memberShortLabel(assignedToMember)
+    : ((tour as any).assignedToName ?? assignedToId ?? "TBD");
   const scheduledById = (tour as any).scheduledBy;
-  const scheduledByName =
-    (tour as any).scheduledByName ??
-    members.find((m) => m.id === scheduledById)?.name ??
-    scheduledById ??
-    "TBD";
+  const scheduledByMember = members.find((m) => m.id === scheduledById);
+  const scheduledByName = scheduledByMember
+    ? memberShortLabel(scheduledByMember)
+    : ((tour as any).scheduledByName ?? scheduledById ?? "TBD");
   const tourType = (tour as any).tourType ?? "physical";
   const qualification = (tour as any).qualification;
   const displayLeadName = normalizeLeadName((tour as any).leadName ?? leadName ?? "");
@@ -3054,7 +3062,7 @@ function InlineScheduleTour({
               <SelectContent>
                 {tcms.map((t) => (
                   <SelectItem key={t.id} value={t.id}>
-                    {t.name}
+                    {memberOptionLabel(t)}
                   </SelectItem>
                 ))}
               </SelectContent>

@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { AlertCircle, CheckCircle2, MapPin, Sparkles, Wand2 } from "lucide-react";
 import { parseLead, detectZone } from "@/lib/lead-identity/parser";
 import { useIdentityStore } from "@/lib/lead-identity/store";
-import { useOrgMembers, useOrgZones, useActiveTcMs } from "@/hooks/useOrgDirectory";
+import { memberOptionLabel, memberShortLabel, useOrgMembers, useOrgZones, useActiveTcMs } from "@/hooks/useOrgDirectory";
 import { useAuthUser } from "@/lib/auth-store";
 import { dispatch } from "@/lib/api/command-bus";
 import { api } from "@/lib/api/client";
@@ -77,10 +77,10 @@ export function LeadPasteParser({ onDone }: Props) {
   const sortedZones = useMemo(() => orgZones.slice().sort((a, b) => a.name.localeCompare(b.name)), [orgZones]);
   const sortedMembers = useMemo(() => {
     const base = (activeTcms && activeTcms.length > 0)
-      ? activeTcms.map((a: any) => ({ id: a.id, name: a.fullName ?? a.name, role: a.role ?? 'tcm', zones: a.zones ?? [] }))
-      : orgMembers.filter((m) => m.role === 'member' || m.role === 'tcm').map((m) => ({ id: m.id, name: m.fullName ?? m.name, role: m.role, zones: (m as any).zones ?? [] }));
+      ? activeTcms.map((a: any) => ({ id: a.id, name: a.fullName ?? a.name, role: a.role ?? 'tcm', zones: a.zones ?? (a.zone ? [a.zone] : []) }))
+      : orgMembers.filter((m) => m.role === 'member' || m.role === 'tcm').map((m: any) => ({ id: m.id, name: m.fullName ?? m.name, role: m.role, zones: m.zones ?? (m.zone ? [m.zone] : []) }));
     if (authUser && !base.find((b: any) => b.id === authUser.id)) {
-      base.unshift({ id: authUser.id, name: authUser.fullName ?? authUser.name, role: authUser.role ?? 'member', zones: (authUser as any).zones ?? [] });
+      base.unshift({ id: authUser.id, name: authUser.fullName ?? authUser.name, role: authUser.role ?? 'member', zones: (authUser as any).zones ?? ((authUser as any).zone ? [(authUser as any).zone] : []) });
     }
     return base.slice().sort((a, b) => a.name.localeCompare(b.name));
   }, [orgMembers, activeTcms, authUser]);
@@ -580,7 +580,7 @@ export function LeadPasteParser({ onDone }: Props) {
               </SelectTrigger>
               <SelectContent>
                 {sortedMembers.map((m) => (
-                  <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                  <SelectItem key={m.id} value={m.id}>{memberOptionLabel(m)}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -588,7 +588,7 @@ export function LeadPasteParser({ onDone }: Props) {
 
           <div className="rounded-md border border-primary/20 bg-primary/5 px-2 py-1.5 text-[11px]">
             <div className="text-muted-foreground">Lead will be assigned to</div>
-            <div className="font-semibold text-foreground">{selectedAssignee?.name ?? "Unassigned"}</div>
+            <div className="font-semibold text-foreground">{memberShortLabel(selectedAssignee)}</div>
           </div>
 
           <LeftField label="Lead stage">

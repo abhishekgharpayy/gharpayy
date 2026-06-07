@@ -16,7 +16,7 @@ import {
 import { Tour, Lead, TourStatus, TourOutcome, WhyLost } from "@/myt/lib/types";
 import { useAppState } from "@/myt/lib/app-context";
 import { useTourData } from "@/myt/lib/tour-data-context";
-import { useOrgMembers } from "@/hooks/useOrgDirectory";
+import { memberDisplayName, memberShortLabel, useOrgMembers } from "@/hooks/useOrgDirectory";
 import { intentBg, confirmationLabel } from "@/myt/lib/confidence";
 import { toast } from "sonner";
 import { cn, formatTime12h } from "@/lib/utils";
@@ -76,8 +76,13 @@ export function LeadControlPanel({ subject, trigger, defaultTab = "overview" }: 
       ?? leadTours.find((candidate) => candidate.status === "scheduled")
       ?? leadTours[0];
 
+  const assignedMember = tour
+    ? orgMembers.find((member) => member.id === tour.assignedTo)
+    : null;
   const assignedToName = tour
-    ? orgMembers.find((member) => member.id === tour.assignedTo)?.name ?? tour.assignedToName
+    ? assignedMember
+      ? memberShortLabel(assignedMember)
+      : tour.assignedToName
     : "";
   const assignedToLabel = assignedToName || tour?.assignedToName || "";
 
@@ -324,7 +329,7 @@ export function LeadControlPanel({ subject, trigger, defaultTab = "overview" }: 
             <div className="space-y-2">
               {[
                 { label: "Reconfirm tour", text: `Hi ${name}, just confirming your tour today at ${tour ? formatTime12h(tour.tourTime) : "the scheduled time"} for ${property ?? "the property"}. Reply YES to confirm.` },
-                { label: "Send directions", text: `Hi ${name}, here are directions for your visit: https://maps.google.com/?q=${encodeURIComponent(property ?? area)}. TCM ${assignedToLabel} will meet you.` },
+                { label: "Send directions", text: `Hi ${name}, here are directions for your visit: https://maps.google.com/?q=${encodeURIComponent(property ?? area)}. TCM ${memberDisplayName(assignedMember, assignedToLabel)} will meet you.` },
                 { label: "Urgency nudge", text: `Hi ${name}, only 2 beds left in your range at ${property ?? "this property"}. 3 others viewing today. Hold expires in 4 hours. Reply YES to lock.` },
                 { label: "Post-tour check-in", text: `Hi ${name}, hope the visit went well! Did you like the place? Reply 1: Loved it · 2: Good unsure · 3: Need better options.` },
                 { label: "Token request", text: `Hi ${name}, lock your bed at ${property ?? ""} with a refundable ₹2,000 token. Pay here: gharpayy.com/pay/${tour?.id ?? ""}` },

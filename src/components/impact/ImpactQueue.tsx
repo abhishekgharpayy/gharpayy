@@ -26,7 +26,7 @@ import { leadHasValidProperty, pickBestPropertyForLead } from "@/lib/crm10x/fix-
 import { useAuthUser } from "@/lib/auth-store";
 import { useImpactQueueKeyboard } from "@/hooks/useImpactQueueKeyboard";
 import { useImpactMorningDigest } from "@/hooks/useImpactMorningDigest";
-import { useActiveTcMs, useOrgMembers } from "@/hooks/useOrgDirectory";
+import { memberAreaLabel, memberDisplayName, memberOptionLabel, memberShortLabel, useActiveTcMs, useOrgMembers } from "@/hooks/useOrgDirectory";
 import {
   classifyImpactPriority,
   IMPACT_PRIORITY_META,
@@ -373,7 +373,7 @@ export function ImpactQueue() {
         const zones = normalize(Array.isArray(t.zones) ? t.zones : (t.zone ? [t.zone] : []));
         return zones.some((z) => myZones.has(z));
       })
-      .map((t: any) => ({ id: t.id, name: t.fullName ?? t.name }))
+      .map((t: any) => ({ id: t.id, name: t.fullName ?? t.name, zones: t.zones ?? (t.zone ? [t.zone] : []) }))
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [orgMembers, tcmOptions, authUser?.role, authUser?.zones, authUser?.id]);
   const setLeadStage = useApp((s) => s.setLeadStage);
@@ -842,7 +842,7 @@ export function ImpactQueue() {
                 <SelectContent>
                   <SelectItem value="all" className="text-[11px]">All Members</SelectItem>
                   {memberScopeOptions.map((m) => (
-                    <SelectItem key={m.id} value={m.id} className="text-[11px]">{m.name}</SelectItem>
+                    <SelectItem key={m.id} value={m.id} className="text-[11px]">{memberOptionLabel(m)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -1520,11 +1520,17 @@ function LeadRow({
   const colMeta = COLUMNS.find((c) => c.key === column)!;
   const areaText = (lead.areas?.filter(Boolean).join(", ") || lead.preferredArea || "").trim();
   const blrText = lead.inBLR === true ? "In Bengaluru" : lead.inBLR === false ? "Out of Bengaluru" : "Bengaluru unknown";
+  const assignedToMember = lead.assignedTcmId
+    ? tcmOptions.find((item) => item.id === lead.assignedTcmId)
+    : null;
+  const assignedByMember = lead.createdBy
+    ? tcmOptions.find((item) => item.id === lead.createdBy)
+    : null;
   const assignedToName = lead.assignedTcmId
-    ? tcmOptions.find((item) => item.id === lead.assignedTcmId)?.name ?? lead.assignedTcmId.slice(-6)
+    ? assignedToMember ? memberShortLabel(assignedToMember) : lead.assignedTcmId.slice(-6)
     : "Unassigned";
   const assignedByName = lead.createdBy
-    ? tcmOptions.find((item) => item.id === lead.createdBy)?.name ?? lead.createdBy.slice(-6)
+    ? assignedByMember ? memberShortLabel(assignedByMember) : lead.createdBy.slice(-6)
     : "System";
   const { data: interestedPropertyIds = [] } = useLeadInterests(lead.id);
   const allObjections = useCRM10x((s) => s.objections);
@@ -2806,7 +2812,7 @@ function ScheduleTourDialog({
               <option value="">{resolvedAgentId ? "Auto assign" : "Select agent..."}</option>
               {tcmOptions.map((agent: any) => (
                 <option key={agent.id} value={agent.id} className="bg-background">
-                  {agent.fullName ?? agent.name}{agent.zone ? ` · ${agent.zone}` : ""}
+                  {memberOptionLabel(agent)}
                 </option>
               ))}
             </select>
@@ -3244,7 +3250,7 @@ function AuditMetric({ label, value, danger }: { label: string; value: string; d
 
 // ── helpers for ManagedUser / TCM shape compatibility ──────────────────────────
 function tmName(t: any): string {
-  return t.fullName ?? t.name ?? "—";
+  return memberDisplayName(t, "—");
 }
 function tmInitials(t: any): string {
   const n = tmName(t);
@@ -3454,7 +3460,7 @@ function ManageFocusDialog({
               <SelectTrigger className="h-11 text-sm rounded-xl border-border bg-background">
                 <SelectValue>
                   {selectedTcm
-                    ? `${tmName(selectedTcm)}${tmZone(selectedTcm) ? ` · ${tmZone(selectedTcm)}` : ""}`
+                    ? memberOptionLabel(selectedTcm)
                     : "Select TCM"}
                 </SelectValue>
               </SelectTrigger>
@@ -3462,7 +3468,7 @@ function ManageFocusDialog({
                 {tcmOptions.map((t) => (
                   <SelectItem key={t.id} value={t.id} className="text-sm">
                     <span className="font-medium">{tmName(t)}</span>
-                    {tmZone(t) && <span className="text-muted-foreground"> · {tmZone(t)}</span>}
+                    <span className="text-muted-foreground"> · {memberAreaLabel(t)}</span>
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -3611,7 +3617,7 @@ function MessageLabSheet({ open, onOpenChange, tcmOptions }: { open: boolean; on
 
   const ctx: ImpactTplCtx = useMemo(() => ({
     leadName,
-    agentName: tcm?.name,
+    agentName: memberDisplayName(tcm, ""),
     agentPhone: phones[tcmId] ?? "",
     propertyName: property?.name,
     propertyAddress: property?.area,
@@ -3622,7 +3628,7 @@ function MessageLabSheet({ open, onOpenChange, tcmOptions }: { open: boolean; on
     area: property?.area,
     budget,
     moveIn: fmtDate(new Date().toISOString()),
-  }), [leadName, tcm?.name, phones, tcmId, property?.name, property?.area, tourWhen, price, altPrice, budget]);
+  }), [leadName, tcm, phones, tcmId, property?.name, property?.area, tourWhen, price, altPrice, budget]);
 
   const scenarios = Object.keys(IMPACT_TEMPLATES) as ImpactScenario[];
   const copy = (text: string) => copyText(text);
@@ -3663,7 +3669,7 @@ function MessageLabSheet({ open, onOpenChange, tcmOptions }: { open: boolean; on
                 <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {tcmOptions.map((item: any) => (
-                    <SelectItem key={item.id} value={item.id} className="text-xs">{item.fullName ?? item.name}</SelectItem>
+                    <SelectItem key={item.id} value={item.id} className="text-xs">{memberOptionLabel(item)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

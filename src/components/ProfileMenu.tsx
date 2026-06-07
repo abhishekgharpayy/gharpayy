@@ -24,7 +24,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useApp } from "@/lib/store";
-import { useActiveTcMs } from "@/hooks/useOrgDirectory";
+import { memberAreaLabel, memberDisplayName, useActiveTcMs } from "@/hooks/useOrgDirectory";
 import { useAuthUser } from "@/lib/auth-store";
 import { cn } from "@/lib/utils";
 import {
@@ -102,7 +102,10 @@ export function ProfileMenu() {
               <DropdownMenuRadioGroup value={currentTcmId} onValueChange={setCurrentTcmId}>
                 {availableTcns.map((t: any) => (
                   <DropdownMenuRadioItem key={t.id} value={t.id}>
-                    {t.fullName ?? t.name} <span className="ml-auto text-[10px] text-muted-foreground">{t.zone}</span>
+                    {memberDisplayName(t)}
+                    <span className="ml-auto max-w-[96px] truncate text-[10px] text-muted-foreground">
+                      {memberAreaLabel(t)}
+                    </span>
                   </DropdownMenuRadioItem>
                 ))}
               </DropdownMenuRadioGroup>
