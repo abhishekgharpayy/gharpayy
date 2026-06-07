@@ -81,8 +81,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
-import { formatTime12h } from "@/lib/utils";
-import { cn } from "@/lib/utils";
+import { cn, formatTime12h, localDateISO, tourTimeSlotsForDate } from "@/lib/utils";
 import {
   formatBudget,
   formatAssignee,
@@ -131,6 +130,21 @@ const TOUR_TYPES = [
   { value: "physical", label: "Physical", icon: Building2 },
   { value: "virtual", label: "Virtual", icon: Video },
   { value: "pre-book-pitch", label: "Pre-book", icon: Briefcase },
+];
+const TOUR_TYPE_LABELS = Object.fromEntries(TOUR_TYPES.map((item) => [item.value, item.label])) as Record<string, string>;
+const CALL_DURATION_OPTIONS = [
+  { value: "0.5", label: "30 sec" },
+  { value: "1", label: "1 min" },
+  { value: "1.5", label: "1 min 30 sec" },
+  { value: "2", label: "2 min" },
+  { value: "2.5", label: "2 min 30 sec" },
+  { value: "3", label: "3 min" },
+  { value: "3.5", label: "3 min 30 sec" },
+  { value: "4", label: "4 min" },
+  { value: "4.5", label: "4 min 30 sec" },
+  { value: "5", label: "5 min" },
+  { value: "7.5", label: "7 min 30 sec" },
+  { value: "10", label: "10 min" },
 ];
 const WORKFLOW_TAB_LABELS: Record<JourneyTab, string> = {
   impact: "Impact",
@@ -488,7 +502,7 @@ export function LeadControlPanel() {
           remarks: "",
           budget: lead.budget || 0,
           createdAt: wireTour.createdAt,
-          tourType: "physical",
+          tourType: (wireTour.tourType ?? "physical") as Tour["tourType"],
           intent: "medium",
           confidenceScore: 50,
           confidenceReason: [],
@@ -583,6 +597,7 @@ export function LeadControlPanel() {
         propertyId: selectedPropertyId,
         tcmId,
         scheduledAt: new Date(scheduledAt).toISOString(),
+        tourType: scheduleAnswers.tourType as CrmTour["tourType"],
       });
 
       // MYT tour is created by LiveToursBridge from the server event.
@@ -616,7 +631,7 @@ export function LeadControlPanel() {
         remarks: "",
         budget: lead.budget || 0,
         createdAt: new Date().toISOString(),
-        tourType: "physical" as const,
+        tourType: scheduleAnswers.tourType as Tour["tourType"],
         intent: "medium" as const,
         confidenceScore: 50,
         confidenceReason: [],
@@ -2298,15 +2313,18 @@ function PreVisitCallLogger({ lead, calls }: { lead: Lead; calls: ReturnType<typ
         <>
           <div className="grid grid-cols-2 gap-2">
             <Field label="Duration (min)">
-            <Input
-              type="number"
-              min="0.5"
-              step="0.5"
-              className="h-8 text-xs"
-              value={durationMinutes}
-              onChange={(e) => setDurationMinutes(e.target.value)}
-              placeholder="e.g. 2"
-            />
+              <Select value={durationMinutes} onValueChange={setDurationMinutes}>
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue placeholder="Select duration" />
+                </SelectTrigger>
+                <SelectContent>
+                  {CALL_DURATION_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </Field>
             <Field label="Outcome">
               <div className="flex h-8 items-center rounded-md border border-success/30 bg-success/10 px-3 text-xs font-semibold text-success">
@@ -2592,11 +2610,11 @@ function UpcomingTourCard({
   const phone = (tour as any).phone ?? "";
   const budget = (tour as any).budget ?? 0;
   const area = (tour as any).area ?? "";
-  const canMoveToOnTour = isTodayIST(tour.scheduledAt);
   const tourTimeMs = +new Date(tour.scheduledAt);
   const nowMs = Date.now();
   const isPastTour = Number.isFinite(tourTimeMs) && tourTimeMs < nowMs;
-  const isOutcomeDue = canMoveToOnTour || isPastTour || tour.status === "on-tour";
+  const canMoveToOnTour = tour.status !== "on-tour" && isTodayIST(tour.scheduledAt) && !isPastTour;
+  const isOutcomeDue = isPastTour || tour.status === "on-tour";
   const isOverdueOutcome = Number.isFinite(tourTimeMs) && nowMs - tourTimeMs > 30 * 60_000;
 
   const [showReschedule, setShowReschedule] = useState(false);
@@ -2630,7 +2648,7 @@ function UpcomingTourCard({
           </Badge>
         )}
         <Badge variant="outline" className="text-[10px] capitalize">
-          {tourType.replace("-", " ")}
+          {TOUR_TYPE_LABELS[tourType] ?? tourType.replace(/-/g, " ")}
         </Badge>
       </div>
 
@@ -3131,13 +3149,7 @@ function InlineScheduleTour({
               scheduledAt && scheduledAt.includes("T")
                 ? (scheduledAt.split("T")[1] || "").slice(0, 5)
                 : "";
-            const times: string[] = [];
-            const pad = (n: number) => String(n).padStart(2, "0");
-            for (let mins = 9 * 60; mins <= 21 * 60; mins += 30) {
-              const h = Math.floor(mins / 60);
-              const m = mins % 60;
-              times.push(`${pad(h)}:${pad(m)}`);
-            }
+            const times = tourTimeSlotsForDate(datePart);
 
             return (
               <div className="grid sm:grid-cols-2 gap-2">
@@ -3146,16 +3158,18 @@ function InlineScheduleTour({
                   value={datePart}
                   onChange={(e) => {
                     const d = e.target.value;
-                    const t = timePartRaw || "09:00";
-                    onScheduledAtChange(d ? `${d}T${t}` : "");
+                    const nextTimes = tourTimeSlotsForDate(d);
+                    const t = nextTimes.includes(timePartRaw) ? timePartRaw : nextTimes[0] || "";
+                    onScheduledAtChange(d && t ? `${d}T${t}` : "");
                   }}
+                  min={localDateISO()}
                   className="h-9 text-sm"
                 />
 
                 <Select
                   value={timePartRaw}
                   onValueChange={(v) => {
-                    const d = datePart || new Date().toISOString().split("T")[0];
+                    const d = datePart || localDateISO();
                     onScheduledAtChange(v ? `${d}T${v}` : "");
                   }}
                 >
@@ -3163,11 +3177,17 @@ function InlineScheduleTour({
                     <SelectValue placeholder="Select time" />
                   </SelectTrigger>
                   <SelectContent>
-                    {times.map((t) => (
-                      <SelectItem key={t} value={t} className="text-sm">
-                        {formatTime12h(t)}
-                      </SelectItem>
-                    ))}
+                    {times.length > 0 ? (
+                      times.map((t) => (
+                        <SelectItem key={t} value={t} className="text-sm">
+                          {formatTime12h(t)}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <div className="px-2 py-3 text-xs text-muted-foreground">
+                        No slots left today. Pick tomorrow.
+                      </div>
+                    )}
                   </SelectContent>
                 </Select>
               </div>

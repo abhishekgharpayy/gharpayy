@@ -206,6 +206,7 @@ export const Tour = z.object({
   showUp: z.boolean().nullable().optional().default(null),
   customPropertyName: z.string().optional().default(""),
   bookingSource: z.string().default("whatsapp"),
+  tourType: z.enum(["physical", "virtual", "pre-book-pitch"]).optional().default("physical"),
   postTour: PostTourUpdate.default({}),
   createdAt: z.string(),
   updatedAt: z.string(),

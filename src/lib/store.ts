@@ -87,7 +87,13 @@ interface AppState {
   reassignLead: (leadId: string, tcmId: string, reason: string) => void;
   autoAssignLead: (leadId: string) => { tcmId: string; reasons: string[] };
 
-  scheduleTour: (input: { leadId: string; propertyId?: string; tcmId: string; scheduledAt: string }) => Promise<Tour>;
+  scheduleTour: (input: {
+    leadId: string;
+    propertyId?: string;
+    tcmId: string;
+    scheduledAt: string;
+    tourType?: Tour["tourType"];
+  }) => Promise<Tour>;
   cancelTour: (tourId: string) => Promise<void>;
   rescheduleTour: (tourId: string, scheduledAt: string) => Promise<void>;
   completeTour: (tourId: string) => Promise<void>;
@@ -287,13 +293,13 @@ export const useApp = create<AppState>((set, get) => ({
     });
   },
 
-  scheduleTour: async ({ leadId, propertyId, tcmId, scheduledAt }) => {
+  scheduleTour: async ({ leadId, propertyId, tcmId, scheduledAt, tourType = "physical" }) => {
     const lead = get().leads.find((l) => l.id === leadId)!;
     const cmd = {
       _id: uid("c"),
       type: "cmd.tour.schedule",
       issuedAt: new Date().toISOString(),
-      payload: { leadId, propertyId: propertyId ?? null, tcmId, scheduledAt, bookingSource: "whatsapp" },
+      payload: { leadId, propertyId: propertyId ?? null, tcmId, scheduledAt, bookingSource: "whatsapp", tourType },
     };
     const result = await api.command<Record<string, unknown>>(cmd);
 
@@ -316,6 +322,7 @@ export const useApp = create<AppState>((set, get) => ({
       tcmId: wireTour.assignedTo,
       scheduledBy: wireTour.scheduledBy,
       scheduledAt: wireTour.scheduledAt,
+      tourType: wireTour.tourType ?? tourType,
       status: wireTour.status as Tour["status"],
       decision: null,
       postTour: {

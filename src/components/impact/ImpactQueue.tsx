@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ClipboardEvent, type MouseEvent } from "react";
-import { cn } from "@/lib/utils";
+import { cn, formatTime12h, localDateISO, tourTimeSlotsForDate } from "@/lib/utils";
 import { PGS } from "@/property-genius/data/pgs";
 import type { PG } from "@/types/entities";
 import { LeadPropertyDossier } from "@/components/impact/LeadPropertyDossier";
@@ -93,7 +93,7 @@ import {
   FileText, Flame, LayoutGrid, ListOrdered, Phone, Plus,
   Search, Sparkles, Target, Timer, UserCheck, Wallet, Zap,
   Beaker, Home, Pin, X, Heart, Star, Activity, Sunrise, MapPin,
-  RotateCcw, KeyRound, ScrollText, Building2, Info, MoreHorizontal, AlertTriangle, MessageSquareCode,
+  RotateCcw, KeyRound, ScrollText, Building2, Video, Briefcase, Info, MoreHorizontal, AlertTriangle, MessageSquareCode,
   ArchiveX, UserRound,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -110,8 +110,14 @@ import { hasCapturedLeadName, pickRelevantActiveTour, resolveBestLeadName } from
 /* ================================================================== */
 
 function todayISO() {
-  const d = new Date(); d.setHours(0,0,0,0); return d.toISOString().slice(0,10);
+  return localDateISO();
 }
+const TOUR_TYPES = [
+  { value: "physical", label: "Physical", icon: Building2 },
+  { value: "virtual", label: "Virtual", icon: Video },
+  { value: "pre-book-pitch", label: "Pre-book", icon: Briefcase },
+] as const;
+const TOUR_TYPE_LABELS = Object.fromEntries(TOUR_TYPES.map((item) => [item.value, item.label])) as Record<string, string>;
 function normalizePhone(raw: string): string {
   const digits = raw.replace(/\D/g, "");
   if (!digits) return raw.trim();
@@ -1532,6 +1538,7 @@ function LeadRow({
   const assignedByName = lead.createdBy
     ? assignedByMember ? memberShortLabel(assignedByMember) : lead.createdBy.slice(-6)
     : "System";
+  const openTourType = openTour?.tourType ?? "physical";
   const { data: interestedPropertyIds = [] } = useLeadInterests(lead.id);
   const allObjections = useCRM10x((s) => s.objections);
   const pickedProperty = useMemo(() => {
@@ -1633,7 +1640,7 @@ function LeadRow({
             {openTour && (
               <span className="text-[10px] font-semibold text-accent flex items-center gap-1">
                   <Calendar className="h-2.5 w-2.5 shrink-0" />
-                  Tour: {fmtTourScheduleLabel(openTour.scheduledAt)}
+                  Tour: {fmtTourScheduleLabel(openTour.scheduledAt)} · {TOUR_TYPE_LABELS[openTourType] ?? openTourType}
               </span>
             )}
           </div>
@@ -2217,7 +2224,7 @@ export function CommandActions({
         {column === "scheduled" && openTour && (
           <>
             <ConfirmTourButton lead={lead} tour={openTour} />
-            {isTodayIST(openTour.scheduledAt) && (
+            {isTodayIST(openTour.scheduledAt) && +new Date(openTour.scheduledAt) > now && lead.stage !== "on-tour" && (
               <Button size="sm" variant="outline" className={`h-7 text-[10px] gap-1 ${actionButtonClass}`}
                 onClick={() => { void markTourStarted(openTour.id).then(() => toast.success("Tour marked live")).catch(() => toast.error("Failed to start tour")); }}>
                 <UserCheck className="h-3 w-3" /> Move to on-tour
@@ -2245,8 +2252,8 @@ export function CommandActions({
             )}
             <span className="text-[10px] text-muted-foreground self-center">
               {isTodayIST(openTour.scheduledAt)
-                ? "When visit ends, mark Visit done or No-show."
-                : "Move to on-tour unlocks automatically on the scheduled day."}
+                ? "After the visit time, mark Visit done or No-show."
+                : "Tour will move into today automatically on the scheduled day."}
             </span>
           </>
         )}
@@ -2685,7 +2692,8 @@ function ScheduleTourDialog({
 
   const today = todayISO();
   const [date, setDate] = useState(today);
-  const [time, setTime] = useState("11:00");
+  const [time, setTime] = useState(() => tourTimeSlotsForDate(today)[0] ?? "");
+  const [tourType, setTourType] = useState<Tour["tourType"]>("physical");
   const [submitted, setSubmitted] = useState(false);
 
   useEffect(() => {
@@ -2701,6 +2709,14 @@ function ScheduleTourDialog({
     if (fallbackAgent) setSelectedAgent(fallbackAgent);
   }, [currentTcmId, lead.assignedTcmId, open, selectedAgent, tcmOptions]);
 
+  useEffect(() => {
+    if (!open) return;
+    const slots = tourTimeSlotsForDate(date);
+    if (!slots.includes(time)) {
+      setTime(slots[0] ?? "");
+    }
+  }, [date, open, time]);
+
   const filteredProperties = useMemo(() => {
     const q = propertySearch.trim().toLowerCase();
     let list = PGS;
@@ -2714,11 +2730,13 @@ function ScheduleTourDialog({
   }, [propertySearch, lead.preferredArea]);
 
   const resolvedAgentId = selectedAgent || lead.assignedTcmId || tcmOptions[0]?.id || currentTcmId || "";
+  const timeOptions = useMemo(() => tourTimeSlotsForDate(date), [date]);
+  const hasValidTime = Boolean(time) && timeOptions.includes(time);
   const scheduleErrors = {
     property: selectedProperty ? "" : "Property is required.",
     agent: resolvedAgentId ? "" : "Agent is required.",
     date: date && date >= today ? "" : "Date must be today or future.",
-    time: time ? "" : "Time slot is required.",
+    time: hasValidTime ? "" : date === today ? "Pick a future time slot." : "Time slot is required.",
   };
   const canSchedule = !scheduleErrors.property && !scheduleErrors.agent && !scheduleErrors.date && !scheduleErrors.time;
 
@@ -2733,11 +2751,13 @@ function ScheduleTourDialog({
         propertyId: selectedProperty!.id,
         tcmId: resolvedAgentId,
         scheduledAt: iso,
+        tourType,
       });
       toast.success("Tour scheduled successfully");
       setOpen(false);
       setPropertySearch("");
       setSelectedProperty(null);
+      setTourType("physical");
       setSubmitted(false);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to schedule tour. Try again.");
@@ -2826,15 +2846,60 @@ function ScheduleTourDialog({
             )}
           </div>
 
+          <div>
+            <label className="text-[10px] uppercase text-muted-foreground">Tour type</label>
+            <div className="mt-1 grid grid-cols-3 gap-2">
+              {TOUR_TYPES.map(({ value, label, icon: Icon }) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setTourType(value)}
+                  className={cn(
+                    "h-10 rounded-md border text-[11px] flex items-center justify-center gap-1.5",
+                    tourType === value
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border bg-card text-muted-foreground hover:bg-muted/50",
+                  )}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-2">
             <div className="flex flex-col gap-1">
               <label className="text-[10px] uppercase text-muted-foreground">Date</label>
-              <Input type="date" className="h-8 text-xs" value={date} onChange={(e) => setDate(e.target.value)} min={today} />
+              <Input
+                type="date"
+                className="h-8 text-xs"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                min={today}
+              />
               {submitted && scheduleErrors.date && <p className="mt-1 text-[10px] text-danger">{scheduleErrors.date}</p>}
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-[10px] uppercase text-muted-foreground">Time</label>
-              <Input type="time" className="h-8 text-xs" value={time} onChange={(e) => setTime(e.target.value)} />
+              <Select value={time} onValueChange={setTime}>
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue placeholder="Select time" />
+                </SelectTrigger>
+                <SelectContent>
+                  {timeOptions.length > 0 ? (
+                    timeOptions.map((slot) => (
+                      <SelectItem key={slot} value={slot}>
+                        {formatTime12h(slot)}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <div className="px-2 py-3 text-xs text-muted-foreground">
+                      No slots left today. Pick tomorrow.
+                    </div>
+                  )}
+                </SelectContent>
+              </Select>
               {submitted && scheduleErrors.time && <p className="mt-1 text-[10px] text-danger">{scheduleErrors.time}</p>}
             </div>
           </div>
