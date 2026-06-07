@@ -2152,6 +2152,12 @@ function profileLabel(value?: string | number | null) {
     self: "Self",
     parents: "Parents",
     "company-hr": "Company / HR",
+    answered: "Answered",
+    "not-answered": "Not answered",
+    busy: "Busy",
+    "switched-off": "Switched off",
+    "wrong-number": "Wrong number",
+    "callback-requested": "Callback requested",
   };
   return labels[String(value)] ?? String(value);
 }
@@ -2211,8 +2217,9 @@ function latestConcernFromObjections(objections: Array<{ code?: string; leadWord
 
 function PreVisitCallLogger({ lead, calls }: { lead: Lead; calls: ReturnType<typeof useCRM10x.getState>["calls"] }) {
   const log = useCRM10x((s) => s.logCall);
+  const [picked, setPicked] = useState<"" | "yes" | "no">("");
   const [durationMinutes, setDurationMinutes] = useState("");
-  const [outcome, setOutcome] = useState<CallOutcome | "">("");
+  const [noPickOutcome, setNoPickOutcome] = useState<Exclude<CallOutcome, "answered"> | "">("");
   const [notes, setNotes] = useState("");
   const [showPrevious, setShowPrevious] = useState(false);
   const attempt = calls.length + 1;
@@ -2221,54 +2228,101 @@ function PreVisitCallLogger({ lead, calls }: { lead: Lead; calls: ReturnType<typ
     [calls],
   );
   const minutes = Number(durationMinutes);
-  const canSubmit = Number.isFinite(minutes) && minutes > 0 && Boolean(outcome) && notes.trim().length >= 3;
+  const canSubmit = picked === "yes"
+    ? Number.isFinite(minutes) && minutes > 0 && notes.trim().length >= 3
+    : picked === "no" && Boolean(noPickOutcome);
 
   const submit = () => {
-    if (!Number.isFinite(minutes) || minutes <= 0) {
+    if (!picked) {
+      toast.error("Select whether the lead picked the call");
+      return;
+    }
+    if (picked === "yes" && (!Number.isFinite(minutes) || minutes <= 0)) {
       toast.error("Enter call duration in minutes");
       return;
     }
-    if (!outcome) {
-      toast.error("Select call outcome");
-      return;
-    }
-    if (notes.trim().length < 3) {
+    if (picked === "yes" && notes.trim().length < 3) {
       toast.error("Add a short call note");
       return;
     }
+    if (picked === "no" && !noPickOutcome) {
+      toast.error("Select why the call was not picked");
+      return;
+    }
+    const outcome: CallOutcome = picked === "yes" ? "answered" : noPickOutcome;
+    const callNote = picked === "yes"
+      ? notes.trim()
+      : `Call not picked: ${profileLabel(noPickOutcome)}`;
+
     log({
       leadId: lead.id,
       attemptNumber: attempt,
-      durationSec: Math.round(minutes * 60),
+      durationSec: picked === "yes" ? Math.round(minutes * 60) : 0,
       outcome,
-      notes: notes.trim(),
+      notes: callNote,
       loggedBy: lead.assignedTcmId || lead.assigneeId || "unassigned",
     });
     toast.success(outcome === "answered" ? "Call connected. Objection capture unlocked." : "Call attempt logged.");
+    setPicked("");
     setDurationMinutes("");
-    setOutcome("");
+    setNoPickOutcome("");
     setNotes("");
   };
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-2">
-        <Field label="Duration (min)">
+      <Field label="Picked?">
+        <div className="grid grid-cols-2 gap-2">
+          {(["yes", "no"] as const).map((value) => (
+            <Button
+              key={value}
+              type="button"
+              variant={picked === value ? "default" : "outline"}
+              className="h-8 text-xs"
+              onClick={() => {
+                setPicked(value);
+                if (value === "yes") setNoPickOutcome("");
+                if (value === "no") {
+                  setDurationMinutes("");
+                  setNotes("");
+                }
+              }}
+            >
+              {value === "yes" ? "Yes, connected" : "No, not picked"}
+            </Button>
+          ))}
+        </div>
+      </Field>
+
+      {picked === "yes" ? (
+        <>
+          <div className="grid grid-cols-2 gap-2">
+            <Field label="Duration (min)">
             <Input
               type="number"
               min="0.5"
               step="0.5"
               className="h-8 text-xs"
-            value={durationMinutes}
-            onChange={(e) => setDurationMinutes(e.target.value)}
-            placeholder="e.g. 2"
-          />
-        </Field>
-        <Field label="Outcome">
-          <Select value={outcome} onValueChange={(v) => setOutcome(v as CallOutcome)}>
-            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select outcome" /></SelectTrigger>
+              value={durationMinutes}
+              onChange={(e) => setDurationMinutes(e.target.value)}
+              placeholder="e.g. 2"
+            />
+            </Field>
+            <Field label="Outcome">
+              <div className="flex h-8 items-center rounded-md border border-success/30 bg-success/10 px-3 text-xs font-semibold text-success">
+                Answered
+              </div>
+            </Field>
+          </div>
+          <Textarea rows={3} className="text-xs resize-none" placeholder="What did the lead say?" value={notes} onChange={(e) => setNotes(e.target.value)} />
+        </>
+      ) : null}
+
+      {picked === "no" ? (
+        <Field label="Reason">
+          <Select value={noPickOutcome} onValueChange={(v) => setNoPickOutcome(v as Exclude<CallOutcome, "answered">)}>
+            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select reason" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="answered">Answered</SelectItem>
               <SelectItem value="not-answered">Not answered</SelectItem>
               <SelectItem value="busy">Busy</SelectItem>
               <SelectItem value="switched-off">Switched off</SelectItem>
@@ -2277,8 +2331,8 @@ function PreVisitCallLogger({ lead, calls }: { lead: Lead; calls: ReturnType<typ
             </SelectContent>
           </Select>
         </Field>
-      </div>
-      <Textarea rows={3} className="text-xs resize-none" placeholder="What did the lead say?" value={notes} onChange={(e) => setNotes(e.target.value)} />
+      ) : null}
+
       <div className="rounded-md border border-border bg-muted/20 p-2">
         <div className="flex items-center justify-between gap-2">
           <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -2301,7 +2355,7 @@ function PreVisitCallLogger({ lead, calls }: { lead: Lead; calls: ReturnType<typ
               <span>{format(new Date(previousCall.ts), "MMM d, h:mm a")}</span>
               <span>Attempt #{previousCall.attemptNumber}</span>
               <span>{profileLabel(previousCall.outcome)}</span>
-              <span>{Math.max(1, Math.round(previousCall.durationSec / 60))} min</span>
+              {previousCall.durationSec > 0 ? <span>{Math.max(1, Math.round(previousCall.durationSec / 60))} min</span> : null}
             </div>
             <div className="whitespace-pre-wrap text-foreground">{previousCall.notes || "No notes captured."}</div>
           </div>
