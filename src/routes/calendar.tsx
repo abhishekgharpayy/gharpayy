@@ -7,6 +7,7 @@ import {
   Plus,
   Search,
   Settings2,
+  Clock,
 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
@@ -21,43 +22,62 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useApp } from "@/lib/store";
+import { useAuthUser } from "@/lib/auth-store";
 import {
   useCalendar,
   KIND_META,
   type CalEvent,
   type CalEventKind,
 } from "@/lib/calendar-store";
+import {
+  selectBroadcastCalendar,
+  useNotifications,
+} from "@/lib/notifications";
 import { MonthView } from "@/components/calendar/MonthView";
 import { TimeGridView } from "@/components/calendar/TimeGridView";
 import { AgendaView } from "@/components/calendar/AgendaView";
 import { EventDialog } from "@/components/calendar/EventDialog";
 import { SyncPanel } from "@/components/calendar/SyncPanel";
 import { headerLabel, navigate, type CalendarView } from "@/components/calendar/CalendarUtils";
-import { format } from "date-fns";
+import { format, isSameDay } from "date-fns";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/calendar")({
   component: CalendarPage,
 });
 
 function CalendarPage() {
-  const { tours, followUps, leads } = useApp();
-  const { events, addEvent } = useCalendar();
+  const { role, currentTcmId, tours, followUps, leads, properties } = useApp();
+  const authUser = useAuthUser((s) => s.user);
+  const notifications = useNotifications((s) => s.items);
+  const { events } = useCalendar();
   const [view, setView] = useState<CalendarView>("week");
   const [focus, setFocus] = useState<Date>(new Date());
   const [selectedDay, setSelectedDay] = useState<Date | undefined>(new Date());
-  const [editing, setEditing] = useState<{ open: boolean; eventId?: string; defaultStart?: Date }>({ open: false });
+  const [editing, setEditing] = useState<{ open: boolean; eventId?: string; event?: CalEvent; defaultStart?: Date }>({ open: false });
   const [syncOpen, setSyncOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<CalEventKind | "all">("all");
+  const reminderFiredRef = useState(() => new Set<string>())[0];
 
   // Materialise CRM tours + follow-ups as calendar events (transient, not persisted).
   const crmEvents = useMemo<CalEvent[]>(() => {
     const out: CalEvent[] = [];
     const leadMap = new Map(leads.map((l) => [l.id, l]));
+    const propertyMap = new Map(properties.map((p) => [p.id, p]));
+    const activeUserId = authUser?.id ?? currentTcmId;
+    const shouldShowMemberOwned = (tcmId?: string | null) => {
+      if (role !== "tcm" && role !== "member") return true;
+      if (!tcmId) return true;
+      return tcmId === currentTcmId || tcmId === activeUserId;
+    };
 
     for (const t of tours) {
+      if (!shouldShowMemberOwned(t.tcmId)) continue;
       const lead = leadMap.get(t.leadId);
+      const property = t.propertyId ? propertyMap.get(t.propertyId) : undefined;
       const start = new Date(t.scheduledAt);
+      if (Number.isNaN(+start)) continue;
       const end = new Date(start.getTime() + 60 * 60 * 1000);
       out.push({
         id: `crm-tour-${t.id}`,
@@ -68,6 +88,16 @@ function CalendarPage() {
         allDay: false,
         leadId: t.leadId,
         tourId: t.id,
+        location: property
+          ? `${property.name} · ${property.area}`
+          : lead?.preferredArea || undefined,
+        description: [
+          lead?.phone ? `Phone: ${lead.phone}` : "",
+          lead?.budget ? `Budget: ₹${Math.round(lead.budget / 1000)}k` : "",
+          lead?.preferredArea ? `Area: ${lead.preferredArea}` : "",
+          t.status ? `Tour status: ${t.status}` : "",
+        ].filter(Boolean).join("\n"),
+        reminder: 15,
         externalSource: "local",
         createdAt: t.createdAt,
         updatedAt: t.updatedAt,
@@ -75,8 +105,10 @@ function CalendarPage() {
     }
 
     for (const f of followUps.filter((x) => !x.done)) {
+      if (!shouldShowMemberOwned(f.tcmId)) continue;
       const lead = leadMap.get(f.leadId);
       const start = new Date(f.dueAt);
+      if (Number.isNaN(+start)) continue;
       const end = new Date(start.getTime() + 30 * 60 * 1000);
       out.push({
         id: `crm-fu-${f.id}`,
@@ -87,39 +119,87 @@ function CalendarPage() {
         allDay: false,
         leadId: f.leadId,
         followUpId: f.id,
-        description: f.reason,
+        description: [
+          f.reason,
+          lead?.phone ? `Phone: ${lead.phone}` : "",
+          lead?.preferredArea ? `Area: ${lead.preferredArea}` : "",
+        ].filter(Boolean).join("\n"),
+        reminder: f.priority === "urgent" ? 10 : 15,
         externalSource: "local",
         createdAt: start.toISOString(),
         updatedAt: start.toISOString(),
       });
     }
     return out;
-  }, [tours, followUps, leads]);
+  }, [authUser?.id, currentTcmId, followUps, leads, properties, role, tours]);
+
+  const broadcastEvents = useMemo<CalEvent[]>(() => {
+    const items = selectBroadcastCalendar(notifications, role, authUser?.id ?? currentTcmId);
+    return items.map((n) => {
+      const start = new Date(n.dueAt ?? Date.now());
+      const end = new Date(start.getTime() + 30 * 60 * 1000);
+      return {
+        id: `broadcast-${n.id}`,
+        title: n.title,
+        kind: "task" as const,
+        start: start.toISOString(),
+        end: end.toISOString(),
+        allDay: false,
+        description: n.body,
+        reminder: 15 as const,
+        externalSource: "local" as const,
+        externalId: n.id,
+        createdAt: new Date(n.ts).toISOString(),
+        updatedAt: new Date(n.ts).toISOString(),
+      };
+    });
+  }, [authUser?.id, currentTcmId, notifications, role]);
 
   const allEvents = useMemo(() => {
-    const merged = [...crmEvents, ...events];
+    const byKey = new Map<string, CalEvent>();
+    const keyFor = (e: CalEvent) =>
+      e.tourId ? `tour:${e.tourId}` : e.followUpId ? `follow:${e.followUpId}` : e.externalId ? `ext:${e.externalId}` : `event:${e.id}`;
+    for (const e of [...crmEvents, ...broadcastEvents]) {
+      byKey.set(keyFor(e), e);
+    }
+    for (const e of events) {
+      const key = keyFor(e);
+      const base = byKey.get(key);
+      byKey.set(key, base ? { ...base, ...e, id: base.id } : e);
+    }
+    const merged = Array.from(byKey.values());
     const q = search.trim().toLowerCase();
-    return merged.filter((e) => {
-      if (filter !== "all" && e.kind !== filter) return false;
-      if (!q) return true;
-      return (
-        e.title.toLowerCase().includes(q) ||
-        (e.location ?? "").toLowerCase().includes(q) ||
-        (e.description ?? "").toLowerCase().includes(q)
-      );
-    });
-  }, [crmEvents, events, search, filter]);
+    return merged
+      .filter((e) => {
+        if (filter !== "all" && e.kind !== filter) return false;
+        if (!q) return true;
+        return (
+          e.title.toLowerCase().includes(q) ||
+          (e.location ?? "").toLowerCase().includes(q) ||
+          (e.description ?? "").toLowerCase().includes(q)
+        );
+      })
+      .sort((a, b) => +new Date(a.start) - +new Date(b.start));
+  }, [broadcastEvents, crmEvents, events, search, filter]);
+  const todayEvents = useMemo(
+    () => allEvents.filter((event) => isSameDay(new Date(event.start), new Date())).slice(0, 6),
+    [allEvents],
+  );
 
-  // Reminders: simple in-memory scheduler (notifies once per session)
+  // Reminders: calendar-wide scheduler for manual, CRM and broadcast events.
   useEffect(() => {
-    const fired = new Set<string>();
     const tick = () => {
       const now = Date.now();
-      for (const e of events) {
+      for (const e of allEvents) {
         if (!e.reminder) continue;
         const trigger = +new Date(e.start) - e.reminder * 60000;
-        if (now >= trigger && now < trigger + 60000 && !fired.has(e.id)) {
-          fired.add(e.id);
+        const fireKey = `${e.id}:${e.start}:${e.reminder}`;
+        if (now >= trigger && now < trigger + 120000 && !reminderFiredRef.has(fireKey)) {
+          reminderFiredRef.add(fireKey);
+          playCalendarReminderSound();
+          toast.info(e.title, {
+            description: `Starts ${e.reminder === 0 ? "now" : `in ${e.reminder} min`} · ${format(new Date(e.start), "p")}`,
+          });
           if ("Notification" in window && Notification.permission === "granted") {
             new Notification(e.title, {
               body: `In ${e.reminder} min · ${format(new Date(e.start), "p")}`,
@@ -134,11 +214,10 @@ function CalendarPage() {
     tick();
     const id = window.setInterval(tick, 30000);
     return () => window.clearInterval(id);
-  }, [events]);
+  }, [allEvents, reminderFiredRef]);
 
   const openEvent = (e: CalEvent) => {
-    if (e.id.startsWith("crm-")) return;
-    setEditing({ open: true, eventId: e.id });
+    setEditing({ open: true, eventId: e.id, event: e });
   };
 
   const openSlot = (start: Date) => {
@@ -230,6 +309,43 @@ function CalendarPage() {
         <div className="flex-1 min-h-0 flex gap-3">
           <aside className="hidden lg:flex flex-col w-56 border rounded-lg bg-card p-3 gap-3">
             <div>
+              <div className="mb-2 flex items-center justify-between">
+                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  Today
+                </div>
+                <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
+                  {todayEvents.length}
+                </Badge>
+              </div>
+              {todayEvents.length === 0 ? (
+                <div className="rounded-md border border-dashed px-2 py-3 text-xs text-muted-foreground">
+                  No calendar work due today.
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  {todayEvents.map((event) => {
+                    const meta = KIND_META[event.kind];
+                    return (
+                      <button
+                        key={event.id}
+                        onClick={() => openEvent(event)}
+                        className="w-full rounded-md border bg-background px-2 py-1.5 text-left text-xs transition hover:bg-accent/40"
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <span className="h-2 w-2 rounded-full" style={{ background: meta.color }} />
+                          <span className="min-w-0 flex-1 truncate font-medium">{event.title}</span>
+                        </div>
+                        <div className="mt-0.5 flex items-center gap-1 text-[10px] text-muted-foreground">
+                          <Clock className="h-3 w-3" />
+                          {event.allDay ? "All day" : format(new Date(event.start), "h:mm a")}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            <div>
               <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">My calendars</div>
               <ul className="space-y-1.5 text-sm">
                 {Object.entries(KIND_META).map(([k, m]) => (
@@ -277,11 +393,35 @@ function CalendarPage() {
         open={editing.open}
         onOpenChange={(v) => setEditing((s) => ({ ...s, open: v }))}
         eventId={editing.eventId}
+        event={editing.event}
         defaultStart={editing.defaultStart}
       />
-      <SyncPanel open={syncOpen} onOpenChange={setSyncOpen} />
+      <SyncPanel open={syncOpen} onOpenChange={setSyncOpen} eventsOverride={allEvents} />
     </AppShell>
   );
+}
+
+function playCalendarReminderSound() {
+  if (typeof window === "undefined") return;
+  try {
+    const AudioContextCtor = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextCtor) return;
+    const ctx = new AudioContextCtor();
+    const oscillator = ctx.createOscillator();
+    const gain = ctx.createGain();
+    oscillator.type = "sine";
+    oscillator.frequency.value = 880;
+    gain.gain.setValueAtTime(0.001, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.08, ctx.currentTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+    oscillator.connect(gain);
+    gain.connect(ctx.destination);
+    oscillator.start();
+    oscillator.stop(ctx.currentTime + 0.38);
+    window.setTimeout(() => ctx.close().catch(() => {}), 600);
+  } catch {
+    // Browser may block audio until the user has interacted. Toast/browser notifications still work.
+  }
 }
 
 function ConnectionsList({ onOpen }: { onOpen: () => void }) {

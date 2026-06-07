@@ -13,13 +13,14 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Copy, Download, ExternalLink, Link2, RefreshCw, Trash2, Upload } from "lucide-react";
-import { useCalendar, type SyncProvider } from "@/lib/calendar-store";
+import { useCalendar, type CalEvent, type SyncProvider } from "@/lib/calendar-store";
 import { eventsToIcs, downloadIcs, icsToEvents } from "@/lib/calendar-sync";
 import { toast } from "sonner";
 
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
+  eventsOverride?: CalEvent[];
 }
 
 const PROVIDERS: { id: SyncProvider; label: string; description: string }[] = [
@@ -40,7 +41,7 @@ const PROVIDERS: { id: SyncProvider; label: string; description: string }[] = [
   },
 ];
 
-export function SyncPanel({ open, onOpenChange }: Props) {
+export function SyncPanel({ open, onOpenChange, eventsOverride }: Props) {
   const {
     events,
     connections,
@@ -53,6 +54,7 @@ export function SyncPanel({ open, onOpenChange }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [icsUrl, setIcsUrl] = useState("");
   const [icsAccount, setIcsAccount] = useState("");
+  const exportEvents = eventsOverride ?? events;
 
   const subscribeUrl =
     typeof window !== "undefined"
@@ -62,12 +64,12 @@ export function SyncPanel({ open, onOpenChange }: Props) {
   const findConn = (p: SyncProvider) => connections.find((c) => c.provider === p);
 
   const exportNow = () => {
-    if (events.length === 0) {
+    if (exportEvents.length === 0) {
       toast.error("Nothing to export yet.");
       return;
     }
-    downloadIcs("align-calendar", eventsToIcs(events));
-    toast.success(`Exported ${events.length} events.`);
+    downloadIcs("align-calendar", eventsToIcs(exportEvents));
+    toast.success(`Exported ${exportEvents.length} events.`);
   };
 
   const onImportFile = async (file: File) => {
