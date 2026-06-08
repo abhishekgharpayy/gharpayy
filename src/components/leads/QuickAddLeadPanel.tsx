@@ -103,7 +103,7 @@ export function QuickAddLeadPanel({ open, onClose }: Props) {
   const [showHubResults, setShowHubResults] = useState(false);
   const [fullAddress, setFullAddress] = useState("");
   const [budget, setBudget] = useState("");
-  const [moveIn, setMoveIn] = useState(todayIso());
+  const [moveIn, setMoveIn] = useState("");
   const [type, setType] = useState("");
   const [room, setRoom] = useState("");
   const [need, setNeed] = useState("");
@@ -168,7 +168,7 @@ export function QuickAddLeadPanel({ open, onClose }: Props) {
   const reset = () => {
     setName(""); setPhone(""); setEmail("");
     setAreasText(""); setFullAddress(""); setSelectedPG(null); setHubQuery("");
-    setBudget(""); setMoveIn(todayIso());
+    setBudget(""); setMoveIn("");
     setType(""); setRoom(""); setNeed(""); setSpecialReqs("");
     setInBLR(null); setQuality(null); setZoneBucket("");
     setAssigneeId(defaultAssigneeId); setStage(STAGES[0]); setNotes("");
