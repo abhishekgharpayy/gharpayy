@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { AlertCircle, CheckCircle2, MapPin, Sparkles, Wand2 } from "lucide-react";
 import { parseLead, detectZone } from "@/lib/lead-identity/parser";
 import { useIdentityStore } from "@/lib/lead-identity/store";
-import { useOrgMembers, useOrgZones, useActiveTcMs } from "@/hooks/useOrgDirectory";
+import { memberOptionLabel, memberShortLabel, resolveMemberPrimaryZone, useOrgMembers, useOrgZones, useActiveTcMs } from "@/hooks/useOrgDirectory";
 import { useAuthUser } from "@/lib/auth-store";
 import { dispatch } from "@/lib/api/command-bus";
 import { api } from "@/lib/api/client";
@@ -77,10 +77,10 @@ export function LeadPasteParser({ onDone }: Props) {
   const sortedZones = useMemo(() => orgZones.slice().sort((a, b) => a.name.localeCompare(b.name)), [orgZones]);
   const sortedMembers = useMemo(() => {
     const base = (activeTcms && activeTcms.length > 0)
-      ? activeTcms.map((a: any) => ({ id: a.id, name: a.fullName ?? a.name, role: a.role ?? 'tcm', zones: a.zones ?? [] }))
-      : orgMembers.filter((m) => m.role === 'member' || m.role === 'tcm').map((m) => ({ id: m.id, name: m.fullName ?? m.name, role: m.role, zones: (m as any).zones ?? [] }));
+      ? activeTcms.map((a: any) => ({ id: a.id, name: a.fullName ?? a.name, role: a.role ?? 'tcm', zones: a.zones ?? (a.zone ? [a.zone] : []) }))
+      : orgMembers.filter((m) => m.role === 'member' || m.role === 'tcm').map((m: any) => ({ id: m.id, name: m.fullName ?? m.name, role: m.role, zones: m.zones ?? (m.zone ? [m.zone] : []) }));
     if (authUser && !base.find((b: any) => b.id === authUser.id)) {
-      base.unshift({ id: authUser.id, name: authUser.fullName ?? authUser.name, role: authUser.role ?? 'member', zones: (authUser as any).zones ?? [] });
+      base.unshift({ id: authUser.id, name: authUser.fullName ?? authUser.name, role: authUser.role ?? 'member', zones: (authUser as any).zones ?? ((authUser as any).zone ? [(authUser as any).zone] : []) });
     }
     return base.slice().sort((a, b) => a.name.localeCompare(b.name));
   }, [orgMembers, activeTcms, authUser]);
@@ -98,7 +98,7 @@ export function LeadPasteParser({ onDone }: Props) {
   const [areasText, setAreasText] = useState("");
   const [fullAddress, setFullAddress] = useState("");
   const [budget, setBudget] = useState("");
-  const [moveIn, setMoveIn] = useState(todayIso());
+  const [moveIn, setMoveIn] = useState("");
   const [type, setType] = useState("");
   const [room, setRoom] = useState("");
   const [need, setNeed] = useState("");
@@ -119,6 +119,16 @@ export function LeadPasteParser({ onDone }: Props) {
       setAssigneeId(defaultAssigneeId);
     }
   }, [assigneeId, defaultAssigneeId]);
+
+  const selectedAssignee = sortedMembers.find((m: any) => m.id === assigneeId)
+    ?? orgMembers.find((m) => m.id === assigneeId)
+    ?? (activeTcms || []).find((a: any) => a.id === assigneeId);
+  const assigneeZone = useMemo(() => resolveMemberPrimaryZone(selectedAssignee, orgZones), [selectedAssignee, orgZones]);
+
+  useEffect(() => {
+    if (!assigneeZone) return;
+    setZoneBucket(assigneeZone);
+  }, [assigneeId, assigneeZone]);
 
   const textRef = useRef<HTMLTextAreaElement>(null);
 
@@ -165,7 +175,7 @@ export function LeadPasteParser({ onDone }: Props) {
     setLastParsedConfidence({});
     setName(""); setPhone(""); setEmail("");
     setAreasText(""); setFullAddress("");
-    setBudget(""); setMoveIn(todayIso());
+    setBudget(""); setMoveIn("");
     setType(""); setRoom(""); setNeed(""); setSpecialReqs("");
     setInBLR(null); setQuality(null); setZoneBucket("");
     setAssigneeId(defaultAssigneeId); setStage(STAGES[0]); setNotes("");
@@ -174,27 +184,36 @@ export function LeadPasteParser({ onDone }: Props) {
   // Validation matching Quick Add - Email and Full Address are optional.
   const phoneClean = phone.replace(/\D/g, "");
   const phoneValid = /^[6-9]\d{9}$/.test(phoneClean);
-  const errors: string[] = [];
-  if (!name.trim()) errors.push("Name");
-  if (!phoneValid) errors.push("Valid 10-digit phone");
-  if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) errors.push("Valid email");
-  if (!areasText.trim()) errors.push("Areas");
-  if (!budget.trim()) errors.push("Budget");
-  if (!moveIn) errors.push("Move-in date");
-  if (moveIn && moveIn < todayIso()) errors.push("Future move-in date");
-  if (!type) errors.push("Type");
-  if (!room) errors.push("Room");
-  if (!need) errors.push("Need");
-  if (inBLR === undefined) errors.push("In Bangalore?");
-  if (!quality) errors.push("Lead Quality");
-  if (!zoneBucket) errors.push("Zone");
-  if (!assigneeId) errors.push("Assigned member");
-  if (!stage) errors.push("Lead stage");
+  const emailClean = email.trim().toLowerCase();
+  const emailValid = !emailClean || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailClean);
+  const validationItems = [
+    { key: "name", label: "Name", missing: !name.trim() },
+    { key: "phone", label: "Valid 10-digit phone", missing: !phoneValid },
+    { key: "email", label: "Valid email", missing: !emailValid },
+    { key: "areas", label: "Areas", missing: !areasText.trim() },
+    { key: "budget", label: "Budget", missing: !budget.trim() },
+    { key: "moveIn", label: "Move-in date", missing: !moveIn },
+    { key: "moveInFuture", label: "Future move-in date", missing: Boolean(moveIn && moveIn < todayIso()) },
+    { key: "type", label: "Type", missing: !type },
+    { key: "room", label: "Room", missing: !room },
+    { key: "need", label: "Need", missing: !need },
+    { key: "inBLR", label: "In Bangalore?", missing: inBLR === undefined },
+    { key: "quality", label: "Lead Quality", missing: !quality },
+    { key: "zone", label: "Zone", missing: !zoneBucket },
+    { key: "assignee", label: "Assigned member", missing: !assigneeId },
+    { key: "stage", label: "Lead stage", missing: !stage },
+  ] as const;
+  const missingItems = validationItems.filter((item) => item.missing);
+  const missingKeys = new Set(missingItems.map((item) => item.key));
+  const errors = missingItems.map((item) => item.label);
+  const isPending = (key: (typeof validationItems)[number]["key"]) => missingKeys.has(key);
   const blocking = errors.length > 0;
-
-  const selectedAssignee = sortedMembers.find((m: any) => m.id === assigneeId)
-    ?? orgMembers.find((m) => m.id === assigneeId)
-    ?? (activeTcms || []).find((a: any) => a.id === assigneeId);
+  const invalidInputClass = (key: (typeof validationItems)[number]["key"]) => cn(
+    isPending(key) && "border-destructive/70 bg-destructive/5 focus-visible:ring-destructive/40",
+  );
+  const fieldHint = (key: (typeof validationItems)[number]["key"]) => (
+    isPending(key) ? <p className="text-[10px] font-medium text-destructive">{validationItems.find((item) => item.key === key)?.label} required</p> : null
+  );
 
   const save = async () => {
     if (savingRef.current) return;
@@ -221,7 +240,7 @@ export function LeadPasteParser({ onDone }: Props) {
           moveInDate: moveIn,
           preferredArea: areasArr[0] ?? areasText.trim(),
           zoneId: zoneObj?.id ?? null,
-          email: email.trim(),
+          email: emailClean,
           areas: areasArr,
           fullAddress: fullAddress.trim(),
           type, room, need,
@@ -313,8 +332,8 @@ export function LeadPasteParser({ onDone }: Props) {
     const identityLead = create(
       {
         name: name.trim(),
-        phone: phone.trim(),
-        email: email.trim(),
+        phone: `+91${phoneClean}`,
+        email: emailClean,
         location: areasText.trim(),
         areas: areasArr,
         fullAddress: fullAddress.trim(),
@@ -360,7 +379,7 @@ export function LeadPasteParser({ onDone }: Props) {
       responseSpeedMins: 0,
       createdAt: now,
       updatedAt: now,
-      email: email.trim(),
+      email: emailClean,
       areas: areasArr,
       fullAddress: fullAddress.trim(),
       type, room, need,
@@ -431,12 +450,12 @@ export function LeadPasteParser({ onDone }: Props) {
           )}
         </div>
 
-        <div className="min-h-0 flex-1 p-3">
-          <div className="grid h-full min-h-0 grid-cols-2 grid-rows-2 gap-2">
-            <FormGroup title="Contact">
-              <Field label="Name *">
+        <div className="min-h-0 flex-1 p-3 overflow-y-auto">
+          <div className="grid grid-cols-2 gap-2 items-start">
+            <FormGroup title="Contact" invalid={isPending("name") || isPending("phone") || isPending("email") || isPending("areas")}>
+              <Field label="Name *" invalid={isPending("name")} hint={fieldHint("name")}>
                 <div className="relative">
-                  <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Rahul Sharma" />
+                  <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Rahul Sharma" className={invalidInputClass("name")} />
                   {parsedOnce && lastParsedConfidence.name && (
                     <div className="absolute right-1.5 top-1/2 -translate-y-1/2">
                       {lastParsedConfidence.name >= 0.8 ? (
@@ -450,19 +469,33 @@ export function LeadPasteParser({ onDone }: Props) {
                   )}
                 </div>
               </Field>
-              <Field label="Phone *">
-                <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="98xxxxxxxx" inputMode="tel"
-                  className={cn(!phoneValid && phone ? "border-destructive" : "")} />
+              <Field label="Phone *" invalid={isPending("phone")} hint={fieldHint("phone")}>
+                <Input
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  onBlur={() => setPhone(phoneClean.slice(-10))}
+                  placeholder="98xxxxxxxx"
+                  inputMode="tel"
+                  className={invalidInputClass("phone")}
+                />
               </Field>
-              <Field label="Email">
-                <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.com" inputMode="email" />
+              <Field label="Email" invalid={isPending("email")} hint={isPending("email") ? <p className="text-[10px] font-medium text-destructive">Use name@example.com format</p> : null}>
+                <Input
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  onBlur={() => setEmail(emailClean)}
+                  placeholder="name@example.com"
+                  inputMode="email"
+                  className={invalidInputClass("email")}
+                />
               </Field>
-              <Field label="Areas *">
+              <Field label="Areas *" invalid={isPending("areas")} hint={fieldHint("areas")}>
                 <div className="relative">
                   <Input
                     value={areasText}
                     onChange={(e) => setAreasText(e.target.value)}
                     placeholder="HSR, BTM, Koramangala"
+                    className={invalidInputClass("areas")}
                   />
                   {detectedZone && (
                     <Badge variant="secondary" className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px]">
@@ -473,17 +506,17 @@ export function LeadPasteParser({ onDone }: Props) {
               </Field>
             </FormGroup>
 
-            <FormGroup title="Requirement">
-              <Field label="Budget">
-                <Input value={budget} onChange={(e) => setBudget(e.target.value)} placeholder="8-12k" />
+            <FormGroup title="Requirement" invalid={isPending("budget") || isPending("moveIn") || isPending("moveInFuture") || isPending("type")}>
+              <Field label="Budget" invalid={isPending("budget")} hint={fieldHint("budget")}>
+                <Input value={budget} onChange={(e) => setBudget(e.target.value)} placeholder="8-12k" className={invalidInputClass("budget")} />
               </Field>
-              <Field label="Move-in">
+              <Field label="Move-in" invalid={isPending("moveIn") || isPending("moveInFuture")} hint={isPending("moveInFuture") ? <p className="text-[10px] font-medium text-destructive">Move-in must be today or later</p> : fieldHint("moveIn")}>
                 <Input
                   type="date"
                   min={todayIso()}
                   value={moveIn}
                   onChange={(e) => setMoveIn(e.target.value)}
-                  className={cn(moveIn && moveIn < todayIso() ? "border-destructive" : "")}
+                  className={cn(invalidInputClass("moveIn"), invalidInputClass("moveInFuture"))}
                 />
               </Field>
               <Field label="Address / map">
@@ -493,32 +526,34 @@ export function LeadPasteParser({ onDone }: Props) {
                   placeholder="Door, landmark or Maps URL"
                 />
               </Field>
-              <Field label="Type">
-                <ChipGroup options={QUICKAD_TYPE_OPTIONS} value={type} onChange={setType} />
+              <Field label="Type" invalid={isPending("type")} hint={fieldHint("type")}>
+                <ChipGroup options={QUICKAD_TYPE_OPTIONS} value={type} onChange={setType} invalid={isPending("type")} />
               </Field>
             </FormGroup>
 
-            <FormGroup title="Preferences">
-              <Field label="Room">
-                <ChipGroup options={QUICKAD_ROOM_OPTIONS} value={room} onChange={setRoom} />
+            <FormGroup title="Preferences" invalid={isPending("room") || isPending("need") || isPending("inBLR") || isPending("quality")}>
+              <Field label="Room" invalid={isPending("room")} hint={fieldHint("room")}>
+                <ChipGroup options={QUICKAD_ROOM_OPTIONS} value={room} onChange={setRoom} invalid={isPending("room")} />
               </Field>
-              <Field label="Need">
-                <ChipGroup options={QUICKAD_NEED_OPTIONS} value={need} onChange={setNeed} />
+              <Field label="Need" invalid={isPending("need")} hint={fieldHint("need")}>
+                <ChipGroup options={QUICKAD_NEED_OPTIONS} value={need} onChange={setNeed} invalid={isPending("need")} />
               </Field>
-              <Field label="Currently in Bangalore?">
+              <Field label="Currently in Bangalore?" invalid={isPending("inBLR")} hint={fieldHint("inBLR")}>
                 <ChipGroup
                   options={BLR_OPTS.map((o) => o.label)}
                   value={BLR_OPTS.find((o) => o.v === inBLR)?.label ?? ""}
+                  invalid={isPending("inBLR")}
                   onChange={(label) => {
                     const opt = BLR_OPTS.find((o) => o.label === label);
                     if (opt !== undefined) setInBLR(opt.v);
                   }}
                 />
               </Field>
-              <Field label="Lead Quality">
+              <Field label="Lead Quality" invalid={isPending("quality")} hint={fieldHint("quality")}>
                 <ChipGroup
                   options={QUALITY_OPTS.map((o) => o.label)}
                   value={QUALITY_OPTS.find((o) => o.v === quality)?.label ?? ""}
+                  invalid={isPending("quality")}
                   onChange={(label) => setQuality(QUALITY_OPTS.find((o) => o.label === label)?.v ?? null)}
                 />
               </Field>
@@ -547,7 +582,10 @@ export function LeadPasteParser({ onDone }: Props) {
           </div>
 
           {blocking && (
-            <div className="mt-2 truncate rounded-md border border-destructive/20 bg-destructive/5 px-3 py-1.5 text-[11px] text-destructive">
+            <div
+              className="mt-2 line-clamp-2 rounded-md border border-destructive/20 bg-destructive/5 px-3 py-1.5 text-[11px] text-destructive"
+              title={`Missing: ${errors.join(", ")}`}
+            >
               Missing: {errors.join(", ")}
             </div>
           )}
@@ -562,9 +600,9 @@ export function LeadPasteParser({ onDone }: Props) {
           </p>
         </div>
         <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
-          <LeftField label="Zone *">
+          <LeftField label="Zone *" invalid={isPending("zone")} hint={fieldHint("zone")}>
             <Select value={zoneBucket} onValueChange={(v) => setZoneBucket(v)}>
-              <SelectTrigger className="h-8 w-full text-xs">
+              <SelectTrigger className={cn("h-8 w-full text-xs", invalidInputClass("zone"))}>
                 <SelectValue placeholder={orgZones.length ? "Select zone..." : "No zones configured"} />
               </SelectTrigger>
               <SelectContent>
@@ -573,14 +611,14 @@ export function LeadPasteParser({ onDone }: Props) {
             </Select>
           </LeftField>
 
-          <LeftField label="Assign member *">
+          <LeftField label="Assign member *" invalid={isPending("assignee")} hint={fieldHint("assignee")}>
             <Select value={assigneeId} onValueChange={(v) => setAssigneeId(v)}>
-              <SelectTrigger className="h-8 w-full text-xs">
+              <SelectTrigger className={cn("h-8 w-full text-xs", invalidInputClass("assignee"))}>
                 <SelectValue placeholder={orgMembers.length ? "Select member..." : "No members yet"} />
               </SelectTrigger>
               <SelectContent>
                 {sortedMembers.map((m) => (
-                  <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                  <SelectItem key={m.id} value={m.id}>{memberOptionLabel(m)}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -588,12 +626,12 @@ export function LeadPasteParser({ onDone }: Props) {
 
           <div className="rounded-md border border-primary/20 bg-primary/5 px-2 py-1.5 text-[11px]">
             <div className="text-muted-foreground">Lead will be assigned to</div>
-            <div className="font-semibold text-foreground">{selectedAssignee?.name ?? "Unassigned"}</div>
+            <div className="font-semibold text-foreground">{memberShortLabel(selectedAssignee)}</div>
           </div>
 
-          <LeftField label="Lead stage">
+          <LeftField label="Lead stage" invalid={isPending("stage")} hint={fieldHint("stage")}>
             <Select value={stage} onValueChange={(v) => setStage(v)}>
-              <SelectTrigger className="h-8 w-full text-xs">
+              <SelectTrigger className={cn("h-8 w-full text-xs", invalidInputClass("stage"))}>
                 <SelectValue placeholder="Select stage..." />
               </SelectTrigger>
               <SelectContent>
@@ -605,8 +643,11 @@ export function LeadPasteParser({ onDone }: Props) {
 
         <div className="space-y-2 border-t bg-muted/15 p-3">
           {blocking ? (
-            <div className="rounded-md border border-destructive/20 bg-destructive/5 px-2 py-1.5 text-[11px] text-destructive">
-              {errors.length} fields still needed.
+            <div
+              className="rounded-md border border-destructive/20 bg-destructive/5 px-2 py-1.5 text-[11px] text-destructive"
+              title={`Missing: ${errors.join(", ")}`}
+            >
+              <span className="font-semibold">{errors.length} pending:</span> {errors.slice(0, 4).join(", ")}{errors.length > 4 ? "…" : ""}
             </div>
           ) : (
             <div className="rounded-md border border-success/20 bg-success/10 px-2 py-1.5 text-[11px] text-success">
@@ -623,20 +664,22 @@ export function LeadPasteParser({ onDone }: Props) {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children, invalid, hint }: { label: string; children: React.ReactNode; invalid?: boolean; hint?: React.ReactNode }) {
   return (
-    <div className="space-y-0.5">
-      <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</Label>
+    <div className={cn("space-y-0.5 rounded-md", invalid && "text-destructive")}>
+      <Label className={cn("text-[10px] uppercase tracking-wide text-muted-foreground", invalid && "text-destructive")}>{label}</Label>
       {children}
+      {hint}
     </div>
   );
 }
 
-function LeftField({ label, children }: { label: string; children: React.ReactNode }) {
+function LeftField({ label, children, invalid, hint }: { label: string; children: React.ReactNode; invalid?: boolean; hint?: React.ReactNode }) {
   return (
     <div className="space-y-1">
-      <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</Label>
+      <Label className={cn("text-[10px] uppercase tracking-wider text-muted-foreground", invalid && "text-destructive")}>{label}</Label>
       {children}
+      {hint}
     </div>
   );
 }
@@ -644,13 +687,18 @@ function LeftField({ label, children }: { label: string; children: React.ReactNo
 function FormGroup({
   title,
   children,
+  invalid,
 }: {
   title: string;
   children: React.ReactNode;
+  invalid?: boolean;
 }) {
   return (
-    <section className="min-h-0 overflow-hidden rounded-xl border border-border/80 bg-background/70 p-2 shadow-[0_1px_0_rgba(15,23,42,0.03)]">
-      <div className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+    <section className={cn(
+      "rounded-xl border border-border/80 bg-background/70 p-2 shadow-[0_1px_0_rgba(15,23,42,0.03)]",
+      invalid && "border-destructive/35 bg-destructive/[0.03]",
+    )}>
+      <div className={cn("mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground", invalid && "text-destructive")}>
         {title}
       </div>
       <div className="grid grid-cols-1 gap-1">
@@ -660,13 +708,14 @@ function FormGroup({
   );
 }
 
-function ChipGroup<T extends string>({ options, value, onChange }: {
+function ChipGroup<T extends string>({ options, value, onChange, invalid }: {
   options: readonly T[];
   value: string;
   onChange: (v: string) => void;
+  invalid?: boolean;
 }) {
   return (
-    <div className="flex flex-wrap gap-1">
+    <div className={cn("flex flex-wrap gap-1 rounded-md", invalid && "ring-1 ring-destructive/40")}>
       {options.map((o) => (
         <button
           type="button"

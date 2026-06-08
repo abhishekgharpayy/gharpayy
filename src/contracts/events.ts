@@ -110,7 +110,21 @@ export const ActivityDeletedEvt = Envelope.extend({
 
 export const TourScheduledEvt = Envelope.extend({
   type: z.literal("evt.tour.scheduled"),
-  payload: z.object({ tour: z.object({ _id: z.string(), leadId: z.string(), propertyId: z.string().nullable(), assignedTo: z.string(), scheduledBy: z.string(), scheduledAt: z.string(), status: TourStatus, bookingSource: z.string(), createdAt: z.string(), updatedAt: z.string() }) }),
+  payload: z.object({
+    tour: z.object({
+      _id: z.string(),
+      leadId: z.string(),
+      propertyId: z.string().nullable(),
+      assignedTo: z.string(),
+      scheduledBy: z.string(),
+      scheduledAt: z.string(),
+      status: TourStatus,
+      bookingSource: z.string(),
+      tourType: z.enum(["physical", "virtual", "pre-book-pitch"]).optional(),
+      createdAt: z.string(),
+      updatedAt: z.string(),
+    }),
+  }),
 });
 export const TourRescheduledEvt = Envelope.extend({
   type: z.literal("evt.tour.rescheduled"),

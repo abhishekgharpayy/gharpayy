@@ -34,7 +34,11 @@ export function ImpactManagerEscalations({
       <div className="flex flex-wrap gap-1.5">
         {byTcm.map(([tcmId, leads]) => {
           const tcm = tcms.find((t) => t.id === tcmId);
-          const label = tcm?.name.split(" ")[0] ?? (tcmId === "unassigned" ? "Unassigned" : tcmId);
+          const label = tcm?.name
+            ? tcm.name.split(" ")[0]
+            : tcmId === "unassigned"
+              ? "Unassigned"
+              : "Unknown Member";
           return (
             <Badge
               key={tcmId}

@@ -32,13 +32,17 @@ interface Props {
   onOpenChange: (v: boolean) => void;
   /** Existing event id when editing */
   eventId?: string;
+  /** Materialised CRM/broadcast event that may not exist in the local calendar store yet */
+  event?: CalEvent;
   /** Default start when creating */
   defaultStart?: Date;
 }
 
-export function EventDialog({ open, onOpenChange, eventId, defaultStart }: Props) {
-  const { events, addEvent, updateEvent, deleteEvent } = useCalendar();
-  const existing = useMemo(() => events.find((e) => e.id === eventId), [events, eventId]);
+export function EventDialog({ open, onOpenChange, eventId, event, defaultStart }: Props) {
+  const { events, addEvent, upsertEvent, updateEvent, deleteEvent } = useCalendar();
+  const stored = useMemo(() => events.find((e) => e.id === eventId), [events, eventId]);
+  const existing = stored ?? event;
+  const canDelete = Boolean(stored);
 
   const [title, setTitle] = useState("");
   const [kind, setKind] = useState<CalEventKind>("meeting");
@@ -63,7 +67,7 @@ export function EventDialog({ open, onOpenChange, eventId, defaultStart }: Props
       setAttendees((existing.attendees ?? []).join(", "));
       setReminder(String(existing.reminder ?? 15));
     } else {
-      const base = defaultStart ?? new Date();
+      const base = new Date(defaultStart ?? new Date());
       base.setMinutes(0, 0, 0);
       const startD = new Date(base);
       const endD = new Date(base.getTime() + 60 * 60 * 1000);
@@ -84,11 +88,21 @@ export function EventDialog({ open, onOpenChange, eventId, defaultStart }: Props
       toast.error("Please enter a title.");
       return;
     }
+    if (!start || !end) {
+      toast.error("Start and end time are required.");
+      return;
+    }
+    const startIso = fromLocalInput(start);
+    const endIso = fromLocalInput(end);
+    if (+new Date(endIso) <= +new Date(startIso)) {
+      toast.error("End time must be after start time.");
+      return;
+    }
     const payload = {
       title: title.trim(),
       kind,
-      start: fromLocalInput(start),
-      end: fromLocalInput(end),
+      start: startIso,
+      end: endIso,
       allDay,
       location: location.trim() || undefined,
       description: description.trim() || undefined,
@@ -99,7 +113,15 @@ export function EventDialog({ open, onOpenChange, eventId, defaultStart }: Props
       reminder: Number(reminder) as CalEvent["reminder"],
     };
     if (existing) {
-      updateEvent(existing.id, payload);
+      if (stored) {
+        updateEvent(existing.id, payload);
+      } else {
+        upsertEvent({
+          ...existing,
+          ...payload,
+          updatedAt: new Date().toISOString(),
+        });
+      }
       toast.success("Event updated.");
     } else {
       addEvent({ ...payload, externalSource: "local" });
@@ -109,7 +131,7 @@ export function EventDialog({ open, onOpenChange, eventId, defaultStart }: Props
   };
 
   const remove = () => {
-    if (!existing) return;
+    if (!stored) return;
     deleteEvent(existing.id);
     toast.success("Event deleted.");
     onOpenChange(false);
@@ -253,7 +275,7 @@ export function EventDialog({ open, onOpenChange, eventId, defaultStart }: Props
         </div>
 
         <DialogFooter className="gap-2 sm:gap-2">
-          {existing && (
+          {canDelete && (
             <Button variant="ghost" className="mr-auto text-destructive" onClick={remove}>
               <Trash2 className="h-4 w-4 mr-1" /> Delete
             </Button>

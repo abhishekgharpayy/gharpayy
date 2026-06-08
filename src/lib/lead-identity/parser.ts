@@ -206,7 +206,9 @@ function extractLinks(text: string): string[] {
 }
 
 function extractBudgets(text: string): string[] {
-  const matches = text.match(/(?:under\s*)?₹?\s*\d{1,2}(?:\.\d+)?\s*(?:k|K|000)?\s*(?:[-–to\/]+\s*₹?\s*\d{1,2}(?:\.\d+)?\s*(?:k|K|000)?)?|\b\d{4,6}\s*(?:to|-|–)\s*\d{4,6}\b/g) ?? [];
+  const withoutPhones = text.replace(/(?:\+?\s*91[-\s]?)?(?:\d[-\s]?){9,12}\d/g, "");
+  const regex = /(?:under\s*)?₹?\s*\d{1,2}(?:\.\d+)?\s*(?:k|K|000)\s*(?:[-–to\/]+\s*₹?\s*\d{1,2}(?:\.\d+)?\s*(?:k|K|000)?)?|\b(?:under\s*)?₹?\s*\d{1,2}(?:\.\d+)?\s*(?:[-–to\/]+\s*₹?\s*\d{1,2}(?:\.\d+)?\s*(?:k|K|000))|\b\d{4,6}\s*(?:to|-|–)\s*\d{4,6}\b|₹\s*\d{4,6}\b/gi;
+  const matches = withoutPhones.match(regex) ?? [];
   return [...new Set(matches.map((m) => m.replace(/[₹,()]/g, "").replace(/\s+/g, " ").trim()).filter((m) => /\d/.test(m)))].slice(0, 6);
 }
 
@@ -304,6 +306,38 @@ function parseHumanDate(dateStr: string): string {
     return ymd(year, month, day);
   }
   
+  // Fuzzy / relative dates
+  let matchedMonth = 0;
+  for (const [mName, mNum] of Object.entries(months)) {
+    if (new RegExp("\\b" + mName).test(t)) {
+      matchedMonth = mNum;
+      break;
+    }
+  }
+
+  if (matchedMonth > 0) {
+    if (/end|last week/i.test(t)) return ymd(currentYear, matchedMonth, 28, true);
+    if (/mid|2nd week|second week/i.test(t)) return ymd(currentYear, matchedMonth, 15, true);
+    if (/3rd week|third week/i.test(t)) return ymd(currentYear, matchedMonth, 22, true);
+    if (/1st week|first week|start|beginning/i.test(t)) return ymd(currentYear, matchedMonth, 5, true);
+    
+    // If just a month is mentioned without a specific date or fuzzy modifier, default to the 1st of that month
+    if (!/\d/.test(t)) return ymd(currentYear, matchedMonth, 1, true);
+  }
+
+  if (/next\s*week/i.test(t)) {
+    const d = new Date(); d.setDate(d.getDate() + 7); return localIso(d);
+  }
+  if (/next\s*month/i.test(t)) {
+    const d = new Date(); d.setDate(d.getDate() + 30); return localIso(d);
+  }
+  if (/in\s*\d+\s*days?/i.test(t)) {
+    const m = t.match(/in\s*(\d+)\s*days?/i);
+    if (m) {
+      const d = new Date(); d.setDate(d.getDate() + parseInt(m[1], 10)); return localIso(d);
+    }
+  }
+
   // If it doesn't match any pattern, return empty (will fall back to today in UI)
   return "";
 }

@@ -20,7 +20,7 @@ import {
 import { toast } from "sonner";
 import { DuplicateModal } from "./DuplicateModal";
 import { QUICKAD_NEED_OPTIONS, QUICKAD_ROOM_OPTIONS, QUICKAD_TYPE_OPTIONS, parseBudgetAmount } from "@/lib/quickad-shared";
-import { useOrgMembers, useOrgZones, useActiveTcMs } from "@/hooks/useOrgDirectory";
+import { memberOptionLabel, resolveMemberPrimaryZone, useOrgMembers, useOrgZones, useActiveTcMs } from "@/hooks/useOrgDirectory";
 import { useAuthUser } from "@/lib/auth-store";
 import { dispatch } from "@/lib/api/command-bus";
 import { useApp } from "@/lib/store";
@@ -117,13 +117,22 @@ export function DirectLeadForm({ onCreated }: Props) {
 
   const sortedMembers = useMemo(() => {
     const base = (activeTcms && activeTcms.length > 0)
-      ? activeTcms.map((a: any) => ({ id: a.id, name: a.fullName ?? a.name, role: a.role ?? 'tcm' }))
-      : orgMembers.filter((m) => m.role === 'member' || m.role === 'tcm').map((m) => ({ id: m.id, name: m.fullName ?? m.name, role: m.role }));
+      ? activeTcms.map((a: any) => ({ id: a.id, name: a.fullName ?? a.name, role: a.role ?? 'tcm', zones: a.zones ?? (a.zone ? [a.zone] : []) }))
+      : orgMembers.filter((m) => m.role === 'member' || m.role === 'tcm').map((m: any) => ({ id: m.id, name: m.fullName ?? m.name, role: m.role, zones: m.zones ?? (m.zone ? [m.zone] : []) }));
     if (authUser && !base.some((b: any) => b.id === authUser.id)) {
-      base.unshift({ id: authUser.id, name: authUser.fullName ?? authUser.name, role: authUser.role ?? 'member' });
+      base.unshift({ id: authUser.id, name: authUser.fullName ?? authUser.name, role: authUser.role ?? 'member', zones: (authUser as any).zones ?? ((authUser as any).zone ? [(authUser as any).zone] : []) });
     }
     return base.slice().sort((a, b) => a.name.localeCompare(b.name));
   }, [orgMembers, activeTcms, authUser]);
+  const selectedAssignee = sortedMembers.find((m: any) => m.id === draft.assigneeId)
+    ?? orgMembers.find((m) => m.id === draft.assigneeId)
+    ?? (activeTcms || []).find((a: any) => a.id === draft.assigneeId);
+  const assigneeZone = useMemo(() => resolveMemberPrimaryZone(selectedAssignee, orgZones), [selectedAssignee, orgZones]);
+
+  useEffect(() => {
+    if (!assigneeZone) return;
+    setDraft((d) => ({ ...d, zoneBucket: assigneeZone }));
+  }, [draft.assigneeId, assigneeZone]);
 
   // Auto-detect zone (informational) when location changes
   useEffect(() => {
@@ -463,7 +472,7 @@ export function DirectLeadForm({ onCreated }: Props) {
               <SelectTrigger className="h-10 text-sm"><SelectValue placeholder="Select member" /></SelectTrigger>
               <SelectContent>
                 {sortedMembers.map((o: any) => (
-                  <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>
+                  <SelectItem key={o.id} value={o.id}>{memberOptionLabel(o)}</SelectItem>
                 ))}
               </SelectContent>
             </Select>

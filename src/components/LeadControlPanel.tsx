@@ -6,7 +6,13 @@ import { useApp, getProperty, getTcm } from "@/lib/store";
 import type { Tour as CrmTour } from "@/lib/types";
 import { useAppState } from "@/myt/lib/app-context";
 import { Tour } from "@/myt/lib/types";
-import { useOrgMembers, useActiveTcMs } from "@/hooks/useOrgDirectory";
+import {
+  memberDisplayName,
+  memberOptionLabel,
+  memberShortLabel,
+  useOrgMembers,
+  useActiveTcMs,
+} from "@/hooks/useOrgDirectory";
 import { notifyTourScheduled } from "@/lib/notifications";
 import {
   Sheet,
@@ -70,13 +76,10 @@ import {
   Trophy,
   Search,
   Star,
-  ExternalLink,
-  Send,
   Sparkles,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
-import { formatTime12h } from "@/lib/utils";
-import { cn } from "@/lib/utils";
+import { cn, formatTime12h, localDateISO, tourTimeSlotsForDate } from "@/lib/utils";
 import {
   formatBudget,
   formatAssignee,
@@ -126,6 +129,27 @@ const TOUR_TYPES = [
   { value: "virtual", label: "Virtual", icon: Video },
   { value: "pre-book-pitch", label: "Pre-book", icon: Briefcase },
 ];
+const TOUR_TYPE_LABELS = Object.fromEntries(TOUR_TYPES.map((item) => [item.value, item.label])) as Record<string, string>;
+const CALL_DURATION_OPTIONS = [
+  { value: "0.5", label: "30 sec" },
+  { value: "1", label: "1 min" },
+  { value: "1.5", label: "1 min 30 sec" },
+  { value: "2", label: "2 min" },
+  { value: "2.5", label: "2 min 30 sec" },
+  { value: "3", label: "3 min" },
+  { value: "3.5", label: "3 min 30 sec" },
+  { value: "4", label: "4 min" },
+  { value: "4.5", label: "4 min 30 sec" },
+  { value: "5", label: "5 min" },
+  { value: "7.5", label: "7 min 30 sec" },
+  { value: "10", label: "10 min" },
+];
+const FOLLOW_UP_TIME_OPTIONS = Array.from({ length: 29 }, (_, index) => {
+  const totalMinutes = 8 * 60 + index * 30;
+  const hour = Math.floor(totalMinutes / 60);
+  const minute = totalMinutes % 60;
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+});
 const WORKFLOW_TAB_LABELS: Record<JourneyTab, string> = {
   impact: "Impact",
   tour: "Tour",
@@ -186,6 +210,7 @@ type DrawerScheduleAnswers = {
 };
 
 export function LeadControlPanel() {
+  const reminderTimersRef = useRef<Map<string, number>>(new Map());
   const {
     selectedLeadId,
     selectedLeadTab,
@@ -212,10 +237,51 @@ export function LeadControlPanel() {
     autoAssignLead,
     startSequence,
     markHandoffsRead,
+    reassignLead,
   } = useApp();
   const { currentMemberId, setTours } = useAppState();
   const { members: orgMembers } = useOrgMembers();
   const authUser = useAuthUser((s) => s.user);
+
+  useEffect(() => {
+    return () => {
+      reminderTimersRef.current.forEach((timerId) => window.clearTimeout(timerId));
+      reminderTimersRef.current.clear();
+    };
+  }, []);
+
+  const scheduleLocalReminderAlert = (
+    key: string,
+    dueAt: string,
+    title: string,
+    description: string,
+  ) => {
+    if (typeof window === "undefined") return;
+    const due = parseSafeDate(dueAt);
+    if (!due) return;
+    const existing = reminderTimersRef.current.get(key);
+    if (existing) window.clearTimeout(existing);
+
+    const notify = () => {
+      toast.warning(title, { description, duration: 12000 });
+      if ("Notification" in window && window.Notification.permission === "granted") {
+        new window.Notification(title, { body: description });
+      }
+    };
+
+    const ms = due.getTime() - Date.now();
+    if (ms <= 0) {
+      notify();
+      return;
+    }
+    if (ms > 2_147_483_647) return;
+
+    const timerId = window.setTimeout(notify, ms);
+    reminderTimersRef.current.set(key, timerId);
+    if ("Notification" in window && window.Notification.permission === "default") {
+      void window.Notification.requestPermission();
+    }
+  };
 
   const lead = useMemo(
     () => leads.find((l) => l.id === selectedLeadId) ?? null,
@@ -274,7 +340,7 @@ export function LeadControlPanel() {
           id: a.id,
           name: a.fullName ?? a.name,
           role: a.role ?? "tcm",
-          zones: a.zones ?? [],
+          zones: a.zones ?? (a.zone ? [a.zone] : []),
         }))
         .sort((a, b) => a.name.localeCompare(b.name));
     }
@@ -292,7 +358,7 @@ export function LeadControlPanel() {
           id: authUser.id,
           name: authUser.fullName || authUser.username || authUser.email,
           role: "member",
-          zones: authUser.zones ?? [],
+          zones: (authUser as any).zones ?? ((authUser as any).zone ? [(authUser as any).zone] : []),
         };
 
     const unique = new Map<string, typeof selfOption>();
@@ -465,7 +531,7 @@ export function LeadControlPanel() {
           leadName: resolveBestLeadName(lead),
           phone: lead.phone || "",
           assignedTo: wireTour.assignedTo,
-          assignedToName: assignedTo?.name ?? wireTour.assignedTo,
+          assignedToName: assignedTo ? memberShortLabel(assignedTo) : wireTour.assignedTo,
           propertyName: property?.name ?? hydratedLocation.propertyName ?? "Property Hub option",
           propertyId: wireTour.propertyId ?? undefined,
           area: hydratedLocation.area,
@@ -474,7 +540,7 @@ export function LeadControlPanel() {
           tourTime: wireTour.scheduledAt.slice(11, 16),
           bookingSource: wireTour.bookingSource as Tour["bookingSource"],
           scheduledBy: wireTour.scheduledBy,
-          scheduledByName: scheduledBy?.name ?? wireTour.scheduledBy,
+          scheduledByName: scheduledBy ? memberShortLabel(scheduledBy) : wireTour.scheduledBy,
           leadType: "future",
           status: wireTour.status as Tour["status"],
           showUp: null,
@@ -482,7 +548,7 @@ export function LeadControlPanel() {
           remarks: "",
           budget: lead.budget || 0,
           createdAt: wireTour.createdAt,
-          tourType: "physical",
+          tourType: (wireTour.tourType ?? "physical") as Tour["tourType"],
           intent: "medium",
           confidenceScore: 50,
           confidenceReason: [],
@@ -555,7 +621,9 @@ export function LeadControlPanel() {
         getProperty(tourToShow.propertyId)?.name ??
         null
       : null;
-  const assignmentLabel = formatAssignee(assignedMemberId, selectedMember?.name ?? tcm?.name);
+  const assignmentLabel = selectedMember
+    ? memberShortLabel(selectedMember)
+    : formatAssignee(assignedMemberId, tcm?.name);
 
   const handleSchedule = async () => {
     if (!tcmId || !scheduledAt) {
@@ -575,6 +643,7 @@ export function LeadControlPanel() {
         propertyId: selectedPropertyId,
         tcmId,
         scheduledAt: new Date(scheduledAt).toISOString(),
+        tourType: scheduleAnswers.tourType as CrmTour["tourType"],
       });
 
       // MYT tour is created by LiveToursBridge from the server event.
@@ -587,7 +656,7 @@ export function LeadControlPanel() {
         leadName: displayLeadName,
         phone: lead.phone || "",
         assignedTo: tcmId,
-        assignedToName: assignee?.name ?? "Member",
+        assignedToName: assignee ? memberShortLabel(assignee) : "Member",
         propertyName: selectedPropertyId
           ? (tourPropertyOptions.find((p) => p.id === selectedPropertyId)?.name ??
             leadLocation.propertyName ??
@@ -600,7 +669,7 @@ export function LeadControlPanel() {
         tourTime: scheduledDateTime.toTimeString().split(" ")[0].substring(0, 5),
         bookingSource: scheduleAnswers.bookingSource as Tour["bookingSource"],
         scheduledBy: scheduler?.id ?? currentMemberId ?? tcmId,
-        scheduledByName: scheduler?.name ?? "You",
+        scheduledByName: scheduler ? memberShortLabel(scheduler) : "You",
         leadType: "future" as const,
         status: "scheduled" as const,
         showUp: null,
@@ -608,7 +677,7 @@ export function LeadControlPanel() {
         remarks: "",
         budget: lead.budget || 0,
         createdAt: new Date().toISOString(),
-        tourType: "physical" as const,
+        tourType: scheduleAnswers.tourType as Tour["tourType"],
         intent: "medium" as const,
         confidenceScore: 50,
         confidenceReason: [],
@@ -645,7 +714,7 @@ export function LeadControlPanel() {
         senderName: scheduler?.name ?? "You",
         assigneeName: assignee?.name ?? "Member",
         recipientIds: [
-          { id: tcmId, name: assignee?.name ?? "Member" },
+          { id: tcmId, name: memberDisplayName(assignee, "Member") },
           ...(scheduler?.id && scheduler.id !== tcmId
             ? [{ id: scheduler.id, name: scheduler.name }]
             : []),
@@ -655,6 +724,11 @@ export function LeadControlPanel() {
       setPropertyId("");
       setScheduledAt("");
       setTab("tour");
+      
+      if (tcmId !== lead.assignedTcmId) {
+        reassignLead(lead.id, tcmId, "Assigned to tour manager");
+      }
+      
       toast.success("Tour scheduled");
     } catch (err) {
       console.error("[LeadControlPanel] Failed to schedule tour:", err);
@@ -924,7 +998,9 @@ export function LeadControlPanel() {
                 </div>
                 <div className="text-[11px] text-muted-foreground">
                   Currently with{" "}
-                  <span className="text-foreground font-medium">{selectedMember?.name ?? "-"}</span>
+                  <span className="text-foreground font-medium">
+                    {selectedMember ? memberShortLabel(selectedMember) : "-"}
+                  </span>
                 </div>
               </Section>
 
@@ -1271,6 +1347,50 @@ export function LeadControlPanel() {
                     ? rawPostTourPropertyName.trim()
                     : "Property not selected";
                 const pt = target.postTour;
+                const leadFirstName = resolveBestLeadName(lead).split(" ")[0] || "there";
+                const postTourFollowUpAt = () => {
+                  if (pt.nextFollowUpAt && parseSafeDate(pt.nextFollowUpAt)) return pt.nextFollowUpAt;
+                  const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
+                  tomorrow.setHours(11, 0, 0, 0);
+                  return tomorrow.toISOString();
+                };
+                const setPostTourReminder = async () => {
+                  const dueAt = postTourFollowUpAt();
+                  await updatePostTour(target.id, { nextFollowUpAt: dueAt });
+                  setLeadFollowUp(
+                    lead.id,
+                    dueAt,
+                    priorityFor(pt.confidence),
+                    `Post-tour follow-up · ${postTourPropertyName}`,
+                  );
+                  scheduleLocalReminderAlert(
+                    `post-tour:${target.id}`,
+                    dueAt,
+                    `Follow up with ${resolveBestLeadName(lead)}`,
+                    `Post-tour follow-up for ${postTourPropertyName}`,
+                  );
+                  toast.success(`Reminder set for ${formatSafeDate(dueAt, "MMM d, p", "the selected time")}`);
+                };
+                const copyPostTourMessage = async (kind: "thanks" | "update") => {
+                  const propertyText =
+                    postTourPropertyName === "Property not selected" ? "the property" : postTourPropertyName;
+                  const message =
+                    kind === "thanks"
+                      ? `Hi ${leadFirstName}, thank you for visiting ${propertyText}. I have noted your feedback and will help you with the next step.`
+                      : `Hi ${leadFirstName}, quick update after your visit to ${propertyText}: the option is available around ${formatBudget(lead.budget)}. Please tell me if you want to proceed or compare one more option.`;
+                  await navigator.clipboard.writeText(message);
+                  toast.success(kind === "thanks" ? "Thank-you message copied" : "Post-tour update copied");
+                };
+                const nextFollowUpLocal = pt.nextFollowUpAt ? toLocal(pt.nextFollowUpAt) : "";
+                const nextFollowUpDate = nextFollowUpLocal.slice(0, 10);
+                const nextFollowUpTime = nextFollowUpLocal.slice(11, 16);
+                const updateNextFollowUp = (date: string, time: string) => {
+                  if (!date || !time) {
+                    updatePostTour(target.id, { nextFollowUpAt: null });
+                    return;
+                  }
+                  updatePostTour(target.id, { nextFollowUpAt: new Date(`${date}T${time}`).toISOString() });
+                };
                 const applyPostTourOutcome = async (outcome: NonNullable<typeof pt.outcome>) => {
                   const nowIso = new Date().toISOString();
                   const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
@@ -1336,16 +1456,7 @@ export function LeadControlPanel() {
                           size="sm"
                           variant="outline"
                           className="h-auto justify-center gap-1.5 text-xs"
-                          onClick={() => {
-                            const dueAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-                            setLeadFollowUp(
-                              lead.id,
-                              dueAt,
-                              priorityFor(pt.confidence),
-                              "Post-tour reminder",
-                            );
-                            toast.success("Reminder set for tomorrow");
-                          }}
+                          onClick={() => void setPostTourReminder()}
                         >
                           <BellRing className="h-3 w-3" /> Reminder
                         </Button>
@@ -1355,17 +1466,6 @@ export function LeadControlPanel() {
 
                     {/* ── SCORECARD ─────────────────────────────────────── */}
                     <PostTourScorecard tourId={target.id} />
-
-                    <Section title={`Deal confidence - ${pt.confidence}%`}>
-                      <input
-                        type="range"
-                        min={0}
-                        max={100}
-                        value={pt.confidence}
-                        onChange={(e) => updatePostTour(target.id, { confidence: +e.target.value })}
-                        className="w-full accent-(--color-accent)"
-                      />
-                    </Section>
 
                     <Section title="Key objection">
                       <Select
@@ -1384,17 +1484,18 @@ export function LeadControlPanel() {
                         </SelectContent>
                       </Select>
                       <Textarea
-                        rows={2}
-                        placeholder="Note…"
-                        value={pt.objectionNote}
-                        onChange={(e) =>
-                          updatePostTour(target.id, { objectionNote: e.target.value })
-                        }
-                        className="text-sm resize-none mt-2"
+                        key={`${target.id}:${pt.objection ?? "none"}`}
+                        rows={3}
+                        placeholder={pt.objection === "Other" ? "Write the objection clearly..." : "Add context for the objection..."}
+                        defaultValue={pt.objectionNote}
+                        onBlur={(e) => updatePostTour(target.id, { objectionNote: e.target.value })}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={(e) => e.stopPropagation()}
+                        className="mt-2 min-h-20 resize-y rounded-xl text-sm"
                       />
                     </Section>
 
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid gap-3">
                       <Section title="Expected decision">
                         <Input
                           type="date"
@@ -1406,22 +1507,35 @@ export function LeadControlPanel() {
                                 : null,
                             })
                           }
-                          className="h-9 text-sm"
+                          className="h-9 max-w-72 text-sm"
                         />
                       </Section>
                       <Section title="Next follow-up">
-                        <Input
-                          type="datetime-local"
-                          value={pt.nextFollowUpAt ? toLocal(pt.nextFollowUpAt) : ""}
-                          onChange={(e) =>
-                            updatePostTour(target.id, {
-                              nextFollowUpAt: e.target.value
-                                ? new Date(e.target.value).toISOString()
-                                : null,
-                            })
-                          }
-                          className="h-9 text-sm"
-                        />
+                        <div className="grid grid-cols-[minmax(0,1fr)_140px] gap-2">
+                          <Input
+                            type="date"
+                            value={nextFollowUpDate}
+                            onChange={(e) => updateNextFollowUp(e.target.value, nextFollowUpTime || "11:00")}
+                            className="h-9 min-w-0 text-sm"
+                          />
+                          <Select
+                            value={nextFollowUpTime}
+                            onValueChange={(value) =>
+                              updateNextFollowUp(nextFollowUpDate || localDateISO(), value)
+                            }
+                          >
+                            <SelectTrigger className="h-9 min-w-0 text-sm">
+                              <SelectValue placeholder="Time" />
+                            </SelectTrigger>
+                            <SelectContent align="end">
+                              {FOLLOW_UP_TIME_OPTIONS.map((time) => (
+                                <SelectItem key={time} value={time} className="text-sm">
+                                  {formatTime12h(time)}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </Section>
                     </div>
 
@@ -1500,33 +1614,23 @@ export function LeadControlPanel() {
                         size="sm"
                         variant="outline"
                         className="flex-1 gap-1.5 text-xs h-9"
-                        onClick={() => {
-                          const msg = `Hi ${lead.name.split(" ")[0]}, thank you for visiting ${prop?.name ?? "our property"} today! Hope you enjoyed the tour. Let us know if you have any questions 😊`;
-                          window.open(`https://wa.me/${lead.phone.replace(/\D/g, "")}?text=${encodeURIComponent(msg)}`, "_blank", "noopener,noreferrer");
-                        }}
+                        onClick={() => void copyPostTourMessage("thanks")}
                       >
-                        <ExternalLink className="h-3 w-3" /> Thank-you msg
+                        <Copy className="h-3 w-3" /> Thank-you msg
                       </Button>
                       <Button
                         size="sm"
                         variant="outline"
                         className="flex-1 gap-1.5 text-xs h-9"
-                        onClick={() => {
-                          const msg = `Hi ${lead.name.split(" ")[0]}, just wanted to follow up on your visit to ${prop?.name ?? "the property"}. Have you had a chance to think about it?`;
-                          window.open(`https://wa.me/${lead.phone.replace(/\D/g, "")}?text=${encodeURIComponent(msg)}`, "_blank", "noopener,noreferrer");
-                        }}
+                        onClick={() => void copyPostTourMessage("update")}
                       >
-                        <Send className="h-3 w-3" /> Send update
+                        <Copy className="h-3 w-3" /> Send update
                       </Button>
                       <Button
                         size="sm"
                         variant="outline"
                         className="flex-1 gap-1.5 text-xs h-9"
-                        onClick={() => {
-                          const dueAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-                          setLeadFollowUp(lead.id, dueAt, priorityFor(pt.confidence), "Post-tour follow-up reminder");
-                          toast.success("Reminder set for tomorrow");
-                        }}
+                        onClick={() => void setPostTourReminder()}
                       >
                         <BellRing className="h-3 w-3" /> Set reminder
                       </Button>
@@ -2034,7 +2138,7 @@ function ProfileCallBrief({ lead }: { lead: Lead }) {
   const { data: interests = [] } = useLeadInterests(lead.id);
   const [activePg, setActivePg] = useState<PG | null>(null);
   const selectedProperties = useMemo(
-    () => interests.map((id) => resolvePropertyById(id, properties)).filter(Boolean).slice(0, 3),
+    () => interests.map((id) => resolvePropertyById(id, properties)).filter(Boolean),
     [interests, properties],
   );
   const items = [
@@ -2142,6 +2246,12 @@ function profileLabel(value?: string | number | null) {
     self: "Self",
     parents: "Parents",
     "company-hr": "Company / HR",
+    answered: "Answered",
+    "not-answered": "Not answered",
+    busy: "Busy",
+    "switched-off": "Switched off",
+    "wrong-number": "Wrong number",
+    "callback-requested": "Callback requested",
   };
   return labels[String(value)] ?? String(value);
 }
@@ -2201,8 +2311,9 @@ function latestConcernFromObjections(objections: Array<{ code?: string; leadWord
 
 function PreVisitCallLogger({ lead, calls }: { lead: Lead; calls: ReturnType<typeof useCRM10x.getState>["calls"] }) {
   const log = useCRM10x((s) => s.logCall);
+  const [picked, setPicked] = useState<"" | "yes" | "no">("");
   const [durationMinutes, setDurationMinutes] = useState("");
-  const [outcome, setOutcome] = useState<CallOutcome | "">("");
+  const [noPickOutcome, setNoPickOutcome] = useState<Exclude<CallOutcome, "answered"> | "">("");
   const [notes, setNotes] = useState("");
   const [showPrevious, setShowPrevious] = useState(false);
   const attempt = calls.length + 1;
@@ -2211,54 +2322,104 @@ function PreVisitCallLogger({ lead, calls }: { lead: Lead; calls: ReturnType<typ
     [calls],
   );
   const minutes = Number(durationMinutes);
-  const canSubmit = Number.isFinite(minutes) && minutes > 0 && Boolean(outcome) && notes.trim().length >= 3;
+  const canSubmit = picked === "yes"
+    ? Number.isFinite(minutes) && minutes > 0 && notes.trim().length >= 3
+    : picked === "no" && Boolean(noPickOutcome);
 
   const submit = () => {
-    if (!Number.isFinite(minutes) || minutes <= 0) {
+    if (!picked) {
+      toast.error("Select whether the lead picked the call");
+      return;
+    }
+    if (picked === "yes" && (!Number.isFinite(minutes) || minutes <= 0)) {
       toast.error("Enter call duration in minutes");
       return;
     }
-    if (!outcome) {
-      toast.error("Select call outcome");
-      return;
-    }
-    if (notes.trim().length < 3) {
+    if (picked === "yes" && notes.trim().length < 3) {
       toast.error("Add a short call note");
       return;
     }
+    if (picked === "no" && !noPickOutcome) {
+      toast.error("Select why the call was not picked");
+      return;
+    }
+    const outcome: CallOutcome = picked === "yes" ? "answered" : noPickOutcome;
+    const callNote = picked === "yes"
+      ? notes.trim()
+      : `Call not picked: ${profileLabel(noPickOutcome)}`;
+
     log({
       leadId: lead.id,
       attemptNumber: attempt,
-      durationSec: Math.round(minutes * 60),
+      durationSec: picked === "yes" ? Math.round(minutes * 60) : 0,
       outcome,
-      notes: notes.trim(),
+      notes: callNote,
       loggedBy: lead.assignedTcmId || lead.assigneeId || "unassigned",
     });
     toast.success(outcome === "answered" ? "Call connected. Objection capture unlocked." : "Call attempt logged.");
+    setPicked("");
     setDurationMinutes("");
-    setOutcome("");
+    setNoPickOutcome("");
     setNotes("");
   };
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-2">
-        <Field label="Duration (min)">
-            <Input
-              type="number"
-              min="0.5"
-              step="0.5"
+      <Field label="Picked?">
+        <div className="grid grid-cols-2 gap-2">
+          {(["yes", "no"] as const).map((value) => (
+            <Button
+              key={value}
+              type="button"
+              variant={picked === value ? "default" : "outline"}
               className="h-8 text-xs"
-            value={durationMinutes}
-            onChange={(e) => setDurationMinutes(e.target.value)}
-            placeholder="e.g. 2"
-          />
-        </Field>
-        <Field label="Outcome">
-          <Select value={outcome} onValueChange={(v) => setOutcome(v as CallOutcome)}>
-            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select outcome" /></SelectTrigger>
+              onClick={() => {
+                setPicked(value);
+                if (value === "yes") setNoPickOutcome("");
+                if (value === "no") {
+                  setDurationMinutes("");
+                  setNotes("");
+                }
+              }}
+            >
+              {value === "yes" ? "Yes, connected" : "No, not picked"}
+            </Button>
+          ))}
+        </div>
+      </Field>
+
+      {picked === "yes" ? (
+        <>
+          <div className="grid grid-cols-2 gap-2">
+            <Field label="Duration (min)">
+              <Select value={durationMinutes} onValueChange={setDurationMinutes}>
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue placeholder="Select duration" />
+                </SelectTrigger>
+                <SelectContent>
+                  {CALL_DURATION_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="Outcome">
+              <div className="flex h-8 items-center rounded-md border border-success/30 bg-success/10 px-3 text-xs font-semibold text-success">
+                Answered
+              </div>
+            </Field>
+          </div>
+          <Textarea rows={3} className="text-xs resize-none" placeholder="What did the lead say?" value={notes} onChange={(e) => setNotes(e.target.value)} />
+        </>
+      ) : null}
+
+      {picked === "no" ? (
+        <Field label="Reason">
+          <Select value={noPickOutcome} onValueChange={(v) => setNoPickOutcome(v as Exclude<CallOutcome, "answered">)}>
+            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select reason" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="answered">Answered</SelectItem>
               <SelectItem value="not-answered">Not answered</SelectItem>
               <SelectItem value="busy">Busy</SelectItem>
               <SelectItem value="switched-off">Switched off</SelectItem>
@@ -2267,8 +2428,8 @@ function PreVisitCallLogger({ lead, calls }: { lead: Lead; calls: ReturnType<typ
             </SelectContent>
           </Select>
         </Field>
-      </div>
-      <Textarea rows={3} className="text-xs resize-none" placeholder="What did the lead say?" value={notes} onChange={(e) => setNotes(e.target.value)} />
+      ) : null}
+
       <div className="rounded-md border border-border bg-muted/20 p-2">
         <div className="flex items-center justify-between gap-2">
           <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -2291,7 +2452,7 @@ function PreVisitCallLogger({ lead, calls }: { lead: Lead; calls: ReturnType<typ
               <span>{format(new Date(previousCall.ts), "MMM d, h:mm a")}</span>
               <span>Attempt #{previousCall.attemptNumber}</span>
               <span>{profileLabel(previousCall.outcome)}</span>
-              <span>{Math.max(1, Math.round(previousCall.durationSec / 60))} min</span>
+              {previousCall.durationSec > 0 ? <span>{Math.max(1, Math.round(previousCall.durationSec / 60))} min</span> : null}
             </div>
             <div className="whitespace-pre-wrap text-foreground">{previousCall.notes || "No notes captured."}</div>
           </div>
@@ -2513,28 +2674,26 @@ function UpcomingTourCard({
 
   // Handle both old CRM tour format (tcmId) and new MYT tour format (assignedTo, assignedToName)
   const assignedToId = (tour as any).assignedTo ?? (tour as any).tcmId;
-  const assignedToName =
-    (tour as any).assignedToName ??
-    members.find((m) => m.id === assignedToId)?.name ??
-    assignedToId ??
-    "TBD";
+  const assignedToMember = members.find((m) => m.id === assignedToId);
+  const assignedToName = assignedToMember
+    ? memberShortLabel(assignedToMember)
+    : ((tour as any).assignedToName ?? assignedToId ?? "TBD");
   const scheduledById = (tour as any).scheduledBy;
-  const scheduledByName =
-    (tour as any).scheduledByName ??
-    members.find((m) => m.id === scheduledById)?.name ??
-    scheduledById ??
-    "TBD";
+  const scheduledByMember = members.find((m) => m.id === scheduledById);
+  const scheduledByName = scheduledByMember
+    ? memberShortLabel(scheduledByMember)
+    : ((tour as any).scheduledByName ?? scheduledById ?? "TBD");
   const tourType = (tour as any).tourType ?? "physical";
   const qualification = (tour as any).qualification;
   const displayLeadName = normalizeLeadName((tour as any).leadName ?? leadName ?? "");
   const phone = (tour as any).phone ?? "";
   const budget = (tour as any).budget ?? 0;
   const area = (tour as any).area ?? "";
-  const canMoveToOnTour = isTodayIST(tour.scheduledAt);
   const tourTimeMs = +new Date(tour.scheduledAt);
   const nowMs = Date.now();
   const isPastTour = Number.isFinite(tourTimeMs) && tourTimeMs < nowMs;
-  const isOutcomeDue = canMoveToOnTour || isPastTour || tour.status === "on-tour";
+  const canMoveToOnTour = tour.status !== "on-tour" && isTodayIST(tour.scheduledAt) && !isPastTour;
+  const isOutcomeDue = isPastTour || tour.status === "on-tour";
   const isOverdueOutcome = Number.isFinite(tourTimeMs) && nowMs - tourTimeMs > 30 * 60_000;
 
   const [showReschedule, setShowReschedule] = useState(false);
@@ -2568,7 +2727,7 @@ function UpcomingTourCard({
           </Badge>
         )}
         <Badge variant="outline" className="text-[10px] capitalize">
-          {tourType.replace("-", " ")}
+          {TOUR_TYPE_LABELS[tourType] ?? tourType.replace(/-/g, " ")}
         </Badge>
       </div>
 
@@ -3054,7 +3213,7 @@ function InlineScheduleTour({
               <SelectContent>
                 {tcms.map((t) => (
                   <SelectItem key={t.id} value={t.id}>
-                    {t.name}
+                    {memberOptionLabel(t)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -3069,13 +3228,7 @@ function InlineScheduleTour({
               scheduledAt && scheduledAt.includes("T")
                 ? (scheduledAt.split("T")[1] || "").slice(0, 5)
                 : "";
-            const times: string[] = [];
-            const pad = (n: number) => String(n).padStart(2, "0");
-            for (let mins = 9 * 60; mins <= 21 * 60; mins += 30) {
-              const h = Math.floor(mins / 60);
-              const m = mins % 60;
-              times.push(`${pad(h)}:${pad(m)}`);
-            }
+            const times = tourTimeSlotsForDate(datePart);
 
             return (
               <div className="grid sm:grid-cols-2 gap-2">
@@ -3084,16 +3237,18 @@ function InlineScheduleTour({
                   value={datePart}
                   onChange={(e) => {
                     const d = e.target.value;
-                    const t = timePartRaw || "09:00";
-                    onScheduledAtChange(d ? `${d}T${t}` : "");
+                    const nextTimes = tourTimeSlotsForDate(d);
+                    const t = nextTimes.includes(timePartRaw) ? timePartRaw : nextTimes[0] || "";
+                    onScheduledAtChange(d && t ? `${d}T${t}` : "");
                   }}
+                  min={localDateISO()}
                   className="h-9 text-sm"
                 />
 
                 <Select
                   value={timePartRaw}
                   onValueChange={(v) => {
-                    const d = datePart || new Date().toISOString().split("T")[0];
+                    const d = datePart || localDateISO();
                     onScheduledAtChange(v ? `${d}T${v}` : "");
                   }}
                 >
@@ -3101,11 +3256,17 @@ function InlineScheduleTour({
                     <SelectValue placeholder="Select time" />
                   </SelectTrigger>
                   <SelectContent>
-                    {times.map((t) => (
-                      <SelectItem key={t} value={t} className="text-sm">
-                        {formatTime12h(t)}
-                      </SelectItem>
-                    ))}
+                    {times.length > 0 ? (
+                      times.map((t) => (
+                        <SelectItem key={t} value={t} className="text-sm">
+                          {formatTime12h(t)}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <div className="px-2 py-3 text-xs text-muted-foreground">
+                        No slots left today. Pick tomorrow.
+                      </div>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -3190,10 +3351,24 @@ function useTourScorecard(tourId: string) {
     }
   });
 
+  useEffect(() => {
+    const handleStorage = () => {
+      try {
+        const raw = localStorage.getItem(storageKey);
+        setScore(raw ? JSON.parse(raw) : { propertyFit: "", budgetFit: "", locationFit: "", decisionReadiness: "", moveInUrgency: "" });
+      } catch {}
+    };
+    window.addEventListener(storageKey, handleStorage);
+    return () => window.removeEventListener(storageKey, handleStorage);
+  }, [storageKey]);
+
   const pick = (key: keyof ScoreState, value: string) => {
     const next = { ...score, [key]: score[key] === value ? "" : value };
     setScore(next);
-    try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch {}
+    try { 
+      localStorage.setItem(storageKey, JSON.stringify(next)); 
+      window.dispatchEvent(new Event(storageKey));
+    } catch {}
   };
 
   const filledCount = Object.values(score).filter(Boolean).length;
@@ -3262,13 +3437,11 @@ function PostTourOutcomeActions({
   const scorecardComplete = filledCount === SCORECARD_SECTIONS.length;
   const formReady =
     scorecardComplete &&
-    pt.confidence > 0 &&
     Boolean(pt.objection) &&
     Boolean(pt.expectedDecisionAt) &&
     Boolean(pt.nextFollowUpAt);
   const remaining: string[] = [];
   if (!scorecardComplete) remaining.push("scorecard");
-  if (pt.confidence <= 0) remaining.push("confidence");
   if (!pt.objection) remaining.push("objection");
   if (!pt.expectedDecisionAt) remaining.push("expected date");
   if (!pt.nextFollowUpAt) remaining.push("follow-up");

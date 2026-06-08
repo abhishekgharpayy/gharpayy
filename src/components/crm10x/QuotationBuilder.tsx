@@ -328,7 +328,7 @@ export function QuotationBuilder({ lead, embedded, onSent, onPaid }: Props) {
               <Plus className="h-3 w-3" /> New quote
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogContent aria-describedby={undefined} className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="text-sm">Create quotation for {lead.name}</DialogTitle>
             </DialogHeader>

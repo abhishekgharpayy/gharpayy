@@ -101,6 +101,7 @@ export const ScheduleTourCmd = Base.extend({
     tcmId: z.string(),
     scheduledAt: z.string(),
     bookingSource: z.string().optional(),
+    tourType: z.enum(["physical", "virtual", "pre-book-pitch"]).optional(),
   }),
 });
 

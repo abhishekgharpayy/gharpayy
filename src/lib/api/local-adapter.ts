@@ -269,7 +269,14 @@ export const localAdapter = {
       }
 
       if (t === "cmd.tour.schedule") {
-        const p = cmd.payload as { leadId: string; propertyId?: string | null; tcmId: string; scheduledAt: string; bookingSource?: string };
+        const p = cmd.payload as {
+          leadId: string;
+          propertyId?: string | null;
+          tcmId: string;
+          scheduledAt: string;
+          bookingSource?: string;
+          tourType?: "physical" | "virtual" | "pre-book-pitch";
+        };
         const tour: Tour = {
           _id: ulid(),
           leadId: p.leadId,
@@ -281,6 +288,7 @@ export const localAdapter = {
           showUp: false,
           customPropertyName: "",
           bookingSource: p.bookingSource ?? "whatsapp",
+          tourType: p.tourType ?? "physical",
           postTour: { outcome: null, confidence: 0, objection: null, objectionNote: "", expectedDecisionAt: null, nextFollowUpAt: null, filledAt: null },
           createdAt: nowISO(),
           updatedAt: nowISO(),

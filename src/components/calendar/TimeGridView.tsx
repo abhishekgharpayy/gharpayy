@@ -65,6 +65,7 @@ export function TimeGridView({ focus, events, view, onEventClick, onSlotClick }:
 
           {days.map((d) => {
             const dayEvents = eventsForDay(events, d).filter((e) => !e.allDay);
+            const eventLayouts = layoutOverlappingEvents(dayEvents);
             const showNowLine = isSameDay(d, now);
             return (
               <div key={d.toISOString()} className="relative border-l">
@@ -91,10 +92,13 @@ export function TimeGridView({ focus, events, view, onEventClick, onSlotClick }:
                   </div>
                 )}
 
-                {dayEvents.map((e) => {
+                {eventLayouts.map(({ event: e, column, columns }) => {
                   const top = (minutesFromMidnight(e.start) / 60) * SLOT_PX;
-                  const height = Math.max(20, (durationMinutes(e) / 60) * SLOT_PX - 2);
+                  const height = Math.max(30, (durationMinutes(e) / 60) * SLOT_PX - 3);
                   const m = KIND_META[e.kind];
+                  const gutter = 4;
+                  const width = `calc((100% - ${gutter * (columns + 1)}px) / ${columns})`;
+                  const left = `calc(${gutter}px + ${column} * (${width} + ${gutter}px))`;
                   return (
                     <button
                       key={e.id}
@@ -103,17 +107,17 @@ export function TimeGridView({ focus, events, view, onEventClick, onSlotClick }:
                         onEventClick(e);
                       }}
                       className={cn(
-                        "absolute left-1 right-1 rounded-md px-2 py-1 text-left text-xs overflow-hidden border",
+                        "absolute rounded-md border px-2 py-1 text-left text-[11px] leading-tight shadow-sm transition hover:z-20 hover:shadow-md focus:z-20 focus:outline-none focus:ring-2 focus:ring-ring",
                         m.bg,
                         m.text,
                       )}
-                      style={{ top, height, borderColor: m.color }}
+                      style={{ top, height, left, width, borderColor: m.color }}
                     >
-                      <div className="font-medium truncate">{e.title}</div>
-                      <div className="opacity-70 truncate">
+                      <div className="font-semibold truncate">{e.title}</div>
+                      <div className="opacity-75 truncate">
                         {format(new Date(e.start), "h:mma").toLowerCase()} – {format(new Date(e.end), "h:mma").toLowerCase()}
                       </div>
-                      {e.location && <div className="opacity-70 truncate">{e.location}</div>}
+                      {height > 42 && e.location && <div className="opacity-75 truncate">{e.location}</div>}
                     </button>
                   );
                 })}
@@ -124,4 +128,44 @@ export function TimeGridView({ focus, events, view, onEventClick, onSlotClick }:
       </div>
     </div>
   );
+}
+
+function layoutOverlappingEvents(events: CalEvent[]) {
+  const sorted = events
+    .slice()
+    .sort((a, b) => +new Date(a.start) - +new Date(b.start) || +new Date(a.end) - +new Date(b.end));
+  const active: Array<{ event: CalEvent; column: number }> = [];
+  const layouts: Array<{ event: CalEvent; column: number; columns: number; group: number }> = [];
+  let group = 0;
+  let groupMaxColumns = 1;
+  let groupIndexes: number[] = [];
+
+  const closeGroup = () => {
+    for (const index of groupIndexes) {
+      layouts[index].columns = groupMaxColumns;
+    }
+    groupIndexes = [];
+    groupMaxColumns = 1;
+  };
+
+  sorted.forEach((event) => {
+    const start = +new Date(event.start);
+    for (let i = active.length - 1; i >= 0; i -= 1) {
+      if (+new Date(active[i].event.end) <= start) active.splice(i, 1);
+    }
+    if (active.length === 0 && groupIndexes.length > 0) {
+      closeGroup();
+      group += 1;
+    }
+
+    const used = new Set(active.map((item) => item.column));
+    let column = 0;
+    while (used.has(column)) column += 1;
+    active.push({ event, column });
+    groupMaxColumns = Math.max(groupMaxColumns, active.length, column + 1);
+    const index = layouts.push({ event, column, columns: 1, group }) - 1;
+    groupIndexes.push(index);
+  });
+  closeGroup();
+  return layouts;
 }

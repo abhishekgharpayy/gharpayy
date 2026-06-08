@@ -13,6 +13,62 @@ export interface DirectoryMember {
   managerId?: string | null;
 }
 
+export type DirectoryPersonLike = {
+  id?: string;
+  name?: string | null;
+  fullName?: string | null;
+  role?: string | null;
+  zone?: string | null;
+  zones?: string[] | null;
+};
+
+export function memberDisplayName(member?: DirectoryPersonLike | null, fallback = "Unassigned") {
+  const name = member?.fullName || member?.name;
+  return name?.trim() || fallback;
+}
+
+export function memberAreaLabel(member?: DirectoryPersonLike | null, fallback = "No area assigned") {
+  const zones = Array.isArray(member?.zones)
+    ? member.zones.map((zone) => String(zone).trim()).filter(Boolean)
+    : [];
+  const singleZone = member?.zone?.trim();
+  const area = zones.length ? zones.join(", ") : singleZone;
+  return area || fallback;
+}
+
+export function memberOptionLabel(member?: DirectoryPersonLike | null, fallback = "Unassigned") {
+  return `${memberDisplayName(member, fallback)} · ${memberAreaLabel(member)}`;
+}
+
+export function memberShortLabel(member?: DirectoryPersonLike | null, fallback = "Unassigned") {
+  const area = memberAreaLabel(member, "");
+  return area ? `${memberDisplayName(member, fallback)} · ${area}` : memberDisplayName(member, fallback);
+}
+
+export function resolveMemberPrimaryZone(member?: DirectoryPersonLike | null, zones: Zone[] = []) {
+  const memberZones = Array.isArray(member?.zones)
+    ? member.zones.map((zone) => String(zone).trim()).filter(Boolean)
+    : [];
+  if (member?.zone?.trim()) memberZones.push(member.zone.trim());
+  if (!memberZones.length) return "";
+
+  const normalizedMemberZones = memberZones.map((zone) => zone.toLowerCase());
+  const matchedZone = zones.find((zone) => {
+    const zoneAliases = [
+      zone.id,
+      zone.name,
+      zone.city,
+      ...(zone.areas ?? []),
+    ].map((value) => String(value ?? "").trim().toLowerCase()).filter(Boolean);
+    return normalizedMemberZones.some((memberZone) =>
+      zoneAliases.includes(memberZone) ||
+      zoneAliases.some((alias) => alias.includes(memberZone) || memberZone.includes(alias)),
+    );
+  });
+
+  return matchedZone?.name ?? memberZones[0];
+}
+
 export function useOrgMembers() {
   const [members, setMembers] = useState<DirectoryMember[]>([]);
   const [loading, setLoading] = useState(true);

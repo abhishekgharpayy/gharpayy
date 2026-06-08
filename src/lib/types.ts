@@ -100,6 +100,7 @@ export interface Tour {
   tcmId: string;
   scheduledBy?: string;
   scheduledAt: string;
+  tourType?: "physical" | "virtual" | "pre-book-pitch";
   status: TourStatus;
   showUp?: boolean | null;
   customPropertyName?: string;

@@ -7,6 +7,9 @@ export const LeadStage = z.enum([
   "on-tour",
   "tour-done",
   "negotiation",
+  "quote-sent",
+  "not-responding-3d",
+  "not-responding-7d",
   "booked",
   "dropped",
 ]);
@@ -206,6 +209,7 @@ export const Tour = z.object({
   showUp: z.boolean().nullable().optional().default(null),
   customPropertyName: z.string().optional().default(""),
   bookingSource: z.string().default("whatsapp"),
+  tourType: z.enum(["physical", "virtual", "pre-book-pitch"]).optional().default("physical"),
   postTour: PostTourUpdate.default({}),
   createdAt: z.string(),
   updatedAt: z.string(),

@@ -18,7 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useIdentityStore } from "@/lib/lead-identity/store";
 import { detectZone, parseLead } from "@/lib/lead-identity/parser";
-import { useOrgMembers, useOrgZones, useActiveTcMs } from "@/hooks/useOrgDirectory";
+import { memberOptionLabel, resolveMemberPrimaryZone, useOrgMembers, useOrgZones, useActiveTcMs } from "@/hooks/useOrgDirectory";
 import { useAuthUser } from "@/lib/auth-store";
 import { dispatch } from "@/lib/api/command-bus";
 import { toast } from "sonner";
@@ -83,11 +83,11 @@ export function QuickAddLeadPanel({ open, onClose }: Props) {
   const sortedZones = useMemo(() => orgZones.slice().sort((a, b) => a.name.localeCompare(b.name)), [orgZones]);
   const sortedMembers = useMemo(() => {
     const base = (activeTcms && activeTcms.length > 0)
-      ? activeTcms.map((a: any) => ({ id: a.id, name: a.fullName ?? a.name, role: a.role ?? 'tcm', zones: a.zones ?? [] }))
-      : orgMembers.filter((m) => m.role === 'member' || m.role === 'tcm').map((m) => ({ id: m.id, name: m.fullName ?? m.name, role: m.role, zones: (m as any).zones ?? [] }));
+      ? activeTcms.map((a: any) => ({ id: a.id, name: a.fullName ?? a.name, role: a.role ?? 'tcm', zones: a.zones ?? (a.zone ? [a.zone] : []) }))
+      : orgMembers.filter((m) => m.role === 'member' || m.role === 'tcm').map((m: any) => ({ id: m.id, name: m.fullName ?? m.name, role: m.role, zones: m.zones ?? (m.zone ? [m.zone] : []) }));
     // Ensure current user appears in the assignee list so they can assign to themselves
     if (authUser && !base.find((b: any) => b.id === authUser.id)) {
-      base.unshift({ id: authUser.id, name: authUser.fullName ?? authUser.name, role: authUser.role ?? 'member', zones: (authUser as any).zones ?? [] });
+      base.unshift({ id: authUser.id, name: authUser.fullName ?? authUser.name, role: authUser.role ?? 'member', zones: (authUser as any).zones ?? ((authUser as any).zone ? [(authUser as any).zone] : []) });
     }
     return base.slice().sort((a, b) => a.name.localeCompare(b.name));
   }, [orgMembers, activeTcms, authUser]);
@@ -103,7 +103,7 @@ export function QuickAddLeadPanel({ open, onClose }: Props) {
   const [showHubResults, setShowHubResults] = useState(false);
   const [fullAddress, setFullAddress] = useState("");
   const [budget, setBudget] = useState("");
-  const [moveIn, setMoveIn] = useState(todayIso());
+  const [moveIn, setMoveIn] = useState("");
   const [type, setType] = useState("");
   const [room, setRoom] = useState("");
   const [need, setNeed] = useState("");
@@ -124,6 +124,16 @@ export function QuickAddLeadPanel({ open, onClose }: Props) {
       setAssigneeId(defaultAssigneeId);
     }
   }, [assigneeId, defaultAssigneeId]);
+
+  const selectedAssignee = sortedMembers.find((m: any) => m.id === assigneeId)
+    ?? orgMembers.find((m) => m.id === assigneeId)
+    ?? (activeTcms || []).find((a: any) => a.id === assigneeId);
+  const assigneeZone = useMemo(() => resolveMemberPrimaryZone(selectedAssignee, orgZones), [selectedAssignee, orgZones]);
+
+  useEffect(() => {
+    if (!assigneeZone) return;
+    setZoneBucket(assigneeZone);
+  }, [assigneeId, assigneeZone]);
 
   const nameRef = useRef<HTMLInputElement>(null);
   useEffect(() => { if (open) setTimeout(() => nameRef.current?.focus(), 50); }, [open]);
@@ -158,7 +168,7 @@ export function QuickAddLeadPanel({ open, onClose }: Props) {
   const reset = () => {
     setName(""); setPhone(""); setEmail("");
     setAreasText(""); setFullAddress(""); setSelectedPG(null); setHubQuery("");
-    setBudget(""); setMoveIn(todayIso());
+    setBudget(""); setMoveIn("");
     setType(""); setRoom(""); setNeed(""); setSpecialReqs("");
     setInBLR(null); setQuality(null); setZoneBucket("");
     setAssigneeId(defaultAssigneeId); setStage(STAGES[0]); setNotes("");
@@ -593,7 +603,7 @@ export function QuickAddLeadPanel({ open, onClose }: Props) {
               </SelectTrigger>
               <SelectContent>
                 {sortedMembers.map((m) => (
-                  <SelectItem key={m.id} value={m.id}>{m.name} · {m.role}</SelectItem>
+                  <SelectItem key={m.id} value={m.id}>{memberOptionLabel(m)}</SelectItem>
                 ))}
               </SelectContent>
             </Select>

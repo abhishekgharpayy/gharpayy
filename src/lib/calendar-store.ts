@@ -57,6 +57,7 @@ interface CalendarState {
   publishedIcsToken: string;
 
   addEvent: (e: Omit<CalEvent, "id" | "createdAt" | "updatedAt">) => CalEvent;
+  upsertEvent: (e: CalEvent) => void;
   updateEvent: (id: string, patch: Partial<CalEvent>) => void;
   deleteEvent: (id: string) => void;
   importEvents: (items: CalEvent[]) => void;
@@ -86,6 +87,14 @@ export const useCalendar = create<CalendarState>()(
         set({ events: [...get().events, evt] });
         return evt;
       },
+      upsertEvent: (event) =>
+        set({
+          events: get().events.some((e) => e.id === event.id)
+            ? get().events.map((e) =>
+                e.id === event.id ? { ...e, ...event, updatedAt: new Date().toISOString() } : e,
+              )
+            : [...get().events, { ...event, updatedAt: new Date().toISOString() }],
+        }),
       updateEvent: (id, patch) =>
         set({
           events: get().events.map((e) =>

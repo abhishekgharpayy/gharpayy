@@ -96,7 +96,7 @@ function toMytTour(tour: WireTour, leads: Record<string, WireLead>, properties: 
     remarks: tour.postTour?.objectionNote ?? "",
     budget: lead?.budget ?? 0,
     createdAt: tour.createdAt,
-    tourType: "physical",
+    tourType: (tour.tourType ?? "physical") as MytTour["tourType"],
     intent: "medium",
     confidenceScore: 50,
     confidenceReason: [],
