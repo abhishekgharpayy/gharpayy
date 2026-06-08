@@ -237,6 +237,7 @@ export function LeadControlPanel() {
     autoAssignLead,
     startSequence,
     markHandoffsRead,
+    reassignLead,
   } = useApp();
   const { currentMemberId, setTours } = useAppState();
   const { members: orgMembers } = useOrgMembers();
@@ -723,6 +724,11 @@ export function LeadControlPanel() {
       setPropertyId("");
       setScheduledAt("");
       setTab("tour");
+      
+      if (tcmId !== lead.assignedTcmId) {
+        reassignLead(lead.id, tcmId, "Assigned to tour manager");
+      }
+      
       toast.success("Tour scheduled");
     } catch (err) {
       console.error("[LeadControlPanel] Failed to schedule tour:", err);

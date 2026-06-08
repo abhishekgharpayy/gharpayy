@@ -672,6 +672,14 @@ export const useApp = create<AppState>((set, get) => ({
         l.id === leadId ? { ...l, assignedTcmId: tcmId, updatedAt: new Date().toISOString() } : l,
       ),
     }));
+    
+    api.command({
+      _id: uid("c"),
+      type: "cmd.lead.assign",
+      issuedAt: new Date().toISOString(),
+      payload: { leadId, tcmId }
+    }).catch(err => console.error("[store] Failed to reassign lead on server:", err));
+
     pushActivity(set, get, { kind: "status_changed", actor: get().role, leadId, text: `Reassigned to ${tcm?.name ?? tcmId} · ${reason}` });
     // auto-handoff
     const lead = get().leads.find((l) => l.id === leadId);
