@@ -7,6 +7,11 @@ import { ImpactHardActionsBar } from "@/components/impact/ImpactHardActionsBar";
 import { ImpactApiHealthBanner } from "@/components/impact/ImpactApiHealthBanner";
 import { ImpactManagerEscalations } from "@/components/impact/ImpactManagerEscalations";
 import { ImpactStageMoveDialog } from "@/components/impact/ImpactStageMoveDialog";
+import {
+  ImpactFiltersPopover,
+  ImpactFocusPopover,
+  ImpactQueueMetaBar,
+} from "@/components/impact/ImpactQueueHeaderControls";
 import { COLUMNS, type ColumnKey, COLUMN_STAGE_TARGET } from "@/components/impact/impact-queue-types";
 import {
   type QueueChipFilter,
@@ -26,7 +31,7 @@ import { leadHasValidProperty, pickBestPropertyForLead } from "@/lib/crm10x/fix-
 import { useAuthUser } from "@/lib/auth-store";
 import { useImpactQueueKeyboard } from "@/hooks/useImpactQueueKeyboard";
 import { useImpactMorningDigest } from "@/hooks/useImpactMorningDigest";
-import { memberAreaLabel, memberDisplayName, memberOptionLabel, memberShortLabel, useActiveTcMs, useOrgMembers } from "@/hooks/useOrgDirectory";
+import { memberDisplayName, memberOptionLabel, memberShortLabel, useActiveTcMs, useOrgMembers } from "@/hooks/useOrgDirectory";
 import {
   classifyImpactPriority,
   IMPACT_PRIORITY_META,
@@ -41,7 +46,6 @@ import { useLeadInterests, useToggleInterest } from "@/lib/crm10x/lead-interests
 import { useCRM10x } from "@/lib/crm10x/store";
 import { useCheckin, useUpsertCheckin, usePatchCheckin, STAGE_LABEL, riskLevel, RISK_CLASS, RISK_LABEL, type CheckIn } from "@/lib/checkins/store";
 import type { ActivityLog, Lead, Property, TCM, Tour } from "@/lib/types";
-import { scarcity } from "@/supply-hub/lib/intel";
 import {
   resolvePropertyById,
   searchPropertyCatalog,
@@ -90,9 +94,9 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { dispatch } from "@/lib/api/command-bus";
 import {
   Calendar, CheckCircle2, ChevronLeft, ChevronRight, ClipboardCopy,
-  FileText, Flame, LayoutGrid, ListOrdered, Phone, Plus,
+  FileText, LayoutGrid, ListOrdered, Phone, Plus,
   Search, Sparkles, Target, Timer, UserCheck, Wallet, Zap,
-  Beaker, Home, Pin, X, Heart, Star, Activity, Sunrise, MapPin,
+  Beaker, X, Heart, Star, Activity, Sunrise, MapPin,
   RotateCcw, KeyRound, ScrollText, Building2, Video, Briefcase, Info, MoreHorizontal, AlertTriangle, MessageSquareCode,
   ArchiveX, UserRound,
 } from "lucide-react";
@@ -396,20 +400,15 @@ export function ImpactQueue() {
   const [roomFilter, setRoomFilter] = useState<string>("all");
   const [needFilter, setNeedFilter] = useState<string>("all");
   const [view, setView] = useState<ViewMode>(readStoredView);
+  const [stageFilter, setStageFilter] = useState<string>("all");
   const [focusLeadId, setFocusLeadId] = useState<string | null>(null);
   const [focusAction, setFocusAction] = useState<LeadFocusAction | null>(null);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [booting, setBooting] = useState(true);
   const [digestOpen, setDigestOpen] = useState(false);
   const [overdueHome, setOverdueHome] = useState(readOverdueHomeEnabled);
-  const [stageMove, setStageMove] = useState<{
-    leadId: string;
-    leadName: string;
-    from: ColumnKey;
-    to: ColumnKey;
-  } | null>(null);
-  const [dragOverColumn, setDragOverColumn] = useState<ColumnKey | null>(null);
   const [droppedSheetOpen, setDroppedSheetOpen] = useState(false);
+  const [messageLabOpen, setMessageLabOpen] = useState(false);
 
   useEffect(() => {
     writeStoredView(view);
@@ -468,37 +467,6 @@ export function ImpactQueue() {
     const id = window.setTimeout(() => setBooting(false), 3000);
     return () => window.clearTimeout(id);
   }, []);
-
-  const confirmStageMove = async () => {
-    if (!stageMove) return;
-    const targetStage = COLUMN_STAGE_TARGET[stageMove.to];
-    if (!targetStage) {
-      toast.error("Cannot move to this column");
-      setStageMove(null);
-      return;
-    }
-    try {
-      if (stageMove.to === "inbox") {
-        const openTours = tours.filter((tour) =>
-          tour.leadId === stageMove.leadId && (tour.status === "scheduled" || tour.status === "confirmed")
-        );
-        await Promise.all(openTours.map((tour) => cancelTour(tour.id)));
-      }
-      await setLeadStage(stageMove.leadId, targetStage);
-      toast.success(`Moved to ${COLUMNS.find((c) => c.key === stageMove.to)?.label}`);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Move failed");
-    }
-    setStageMove(null);
-  };
-
-  const selectChip = (next: QueueChipFilter) => {
-    if (next === "all") {
-      setChipFilter("all");
-      return;
-    }
-    setChipFilter((prev) => (prev === next ? "all" : next));
-  };
 
   /* --------- 10x live tick: re-rank every 60s --------- */
   // Start at 0 on SSR + first client render to avoid hydration mismatches.
@@ -621,8 +589,12 @@ export function ImpactQueue() {
   }, [enriched, chipFilter, areaFilter, typeFilter, roomFilter, needFilter]);
 
   const stackSorted = useMemo(
-    () => [...filtered].sort((a, b) => b.score - a.score),
-    [filtered],
+    () => {
+      const sorted = [...filtered].sort((a, b) => b.score - a.score);
+      if (stageFilter === "all") return sorted;
+      return sorted.filter((e) => e.column === stageFilter);
+    },
+    [filtered, stageFilter],
   );
 
   const boardBuckets = useMemo(() => {
@@ -735,40 +707,17 @@ export function ImpactQueue() {
     [leads],
   );
 
-  const requestStageMove = (leadId: string, from: ColumnKey, to: ColumnKey) => {
-    if (from === to) return;
-    const lead = leads.find((l) => l.id === leadId);
-    if (!lead) return;
-    if (!COLUMN_STAGE_TARGET[to]) {
-      toast.error("This column cannot accept drops yet");
-      return;
-    }
-    setStageMove({ leadId, leadName: lead.name, from, to });
-  };
-
   return (
     <div className="space-y-3">
       <ImpactApiHealthBanner />
 
       {/* ---------------- Command deck ---------------- */}
       <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-          <div className="min-w-[240px]">
-            <div className="text-[10px] uppercase tracking-[0.2em] text-accent font-semibold">
-              Conversion engine · one screen
-            </div>
-            <h1 className="text-xl font-display font-semibold flex items-center gap-2">
-              Impact Queue
-              {escalations > 0 && (
-                <Badge variant="outline" className="text-[9px] bg-danger/10 text-danger border-danger/40 gap-1">
-                  <Zap className="h-3 w-3" /> {escalations} escalating
-                </Badge>
-              )}
-            </h1>
-            <p className="text-[11px] text-muted-foreground">
-              Work top-down. Every lead has a Next Best Action. Nothing falls through.
-            </p>
-          </div>
+        {/* Row 1: heading left | controls right */}
+        <div className="flex flex-wrap items-center justify-between gap-2 px-4 pt-3 pb-1">
+          <h1 className="text-xl font-display font-bold shrink-0">
+            Impact Queue
+          </h1>
 
           <div className="flex flex-wrap items-center justify-end gap-2">
             <TenXCommandBar
@@ -799,7 +748,7 @@ export function ImpactQueue() {
             <div className="relative">
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
               <Input
-                className={`h-8 pl-7 text-[11px] w-56 bg-background ${query.trim() ? "pr-7" : ""}`}
+                className={`h-8 pl-7 text-[11px] w-48 sm:w-56 bg-background ${query.trim() ? "pr-7" : ""}`}
                 placeholder="Search lead or phone"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
@@ -815,51 +764,37 @@ export function ImpactQueue() {
                 </button>
               )}
             </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  className="h-8 px-2 text-[9px] font-semibold rounded-md border border-border bg-background text-muted-foreground hover:text-foreground hover:bg-accent/10 transition-colors flex items-center gap-1"
-                  title="Queue tools"
-                >
-                  <MoreHorizontal className="h-3.5 w-3.5" />
-                  Tools
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-52">
-                <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                  Queue tools
-                </DropdownMenuLabel>
-                <DropdownMenuItem
-                  className="text-xs"
-                  disabled={fixing}
-                  onSelect={() => void handleFixProperties()}
-                >
-                  <Building2 className="h-3.5 w-3.5" />
-                  {fixing ? "Fixing properties..." : "Fix invalid properties"}
-                </DropdownMenuItem>
-                {role === "tcm" ? (
-                  <DropdownMenuItem
-                    className="text-xs"
-                    onSelect={() => {
-                      const next = !overdueHome;
-                      setOverdueHome(next);
-                      writeOverdueHomeEnabled(next);
-                      setChipFilter(next ? "overdue" : "all");
-                    }}
-                  >
-                    <Timer className="h-3.5 w-3.5" />
-                    {overdueHome ? "Disable overdue start" : "Start on overdue"}
-                  </DropdownMenuItem>
-                ) : null}
-                <DropdownMenuItem disabled className="text-xs">
-                  J/K to move · Enter to open
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <ImpactFiltersPopover
+              filters={{
+                chip: chipFilter,
+                area: areaFilter,
+                type: typeFilter,
+                room: roomFilter,
+                need: needFilter,
+              }}
+              uniqueAreas={uniqueAreas}
+              onApply={(next) => {
+                setChipFilter(next.chip);
+                setAreaFilter(next.area);
+                setTypeFilter(next.type);
+                setRoomFilter(next.room);
+                setNeedFilter(next.need);
+              }}
+              onOpenMessageLab={() => setMessageLabOpen(true)}
+            />
+            <ImpactFocusPopover
+              tcmFilter={tcmFilter}
+              tcmOptions={tcmOptions}
+              onFilterArea={(area) => setAreaFilter(area)}
+            />
             {!canSelectTcmScope ? (
-              <div className="h-8 min-w-[10rem] rounded-md border border-border bg-background px-3 py-2 text-[11px] font-semibold text-foreground flex items-center">
-                {authUser?.fullName ?? "My queue"}
+              <div className="h-8 min-w-[8rem] rounded-md border border-border bg-background px-3 py-2 text-[11px] font-semibold text-foreground flex items-center gap-1.5">
+                {(() => {
+                  const me = tcmOptions.find((t: any) => t.id === selfScopeId);
+                  const name = (me as any)?.fullName ?? (me as any)?.name ?? authUser?.fullName ?? "My queue";
+                  const zone = (me as any)?.zones?.[0] ?? (me as any)?.zone ?? "";
+                  return zone ? <><span>{name}</span><span className="text-muted-foreground font-normal">· {zone}</span></> : name;
+                })()}
               </div>
             ) : (
               <Select value={tcmFilter} onValueChange={setTcmFilter}>
@@ -887,6 +822,11 @@ export function ImpactQueue() {
           </div>
         </div>
 
+        {/* Row 2: subtitle */}
+        <div className="px-4 pb-2.5">
+          <p className="text-[11px] text-muted-foreground">One Screen Conversion Engine (Lead → Booked)</p>
+        </div>
+
         <div className="border-t border-border/70 px-3 py-2 bg-muted/10">
           <ImpactHardActionsBar
             enriched={stackSorted}
@@ -899,83 +839,10 @@ export function ImpactQueue() {
           />
         </div>
 
-        <div className="border-t border-border/70 bg-background px-3 py-2">
-          <div className="grid gap-2 lg:grid-cols-2 lg:items-stretch">
-            <FocusInventoryStrip tcmFilter={tcmFilter} tcmOptions={tcmOptions} />
-            <div className="rounded-lg border border-border bg-card px-3 py-2 min-w-0">
-              <div className="flex flex-wrap items-center gap-1.5">
-                <Chip active={chipFilter === "all"} onClick={() => selectChip("all")}>All</Chip>
-                <Chip active={chipFilter === "hot"} onClick={() => selectChip("hot")} tone="danger"><Flame className="h-3 w-3" /> Hot</Chip>
-                <Chip active={chipFilter === "warm"} onClick={() => selectChip("warm")} tone="warning">Warm</Chip>
-                <Chip active={chipFilter === "cold"} onClick={() => selectChip("cold")}>Cold</Chip>
-                <Chip active={chipFilter === "overdue"} onClick={() => selectChip("overdue")} tone="danger">
-                  Overdue only
-                </Chip>
-                <MoreFiltersMenu
-                  activeFilter={chipFilter}
-                  onSelectFilter={selectChip}
-                  tcmOptions={tcmOptions}
-                />
-              </div>
-
-              {/* Add Lead Option Filters */}
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <Select value={areaFilter} onValueChange={setAreaFilter}>
-                  <SelectTrigger className="h-7 text-[11px] w-[140px] bg-background"><SelectValue placeholder="Area" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all" className="text-[11px]">All Areas</SelectItem>
-                    {uniqueAreas.map(a => <SelectItem key={a} value={a} className="text-[11px]">{a}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-
-                <Select value={typeFilter} onValueChange={setTypeFilter}>
-                  <SelectTrigger className="h-7 text-[11px] w-[110px] bg-background"><SelectValue placeholder="Type" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all" className="text-[11px]">All Types</SelectItem>
-                    <SelectItem value="Student" className="text-[11px]">Student</SelectItem>
-                    <SelectItem value="Working" className="text-[11px]">Working</SelectItem>
-                    <SelectItem value="Intern" className="text-[11px]">Intern</SelectItem>
-                    <SelectItem value="Family" className="text-[11px]">Family</SelectItem>
-                    <SelectItem value="Other" className="text-[11px]">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Select value={roomFilter} onValueChange={setRoomFilter}>
-                  <SelectTrigger className="h-7 text-[11px] w-[110px] bg-background"><SelectValue placeholder="Room" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all" className="text-[11px]">All Rooms</SelectItem>
-                    <SelectItem value="Private" className="text-[11px]">Private</SelectItem>
-                    <SelectItem value="Shared" className="text-[11px]">Shared</SelectItem>
-                    <SelectItem value="Both" className="text-[11px]">Both</SelectItem>
-                    <SelectItem value="Studio" className="text-[11px]">Studio</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Select value={needFilter} onValueChange={setNeedFilter}>
-                  <SelectTrigger className="h-7 text-[11px] w-[110px] bg-background"><SelectValue placeholder="Need" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all" className="text-[11px]">All Needs</SelectItem>
-                    <SelectItem value="Boys" className="text-[11px]">Boys</SelectItem>
-                    <SelectItem value="Girls" className="text-[11px]">Girls</SelectItem>
-                    <SelectItem value="Coed" className="text-[11px]">Coed</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="mt-3 flex flex-wrap items-center justify-end gap-2 border-t border-border/60 pt-2">
-                <span className="whitespace-nowrap text-[10px] text-muted-foreground">
-                  {filtered.length} lead{filtered.length !== 1 ? "s" : ""} in queue
-                </span>
-                {view === "board" && (
-                  <span className="whitespace-nowrap text-[10px] text-muted-foreground">
-                    Drag cards to move stage.
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
+        <ImpactQueueMetaBar leadCount={filtered.length} view={view} />
       </div>
+
+      <MessageLabSheet open={messageLabOpen} onOpenChange={setMessageLabOpen} tcmOptions={tcmOptions} />
 
       {unassignedLeads > 0 && role !== "tcm" && (
         <div className="text-[11px] rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-warning">
@@ -984,13 +851,24 @@ export function ImpactQueue() {
       )}
 
       {/* ---------------- 10x Command Bar ---------------- */}
-      <ImpactManagerEscalations stackSorted={stackSorted} tcms={tcms} role={role} />
 
-      {(chipFilter !== "all" || query.trim()) && (
+      {(chipFilter !== "all" || query.trim() || areaFilter !== "all" || typeFilter !== "all" || roomFilter !== "all" || needFilter !== "all") && (
         <div className="flex flex-wrap items-center gap-2 text-[11px] rounded-md border border-border bg-muted/30 px-2.5 py-1.5">
           <span className="text-muted-foreground">Showing:</span>
           {chipFilter !== "all" && (
             <Badge variant="outline" className="text-[10px]">{CHIP_LABELS[chipFilter]}</Badge>
+          )}
+          {areaFilter !== "all" && (
+            <Badge variant="outline" className="text-[10px]">{areaFilter}</Badge>
+          )}
+          {typeFilter !== "all" && (
+            <Badge variant="outline" className="text-[10px]">{typeFilter}</Badge>
+          )}
+          {roomFilter !== "all" && (
+            <Badge variant="outline" className="text-[10px]">{roomFilter}</Badge>
+          )}
+          {needFilter !== "all" && (
+            <Badge variant="outline" className="text-[10px]">{needFilter}</Badge>
           )}
           {query.trim() && (
             <Badge variant="outline" className="text-[10px]">“{query.trim()}”</Badge>
@@ -1000,6 +878,10 @@ export function ImpactQueue() {
             className="text-accent font-semibold hover:underline"
             onClick={() => {
               setChipFilter("all");
+              setAreaFilter("all");
+              setTypeFilter("all");
+              setRoomFilter("all");
+              setNeedFilter("all");
               setQuery("");
             }}
           >
@@ -1007,15 +889,6 @@ export function ImpactQueue() {
           </button>
         </div>
       )}
-
-      <ImpactStageMoveDialog
-        open={Boolean(stageMove)}
-        leadName={stageMove?.leadName ?? ""}
-        from={stageMove?.from ?? "inbox"}
-        to={stageMove?.to ?? "inbox"}
-        onConfirm={() => void confirmStageMove()}
-        onCancel={() => setStageMove(null)}
-      />
 
       {booting && leads.length === 0 && leadsSyncStatus !== "error" && (
         <div className="rounded-lg border border-border bg-card p-8 text-center space-y-2 animate-pulse">
@@ -1027,20 +900,54 @@ export function ImpactQueue() {
       {/* ---------------- View ---------------- */}
       {!booting || leads.length > 0 ? (view === "stack" ? (
         <div className="space-y-2">
+          {/* Stage filter bar — stack view only */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mr-1">Stage</span>
+            {([
+              { key: "all",       label: "All stages" },
+              { key: "inbox",     label: "Inbox" },
+              { key: "scheduled", label: "Tour scheduled" },
+              { key: "onTour",    label: "On tour" },
+              { key: "quoted",    label: "Quote sent" },
+              { key: "booked",    label: "Booked" },
+            ] as const).map((s) => (
+              <button
+                key={s.key}
+                type="button"
+                onClick={() => setStageFilter(s.key)}
+                className={`h-6 rounded-full border px-2.5 text-[10px] font-semibold transition-colors ${
+                  stageFilter === s.key
+                    ? "bg-foreground text-background border-foreground"
+                    : "border-border bg-background text-muted-foreground hover:border-foreground/40 hover:text-foreground"
+                }`}
+              >
+                {s.label}
+                {s.key !== "all" && (
+                  <span className="ml-1 opacity-60">
+                    {filtered.filter((e) => e.column === s.key).length}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
           {stackSorted.length === 0 && (
             <div className="rounded-lg border border-border bg-card p-10 text-center text-xs text-muted-foreground space-y-2">
               <p>
-                {chipFilter !== "all" || query.trim()
+                {chipFilter !== "all" || query.trim() || areaFilter !== "all" || typeFilter !== "all" || roomFilter !== "all" || needFilter !== "all"
                   ? "No leads match your filters."
                   : "Queue clear. Add a lead or relax 🌱"}
               </p>
-              {(chipFilter !== "all" || query.trim()) && (
+              {(chipFilter !== "all" || query.trim() || areaFilter !== "all" || typeFilter !== "all" || roomFilter !== "all" || needFilter !== "all") && (
                 <Button
                   size="sm"
                   variant="outline"
                   className="h-7 text-[10px]"
                   onClick={() => {
                     setChipFilter("all");
+                    setAreaFilter("all");
+                    setTypeFilter("all");
+                    setRoomFilter("all");
+                    setNeedFilter("all");
                     setQuery("");
                   }}
                 >
@@ -1073,21 +980,7 @@ export function ImpactQueue() {
             {COLUMNS.map((c) => (
               <div
                 key={c.key}
-                className={`min-w-0 h-full overflow-hidden rounded-xl border-l-2 ${c.tint} border-t border-r border-b border-border bg-background shadow-sm transition-colors ${
-                  dragOverColumn === c.key ? "ring-2 ring-accent/50 bg-accent/5" : ""
-                }`}
-                onDragOver={(ev) => {
-                  ev.preventDefault();
-                  setDragOverColumn(c.key);
-                }}
-                onDragLeave={() => setDragOverColumn((col) => (col === c.key ? null : col))}
-                onDrop={(ev) => {
-                  ev.preventDefault();
-                  setDragOverColumn(null);
-                  const leadId = ev.dataTransfer.getData("text/lead-id");
-                  const from = ev.dataTransfer.getData("text/from-column") as ColumnKey;
-                  if (leadId && from) requestStageMove(leadId, from, c.key);
-                }}
+                className={`min-w-0 h-full overflow-hidden rounded-xl border-l-2 ${c.tint} border-t border-r border-b border-border bg-background shadow-sm`}
               >
                 <div
                   className={cn(
@@ -1135,7 +1028,6 @@ export function ImpactQueue() {
                       setFocusLeadId(null);
                       setFocusAction(null);
                     }}
-                    onRequestStageMove={requestStageMove}
                   />
                 </div>
               </div>
@@ -1298,91 +1190,6 @@ function QuotesWeekCounter({
   );
 }
 
-function Chip({
-  active, onClick, children, tone = "default",
-}: {
-  active: boolean; onClick: () => void; children: React.ReactNode;
-  tone?: "default" | "danger" | "warning";
-}) {
-  const base = "h-6 px-2 rounded-full text-[10px] uppercase tracking-wider font-semibold border flex items-center gap-1 transition";
-  const activeStyle =
-    tone === "danger" ? "bg-danger text-danger-foreground border-danger" :
-    tone === "warning" ? "bg-warning text-warning-foreground border-warning" :
-    "bg-foreground text-background border-foreground";
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`${base} ${active ? activeStyle : "bg-card text-muted-foreground border-border hover:border-foreground/40"}`}>
-      {children}
-    </button>
-  );
-}
-
-function MoreFiltersMenu({
-  activeFilter,
-  onSelectFilter,
-  tcmOptions,
-}: {
-  activeFilter: QueueChipFilter;
-  onSelectFilter: (next: QueueChipFilter) => void;
-  tcmOptions: TCM[];
-}) {
-  const [messageLabOpen, setMessageLabOpen] = useState(false);
-  const secondaryFilters: Array<{ key: QueueChipFilter; label: string; tone?: "warning" | "default" }> = [
-    { key: "tour-today", label: "Tour today", tone: "warning" },
-    { key: "quote-pending", label: "Quote pending" },
-  ];
-  const activeSecondary = secondaryFilters.find((item) => item.key === activeFilter);
-
-  return (
-    <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            className={cn(
-              "h-6 rounded-full border px-2 text-[10px] uppercase tracking-wider font-semibold flex items-center gap-1 transition",
-              activeSecondary
-                ? "border-warning bg-warning text-warning-foreground"
-                : "border-border bg-card text-muted-foreground hover:border-foreground/40",
-            )}
-          >
-            <MoreHorizontal className="h-3 w-3" />
-            {activeSecondary ? activeSecondary.label : "More filters"}
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-44">
-          <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground">
-            Secondary
-          </DropdownMenuLabel>
-          {secondaryFilters.map((item) => (
-            <DropdownMenuItem
-              key={item.key}
-              className="text-xs"
-              onSelect={() => onSelectFilter(item.key)}
-            >
-              {item.label}
-              {activeFilter === item.key ? <CheckCircle2 className="ml-auto h-3 w-3 text-success" /> : null}
-            </DropdownMenuItem>
-          ))}
-          <DropdownMenuItem
-            className="text-xs"
-            onSelect={(event) => {
-              event.preventDefault();
-              setMessageLabOpen(true);
-            }}
-          >
-            <Beaker className="mr-1 h-3 w-3 text-accent" />
-            Message lab
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-      <MessageLabSheet open={messageLabOpen} onOpenChange={setMessageLabOpen} tcmOptions={tcmOptions} />
-    </>
-  );
-}
-
 /* ================================================================== */
 /*  Board column — action-queue bands for tour lanes                   */
 /* ================================================================== */
@@ -1397,7 +1204,6 @@ function BoardColumnBody({
   focusLeadId,
   focusAction,
   onFocusConsumed,
-  onRequestStageMove,
 }: {
   columnKey: ColumnKey;
   items: Enriched[];
@@ -1408,7 +1214,6 @@ function BoardColumnBody({
   focusLeadId: string | null;
   focusAction: LeadFocusAction | null;
   onFocusConsumed: () => void;
-  onRequestStageMove: (leadId: string, from: ColumnKey, to: ColumnKey) => void;
 }) {
   const useBands = columnKey === "scheduled" || columnKey === "onTour";
   const [postTourOpen, setPostTourOpen] = useState(true);
@@ -1465,9 +1270,6 @@ function BoardColumnBody({
             tcmOptions={tcmOptions}
             properties={properties}
             compact
-            draggable
-            dragColumn={columnKey}
-            onRequestStageMove={onRequestStageMove}
             autoOpen={focusLeadId === e.lead.id}
             focusAction={focusLeadId === e.lead.id ? focusAction : null}
             onAutoOpenConsumed={onFocusConsumed}
@@ -1505,9 +1307,6 @@ function BoardColumnBody({
                     tcmOptions={tcmOptions}
                     properties={properties}
                     compact
-                    draggable
-                    dragColumn={columnKey}
-                    onRequestStageMove={onRequestStageMove}
                     autoOpen={focusLeadId === e.lead.id}
                     focusAction={focusLeadId === e.lead.id ? focusAction : null}
                     onAutoOpenConsumed={onFocusConsumed}
@@ -1541,9 +1340,6 @@ function BoardColumnBody({
                   tcmOptions={tcmOptions}
                   properties={properties}
                   compact
-                  draggable
-                  dragColumn={columnKey}
-                  onRequestStageMove={onRequestStageMove}
                   autoOpen={focusLeadId === e.lead.id}
                   focusAction={focusLeadId === e.lead.id ? focusAction : null}
                   onAutoOpenConsumed={onFocusConsumed}
@@ -1570,15 +1366,12 @@ type EnrichedLite = {
 
 function LeadRow({
   enriched, rank, tcms, tcmOptions, properties, compact, autoOpen, focusAction, onAutoOpenConsumed,
-  draggable, dragColumn, onRequestStageMove, keyboardHighlight,
+  keyboardHighlight,
 }: {
   enriched: EnrichedLite; rank?: number; tcms: TCM[]; tcmOptions: TCM[]; properties: Property[]; compact?: boolean;
   autoOpen?: boolean;
   focusAction?: LeadFocusAction | null;
   onAutoOpenConsumed?: () => void;
-  draggable?: boolean;
-  dragColumn?: ColumnKey;
-  onRequestStageMove?: (leadId: string, from: ColumnKey, to: ColumnKey) => void;
   keyboardHighlight?: boolean;
 }) {
   const { lead, openTour, lastQuote, nba, column, tourTimeHint, tourBand } = enriched;
@@ -1625,37 +1418,12 @@ function LeadRow({
   }, [autoOpen, focusAction, lead.id, onAutoOpenConsumed, selectLead]);
 
   const staleQuote = isQuoteStale(lastQuote);
-  const COLUMN_FLOW: ColumnKey[] = ["inbox", "scheduled", "onTour", "quoted", "booked"];
-  const idx = Math.max(0, COLUMN_FLOW.indexOf(column));
-  const shift = async (dir: -1 | 1, event: MouseEvent<HTMLButtonElement>) => {
-    event.stopPropagation();
-    const nextColumn = COLUMN_FLOW[Math.min(COLUMN_FLOW.length - 1, Math.max(0, idx + dir))];
-    if (!nextColumn || nextColumn === column) return;
-    const nextStage = COLUMN_STAGE_TARGET[nextColumn];
-    if (!nextStage) return;
-    try {
-      if (nextColumn === "inbox" && openTour && (openTour.status === "scheduled" || openTour.status === "confirmed")) {
-        await cancelTour(openTour.id);
-      }
-      await setLeadStage(lead.id, nextStage);
-      toast.success(`${lead.name.split(" ")[0]} -> ${COLUMNS.find((c) => c.key === nextColumn)?.label ?? nextStage}`);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Stage move failed");
-    }
-  };
 
   return (
     <>
       <div
         role="button"
         tabIndex={0}
-        draggable={draggable}
-        onDragStart={(ev) => {
-          if (!draggable || !dragColumn) return;
-          ev.dataTransfer.setData("text/lead-id", lead.id);
-          ev.dataTransfer.setData("text/from-column", dragColumn);
-          ev.dataTransfer.effectAllowed = "move";
-        }}
         onClick={() => selectLead(lead.id)}
         onKeyDown={(ev) => {
           if (ev.key === "Enter" || ev.key === " ") {
@@ -1727,26 +1495,6 @@ function LeadRow({
               Quote 24h+ · follow up
             </Badge>
           )}
-        </div>
-        <div className="absolute right-2 top-2 flex items-center gap-0.5" onClick={(event) => event.stopPropagation()}>
-          <button
-            type="button"
-            onClick={(event) => void shift(-1, event)}
-            disabled={idx === 0}
-            title={`Move back · current: ${COLUMNS.find((c) => c.key === column)?.label ?? lead.stage}`}
-            className="h-5 w-5 rounded border border-border bg-card/95 hover:border-accent/60 hover:bg-accent/10 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center shadow-sm"
-          >
-            <ChevronLeft className="h-2.5 w-2.5" />
-          </button>
-          <button
-            type="button"
-            onClick={(event) => void shift(1, event)}
-            disabled={idx === COLUMN_FLOW.length - 1}
-            title={`Move forward · current: ${COLUMNS.find((c) => c.key === column)?.label ?? lead.stage}`}
-            className="h-5 w-5 rounded border border-border bg-card/95 hover:border-accent/60 hover:bg-accent/10 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center shadow-sm"
-          >
-            <ChevronRight className="h-2.5 w-2.5" />
-          </button>
         </div>
       </div>
     </>
@@ -3373,341 +3121,8 @@ function AuditMetric({ label, value, danger }: { label: string; value: string; d
   );
 }
 
-/* ================================================================== */
-/*  Focus Inventory Strip — what each TCM is pushing TODAY             */
-/* ================================================================== */
-
-// ── helpers for ManagedUser / TCM shape compatibility ──────────────────────────
-function tmName(t: any): string {
+function tmName(t: { fullName?: string; name?: string }): string {
   return memberDisplayName(t, "—");
-}
-function tmInitials(t: any): string {
-  const n = tmName(t);
-  const parts = n.trim().split(/\s+/);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return n.slice(0, 2).toUpperCase();
-}
-function tmZone(t: any): string {
-  if (t.zone) return t.zone;
-  if (Array.isArray(t.zones) && t.zones.length > 0) return t.zones[0];
-  return "";
-}
-
-function catalogVacantBeds(property: CatalogProperty): number {
-  if (property.source === "ops") return Number(property.vacantBeds ?? 0) || 0;
-  if (!property.pg) return 0;
-  const live = scarcity(property.pg).perBed;
-  return Object.values(live).reduce((sum, count) => sum + (count ?? 0), 0);
-}
-
-function catalogTotalBeds(property: CatalogProperty): number | null {
-  if (property.source === "ops") return Number(property.totalBeds ?? 0) || null;
-  if (!property.pg) return null;
-  return [property.pg.prices.single, property.pg.prices.double, property.pg.prices.triple]
-    .filter((price) => price > 0).length;
-}
-
-function normalizeInventoryText(value: string): string {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-}
-
-function propertyMatchesTcmZone(property: CatalogProperty, tcm: any): boolean {
-  const zoneText = normalizeInventoryText(tmZone(tcm));
-  if (!zoneText) return false;
-  const propertyText = normalizeInventoryText([
-    property.area,
-    property.name,
-    property.pg?.locality,
-    property.ops?.area,
-  ].filter(Boolean).join(" "));
-  return propertyText.includes(zoneText) || zoneText.includes(normalizeInventoryText(property.area));
-}
-
-function FocusInventoryStrip({ tcmFilter, tcmOptions }: { tcmFilter: string; tcmOptions: any[] }) {
-  const properties = useApp((s) => s.properties);
-  const focusProps = useTcmContacts((s) => s.focusProps);
-  const [manageOpen, setManageOpen] = useState(false);
-
-  const activeTcm =
-    tcmFilter !== "all" ? tcmOptions.find((t) => t.id === tcmFilter) : undefined;
-
-  const rows = useMemo(() => {
-    const list = activeTcm ? [activeTcm] : tcmOptions;
-    const catalog = allCatalogProperties(properties);
-    return list.map((t) => {
-      const ids = focusProps[t.id] ?? [];
-      const props = ids
-        .map((id: string) => resolvePropertyById(id, properties))
-        .filter(Boolean) as CatalogProperty[];
-      const inventoryScope = props.length
-        ? props
-        : catalog.filter((property) => propertyMatchesTcmZone(property, t));
-      const scopedInventory = inventoryScope.length ? inventoryScope : catalog;
-      const vacant = scopedInventory.reduce((a, p) => a + catalogVacantBeds(p), 0);
-      const label = props.length ? "beds free" : "hub beds";
-      return { tcm: t, props, vacant, label };
-    });
-  }, [activeTcm, tcmOptions, focusProps, properties]);
-
-  return (
-    <div className="rounded-lg border border-border bg-card px-3 py-2 min-w-0">
-      {/* Header */}
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2">
-          <Pin className="h-3.5 w-3.5 text-accent" />
-          <span className="whitespace-nowrap text-[11px] uppercase tracking-wider font-semibold text-foreground">
-            Today's Focus Inventory
-          </span>
-          <span className="hidden truncate text-[11px] text-muted-foreground sm:inline">· what to push first</span>
-        </div>
-        <Button
-          size="sm"
-          variant="outline"
-          className="h-7 shrink-0 text-[11px] gap-1.5 font-medium"
-          onClick={() => setManageOpen(true)}
-        >
-          <Home className="h-3 w-3" /> Manage focus
-        </Button>
-      </div>
-
-      {/* Per-TCM rows */}
-      <div className="max-h-20 space-y-1 overflow-y-auto pr-1">
-        {rows.map(({ tcm, props, vacant, label }) => (
-          <div key={tcm.id} className="flex min-h-[28px] flex-wrap items-center gap-x-3 gap-y-1">
-            {/* Avatar + name + beds free */}
-            <div className="flex min-w-[160px] shrink-0 items-center gap-1.5">
-              <div className="h-7 w-7 shrink-0 rounded-full bg-accent/20 text-accent text-[11px] font-bold flex items-center justify-center">
-                {tmInitials(tcm)}
-              </div>
-              <span className="max-w-20 truncate text-sm font-semibold">{tmName(tcm).split(" ")[0]}</span>
-              <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide whitespace-nowrap">
-                {vacant} {label}
-              </span>
-            </div>
-
-            {/* Property chips */}
-            {props.length === 0 ? (
-              <span className="text-[11px] text-muted-foreground italic">No focus set</span>
-            ) : (
-              <div className="flex flex-wrap gap-1.5">
-                {props.map((p) => (
-                  <div
-                    key={p.id}
-                    className="flex items-center gap-1.5 rounded-md border border-border bg-background px-2 py-0.5 text-[11px]"
-                  >
-                    <span className="font-semibold text-foreground">{p.name}</span>
-                    <span className="text-muted-foreground">{p.area}</span>
-                    <Badge
-                      variant="outline"
-                      className={`text-[10px] font-mono px-1.5 ${
-                        catalogVacantBeds(p) > 0
-                          ? "bg-success/10 text-success border-success/40"
-                          : "bg-danger/10 text-danger border-danger/40"
-                      }`}
-                    >
-                      {catalogVacantBeds(p)}/{catalogTotalBeds(p) ?? "—"}
-                    </Badge>
-                    <span className="text-muted-foreground">{formatINR(p.pricePerBed)}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        ))}
-        {rows.length === 0 && (
-          <p className="text-[11px] text-muted-foreground italic">
-            No TCMs available. Add a TCM/member first, then pin focus properties here.
-          </p>
-        )}
-      </div>
-
-      <ManageFocusDialog
-        open={manageOpen}
-        onOpenChange={setManageOpen}
-        defaultTcmId={activeTcm?.id ?? tcmOptions[0]?.id ?? ""}
-        tcmOptions={tcmOptions}
-      />
-    </div>
-  );
-}
-
-function ManageFocusDialog({
-  open, onOpenChange, defaultTcmId, tcmOptions,
-}: {
-  open: boolean;
-  onOpenChange: (v: boolean) => void;
-  defaultTcmId: string;
-  tcmOptions: any[];
-}) {
-  const properties = useApp((s) => s.properties);
-  const focusProps = useTcmContacts((s) => s.focusProps);
-  const toggleFocusProp = useTcmContacts((s) => s.toggleFocusProp);
-  const clearFocus = useTcmContacts((s) => s.clearFocus);
-  const [tcmId, setTcmId] = useState(defaultTcmId);
-  const [query, setQuery] = useState("");
-
-  useEffect(() => {
-    if (open) {
-      setTcmId(defaultTcmId);
-      setQuery("");
-    }
-  }, [open, defaultTcmId]);
-
-  const focused = focusProps[tcmId] ?? [];
-
-  const list = useMemo(() => {
-    const q = query.trim();
-    const base = q
-      ? searchPropertyCatalog(q, properties, { limit: 80 })
-      : allCatalogProperties(properties);
-    return [...base].sort((a, b) => {
-      const af = focused.includes(a.id) ? 0 : 1;
-      const bf = focused.includes(b.id) ? 0 : 1;
-      if (af !== bf) return af - bf;
-      return (b.vacantBeds ?? 1) - (a.vacantBeds ?? 1);
-    });
-  }, [properties, query, focused]);
-
-  const selectedTcm = tcmOptions.find((t) => t.id === tcmId);
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl p-0 gap-0 overflow-hidden flex flex-col max-h-[90vh]">
-        {/* Header */}
-        <div className="flex items-center gap-3 px-6 pt-6 pb-4 border-b border-border shrink-0">
-          <Pin className="h-5 w-5 text-foreground" />
-          <DialogTitle className="text-base font-semibold text-foreground">
-            Manage focus inventory
-          </DialogTitle>
-        </div>
-
-        {/* TCM selector + Search */}
-        <div className="grid grid-cols-2 gap-4 px-6 pt-5 pb-4 shrink-0">
-          <div className="space-y-1.5">
-            <Label className="text-[11px] uppercase tracking-widest text-muted-foreground font-semibold">TCM</Label>
-            <Select value={tcmId} onValueChange={setTcmId}>
-              <SelectTrigger className="h-11 text-sm rounded-xl border-border bg-background">
-                <SelectValue>
-                  {selectedTcm
-                    ? memberOptionLabel(selectedTcm)
-                    : "Select TCM"}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {tcmOptions.map((t) => (
-                  <SelectItem key={t.id} value={t.id} className="text-sm">
-                    <span className="font-medium">{tmName(t)}</span>
-                    <span className="text-muted-foreground"> · {memberAreaLabel(t)}</span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-[11px] uppercase tracking-widest text-muted-foreground font-semibold">Search</Label>
-            <Input
-              className="h-11 text-sm rounded-xl border-border bg-background"
-              placeholder="Property name or area"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
-          </div>
-        </div>
-
-        {/* Pinned count + Clear all */}
-        <div className="flex items-center justify-between px-6 pb-3 shrink-0">
-          <span className="text-sm text-foreground">
-            {focused.length} {focused.length === 1 ? "property" : "properties"} pinned
-          </span>
-          {focused.length > 0 && (
-            <button
-              type="button"
-              className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
-              onClick={() => { clearFocus(tcmId); toast("Focus cleared"); }}
-            >
-              <X className="h-3.5 w-3.5" /> Clear all
-            </button>
-          )}
-        </div>
-
-        {/* Property list */}
-        <div className="flex-1 overflow-y-auto px-4 pb-2 space-y-1.5">
-          {list.map((p) => {
-            const on = focused.includes(p.id);
-            const vacant = catalogVacantBeds(p);
-            const total = catalogTotalBeds(p);
-            return (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => {
-                  const wasOn = focused.includes(p.id);
-                  toggleFocusProp(tcmId, p.id);
-                  toast.success(wasOn ? `Removed ${p.name}` : `Pinned ${p.name}`);
-                }}
-                className={cn(
-                  "w-full text-left rounded-xl border px-4 py-3.5 flex items-center gap-4 transition-colors",
-                  on
-                    ? "bg-orange-50 border-orange-400 dark:bg-orange-950/30 dark:border-orange-500"
-                    : "bg-background border-border hover:bg-muted/40",
-                )}
-              >
-                {/* Checkbox */}
-                <div
-                  className={cn(
-                    "h-5 w-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors",
-                    on ? "bg-orange-500 border-orange-500" : "border-muted-foreground/40 bg-background",
-                  )}
-                >
-                  {on && (
-                    <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 12 12">
-                      <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  )}
-                </div>
-
-                {/* Name + area · price */}
-                <div className="flex-1 min-w-0">
-                  <div className={cn("text-sm font-semibold truncate", on ? "text-orange-700 dark:text-orange-300" : "text-foreground")}>
-                    {p.name}
-                  </div>
-                  <div className="text-[12px] text-muted-foreground truncate">
-                    {p.area} · {formatINR(p.pricePerBed)}/bed
-                  </div>
-                </div>
-
-                {/* Vacant/total badge */}
-                <div
-                  className={cn(
-                    "shrink-0 text-[12px] font-semibold tabular-nums px-2.5 py-0.5 rounded-full border",
-                    vacant > 0
-                      ? "text-success border-success/40 bg-success/10"
-                      : "text-danger border-danger/40 bg-danger/10",
-                  )}
-                >
-                  {vacant}/{total ?? "—"}
-                </div>
-              </button>
-            );
-          })}
-          {list.length === 0 && (
-            <p className="text-sm text-muted-foreground text-center py-8">No properties match.</p>
-          )}
-        </div>
-
-        {/* Done button */}
-        <div className="px-4 pb-5 pt-3 shrink-0 border-t border-border">
-          <button
-            type="button"
-            onClick={() => onOpenChange(false)}
-            className="w-full h-12 rounded-xl bg-foreground text-background text-sm font-semibold hover:opacity-90 transition-opacity"
-          >
-            Done
-          </button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
 }
 
 /* ================================================================== */
