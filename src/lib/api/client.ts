@@ -177,7 +177,7 @@ export const api = {
 
   auth: {
     me: () => request<{ user: AuthUser }>("/api/auth/me"),
-    update: (b: { password?: string; phone?: string; fullName?: string }) =>
+    update: (b: { password?: string; phone?: string; fullName?: string; isTcm?: boolean }) =>
       request<{ ok: true }>("/api/auth/update", { method: "PATCH", body: JSON.stringify(b) }),
   },
 
@@ -240,10 +240,12 @@ export const api = {
     list: (status?: UserStatus) =>
       request<ManagedUser[]>(`/api/users${status ? `?status=${status}` : ""}`),
     listLite: () =>
-      safe<{ items: { _id: string; name: string; email: string; role: string }[] }>(
-        () => request<{ items: { _id: string; name: string; email: string; role: string }[] }>("/api/users/list"),
+      safe<{ items: { _id: string; name: string; email: string; role: string; isTcm?: boolean }[] }>(
+        () => request<{ items: { _id: string; name: string; email: string; role: string; isTcm?: boolean }[] }>("/api/users/list"),
         () => localAdapter.listUsers(),
       ),
+    impersonate: (id: string) => request<{ ok: true }>("/api/auth/impersonate", { method: "POST", body: JSON.stringify({ id }) }),
+    returnToSelf: () => request<{ ok: true }>("/api/auth/return"),
     get: (id: string) => request<ManagedUser>(`/api/users/${id}`),
     create: (b: {
       fullName: string; email: string; phone?: string; password: string;
@@ -327,4 +329,37 @@ export const api = {
         `/api/activity/lead?leadId=${encodeURIComponent(leadId)}&limit=${limit}`,
       ),
   },
+
+  assignmentNotifications: {
+    /** Fetch pending assignment notifications addressed to the current user */
+    listPending: () =>
+      safe<{ items: AssignmentNotificationItem[] }>(
+        () => request<{ items: AssignmentNotificationItem[] }>("/api/assignment-notifications"),
+        () => ({ items: [] }),
+      ),
+    /** Fetch notifications that were passed on (so the original assigner is informed) */
+    listPassed: () =>
+      safe<{ items: AssignmentNotificationItem[] }>(
+        () => request<{ items: AssignmentNotificationItem[] }>("/api/assignment-notifications/passed"),
+        () => ({ items: [] }),
+      ),
+  },
 };
+
+/** Shape of an assignment notification returned from the server */
+export interface AssignmentNotificationItem {
+  _id: string;
+  tenantId: string;
+  type: "lead" | "tour";
+  entityId: string;
+  leadId: string;
+  leadName: string;
+  assignedById: string;
+  assignedByName: string;
+  assignedToId: string;
+  status: "pending" | "accepted" | "passed";
+  passedToId?: string;
+  passedChain: string[];
+  createdAt: string;
+  updatedAt: string;
+}

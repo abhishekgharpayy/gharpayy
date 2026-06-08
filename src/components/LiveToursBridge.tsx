@@ -309,6 +309,8 @@ export function LiveToursBridge() {
           next = prev.map((t) => (t.id === e.payload.tourId ? { ...t, status: "completed" } : t));
         } else if (e.type === "evt.tour.cancelled") {
           next = prev.map((t) => (t.id === e.payload.tourId ? { ...t, status: "cancelled" } : t));
+        } else if (e.type === "evt.tour.assignment_accepted") {
+          next = prev.map((t) => (t.id === e.payload.tourId ? { ...t, assignedTo: e.payload.tcmId, assignedToName: e.payload.assigneeName || e.payload.tcmId } : t));
         } else if (e.type === "evt.tour.updated") {
           const patch = (e.payload.patch as Partial<MytTour>) ?? {};
           next = prev.map((t) => (t.id === e.payload.tourId ? { ...t, ...patch } : t));

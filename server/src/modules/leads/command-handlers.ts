@@ -11,10 +11,15 @@ import {
 } from "../../../../src/contracts/commands.js";
 import { emit, newEventId } from "../../realtime/event-bus.js";
 import type { JwtClaims } from "../../auth/auth.js";
+import type { UserDoc } from "../../auth/auth.js";
 import { toE164 } from "../../platform/phone.js";
 import { withRetry, isMongoConflict } from "../../platform/retry.js";
 import { maybeReserveCommand } from "../../platform/dedup.js";
 import { cmdCounter, cmdLatency } from "../../platform/metrics.js";
+import {
+  createLeadAssignmentNotification,
+  applyAssignmentCommand,
+} from "./assignment-notification-handlers.js";
 
 const LEADS = "leads";
 const LEDGER = "command_ledger";
@@ -136,6 +141,10 @@ async function applyCommand(cmd: Command, user: JwtClaims): Promise<LedgerDoc["r
     const { applyActivityCommand } = await import("../activities/command-handlers.js");
     return (applyActivityCommand as any)(cmd, user);
   }
+  // Delegate assignment notification commands
+  if (cmd.type === "cmd.lead.accept_assignment" || cmd.type === "cmd.lead.pass_assignment") {
+    return applyAssignmentCommand(cmd, user);
+  }
 
   const { autoLogActivity } = await import("../activities/command-handlers.js");
 
@@ -229,7 +238,7 @@ async function applyCommand(cmd: Command, user: JwtClaims): Promise<LedgerDoc["r
         intent: p.intent ?? (p.quality === "hot" ? "hot" : p.quality === "bad" ? "cold" : "warm"),
         tags: p.tags ?? [],
         zoneId: p.zoneId ?? null,
-        assignedTcmId: p.assigneeId ?? null,
+        assignedTcmId: null,              // NOT assigned until notification is accepted
         stage: "new",
         confidence: p.quality === "hot" ? 90 : p.quality === "good" ? 70 : p.quality === "bad" ? 30 : 50,
         nextFollowUpAt: null,
@@ -246,7 +255,7 @@ async function applyCommand(cmd: Command, user: JwtClaims): Promise<LedgerDoc["r
         specialReqs: p.specialReqs ?? "",
         notes: p.notes ?? "",
         zoneCategory: p.zoneCategory ?? "",
-        assigneeId: p.assigneeId ?? null,
+        assigneeId: null,                 // NOT assigned until notification is accepted
         stageLabel: p.stageLabel ?? "",
         createdAt: now,
         updatedAt: now,
@@ -268,6 +277,30 @@ async function applyCommand(cmd: Command, user: JwtClaims): Promise<LedgerDoc["r
         meta: { source: lead.source, intent: lead.intent },
         user, correlationId,
       });
+
+      // If an assignee was specified AND it's not the creator themselves,
+      // create a pending assignment notification. If assigning to self, directly
+      // set the assigneeId (no need to notify yourself).
+      if (p.assigneeId) {
+        if (p.assigneeId === user.sub) {
+          // Self-assignment: directly assign without notification
+          await col(LEADS).updateOne(
+            { _id: lead._id, tenantId: user.tenantId },
+            { $set: { assignedTcmId: user.sub, assigneeId: user.sub, updatedAt: now }, $inc: { __v: 1 } as any },
+          );
+        } else {
+          const assigner = await col<UserDoc>("users").findOne({ _id: user.sub, tenantId: user.tenantId });
+          await createLeadAssignmentNotification({
+            leadId: lead._id,
+            leadName: lead.name,
+            assignedById: user.sub,
+            assignedByName: assigner?.fullName ?? user.fullName ?? user.sub,
+            assignedToId: p.assigneeId,
+            tenantId: user.tenantId,
+          });
+        }
+      }
+
       return { ok: true, eventIds: [evtId], data: { leadId } };
     }
 
@@ -310,21 +343,48 @@ async function applyCommand(cmd: Command, user: JwtClaims): Promise<LedgerDoc["r
 
     case "cmd.lead.assign": {
       const p = AssignLeadCmd.parse(cmd).payload;
-      const r = await col(LEADS).updateOne(
-        { _id: p.leadId, tenantId: user.tenantId },
-        { $set: { assignedTcmId: p.tcmId, assigneeId: p.tcmId, updatedAt: now }, $inc: { __v: 1 } },
-      );
-      if (r.matchedCount === 0) throw Object.assign(new Error("Lead not found"), { code: "NOT_FOUND" });
+
+      // Fetch the lead to get its name for the notification
+      const lead = await col<Lead>(LEADS).findOne({ _id: p.leadId, tenantId: user.tenantId });
+      if (!lead) throw Object.assign(new Error("Lead not found"), { code: "NOT_FOUND" });
+
+      // Self-assignment: directly assign without creating a notification
+      if (p.tcmId === user.sub) {
+        const r = await col(LEADS).updateOne(
+          { _id: p.leadId, tenantId: user.tenantId },
+          { $set: { assignedTcmId: user.sub, assigneeId: user.sub, updatedAt: now }, $inc: { __v: 1 } as any },
+        );
+        if (r.matchedCount === 0) throw Object.assign(new Error("Lead not found"), { code: "NOT_FOUND" });
+        const selfEvtId = newEventId();
+        await emit({
+          _id: selfEvtId, type: "evt.lead.assigned", occurredAt: now,
+          actor: user.sub, tenantId: user.tenantId, correlationId, causationId: null, version: 1,
+          payload: { leadId: p.leadId, tcmId: p.tcmId },
+        });
+        return { ok: true, eventIds: [selfEvtId] };
+      }
+
+      // Create a pending assignment notification instead of directly assigning
+      const assigner = await col<UserDoc>("users").findOne({ _id: user.sub, tenantId: user.tenantId });
+      await createLeadAssignmentNotification({
+        leadId: p.leadId,
+        leadName: lead.name,
+        assignedById: user.sub,
+        assignedByName: assigner?.fullName ?? user.fullName ?? user.sub,
+        assignedToId: p.tcmId,
+        tenantId: user.tenantId,
+      });
+
       const evtId = newEventId();
       await emit({
-        _id: evtId, type: "evt.lead.assigned", occurredAt: now,
+        _id: evtId, type: "evt.lead.assignment_pending", occurredAt: now,
         actor: user.sub, tenantId: user.tenantId, correlationId, causationId: null, version: 1,
         payload: { leadId: p.leadId, tcmId: p.tcmId },
       });
       await autoLogActivity({
         entityType: "lead", entityId: p.leadId, kind: "assigned",
-        subject: `Assigned to TCM`,
-        body: `Now owned by ${p.tcmId}`,
+        subject: `Assignment pending`,
+        body: `Pending acceptance by ${p.tcmId}`,
         meta: { tcmId: p.tcmId },
         user, correlationId,
       });

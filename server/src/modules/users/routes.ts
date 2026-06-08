@@ -69,9 +69,9 @@ export function registerUserRoutes(app: FastifyInstance) {
   app.get("/api/users/list", { preHandler: [requireAuth] }, async (req, reply) => {
     const list = await users()
       .find({ tenantId: req.user!.tenantId, status: "active" })
-      .project({ _id: 1, fullName: 1, email: 1, role: 1 })
+      .project({ _id: 1, fullName: 1, email: 1, role: 1, isTcm: 1 })
       .toArray();
-    return reply.send({ items: list.map((u) => ({ _id: u._id, name: u.fullName, email: u.email, role: u.role })) });
+    return reply.send({ items: list.map((u) => ({ _id: u._id, name: u.fullName, email: u.email, role: u.role, isTcm: u.isTcm ?? (u.role === "member" || u.role === "tcm") })) });
   });
 
   // ---------- ROLE-FILTERED LISTS ----------

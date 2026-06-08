@@ -5,6 +5,10 @@ import { Command } from "../../../../src/contracts/commands.js";
 import { Lead } from "../../../../src/contracts/entities.js";
 import { dispatch } from "./command-handlers.js";
 import { requireAuth, requireScope } from "../../middleware/auth.js";
+import {
+  getPendingAssignmentsForUser,
+  getPassedNotificationsForUser,
+} from "./assignment-notification-handlers.js";
 
 const ListQuery = z.object({
   stage: z.string().optional(),
@@ -36,12 +40,16 @@ export function registerLeadsRoutes(app: FastifyInstance) {
       "cmd.lead.assign": ["lead.assign"],
       "cmd.lead.change_stage": ["lead.update"],
       "cmd.lead.delete": ["lead.update"],
+      "cmd.lead.accept_assignment": ["lead.read"],
+      "cmd.lead.pass_assignment": ["lead.read"],
       "cmd.tour.schedule": ["tour.schedule"],
       "cmd.tour.reschedule": ["tour.schedule"],
       "cmd.tour.update": ["tour.schedule"],
       "cmd.tour.cancel": ["tour.schedule"],
       "cmd.tour.complete": ["tour.complete"],
       "cmd.tour.update_post_tour": ["tour.complete"],
+      "cmd.tour.accept_assignment": ["lead.read"],
+      "cmd.tour.pass_assignment": ["lead.read"],
       "cmd.todo.create": ["todo.create"],
       "cmd.todo.update": ["todo.update"],
       "cmd.todo.assign": ["todo.assign"],
@@ -104,13 +112,26 @@ export function registerLeadsRoutes(app: FastifyInstance) {
       ];
     } else if (role === "tcm") {
       // TCM inboxes are assignment-driven. They can see leads assigned to them,
-      // leads they created, or leads where a tour is assigned to them.
+      // leads they created, or leads where a FULLY-ACCEPTED tour is assigned to them.
+      // Leads/tours with a PENDING assignment notification are excluded until accepted.
       const myTours = await col("tours")
         .find({ assignedTo: myId, tenantId: req.user!.tenantId })
-        .project({ leadId: 1 })
+        .project({ leadId: 1, _id: 1 })
         .toArray();
-      const tourLeadIds = myTours.map((t) => t.leadId);
-      
+
+      // Exclude tours that still have a pending assignment notification
+      const pendingTourIds = new Set(
+        (await col("assignment_notifications")
+          .find({ tenantId: req.user!.tenantId, assignedToId: myId, status: "pending", type: "tour" })
+          .project({ entityId: 1 })
+          .toArray()
+        ).map((n: any) => n.entityId),
+      );
+
+      const tourLeadIds = myTours
+        .filter((t: any) => !pendingTourIds.has(t._id))
+        .map((t: any) => t.leadId);
+
       filter.$or = [
         { assignedTcmId: myId },
         { assigneeId: myId },
@@ -154,5 +175,19 @@ export function registerLeadsRoutes(app: FastifyInstance) {
       (role === "tcm" && (isMine || isTcmOwned || hasTour));
     if (!allowed) return reply.code(404).send({ code: "NOT_FOUND", message: "Lead not found" });
     return reply.send(lead);
+  });
+
+  // ---------- Assignment Notifications ----------
+
+  // GET /api/assignment-notifications — pending assignments for the current user
+  app.get("/api/assignment-notifications", { preHandler: [requireAuth] }, async (req, reply) => {
+    const pending = await getPendingAssignmentsForUser(req.user!.sub, req.user!.tenantId);
+    return reply.send({ items: pending });
+  });
+
+  // GET /api/assignment-notifications/passed — recently passed assignments (so assigner is informed)
+  app.get("/api/assignment-notifications/passed", { preHandler: [requireAuth] }, async (req, reply) => {
+    const passed = await getPassedNotificationsForUser(req.user!.sub, req.user!.tenantId);
+    return reply.send({ items: passed });
   });
 }

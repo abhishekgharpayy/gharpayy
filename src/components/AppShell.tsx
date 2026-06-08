@@ -226,7 +226,10 @@ export function AppShell({ children }: { children: ReactNode }) {
     ],
   };
 
-  const items = [...navByRole[role]];
+  const [superAdminMode, setSuperAdminMode] = useState<"admin" | "manager">("manager");
+  const items = role === "super-admin" 
+    ? (superAdminMode === "admin" ? navByRole["super-admin"] : navByRole["hr"]) 
+    : [...navByRole[role]];
   
 
   const isActive = (to: string) => (to === "/" ? path === "/" : path === to || path.startsWith(to + "/"));
@@ -332,6 +335,31 @@ export function AppShell({ children }: { children: ReactNode }) {
             );
           })}
         </nav>
+
+        {role === "super-admin" && (
+          <div className="px-3 pt-3 pb-1 border-t border-sidebar-border">
+            <div className="flex bg-sidebar-accent/50 rounded-md p-0.5 border border-border/50 max-w-[80px] mx-auto">
+              <button
+                onClick={() => setSuperAdminMode("manager")}
+                className={cn(
+                  "flex-1 text-[10px] py-1 rounded-sm font-semibold transition-colors",
+                  superAdminMode === "manager" ? "bg-background text-foreground shadow-sm ring-1 ring-border" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                1
+              </button>
+              <button
+                onClick={() => setSuperAdminMode("admin")}
+                className={cn(
+                  "flex-1 text-[10px] py-1 rounded-sm font-semibold transition-colors",
+                  superAdminMode === "admin" ? "bg-background text-foreground shadow-sm ring-1 ring-border" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                2
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="p-3 border-t border-sidebar-border space-y-2">
           <div className="text-[10px] uppercase tracking-wider text-sidebar-foreground px-1">View as</div>
