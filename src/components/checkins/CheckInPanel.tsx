@@ -87,12 +87,20 @@ export function CheckInPanel({ lead }: { lead: Lead }) {
 
   const checkinSeed = useMemo(() => {
     const rent = paidQuote?.discountedPrice || lead.quotedPrice || lead.budget || quoteProperty?.pricePerBed || 0;
+    
+    const safeDateIso = (dateStr?: string | null) => {
+      if (!dateStr) return undefined;
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return undefined;
+      return d.toISOString();
+    };
+
     return {
       rent,
       deposit: 0,
       propertyId: paidQuote?.propertyId || quoteProperty?.id,
       propertyName: paidQuote?.propertyName || quoteProperty?.name,
-      checkInDate: lead.moveInDate ? new Date(lead.moveInDate).toISOString() : undefined,
+      checkInDate: safeDateIso(lead.moveInDate),
     };
   }, [lead.budget, lead.moveInDate, lead.quotedPrice, paidQuote, quoteProperty]);
 

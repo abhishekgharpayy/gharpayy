@@ -7,6 +7,9 @@ export const LeadStage = z.enum([
   "on-tour",
   "tour-done",
   "negotiation",
+  "quote-sent",
+  "not-responding-3d",
+  "not-responding-7d",
   "booked",
   "dropped",
 ]);
