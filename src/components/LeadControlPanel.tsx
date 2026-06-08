@@ -1467,17 +1467,6 @@ export function LeadControlPanel() {
                     {/* ── SCORECARD ─────────────────────────────────────── */}
                     <PostTourScorecard tourId={target.id} />
 
-                    <Section title={`Deal confidence - ${pt.confidence}%`}>
-                      <input
-                        type="range"
-                        min={0}
-                        max={100}
-                        value={pt.confidence}
-                        onChange={(e) => updatePostTour(target.id, { confidence: +e.target.value })}
-                        className="w-full accent-(--color-accent)"
-                      />
-                    </Section>
-
                     <Section title="Key objection">
                       <Select
                         value={pt.objection ?? ""}
@@ -2149,7 +2138,7 @@ function ProfileCallBrief({ lead }: { lead: Lead }) {
   const { data: interests = [] } = useLeadInterests(lead.id);
   const [activePg, setActivePg] = useState<PG | null>(null);
   const selectedProperties = useMemo(
-    () => interests.map((id) => resolvePropertyById(id, properties)).filter(Boolean).slice(0, 3),
+    () => interests.map((id) => resolvePropertyById(id, properties)).filter(Boolean),
     [interests, properties],
   );
   const items = [
@@ -3362,10 +3351,24 @@ function useTourScorecard(tourId: string) {
     }
   });
 
+  useEffect(() => {
+    const handleStorage = () => {
+      try {
+        const raw = localStorage.getItem(storageKey);
+        setScore(raw ? JSON.parse(raw) : { propertyFit: "", budgetFit: "", locationFit: "", decisionReadiness: "", moveInUrgency: "" });
+      } catch {}
+    };
+    window.addEventListener(storageKey, handleStorage);
+    return () => window.removeEventListener(storageKey, handleStorage);
+  }, [storageKey]);
+
   const pick = (key: keyof ScoreState, value: string) => {
     const next = { ...score, [key]: score[key] === value ? "" : value };
     setScore(next);
-    try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch {}
+    try { 
+      localStorage.setItem(storageKey, JSON.stringify(next)); 
+      window.dispatchEvent(new Event(storageKey));
+    } catch {}
   };
 
   const filledCount = Object.values(score).filter(Boolean).length;
@@ -3434,13 +3437,11 @@ function PostTourOutcomeActions({
   const scorecardComplete = filledCount === SCORECARD_SECTIONS.length;
   const formReady =
     scorecardComplete &&
-    pt.confidence > 0 &&
     Boolean(pt.objection) &&
     Boolean(pt.expectedDecisionAt) &&
     Boolean(pt.nextFollowUpAt);
   const remaining: string[] = [];
   if (!scorecardComplete) remaining.push("scorecard");
-  if (pt.confidence <= 0) remaining.push("confidence");
   if (!pt.objection) remaining.push("objection");
   if (!pt.expectedDecisionAt) remaining.push("expected date");
   if (!pt.nextFollowUpAt) remaining.push("follow-up");
