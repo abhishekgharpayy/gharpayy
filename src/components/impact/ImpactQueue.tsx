@@ -391,6 +391,10 @@ export function ImpactQueue() {
   const [tcmFilter, setTcmFilter] = useState<string>(role === "tcm" ? currentTcmId : "all");
   const [query, setQuery] = useState("");
   const [chipFilter, setChipFilter] = useState<QueueChipFilter>(() => initialChipFilter(role));
+  const [areaFilter, setAreaFilter] = useState<string>("all");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [roomFilter, setRoomFilter] = useState<string>("all");
+  const [needFilter, setNeedFilter] = useState<string>("all");
   const [view, setView] = useState<ViewMode>(readStoredView);
   const [focusLeadId, setFocusLeadId] = useState<string | null>(null);
   const [focusAction, setFocusAction] = useState<LeadFocusAction | null>(null);
@@ -588,6 +592,15 @@ export function ImpactQueue() {
   }, [leads, tours, tick, markTourStarted]);
 
   /* --------- filter chips --------- */
+  const uniqueAreas = useMemo(() => {
+    const s = new Set<string>();
+    for (const e of enriched) {
+      if (e.lead.preferredArea) s.add(e.lead.preferredArea);
+      if (e.lead.areas) e.lead.areas.forEach(a => s.add(a));
+    }
+    return Array.from(s).filter(Boolean).sort();
+  }, [enriched]);
+
   const filtered = useMemo(() => {
     return enriched.filter((e) => {
       if (chipFilter === "hot" && e.lead.intent !== "hot") return false;
@@ -597,9 +610,15 @@ export function ImpactQueue() {
       if (chipFilter === "tour-today" && !(e.openTour && isToday(e.openTour.scheduledAt))) return false;
       if (chipFilter === "quote-pending" && e.lastQuote?.status !== "sent") return false;
       if (e.lead.stage === "dropped") return false;
+
+      if (areaFilter !== "all" && e.lead.preferredArea?.toLowerCase() !== areaFilter.toLowerCase() && !e.lead.areas?.map(a => a.toLowerCase()).includes(areaFilter.toLowerCase())) return false;
+      if (typeFilter !== "all" && e.lead.type?.toLowerCase() !== typeFilter.toLowerCase()) return false;
+      if (roomFilter !== "all" && e.lead.room?.toLowerCase() !== roomFilter.toLowerCase()) return false;
+      if (needFilter !== "all" && e.lead.need?.toLowerCase() !== needFilter.toLowerCase()) return false;
+
       return true;
     });
-  }, [enriched, chipFilter]);
+  }, [enriched, chipFilter, areaFilter, typeFilter, roomFilter, needFilter]);
 
   const stackSorted = useMemo(
     () => [...filtered].sort((a, b) => b.score - a.score),
@@ -898,7 +917,52 @@ export function ImpactQueue() {
                   tcmOptions={tcmOptions}
                 />
               </div>
-              <div className="mt-2 flex flex-wrap items-center justify-end gap-2 border-t border-border/60 pt-2">
+
+              {/* Add Lead Option Filters */}
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <Select value={areaFilter} onValueChange={setAreaFilter}>
+                  <SelectTrigger className="h-7 text-[11px] w-[140px] bg-background"><SelectValue placeholder="Area" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all" className="text-[11px]">All Areas</SelectItem>
+                    {uniqueAreas.map(a => <SelectItem key={a} value={a} className="text-[11px]">{a}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+
+                <Select value={typeFilter} onValueChange={setTypeFilter}>
+                  <SelectTrigger className="h-7 text-[11px] w-[110px] bg-background"><SelectValue placeholder="Type" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all" className="text-[11px]">All Types</SelectItem>
+                    <SelectItem value="Student" className="text-[11px]">Student</SelectItem>
+                    <SelectItem value="Working" className="text-[11px]">Working</SelectItem>
+                    <SelectItem value="Intern" className="text-[11px]">Intern</SelectItem>
+                    <SelectItem value="Family" className="text-[11px]">Family</SelectItem>
+                    <SelectItem value="Other" className="text-[11px]">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={roomFilter} onValueChange={setRoomFilter}>
+                  <SelectTrigger className="h-7 text-[11px] w-[110px] bg-background"><SelectValue placeholder="Room" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all" className="text-[11px]">All Rooms</SelectItem>
+                    <SelectItem value="Private" className="text-[11px]">Private</SelectItem>
+                    <SelectItem value="Shared" className="text-[11px]">Shared</SelectItem>
+                    <SelectItem value="Both" className="text-[11px]">Both</SelectItem>
+                    <SelectItem value="Studio" className="text-[11px]">Studio</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={needFilter} onValueChange={setNeedFilter}>
+                  <SelectTrigger className="h-7 text-[11px] w-[110px] bg-background"><SelectValue placeholder="Need" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all" className="text-[11px]">All Needs</SelectItem>
+                    <SelectItem value="Boys" className="text-[11px]">Boys</SelectItem>
+                    <SelectItem value="Girls" className="text-[11px]">Girls</SelectItem>
+                    <SelectItem value="Coed" className="text-[11px]">Coed</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="mt-3 flex flex-wrap items-center justify-end gap-2 border-t border-border/60 pt-2">
                 <span className="whitespace-nowrap text-[10px] text-muted-foreground">
                   {filtered.length} lead{filtered.length !== 1 ? "s" : ""} in queue
                 </span>
@@ -3832,7 +3896,7 @@ function TenXCommandBar({
           <Sunrise className="h-3.5 w-3.5" /> Daily digest
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sunrise className="h-4 w-4 text-accent" /> Today's digest
