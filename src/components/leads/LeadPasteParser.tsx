@@ -450,8 +450,8 @@ export function LeadPasteParser({ onDone }: Props) {
           )}
         </div>
 
-        <div className="min-h-0 flex-1 p-3">
-          <div className="grid h-full min-h-0 grid-cols-2 grid-rows-2 gap-2">
+        <div className="min-h-0 flex-1 p-3 overflow-y-auto">
+          <div className="grid grid-cols-2 gap-2 items-start">
             <FormGroup title="Contact" invalid={isPending("name") || isPending("phone") || isPending("email") || isPending("areas")}>
               <Field label="Name *" invalid={isPending("name")} hint={fieldHint("name")}>
                 <div className="relative">
@@ -695,7 +695,7 @@ function FormGroup({
 }) {
   return (
     <section className={cn(
-      "min-h-0 overflow-hidden rounded-xl border border-border/80 bg-background/70 p-2 shadow-[0_1px_0_rgba(15,23,42,0.03)]",
+      "rounded-xl border border-border/80 bg-background/70 p-2 shadow-[0_1px_0_rgba(15,23,42,0.03)]",
       invalid && "border-destructive/35 bg-destructive/[0.03]",
     )}>
       <div className={cn("mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground", invalid && "text-destructive")}>
