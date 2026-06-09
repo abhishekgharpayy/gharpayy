@@ -73,6 +73,10 @@ function copyWA(msg: string) {
 export function CheckInPanel({ lead }: { lead: Lead }) {
   const properties = useApp((s) => s.properties);
   const setLeadStage = useApp((s) => s.setLeadStage);
+  const closeDeal = useApp((s) => s.closeDeal);
+  const addTenant = useApp((s) => s.addTenant);
+  const existingBooking = useApp((s) => s.bookings.find((b) => b.leadId === lead.id));
+  const existingTenant = useApp((s) => s.tenants.find((t) => t.leadId === lead.id));
   const { data: checkin } = useCheckin(lead.id);
   const { data: quotes = [] } = useQuotationsQuery(lead.id);
   const { mutate: upsert } = useUpsertCheckin();
@@ -629,6 +633,15 @@ export function CheckInPanel({ lead }: { lead: Lead }) {
             checkin.balanceDue > 0 ? "Collect remaining balance before key handover" : undefined
           }
           onClick={() => {
+            if (!existingBooking) {
+              closeDeal({
+                leadId: lead.id,
+                tourId: "checkin",
+                propertyId: checkin.propertyId ?? "",
+                tcmId: lead.assignedTcmId ?? "",
+                amount: checkin.rent,
+              });
+            }
             void setLeadStage(lead.id, "booked");
             setStage({ id: checkin.id, leadId: lead.id, stage: "moved_in" });
             copyWA(waMovedIn(lead.name));
@@ -754,10 +767,33 @@ export function CheckInPanel({ lead }: { lead: Lead }) {
               onClick={() => {
                 if (nps)
                   patch({ id: checkin.id, leadId: lead.id, patch: { npsScore: Number(nps) } });
+                const booking = existingBooking ?? closeDeal({
+                  leadId: lead.id,
+                  tourId: "checkin",
+                  propertyId: checkin.propertyId ?? "",
+                  tcmId: lead.assignedTcmId ?? "",
+                  amount: checkin.rent,
+                });
+                if (booking && !existingTenant) {
+                  addTenant({
+                    bookingId: booking.id,
+                    leadId: lead.id,
+                    propertyId: checkin.propertyId ?? "",
+                    propertyName: checkin.propertyName ?? "",
+                    tcmId: lead.assignedTcmId ?? "",
+                    name: lead.name,
+                    phone: lead.phone,
+                    roomNumber: checkin.roomNumber,
+                    moveInDate: checkin.checkInDate ?? new Date().toISOString().slice(0, 10),
+                    rent: checkin.rent,
+                    deposit: checkin.deposit,
+                    status: "active",
+                  });
+                }
                 void setLeadStage(lead.id, "booked");
                 setStage({ id: checkin.id, leadId: lead.id, stage: "settled" });
                 copyWA(waSettleCheck(lead.name));
-                toast.success("Check-in complete");
+                toast.success("Check-in complete · booking created");
               }}
             >
               <CheckCircle2 className="h-3 w-3 mr-1" /> Complete check-in
