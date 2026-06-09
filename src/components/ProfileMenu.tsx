@@ -16,25 +16,19 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuSubContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useApp } from "@/lib/store";
-import { memberAreaLabel, memberDisplayName, useActiveTcMs } from "@/hooks/useOrgDirectory";
+import { roleLabel } from "@/lib/role-labels";
 import { useAuthUser } from "@/lib/auth-store";
 import { cn } from "@/lib/utils";
 import {
   UserRound,
   UserPlus,
+  Users,
   Settings,
   HelpCircle,
   LogOut,
   RefreshCw,
-  Users,
   Building2,
   ShieldCheck,
   Target,
@@ -50,14 +44,10 @@ const ROLE_META = {
 } as const;
 
 export function ProfileMenu() {
-  const { role, setRole, currentTcmId, setCurrentTcmId, tcms } = useApp();
-  const { tcms: activeTcms } = useActiveTcMs();
-  const availableTcns = (activeTcms && activeTcms.length > 0) ? activeTcms : tcms;
   const navigate = useNavigate();
-  const meta = ROLE_META[role];
-  const tcm = role === "tcm" ? availableTcns.find((t) => t.id === currentTcmId) : null;
   const authUser = useAuthUser((s) => s.user);
-  const personName = tcm?.name ?? authUser?.fullName ?? authUser?.username ?? authUser?.email ?? "Account";
+  const meta = ROLE_META[authUser?.role ?? "flow-ops"];
+  const personName = authUser?.fullName ?? authUser?.username ?? authUser?.email ?? "Account";
   const computeInitials = (n: string) =>
     n
       .split(/[\s@._-]+/)
@@ -65,11 +55,9 @@ export function ProfileMenu() {
       .slice(0, 2)
       .map((p) => p[0]?.toUpperCase() ?? "")
       .join("") || "U";
-  const initials = tcm?.initials ?? computeInitials(personName);
+  const initials = computeInitials(personName);
 
-  const roleDisplay = authUser?.role 
-    ? authUser.role.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
-    : "Member";
+  const roleDisplay = authUser?.role ? roleLabel(authUser.role) : "Flow Ops";
 
   return (
     <DropdownMenu>
@@ -92,26 +80,6 @@ export function ProfileMenu() {
             <div className="truncate text-sm font-medium">{personName}</div>
           </div>
         </DropdownMenuLabel>
-
-        {role === "tcm" && availableTcns.length > 0 && (
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger>
-              <Users className="mr-2 h-4 w-4" /> Switch TCM
-            </DropdownMenuSubTrigger>
-            <DropdownMenuSubContent className="w-56">
-              <DropdownMenuRadioGroup value={currentTcmId} onValueChange={setCurrentTcmId}>
-                {availableTcns.map((t: any) => (
-                  <DropdownMenuRadioItem key={t.id} value={t.id}>
-                    {memberDisplayName(t)}
-                    <span className="ml-auto max-w-[96px] truncate text-[10px] text-muted-foreground">
-                      {memberAreaLabel(t)}
-                    </span>
-                  </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
-            </DropdownMenuSubContent>
-          </DropdownMenuSub>
-        )}
 
         <DropdownMenuSeparator />
 
