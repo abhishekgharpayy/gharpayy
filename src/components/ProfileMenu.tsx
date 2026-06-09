@@ -47,7 +47,8 @@ export function ProfileMenu() {
   const navigate = useNavigate();
   const authUser = useAuthUser((s) => s.user);
   const meta =
-    ROLE_META[(authUser?.role ?? "flow-ops").replace(/_/g, "-") as keyof typeof ROLE_META];
+    ROLE_META[(authUser?.role ?? "flow-ops").replace(/_/g, "-") as keyof typeof ROLE_META] ??
+    ROLE_META["flow-ops"];
   const personName = authUser?.fullName ?? authUser?.username ?? authUser?.email ?? "Account";
   const computeInitials = (n: string) =>
     n
