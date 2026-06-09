@@ -190,6 +190,30 @@ async function ensureIndexes(db: Db) {
           { key: { tenantId: 1, assignedById: 1, status: 1 } },
         ]),
     },
+    {
+      name: "follow_ups",
+      run: () =>
+        db.collection("follow_ups").createIndexes([
+          { key: { tenantId: 1, leadId: 1, dueAt: 1 } },
+          { key: { tenantId: 1, tcmId: 1, done: 1 } },
+        ]),
+    },
+    {
+      name: "handoffs",
+      run: () =>
+        db.collection("handoffs").createIndexes([
+          { key: { tenantId: 1, leadId: 1, ts: -1 } },
+          { key: { tenantId: 1, read: 1 } },
+        ]),
+    },
+    {
+      name: "sequences",
+      run: () =>
+        db.collection("sequences").createIndexes([
+          { key: { tenantId: 1, leadId: 1 } },
+          { key: { tenantId: 1, kind: 1, startedAt: -1 } },
+        ]),
+    },
   ];
 
   // Run sequentially with isolation: a single bad index must NOT prevent boot.

@@ -26,9 +26,15 @@ import { PipButton } from "./pip/PipButton";
 import { usePipRouteSync } from "./pip/usePipSync";
 
 
+import { LiveActivitiesBridge } from "./LiveActivitiesBridge";
+import { LiveTodosBridge } from "./LiveTodosBridge";
+import { LiveFollowUpsBridge } from "./LiveFollowUpsBridge";
+import { LiveHandoffsBridge } from "./LiveHandoffsBridge";
+import { LiveSequencesBridge } from "./LiveSequencesBridge";
 import { ClientOnly } from "./ClientOnly";
 import { QuickCreateMenu } from "./QuickCreateMenu";
 import { LiveLeadsBridge } from "./LiveLeadsBridge";
+import { LivePropertiesBridge } from "./LivePropertiesBridge";
 import { LiveTcMsBridge } from "./LiveTcMsBridge";
 import { LiveToursAppBridge } from "./LiveToursAppBridge";
 import { LiveToursBridge } from "./LiveToursBridge";
@@ -236,6 +242,12 @@ export function AppShell({ children }: { children: ReactNode }) {
     <PictureInPictureProvider>
       <PipRouteSyncBridge />
       <LiveLeadsBridge />
+      <LivePropertiesBridge />
+      <LiveActivitiesBridge />
+      <LiveTodosBridge />
+      <LiveFollowUpsBridge />
+      <LiveHandoffsBridge />
+      <LiveSequencesBridge />
       <LiveTcMsBridge />
       <LiveToursAppBridge />
       {shouldMountMytBridges ? <LiveToursBridge /> : null}

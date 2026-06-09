@@ -16,6 +16,7 @@ import type {
   SequenceKind,
   Booking,
 } from "./types";
+import type { Todo } from "@/contracts";
 import { ACTIVITIES, FOLLOWUPS, PROPERTIES, TCMS, HANDOFFS, SEQUENCES_INIT } from "./mock-data";
 import { autoAssign as autoAssignFn } from "./routing";
 import { api } from "@/lib/api/client";
@@ -87,11 +88,17 @@ interface AppState {
   handoffs: HandoffMessage[];
   sequences: ActiveSequence[];
   bookings: Booking[];
+  todos: Todo[];
 
   addLead: (input: AddLeadInput) => Lead;
   setLeads: (leads: Lead[]) => void;
   setTours: (tours: Tour[]) => void;
   setProperties: (properties: Property[]) => void;
+  setActivities: (activities: ActivityLog[]) => void;
+  setFollowUps: (followUps: FollowUp[]) => void;
+  setHandoffs: (handoffs: HandoffMessage[]) => void;
+  setSequences: (sequences: ActiveSequence[]) => void;
+  setTodos: (todos: Todo[]) => void;
   setLeadStage: (leadId: string, stage: LeadStage) => Promise<void>;
   setLeadIntent: (leadId: string, intent: Intent) => void;
   setLeadFollowUp: (
@@ -180,8 +187,14 @@ export const useApp = create<AppState>((set, get) => ({
   handoffs: HANDOFFS,
   sequences: SEQUENCES_INIT,
   bookings: [],
+  todos: [],
 
   setProperties: (properties) => set({ properties }),
+  setActivities: (activities) => set({ activities }),
+  setFollowUps: (followUps) => set({ followUps }),
+  setHandoffs: (handoffs) => set({ handoffs }),
+  setSequences: (sequences) => set({ sequences }),
+  setTodos: (todos) => set({ todos }),
 
   addLead: (input) => {
     const now = new Date().toISOString();

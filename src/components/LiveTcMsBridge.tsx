@@ -27,7 +27,7 @@ export function LiveTcMsBridge() {
   useEffect(() => {
     let cancelled = false;
 
-    void (async () => {
+    const load = async () => {
       try {
         const list = await api.tcms.list();
         if (cancelled) return;
@@ -35,9 +35,12 @@ export function LiveTcMsBridge() {
       } catch (err) {
         console.warn("[LiveTcMsBridge] failed to hydrate tcms:", (err as Error).message);
       }
-    })();
+    };
 
-    return () => { cancelled = true; };
+    void load();
+
+    const interval = setInterval(load, 5 * 60_000);
+    return () => { cancelled = true; clearInterval(interval); };
   }, [setTcms]);
 
   // When logged in as a TCM, lock the active TCM scope to the authenticated user.

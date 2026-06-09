@@ -362,6 +362,74 @@ export const api = {
     remove: (id: string) => request<{ ok: true }>(`/api/properties/${id}`, { method: "DELETE" }),
   },
 
+  followUps: {
+    list: (q: { leadId?: string; done?: boolean; limit?: number } = {}) =>
+      request<{ items: Record<string, unknown>[] }>(
+        `/api/follow-ups?${new URLSearchParams(
+          Object.entries(q).map(([k, v]) => [k, String(v)]),
+        ).toString()}`,
+      ),
+    create: (input: {
+      leadId: string;
+      tourId?: string;
+      tcmId: string;
+      dueAt: string;
+      priority: "high" | "medium" | "low" | "urgent";
+      reason?: string;
+    }) =>
+      request<Record<string, unknown>>("/api/follow-ups", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+    update: (id: string, patch: Record<string, unknown>) =>
+      request<Record<string, unknown>>(`/api/follow-ups/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(patch),
+      }),
+  },
+  handoffs: {
+    list: (q: { leadId?: string; limit?: number } = {}) =>
+      request<{ items: Record<string, unknown>[] }>(
+        `/api/handoffs?${new URLSearchParams(
+          Object.entries(q).map(([k, v]) => [k, String(v)]),
+        ).toString()}`,
+      ),
+    create: (input: {
+      leadId: string;
+      from: string;
+      fromId: string;
+      to: string;
+      text: string;
+      priority: "normal" | "urgent";
+    }) =>
+      request<Record<string, unknown>>("/api/handoffs", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+    markRead: (leadId: string) =>
+      request<{ modifiedCount: number }>("/api/handoffs/mark-read", {
+        method: "POST",
+        body: JSON.stringify({ leadId }),
+      }),
+  },
+  sequences: {
+    list: (q: { leadId?: string; active?: boolean; limit?: number } = {}) =>
+      request<{ items: Record<string, unknown>[] }>(
+        `/api/sequences?${new URLSearchParams(
+          Object.entries(q).map(([k, v]) => [k, String(v)]),
+        ).toString()}`,
+      ),
+    create: (input: { leadId: string; kind: string }) =>
+      request<Record<string, unknown>>("/api/sequences", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+    update: (id: string, patch: Record<string, unknown>) =>
+      request<Record<string, unknown>>(`/api/sequences/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(patch),
+      }),
+  },
   stats: {
     dailyProgress: (date?: string) => {
       const qs = date ? `?date=${encodeURIComponent(date)}` : "";
