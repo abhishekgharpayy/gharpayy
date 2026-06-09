@@ -77,13 +77,14 @@ export async function verifyToken(token: string): Promise<JwtClaims> {
 
 /**
  * Idempotent bootstrap of the canonical Super Admin account.
- * Credentials (per product owner): superadmin@gharpayy.com / superadmin#gharpayy
+ * Credentials come from environment variables (SUPER_ADMIN_EMAIL, SUPER_ADMIN_PASSWORD)
+ * or fall back to defaults for local development.
  */
 export async function ensureDefaultSuperAdmin(): Promise<void> {
-  const username = "superadmin@gharpayy.com";
-  const email = "superadmin@gharpayy.com";
-  const password = "superadmin#gharpayy";
-  const fullName = "Gharpayy Super Admin";
+  const username = env.SUPER_ADMIN_EMAIL;
+  const email = env.SUPER_ADMIN_EMAIL;
+  const password = env.SUPER_ADMIN_PASSWORD;
+  const fullName = env.SUPER_ADMIN_NAME;
 
   const users = col<UserDoc>("users");
   const existing = await users.findOne({
@@ -193,6 +194,7 @@ export async function createManagedUser(opts: {
     passwordHash: await argon2.hash(opts.password),
     fullName: opts.fullName.trim(),
     role: opts.role,
+    isTcm: opts.role === "tcm" ? true : undefined,
     status: "active",
     zones: opts.zones ?? [],
     managerId: null,

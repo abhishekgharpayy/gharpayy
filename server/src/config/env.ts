@@ -25,6 +25,11 @@ const Env = z.object({
   CORS_ORIGINS: z.string().default("http://localhost:3002"),
   DEFAULT_TENANT: z.string().default("gharpayy"),
   LOG_LEVEL: z.string().default("info"),
+
+  // Super Admin bootstrap credentials (override in .env for production)
+  SUPER_ADMIN_EMAIL: z.string().default("superadmin@gharpayy.com"),
+  SUPER_ADMIN_PASSWORD: z.string().default("superadmin#gharpayy"),
+  SUPER_ADMIN_NAME: z.string().default("Gharpayy Super Admin"),
 });
 
 export const env = Env.parse(process.env);
