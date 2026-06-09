@@ -618,7 +618,7 @@ export function LeadControlPanel() {
   const actualPropertyName =
     tourToShow?.propertyId
       ? tourPropertyOptions.find((property) => property.id === tourToShow.propertyId)?.name ??
-        getProperty(tourToShow.propertyId)?.name ??
+        getProperty(tourToShow.propertyId, properties)?.name ??
         null
       : null;
   const assignmentLabel = selectedMember
@@ -1811,7 +1811,7 @@ function ImpactTabContent({
   const removeDone = useApp((s) => s.removeLeadTag);
   const upsertProfile = useCRM10x((s) => s.upsertProfile);
   const isDone = (key: Exclude<PreVisitStepKey, "call">) => tags.includes(preVisitTag(key));
-  const profileScore = profileCompletionScore(profile);
+  const profileScore = profileCompletionScore(profile as Record<string, unknown>);
   const latestAnsweredCall = calls.find((call) => call.outcome === "answered") ?? null;
   const hasObjectionCapture = objections.length > 0;
   const { data: shortlist = [] } = useLeadInterests(lead.id);
@@ -1979,7 +1979,7 @@ function getPreVisitActiveStep(state: {
   return "visit-ready";
 }
 
-function profileCompletionScore(profile: Record<string, unknown> | undefined): number {
+function profileCompletionScore(profile: Record<string, unknown> | undefined | null): number {
   if (!profile) return 0;
   const required = [
     "gender",
@@ -2138,7 +2138,7 @@ function ProfileCallBrief({ lead }: { lead: Lead }) {
   const { data: interests = [] } = useLeadInterests(lead.id);
   const [activePg, setActivePg] = useState<PG | null>(null);
   const selectedProperties = useMemo(
-    () => interests.map((id) => resolvePropertyById(id, properties)).filter(Boolean),
+    () => interests.map((id) => resolvePropertyById(id, properties)).filter((p): p is NonNullable<typeof p> => Boolean(p)),
     [interests, properties],
   );
   const items = [
@@ -2343,7 +2343,7 @@ function PreVisitCallLogger({ lead, calls }: { lead: Lead; calls: ReturnType<typ
       toast.error("Select why the call was not picked");
       return;
     }
-    const outcome: CallOutcome = picked === "yes" ? "answered" : noPickOutcome;
+    const outcome: CallOutcome = picked === "yes" ? "answered" : (noPickOutcome || "not-answered");
     const callNote = picked === "yes"
       ? notes.trim()
       : `Call not picked: ${profileLabel(noPickOutcome)}`;

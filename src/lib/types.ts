@@ -98,6 +98,7 @@ export interface Tour {
   phone?: string;
   propertyId?: string;
   tcmId: string;
+  assignedTo?: string;
   scheduledBy?: string;
   scheduledAt: string;
   tourType?: "physical" | "virtual" | "pre-book-pitch";

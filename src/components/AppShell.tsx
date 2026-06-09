@@ -29,6 +29,7 @@ import { usePipRouteSync } from "./pip/usePipSync";
 import { ClientOnly } from "./ClientOnly";
 import { QuickCreateMenu } from "./QuickCreateMenu";
 import { LiveLeadsBridge } from "./LiveLeadsBridge";
+import { LiveTcMsBridge } from "./LiveTcMsBridge";
 import { LiveToursAppBridge } from "./LiveToursAppBridge";
 import { LiveToursBridge } from "./LiveToursBridge";
 import { useAuthUser } from "@/lib/auth-store";
@@ -117,7 +118,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     () => (mounted ? buildDoNextQueue(scopedQueueLeads, scopedQueueTours, scopedQueueFollowUps, now) : []),
     [scopedQueueLeads, scopedQueueTours, scopedQueueFollowUps, now, mounted],
   );
-  const overdueCount = mounted ? followUps.filter((f) => !f.done && +new Date(f.dueAt) <= now).length : 0;
+  const overdueCount = mounted ? scopedQueueFollowUps.filter((f) => !f.done && +new Date(f.dueAt) <= now).length : 0;
   const incompletePostTour = tours.filter((t) => t.status === "completed" && !t.postTour.filledAt).length;
   const unreadHandoffs = handoffs.filter((h) => !h.read && h.to === role).length;
 
@@ -184,17 +185,13 @@ export function AppShell({ children }: { children: ReactNode }) {
     ]),
     tcm: withTailNav([
       { to: "/today", label: "Today", icon: Sun, badge: queue.length },
-      { to: "/inbox", label: "Inbox", icon: Inbox },
-      { to: "/leads", label: "Leads", icon: Target },
-      { to: "/myt/schedule", label: "Tours", icon: CalendarPlus },
       { to: "/impact", label: "Impact Queue", icon: HeartPulse },
       { to: "/property-hub", label: "Property Hub", icon: Building2 },
       { to: "/visit-war", label: "Visit War Room", icon: Radio },
-      { to: "/calendar", label: "Calendar", icon: Calendar },
-      { to: "/myt/marketplace", label: "Marketplace", icon: Store },
-      { to: "/supply-hub", label: "Supply Hub", icon: Layers },
-      { to: "/sequences", label: "Outreach", icon: Zap },
-      { to: "/my-tasks", label: "My Tasks", icon: ListTodo },
+      { to: "/myt/tcm", label: "TCM Desk", icon: Target },
+      { to: "/inbox", label: "Inbox", icon: Inbox },
+      { to: "/follow-ups", label: "Follow-ups", icon: ClipboardList, badge: overdueCount },
+      { to: "/myt/schedule", label: "Schedule Tour", icon: CalendarPlus },
     ]),
     owner: [
       { to: "/owner", label: "Owner Home", icon: ShieldCheck },
@@ -239,6 +236,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     <PictureInPictureProvider>
       <PipRouteSyncBridge />
       <LiveLeadsBridge />
+      <LiveTcMsBridge />
       <LiveToursAppBridge />
       {shouldMountMytBridges ? <LiveToursBridge /> : null}
       <div className="min-h-screen flex w-full bg-background text-foreground">
@@ -290,7 +288,9 @@ export function AppShell({ children }: { children: ReactNode }) {
             "super-admin": { label: "Super Admin", dot: "bg-destructive" },
           } as const;
           const meta = roleMeta[role];
-          const userName = role === "tcm" ? tcms.find((t) => t.id === currentTcmId)?.name : null;
+          const userName = role === "tcm"
+            ? (authUser?.fullName || tcms.find((t) => t.id === currentTcmId)?.name)
+            : null;
           return (
             <div className="px-5 pt-4 pb-2">
               <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-sidebar-foreground/70 font-semibold">
