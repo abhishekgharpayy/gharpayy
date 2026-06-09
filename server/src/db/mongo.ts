@@ -214,6 +214,26 @@ async function ensureIndexes(db: Db) {
           { key: { tenantId: 1, kind: 1, startedAt: -1 } },
         ]),
     },
+    {
+      name: "bookings",
+      run: () =>
+        db.collection("bookings").createIndexes([
+          { key: { tenantId: 1, createdAt: -1 } },
+          { key: { tenantId: 1, leadId: 1 } },
+          { key: { tenantId: 1, propertyId: 1, status: 1 } },
+          { key: { tenantId: 1, status: 1 } },
+        ]),
+    },
+    {
+      name: "tenants",
+      run: () =>
+        db.collection("tenants").createIndexes([
+          { key: { tenantId: 1, createdAt: -1 } },
+          { key: { tenantId: 1, leadId: 1 } },
+          { key: { tenantId: 1, propertyId: 1, status: 1 } },
+          { key: { tenantId: 1, status: 1 } },
+        ]),
+    },
   ];
 
   // Run sequentially with isolation: a single bad index must NOT prevent boot.
