@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { AppShell } from "@/components/AppShell";
 import { AdminShell } from "@/admin/components/AdminShell";
 import { useAdminRows } from "@/admin/lib/use-admin-rows";
 import { summarizeWhyNotClosing, summarizeTopObjections } from "@/admin/lib/selectors";
@@ -264,8 +263,8 @@ function AdminCockpit() {
   }, [visits, now, leadNameMap, tcmNameMap]);
 
   return (
-    <AppShell>
-      <AdminShell title="Cockpit" sub="Single screen — every signal, every action.">
+    <>
+    <AdminShell title="Cockpit" sub="Single screen — every signal, every action.">
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           {[
             { label: "Pipeline open", value: open.length, accent: "text-info" },
@@ -364,7 +363,7 @@ function AdminCockpit() {
           )}
         </SheetContent>
       </Sheet>
-    </AppShell>
+    </>
   );
 }
 

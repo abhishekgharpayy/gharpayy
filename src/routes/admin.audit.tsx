@@ -1,6 +1,5 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { AppShell } from "@/components/AppShell";
 import { AdminShell } from "@/admin/components/AdminShell";
 import { useAuditLog, formatDiff } from "@/lib/crm10x/audit-log";
 import { Button } from "@/components/ui/button";
@@ -50,8 +49,7 @@ function AdminAudit() {
   );
 
   return (
-    <AppShell>
-      <AdminShell title="Audit Log" sub="Every admin action, recorded">
+    <AdminShell title="Audit Log" sub="Every admin action, recorded">
         <div className="rounded-xl border border-border bg-card p-4">
           <div className="flex items-center gap-2 mb-4">
             <div className="relative flex-1">
@@ -135,6 +133,5 @@ function AdminAudit() {
           )}
         </div>
       </AdminShell>
-    </AppShell>
   );
 }

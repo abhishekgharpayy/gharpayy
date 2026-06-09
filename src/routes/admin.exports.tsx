@@ -1,6 +1,5 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useMemo } from "react";
-import { AppShell } from "@/components/AppShell";
 import { AdminShell } from "@/admin/components/AdminShell";
 import { useApp } from "@/lib/store";
 import { useVisitWar } from "@/lib/visits/war-store";
@@ -230,8 +229,7 @@ function AdminExports() {
   }, [leads, tcms]);
 
   return (
-    <AppShell>
-      <AdminShell title="Export Center" sub="Download reports, spreadsheets, and data snapshots">
+    <AdminShell title="Export Center" sub="Download reports, spreadsheets, and data snapshots">
         <div className="grid md:grid-cols-2 gap-4">
           <ExportCard
             icon={<FileSpreadsheet className="h-5 w-5" />}
@@ -322,7 +320,6 @@ function AdminExports() {
           </div>
         </div>
       </AdminShell>
-    </AppShell>
   );
 }
 

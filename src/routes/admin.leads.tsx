@@ -1,6 +1,5 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { AppShell } from "@/components/AppShell";
 import { AdminShell } from "@/admin/components/AdminShell";
 import { AdminFilterBar } from "@/admin/components/AdminFilterBar";
 import { useAdminRows } from "@/admin/lib/use-admin-rows";
@@ -74,7 +73,6 @@ function AdminLeads() {
   };
 
   return (
-    <AppShell>
     <AdminShell title="Master Lead Console" sub={`${filtered.length} of ${rows.length} leads · full control`}>
       <AdminFilterBar filters={filters} onChange={setFilters} tcms={tcms} sources={sources} />
 
@@ -207,7 +205,6 @@ function AdminLeads() {
 
       {drawer && <LeadDrawer row={drawer} tcms={tcms} onClose={() => setDrawer(null)} />}
     </AdminShell>
-    </AppShell>
   );
 }
 

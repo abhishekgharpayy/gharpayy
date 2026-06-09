@@ -1,6 +1,5 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useMemo } from "react";
-import { AppShell } from "@/components/AppShell";
 import { AdminShell } from "@/admin/components/AdminShell";
 import { useApp } from "@/lib/store";
 import { useCRM10x } from "@/lib/crm10x/store";
@@ -123,8 +122,7 @@ function AdminIntelligence() {
   }, [followUps]);
 
   return (
-    <AppShell>
-      <AdminShell title="Intelligence" sub="Funnel, objections & impact analytics">
+    <AdminShell title="Intelligence" sub="Funnel, objections & impact analytics">
         <div className="grid md:grid-cols-2 gap-4">
           <div className="rounded-xl border border-border bg-card p-4">
             <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-3">Funnel Velocity</div>
@@ -226,6 +224,5 @@ function AdminIntelligence() {
           </div>
         </div>
       </AdminShell>
-    </AppShell>
   );
 }

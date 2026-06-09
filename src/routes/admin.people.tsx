@@ -1,6 +1,5 @@
 import { createFileRoute, redirect, Link } from "@tanstack/react-router";
 import { useMemo } from "react";
-import { AppShell } from "@/components/AppShell";
 import { AdminShell } from "@/admin/components/AdminShell";
 import { useApp } from "@/lib/store";
 import { useVisitWar } from "@/lib/visits/war-store";
@@ -72,8 +71,7 @@ function AdminPeople() {
   ] as const;
 
   return (
-    <AppShell>
-      <AdminShell title="People 360" sub="TCM performance at a glance">
+    <AdminShell title="People 360" sub="TCM performance at a glance">
         <div className="rounded-xl border border-border bg-card overflow-auto">
           <table className="w-full text-xs">
             <thead>
@@ -128,6 +126,5 @@ function AdminPeople() {
           </table>
         </div>
       </AdminShell>
-    </AppShell>
   );
 }
