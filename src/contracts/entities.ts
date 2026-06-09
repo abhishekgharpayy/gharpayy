@@ -225,3 +225,55 @@ export const Tour = z.object({
   tenantId: z.string(),
 });
 export type Tour = z.infer<typeof Tour>;
+
+// ------------------- BOOKING ENTITY -------------------
+export const BookingStatus = z.enum(["pending", "approved", "paid", "active", "expired", "cancelled"]);
+export type BookingStatus = z.infer<typeof BookingStatus>;
+
+export const BookingEntity = z.object({
+  _id: z.string(),
+  leadId: z.string(),
+  tourId: z.string(),
+  propertyId: z.string(),
+  tcmId: z.string(),
+  amount: z.number().int().min(0),
+  tenantName: z.string().min(1).max(120),
+  tenantPhone: z.string().min(7).max(20),
+  deposit: z.number().int().min(0),
+  moveInDate: z.string(),
+  status: BookingStatus.default("pending"),
+  offerExpiresAt: z.string().nullable().default(null),
+  paidRef: z.string().nullable().default(null),
+  notes: z.string().max(2000).default(""),
+  tenantId: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type BookingEntity = z.infer<typeof BookingEntity>;
+
+// ------------------- TENANT ENTITY -------------------
+export const TenantStatus = z.enum(["active", "notice", "exited"]);
+export type TenantStatus = z.infer<typeof TenantStatus>;
+
+export const TenantEntity = z.object({
+  _id: z.string(),
+  bookingId: z.string(),
+  leadId: z.string(),
+  propertyId: z.string(),
+  tcmId: z.string(),
+  name: z.string().min(1).max(120),
+  phone: z.string().min(7).max(20),
+  email: z.string().max(160).default(""),
+  roomNumber: z.string().max(60).default(""),
+  moveInDate: z.string(),
+  rent: z.number().int().min(0),
+  deposit: z.number().int().min(0),
+  status: TenantStatus.default("active"),
+  noticeGivenAt: z.string().nullable().default(null),
+  exitDate: z.string().nullable().default(null),
+  notes: z.string().max(2000).default(""),
+  tenantId: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type TenantEntity = z.infer<typeof TenantEntity>;
