@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import type {
   ActivityLog,
   FollowUp,
@@ -15,6 +16,12 @@ import type {
   ActiveSequence,
   SequenceKind,
   Booking,
+  Tenant,
+  RentRecord,
+  PaymentRecord,
+  BookingStatus,
+  TenantStatus,
+  RentStatus,
 } from "./types";
 import type { Todo } from "@/contracts";
 import { ACTIVITIES, FOLLOWUPS, PROPERTIES, TCMS, HANDOFFS, SEQUENCES_INIT } from "./mock-data";
@@ -88,6 +95,9 @@ interface AppState {
   handoffs: HandoffMessage[];
   sequences: ActiveSequence[];
   bookings: Booking[];
+  tenants: Tenant[];
+  rents: RentRecord[];
+  payments: PaymentRecord[];
   todos: Todo[];
 
   addLead: (input: AddLeadInput) => Lead;
@@ -156,11 +166,24 @@ interface AppState {
     tcmId: string;
     amount: number;
   }) => void;
+
+  // Booking/Tenant management
+  addTenant: (input: Omit<Tenant, "id" | "createdAt" | "updatedAt">) => Tenant;
+  updateTenantStatus: (tenantId: string, status: TenantStatus, exitDate?: string) => void;
+  updateTenant: (tenantId: string, patch: Partial<Tenant>) => void;
+  recordRentPayment: (input: Omit<RentRecord, "id" | "createdAt">) => RentRecord;
+  recordPayment: (input: Omit<PaymentRecord, "id" | "createdAt">) => PaymentRecord;
+  approveBooking: (bookingId: string) => void;
+  markBookingPaid: (bookingId: string, ref: string) => void;
+  cancelBooking: (bookingId: string) => void;
+
   addProperty: (input: AddPropertyInput) => Property;
 }
 
-export const useApp = create<AppState>((set, get) => ({
-  role: "flow-ops",
+export const useApp = create<AppState>()(
+  persist(
+    (set, get) => ({
+      role: "flow-ops",
   currentTcmId: "tcm-1",
   setRole: (r) => set({ role: r }),
   setCurrentTcmId: (id) => set({ currentTcmId: id }),
@@ -187,6 +210,9 @@ export const useApp = create<AppState>((set, get) => ({
   handoffs: HANDOFFS,
   sequences: SEQUENCES_INIT,
   bookings: [],
+  tenants: [],
+  rents: [],
+  payments: [],
   todos: [],
 
   setProperties: (properties) => set({ properties }),
@@ -954,6 +980,10 @@ export const useApp = create<AppState>((set, get) => ({
   },
 
   closeDeal: ({ leadId, tourId, propertyId, tcmId, amount }) => {
+    const existing = get().bookings.find((b) => b.leadId === leadId);
+    if (existing) return existing;
+    const lead = get().leads.find((l) => l.id === leadId);
+    const now = new Date().toISOString();
     const booking: Booking = {
       id: uid("b"),
       leadId,
@@ -961,7 +991,13 @@ export const useApp = create<AppState>((set, get) => ({
       propertyId,
       tcmId,
       amount,
-      ts: new Date().toISOString(),
+      tenantName: lead?.name ?? "Unknown",
+      tenantPhone: lead?.phone ?? "",
+      deposit: Math.round(amount * 2),
+      moveInDate: lead?.moveInDate ?? now.slice(0, 10),
+      status: "active",
+      ts: now,
+      updatedAt: now,
     };
     set((s) => ({
       bookings: [booking, ...s.bookings],
@@ -990,6 +1026,24 @@ export const useApp = create<AppState>((set, get) => ({
         payload: { leadId, to: "booked" },
       })
       .catch(() => {});
+    void api
+      .command({
+        _id: uid("c"),
+        type: "cmd.booking.create",
+        issuedAt: new Date().toISOString(),
+        payload: {
+          leadId,
+          tourId,
+          propertyId,
+          tcmId,
+          amount,
+          tenantName: lead?.name ?? "Unknown",
+          tenantPhone: lead?.phone ?? "",
+          deposit: Math.round(amount * 2),
+          moveInDate: lead?.moveInDate ?? now.slice(0, 10),
+        },
+      })
+      .catch(() => {});
     pushActivity(set, get, {
       kind: "booking_confirmed",
       actor: tcmId,
@@ -1002,7 +1056,6 @@ export const useApp = create<AppState>((set, get) => ({
     const sched = get().activities.find(
       (a) => a.kind === "tour_scheduled" && a.leadId === leadId && a.tourId === tourId,
     );
-    const lead = get().leads.find((l) => l.id === leadId);
     const ownerEvt = get().properties.find((p) => p.id === propertyId);
     emitConnector({
       kind: "booking.closed",
@@ -1018,6 +1071,117 @@ export const useApp = create<AppState>((set, get) => ({
           ? [{ role: sched.actor === "flow-ops" ? "flow-ops" : "tcm", id: sched.actor }]
           : undefined,
     });
+    return booking;
+  },
+
+  addTenant: (input) => {
+    const tenant: Tenant = {
+      id: uid("tnt"),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      ...input,
+    };
+    set((s) => ({ tenants: [tenant, ...s.tenants] }));
+    return tenant;
+  },
+
+  updateTenantStatus: (tenantId, status, exitDate) => {
+    set((s) => ({
+      tenants: s.tenants.map((t) =>
+        t.id === tenantId ? { ...t, status, exitDate: exitDate ?? t.exitDate, updatedAt: new Date().toISOString() } : t,
+      ),
+    }));
+  },
+
+  updateTenant: (tenantId, patch) => {
+    set((s) => ({
+      tenants: s.tenants.map((t) =>
+        t.id === tenantId ? { ...t, ...patch, updatedAt: new Date().toISOString() } : t,
+      ),
+    }));
+  },
+
+  recordRentPayment: (input) => {
+    const record: RentRecord = {
+      id: uid("rn"),
+      createdAt: new Date().toISOString(),
+      ...input,
+    };
+    set((s) => ({ rents: [record, ...s.rents] }));
+    return record;
+  },
+
+  recordPayment: (input) => {
+    const payment: PaymentRecord = {
+      id: uid("pay"),
+      createdAt: new Date().toISOString(),
+      ...input,
+    };
+    set((s) => ({ payments: [payment, ...s.payments] }));
+    return payment;
+  },
+
+  approveBooking: (bookingId) => {
+    set((s) => ({
+      bookings: s.bookings.map((b) =>
+        b.id === bookingId ? { ...b, status: "approved" as BookingStatus, updatedAt: new Date().toISOString() } : b,
+      ),
+    }));
+  },
+
+  markBookingPaid: (bookingId, ref) => {
+    const booking = get().bookings.find((b) => b.id === bookingId);
+    if (!booking) return;
+    const now = new Date().toISOString();
+    set((s) => ({
+      bookings: s.bookings.map((b) =>
+        b.id === bookingId ? { ...b, status: "active" as BookingStatus, paidRef: ref, updatedAt: now } : b,
+      ),
+    }));
+    // Auto-create tenant from booking
+    const existingTenant = get().tenants.find((t) => t.bookingId === bookingId);
+    if (!existingTenant) {
+      const lead = get().leads.find((l) => l.id === booking.leadId);
+      get().addTenant({
+        bookingId,
+        leadId: booking.leadId,
+        propertyId: booking.propertyId,
+        tcmId: booking.tcmId,
+        name: booking.tenantName,
+        phone: booking.tenantPhone,
+        moveInDate: booking.moveInDate,
+        rent: booking.amount,
+        deposit: booking.deposit,
+        status: "active",
+        roomNumber: lead?.propertyName ?? undefined,
+      });
+      void api
+        .command({
+          _id: uid("c"),
+          type: "cmd.tenant.create",
+          issuedAt: new Date().toISOString(),
+          payload: {
+            bookingId,
+            leadId: booking.leadId,
+            propertyId: booking.propertyId,
+            tcmId: booking.tcmId,
+            name: booking.tenantName,
+            phone: booking.tenantPhone,
+            moveInDate: booking.moveInDate,
+            rent: booking.amount,
+            deposit: booking.deposit,
+          },
+        })
+        .catch(() => {});
+    }
+  },
+
+  cancelBooking: (bookingId) => {
+    set((s) => ({
+      bookings: s.bookings.map((b) =>
+        b.id === bookingId ? { ...b, status: "cancelled" as BookingStatus, updatedAt: new Date().toISOString() } : b,
+      ),
+    }));
   },
 
   addProperty: (input) => {
@@ -1031,7 +1195,10 @@ export const useApp = create<AppState>((set, get) => ({
     set((s) => ({ properties: [prop, ...s.properties] }));
     return prop;
   },
-}));
+}),
+    { name: "gharpayy.app.v1" },
+  ),
+);
 
 function pushActivity(
   set: (fn: (s: AppState) => Partial<AppState>) => void,
