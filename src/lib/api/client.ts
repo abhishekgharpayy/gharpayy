@@ -484,6 +484,40 @@ export const api = {
       }>(`/api/activity/lead?leadId=${encodeURIComponent(leadId)}&limit=${limit}`),
   },
 
+  bookings: {
+    list: (q: Record<string, string | number> = {}) =>
+      safe<{ items: import("@/contracts").BookingEntity[]; nextCursor: string | null }>(
+        () => {
+          const qs = new URLSearchParams(
+            Object.entries(q).map(([k, v]) => [k, String(v)]),
+          ).toString();
+          return request<{ items: import("@/contracts").BookingEntity[]; nextCursor: string | null }>(
+            `/api/bookings${qs ? `?${qs}` : ""}`,
+          );
+        },
+        () => ({ items: [], nextCursor: null }),
+      ),
+    get: (id: string) =>
+      request<import("@/contracts").BookingEntity>(`/api/bookings/${id}`),
+  },
+
+  tenants: {
+    list: (q: Record<string, string | number> = {}) =>
+      safe<{ items: import("@/contracts").TenantEntity[]; nextCursor: string | null }>(
+        () => {
+          const qs = new URLSearchParams(
+            Object.entries(q).map(([k, v]) => [k, String(v)]),
+          ).toString();
+          return request<{ items: import("@/contracts").TenantEntity[]; nextCursor: string | null }>(
+            `/api/tenants${qs ? `?${qs}` : ""}`,
+          );
+        },
+        () => ({ items: [], nextCursor: null }),
+      ),
+    get: (id: string) =>
+      request<import("@/contracts").TenantEntity>(`/api/tenants/${id}`),
+  },
+
   assignmentNotifications: {
     /** Fetch pending assignment notifications addressed to the current user */
     listPending: () =>
