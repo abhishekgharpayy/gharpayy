@@ -110,10 +110,12 @@ export type UserStatus = "active" | "inactive" | "invited" | "deleted";
 export interface ManagedUser {
   id: string;
   fullName: string;
+  name?: string;
   email: string;
   phone: string;
   username: string;
   role: AnyRole;
+  isTcm?: boolean;
   status: UserStatus;
   zones: string[];
   managerId?: string | null;
@@ -150,6 +152,7 @@ export interface AuthUser {
   zones: string[];
   scopes: string[];
   isTcm?: boolean;
+  name?: string;
 }
 
 export const api = {

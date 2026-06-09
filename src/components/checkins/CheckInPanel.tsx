@@ -106,7 +106,7 @@ export function CheckInPanel({ lead }: { lead: Lead }) {
 
   const propertyOptions = useMemo(() => {
     const map = new Map<string, { id: string; name: string; area?: string; price?: number }>();
-    const add = (item?: { id?: string; name?: string; area?: string; price?: number } | null) => {
+    const add = (item?: { id: string; name: string; area?: string; price?: number } | null) => {
       if (!item?.id || !item.name) return;
       map.set(item.id, item);
     };

@@ -1,6 +1,6 @@
 export type Role = "flow-ops" | "tcm" | "hr" | "owner";
 export type Intent = "hot" | "warm" | "cold";
-export type TourStatus = "scheduled" | "completed" | "no-show" | "cancelled";
+export type TourStatus = "scheduled" | "completed" | "no-show" | "cancelled" | "on-tour";
 export type ClientDecision = "booked" | "thinking" | "dropped" | null;
 export type LeadStage =
   | "new"
@@ -66,6 +66,7 @@ export interface Tour {
   phone?: string;
   propertyId: string;
   tcmId: string;
+  tourType?: "physical" | "virtual" | "pre-book-pitch";
   scheduledAt: string;
   status: TourStatus;
   decision: ClientDecision;
@@ -101,7 +102,7 @@ export interface ActivityLog {
   text: string;
 }
 
-export type FollowUpPriority = "high" | "medium" | "low";
+export type FollowUpPriority = "high" | "medium" | "low" | "urgent";
 export interface FollowUp {
   id: string;
   leadId: string;

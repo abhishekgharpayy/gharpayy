@@ -171,7 +171,7 @@ export const Activity = z.object({
 });
 export type Activity = z.infer<typeof Activity>;
 
-export const TourStatus = z.enum(["scheduled", "confirmed", "completed", "no-show", "cancelled"]);
+export const TourStatus = z.enum(["scheduled", "confirmed", "completed", "no-show", "cancelled", "on-tour"]);
 export type TourStatus = z.infer<typeof TourStatus>;
 
 export const TourOutcome = z.enum([

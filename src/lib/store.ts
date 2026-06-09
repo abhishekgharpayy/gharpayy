@@ -22,6 +22,7 @@ type AddLeadInput = {
   phone: string;
   source?: string;
   budget: number;
+  budgetText?: string;
   preferredArea: string;
   moveInDate?: string;
   intent?: Intent;
@@ -66,6 +67,7 @@ interface AppState {
   consumeSelectedLeadAction: () => void;
 
   tcms: TCM[];
+  setTcms: (tcms: TCM[]) => void;
   properties: Property[];
   leads: Lead[];
   tours: Tour[];
@@ -139,6 +141,7 @@ export const useApp = create<AppState>((set, get) => ({
   consumeSelectedLeadAction: () => set({ selectedLeadAction: null }),
 
   tcms: TCMS,
+  setTcms: (tcms) => set({ tcms }),
   properties: PROPERTIES,
   // Leads + tours hydrated from Mongo by LiveLeadsBridge / LiveToursAppBridge.
   leads: [],
@@ -472,7 +475,7 @@ export const useApp = create<AppState>((set, get) => ({
     emitConnector({
       kind: "tour.completed",
       actorRole: "tcm", actorId: t.tcmId,
-      leadId: t.leadId, tourId, propertyId: t.propertyId,
+      leadId: t.leadId, tourId, propertyId: t.propertyId ?? undefined,
       text: `${personName(t.tcmId, "TCM")} completed tour with ${lead?.name ?? "lead"}`,
     });
   },
@@ -587,7 +590,7 @@ export const useApp = create<AppState>((set, get) => ({
       emitConnector({
         kind: "post_tour.filled",
         actorRole: "tcm", actorId: t.tcmId,
-        leadId: t.leadId, tourId, propertyId: t.propertyId,
+      leadId: t.leadId, tourId, propertyId: t.propertyId ?? undefined,
         text: `${personName(t.tcmId, "TCM")} closed post-tour loop · ${lead?.name ?? ""}`.trim(),
       });
     }
@@ -831,7 +834,7 @@ export function getTcm(id: string) {
   return TCMS.find((t) => t.id === id);
 }
 
-export function getProperty(id: string | undefined, properties: Property[]) {
+export function getProperty(id: string | null | undefined, properties: Property[]) {
   return id ? properties.find((p) => p.id === id) : undefined;
 }
 

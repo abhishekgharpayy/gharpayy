@@ -57,7 +57,7 @@ export function SmartWaLayer({ lead }: { lead: Lead }) {
   );
 
   const tour = tours[0];
-  const prop = tour ? getProperty(tour.propertyId, properties) : undefined;
+  const prop = tour ? getProperty(tour.propertyId ?? undefined, properties) : undefined;
   const agent = tcms.find((t) => t.id === lead.assignedTcmId);
 
   const rendered = useMemo(

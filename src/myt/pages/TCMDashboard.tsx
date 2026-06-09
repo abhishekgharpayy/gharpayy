@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAppState } from '@/myt/lib/app-context';
+import { useAuthUser } from '@/lib/auth-store';
 import { MetricCard } from '@/myt/components/MetricCard';
 import { TourCard } from '@/myt/components/TourCard';
 import { CalendarCheck, TrendingUp, FileText, Target } from 'lucide-react';
@@ -12,6 +13,8 @@ const intentRank: Record<Tour['intent'], number> = { hard: 0, medium: 1, soft: 2
 
 export default function TCMDashboard() {
   const { tours, setTours, currentMemberId, rooms, blocks } = useAppState();
+  const authUser = useAuthUser((s) => s.user);
+  const actorId = currentMemberId || (authUser?.role === "tcm" ? authUser.id : null);
   const [, setTick] = useState(0);
 
   useEffect(() => {
@@ -20,10 +23,10 @@ export default function TCMDashboard() {
   }, []);
 
   const today = new Date().toISOString().split('T')[0];
-  const myTours = (currentMemberId
-    ? tours.filter(t => t.assignedTo === currentMemberId)
-    : tours.filter(t => t.assignedTo === 'm5' || t.assignedTo === 'm6')
-  ).filter(t => t.tourDate === today);
+  const myTours = (actorId
+    ? tours.filter((t) => t.assignedTo === actorId)
+    : []
+  ).filter((t) => t.tourDate === today);
 
   // Sort: hard first, then by time
   const sortedTours = [...myTours].sort((a, b) => {
@@ -47,7 +50,7 @@ export default function TCMDashboard() {
       <div>
         <h1 className="text-xl md:text-2xl font-heading font-bold text-foreground">Today's Tours</h1>
         <p className="text-xs text-muted-foreground">
-          {currentMemberId ? 'Sorted by intent - fight for hard ones first' : 'Select yourself in the header ↑'}
+          {actorId ? 'Sorted by intent - fight for hard ones first' : 'Sign in as a TCM to see your tours'}
         </p>
       </div>
 

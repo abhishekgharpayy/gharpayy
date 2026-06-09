@@ -12,7 +12,7 @@ import {
   ImpactFocusPopover,
   ImpactQueueMetaBar,
 } from "@/components/impact/ImpactQueueHeaderControls";
-import { COLUMNS, type ColumnKey, COLUMN_STAGE_TARGET } from "@/components/impact/impact-queue-types";
+import { COLUMNS, type ColumnKey, COLUMN_STAGE_TARGET, type ImpactEnriched } from "@/components/impact/impact-queue-types";
 import {
   type QueueChipFilter,
   type ViewMode,
@@ -535,7 +535,7 @@ export function ImpactQueue() {
             : undefined;
         const tourTimeHint =
           openTour && (column === "scheduled" || column === "onTour")
-            ? buildTourTimeHint(openTour.scheduledAt, at) ?? undefined
+            ? buildTourTimeHint(openTour, at) ?? undefined
             : undefined;
         return { lead, openTour, lastQuote, nba, score, column, tourBand, tourTimeHint };
       });
@@ -598,12 +598,12 @@ export function ImpactQueue() {
   );
 
   const boardBuckets = useMemo(() => {
-    const b: Record<ColumnKey, Enriched[]> = {
+    const b: Record<ColumnKey, ImpactEnriched[]> = {
       inbox: [], scheduled: [], onTour: [], quoted: [], booked: [],
     };
     filtered.forEach((e) => b[e.column].push(e));
     const at = Date.now();
-    (["scheduled", "onTour"] as ColumnKey[]).forEach((key) => {
+    (["scheduled", "onTour"] as const).forEach((key) => {
       b[key].sort((a, bb) => {
         const bandA = a.tourBand ?? classifyTourBand(key, a.openTour, a.lead, a.nba, at);
         const bandB = bb.tourBand ?? classifyTourBand(key, bb.openTour, bb.lead, bb.nba, at);
@@ -1206,7 +1206,7 @@ function BoardColumnBody({
   onFocusConsumed,
 }: {
   columnKey: ColumnKey;
-  items: Enriched[];
+  items: ImpactEnriched[];
   tcms: TCM[];
   tcmOptions: TCM[];
   properties: Property[];
@@ -1225,7 +1225,7 @@ function BoardColumnBody({
     : items;
 
   const grouped = useMemo(() => {
-    const map: Record<TourQueueBand, Enriched[]> = {
+    const map: Record<TourQueueBand, ImpactEnriched[]> = {
       fire: [], confirm: [], soon: [], later: [],
     };
     if (!useBands) return map;
@@ -2906,7 +2906,7 @@ function BookingDialog({
                   leadId: lead.id,
                   rent: amt,
                   deposit: quote.deposit,
-                  propertyId: quote.propertyId ?? openTour?.propertyId,
+                  propertyId: (quote.propertyId ?? openTour?.propertyId) ?? undefined,
                   propertyName: quote.propertyName,
                 });
                 toast.success("Booking closed");

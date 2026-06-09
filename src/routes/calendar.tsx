@@ -67,7 +67,7 @@ function CalendarPage() {
     const propertyMap = new Map(properties.map((p) => [p.id, p]));
     const activeUserId = authUser?.id ?? currentTcmId;
     const shouldShowMemberOwned = (tcmId?: string | null) => {
-      if (role !== "tcm" && role !== "member") return true;
+      if (role !== "tcm" && (role as string) !== "member") return true;
       if (!tcmId) return true;
       return tcmId === currentTcmId || tcmId === activeUserId;
     };
@@ -198,7 +198,7 @@ function CalendarPage() {
           reminderFiredRef.add(fireKey);
           playCalendarReminderSound();
           toast.info(e.title, {
-            description: `Starts ${e.reminder === 0 ? "now" : `in ${e.reminder} min`} · ${format(new Date(e.start), "p")}`,
+            description: `Starts ${(e.reminder as number) === 0 ? "now" : `in ${e.reminder} min`} · ${format(new Date(e.start), "p")}`,
           });
           if ("Notification" in window && Notification.permission === "granted") {
             new Notification(e.title, {

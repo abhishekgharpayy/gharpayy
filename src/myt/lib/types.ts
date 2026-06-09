@@ -22,11 +22,14 @@ export interface TeamMember {
 export type TourStatus = 'scheduled' | 'confirmed' | 'completed' | 'no-show' | 'cancelled';
 export type TourOutcome =
   | 'booked'
+  | 'thinking'
+  | 'awaiting'
   | 'token-paid'
   | 'draft'
   | 'follow-up'
   | 'rejected'
   | 'not-interested'
+  | 'dropped'
   | null;
 export type BookingSource = 'call' | 'whatsapp' | 'referral' | 'walk-in' | 'ad' | 'organic';
 export type LeadType = 'urgent' | 'future';

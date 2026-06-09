@@ -40,6 +40,7 @@ function toWireTour(tour: LiveTourEvent & Partial<WireTour>): WireTour {
     status: tour.status ?? "scheduled",
     showUp: tour.showUp ?? null,
     customPropertyName: tour.customPropertyName ?? "",
+    tourType: tour.tourType ?? "physical",
     bookingSource: tour.bookingSource ?? "whatsapp",
     postTour: tour.postTour ?? {
       outcome: null,
@@ -224,6 +225,7 @@ export function LiveToursBridge() {
 	             name: scheduledTour.lead.name,
 	             phone: scheduledTour.lead.phone,
 	             budget: scheduledTour.lead.budget,
+	             budgetText: "",
 		             source: "",
 		             preferredArea: "",
 		             zoneId: null,

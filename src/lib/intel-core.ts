@@ -39,8 +39,10 @@ export function scoreLead(lead: Lead, activities: Activity[] = [], todos: Todo[]
 
   // Stage progression
   const stageBoost: Record<Lead["stage"], number> = {
-    "new": 0, "contacted": 4, "tour-scheduled": 12, "tour-done": 18,
-    "negotiation": 24, "booked": 40, "dropped": -30,
+    "new": 0, "contacted": 4, "tour-scheduled": 12, "on-tour": 14,
+    "tour-done": 18, "negotiation": 24, "quote-sent": 28,
+    "not-responding-3d": -10, "not-responding-7d": -20,
+    "booked": 40, "dropped": -30,
   };
   const sb = stageBoost[lead.stage] ?? 0;
   if (sb !== 0) { score += sb; signals.push({ label: `Stage: ${lead.stage}`, impact: sb }); }

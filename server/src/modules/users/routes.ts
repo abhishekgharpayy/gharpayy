@@ -22,6 +22,7 @@ const UpdateBody = z.object({
   zones: z.array(z.string()).optional(),
   managerId: z.string().nullable().optional(),
   adminId: z.string().nullable().optional(),
+  isTcm: z.boolean().optional(),
 });
 
 const PatchBody = z.object({
@@ -40,6 +41,7 @@ function userOut(u: UserDoc) {
     phone: u.phone ?? "",
     username: u.username,
     role: u.role,
+    isTcm: u.isTcm ?? (u.role === "member" || u.role === "tcm"),
     status: u.status,
     zones: u.zones ?? [],
     managerId: u.managerId ?? null,
@@ -103,7 +105,14 @@ export function registerUserRoutes(app: FastifyInstance) {
   });
 
   app.get("/api/tcms", { preHandler: [requireAuth, requireScope("user.read")] }, async (req, reply) => {
-    const list = await roleList(req, "tcm");
+    const list = await users()
+      .find({
+        tenantId: req.user!.tenantId,
+        status: { $in: ["active", "inactive", "invited"] },
+        $or: [{ role: "tcm" }, { role: "member", isTcm: true }],
+      })
+      .sort({ createdAt: -1 })
+      .toArray();
     return reply.send(list.map(userOut));
   });
 
@@ -147,6 +156,7 @@ export function registerUserRoutes(app: FastifyInstance) {
     if (body.zones !== undefined) patch.zones = body.zones;
     if (body.managerId !== undefined) patch.managerId = body.managerId;
     if (body.adminId !== undefined) patch.adminId = body.adminId;
+    if (body.isTcm !== undefined) patch.isTcm = body.isTcm;
     const r = await users().findOneAndUpdate(
       { _id: id, tenantId: req.user!.tenantId },
       { $set: patch },

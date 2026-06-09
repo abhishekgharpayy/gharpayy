@@ -5,8 +5,6 @@ import type { Lead } from "@/lib/types";
 
 function lead(partial: Partial<Lead> & Pick<Lead, "id" | "name">): Lead {
   return {
-    id: partial.id,
-    name: partial.name,
     phone: partial.phone ?? "9999999999",
     source: "manual",
     budget: 12000,

@@ -8,6 +8,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { api, type ManagedRole } from "@/lib/api/client";
+import { managedRoleLabel } from "@/lib/role-labels";
 
 export function AddUserForm({ onSuccess }: { onSuccess: () => void }) {
   const [form, setForm] = useState({
@@ -23,7 +24,7 @@ export function AddUserForm({ onSuccess }: { onSuccess: () => void }) {
     api.zones.list().then(setZones).catch(() => undefined);
   }, []);
 
-  const needsZone = form.role === "admin" || form.role === "member";
+  const needsZone = form.role === "admin" || form.role === "member" || form.role === "tcm";
 
   const submit = async () => {
     if (!form.fullName || !form.email || !form.password || !form.role) {
@@ -95,10 +96,11 @@ export function AddUserForm({ onSuccess }: { onSuccess: () => void }) {
         <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v as ManagedRole })}>
           <SelectTrigger><SelectValue placeholder="Select role…" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="manager">Manager</SelectItem>
-            <SelectItem value="admin">Admin</SelectItem>
-            <SelectItem value="member">Member</SelectItem>
-            <SelectItem value="owner">Property Owner</SelectItem>
+            <SelectItem value="manager">{managedRoleLabel("manager")}</SelectItem>
+            <SelectItem value="admin">{managedRoleLabel("admin")}</SelectItem>
+            <SelectItem value="member">{managedRoleLabel("member")}</SelectItem>
+            <SelectItem value="owner">{managedRoleLabel("owner")}</SelectItem>
+            <SelectItem value="tcm">{managedRoleLabel("tcm")}</SelectItem>
           </SelectContent>
         </Select>
       </div>

@@ -1811,7 +1811,7 @@ function ImpactTabContent({
   const removeDone = useApp((s) => s.removeLeadTag);
   const upsertProfile = useCRM10x((s) => s.upsertProfile);
   const isDone = (key: Exclude<PreVisitStepKey, "call">) => tags.includes(preVisitTag(key));
-  const profileScore = profileCompletionScore(profile as Record<string, unknown>);
+  const profileScore = profileCompletionScore(profile as unknown as Record<string, unknown>);
   const latestAnsweredCall = calls.find((call) => call.outcome === "answered") ?? null;
   const hasObjectionCapture = objections.length > 0;
   const { data: shortlist = [] } = useLeadInterests(lead.id);
@@ -2892,7 +2892,7 @@ function UpcomingTourCard({
                   <UserCheck className="h-3 w-3" /> Move to on-tour
                 </Button>
               )}
-              {isOutcomeDue && tour.status !== "completed" && tour.status !== "cancelled" && (
+              {isOutcomeDue && (tour.status as string) !== "completed" && (tour.status as string) !== "cancelled" && (
                 <Button
                   size="sm"
                   className="h-7 text-[11px] gap-1"
@@ -2908,7 +2908,7 @@ function UpcomingTourCard({
                   <CheckCircle2 className="h-3 w-3" /> Visit done
                 </Button>
               )}
-              {isOutcomeDue && tour.status !== "completed" && tour.status !== "cancelled" && (
+              {isOutcomeDue && (tour.status as string) !== "completed" && (tour.status as string) !== "cancelled" && (
                 <Button
                   size="sm"
                   variant="outline"

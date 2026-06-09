@@ -17,6 +17,7 @@ import {
   type FollowUpStage,
   type LostReason,
 } from "@/lib/visits/war-store";
+import type { Tour, Lead, Property } from "@/lib/types";
 import { PGS } from "@/property-genius/data/pgs";
 import {
   Radio, Activity, Flame, BarChart3, Bell, X, Phone, MessageCircle,
@@ -1062,7 +1063,7 @@ function HotRoom({ list, now, onFocus }: { list: VisitRecord[]; now: number; mou
   );
 }
 
-function WarRoomStats({ list }: { list: VisitRecord[] }) {
+function WarRoomStats({ list, ..._rest }: { list: VisitRecord[]; tours?: Tour[]; leads?: Lead[]; properties?: Property[]; records?: Record<string, VisitRecord> }) {
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const todayMs = +today;
   const todays = list.filter((v) => v.scheduledAt >= todayMs);

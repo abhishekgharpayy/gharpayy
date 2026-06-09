@@ -49,6 +49,7 @@ export function useLiveLeads() {
         phone: input.phone,
         source: input.source ?? "manual",
         budget: input.budget,
+        budgetText: "",
         moveInDate: input.moveInDate,
         preferredArea: input.preferredArea,
         zoneId: null,

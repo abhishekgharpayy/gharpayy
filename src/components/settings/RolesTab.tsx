@@ -10,6 +10,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { api, type ManagedUser, type Zone } from "@/lib/api/client";
+import { roleLabel } from "@/lib/role-labels";
 
 type RoleTab = "managers" | "admins" | "members" | "tcms" | "owners";
 type EditForm = { fullName: string; email: string; phone: string; role: string; zones: string[] };
@@ -128,16 +129,22 @@ export function RolesTab() {
     <div className="space-y-4">
       {/* Role sub-tabs */}
       <div className="flex gap-1 bg-secondary/50 rounded-lg p-1 w-fit">
-        {(["managers", "admins", "members", "tcms", "owners"] as const).map((t) => (
+        {([
+          ["managers", "HR/Leadership"],
+          ["admins", "Super Admin"],
+          ["members", "Flow Ops"],
+          ["tcms", "TCM"],
+          ["owners", "Property Owner"],
+        ] as const).map(([t, label]) => (
           <button
             key={t}
             onClick={() => { setRoleTab(t); setExpandedId(null); setEditingId(null); }}
             className={
-              "px-4 py-1.5 rounded-md text-xs font-medium capitalize transition-colors " +
+              "px-4 py-1.5 rounded-md text-xs font-medium transition-colors " +
               (roleTab === t ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")
             }
           >
-            {t}
+            {label}
           </button>
         ))}
       </div>
@@ -324,43 +331,70 @@ export function RolesTab() {
             </div>
           ))}
 
-          {/* TCMs (now a per-member capability) */}
-          {roleTab === "tcms" && sortedMembers.map((mem) => {
-            const isTcm = mem.isTcm !== false;
-            return (
-              <div key={mem.id} className="border rounded-xl bg-card overflow-hidden">
-                <div className="w-full flex items-center justify-between p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-pink-500/10 flex items-center justify-center">
-                      <span className="text-pink-500 font-semibold text-sm">{mem.fullName?.charAt(0)?.toUpperCase()}</span>
+          {/* TCM role users + Flow Ops members with TCM capability */}
+          {roleTab === "tcms" && (
+            <>
+              {tcms.filter((u) => u.role === "tcm").map((tcmUser) => (
+                <div key={tcmUser.id} className="border rounded-xl bg-card overflow-hidden">
+                  <div className="w-full flex items-center justify-between p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-pink-500/10 flex items-center justify-center">
+                        <span className="text-pink-500 font-semibold text-sm">{tcmUser.fullName?.charAt(0)?.toUpperCase()}</span>
+                      </div>
+                      <div className="text-left">
+                        <p className="text-sm font-medium">{tcmUser.fullName}</p>
+                        <p className="text-xs text-muted-foreground">{tcmUser.email}</p>
+                      </div>
                     </div>
-                    <div className="text-left">
-                      <p className="text-sm font-medium">{mem.fullName}</p>
-                      <p className="text-xs text-muted-foreground">{mem.email}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    {mem.zones?.length > 0 && <Badge variant="outline" className="text-[10px]">{mem.zones.join(", ")}</Badge>}
                     <div className="flex items-center gap-2">
-                      <p className="text-xs text-muted-foreground">TCM</p>
-                      <Switch checked={isTcm} onCheckedChange={async (v) => {
-                        try {
-                          setUpdating(true);
-                          await api.users.update(mem.id, { isTcm: !!v });
-                          toast.success("Updated");
-                          loadData();
-                        } catch (e) {
-                          toast.error((e as Error).message);
-                        } finally {
-                          setUpdating(false);
-                        }
-                      }} />
+                      {tcmUser.zones?.length > 0 && <Badge variant="outline" className="text-[10px]">{tcmUser.zones.join(", ")}</Badge>}
+                      <Badge variant="secondary" className="text-[10px]">{roleLabel(tcmUser.role)}</Badge>
                     </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
+              ))}
+              {sortedMembers.map((mem) => {
+                const isTcm = mem.isTcm === true;
+                return (
+                  <div key={mem.id} className="border rounded-xl bg-card overflow-hidden">
+                    <div className="w-full flex items-center justify-between p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-pink-500/10 flex items-center justify-center">
+                          <span className="text-pink-500 font-semibold text-sm">{mem.fullName?.charAt(0)?.toUpperCase()}</span>
+                        </div>
+                        <div className="text-left">
+                          <p className="text-sm font-medium">{mem.fullName}</p>
+                          <p className="text-xs text-muted-foreground">{mem.email}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        {mem.zones?.length > 0 && <Badge variant="outline" className="text-[10px]">{mem.zones.join(", ")}</Badge>}
+                        <Badge variant="outline" className="text-[10px]">{roleLabel(mem.role)}</Badge>
+                        <div className="flex items-center gap-2">
+                          <p className="text-xs text-muted-foreground">TCM cap.</p>
+                          <Switch checked={isTcm} onCheckedChange={async (v) => {
+                            try {
+                              setUpdating(true);
+                              await api.users.update(mem.id, { isTcm: !!v });
+                              toast.success("Updated");
+                              loadData();
+                            } catch (e) {
+                              toast.error((e as Error).message);
+                            } finally {
+                              setUpdating(false);
+                            }
+                          }} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              {tcms.filter((u) => u.role === "tcm").length === 0 && sortedMembers.length === 0 && (
+                <p className="text-center text-muted-foreground text-sm py-8">No TCM users yet. Add one in Users → Add User.</p>
+              )}
+            </>
+          )}
 
           {/* Owners */}
           {roleTab === "owners" && sortedOwners.map((own) => (

@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { api, type ManagedUser, type UserStatus } from "@/lib/api/client";
 import { AddUserForm } from "./AddUserForm";
+import { roleLabel } from "@/lib/role-labels";
 
 export function UsersTab() {
   const [users, setUsers] = useState<ManagedUser[]>([]);
@@ -111,7 +112,7 @@ export function UsersTab() {
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-medium truncate">{u.fullName}</p>
-                    <Badge variant="secondary" className="text-[10px] capitalize">{u.role.replace("_", " ")}</Badge>
+                    <Badge variant="secondary" className="text-[10px]">{roleLabel(u.role)}</Badge>
                   </div>
                   <p className="text-xs text-muted-foreground truncate">{u.email}</p>
                   {u.phone && <p className="text-[11px] text-muted-foreground">{u.phone}</p>}

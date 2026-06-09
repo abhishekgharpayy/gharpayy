@@ -51,7 +51,7 @@ function catalogVacantBeds(property: CatalogProperty): number {
   if (property.source === "ops") return Number(property.vacantBeds ?? 0) || 0;
   if (!property.pg) return 0;
   const live = scarcity(property.pg).perBed;
-  return Object.values(live).reduce((sum, count) => sum + (count ?? 0), 0);
+  return Object.values(live).reduce<number>((sum, count) => sum + (count ?? 0), 0);
 }
 
 function catalogTotalBeds(property: CatalogProperty): number | null {

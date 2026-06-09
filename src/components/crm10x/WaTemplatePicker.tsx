@@ -21,7 +21,7 @@ export function WaTemplatePicker({ lead }: { lead: Lead }) {
 
   const tours = useMemo(() => allTours.filter((t) => t.leadId === lead.id), [allTours, lead.id]);
   const tour = tours[0];
-  const prop = tour ? getProperty(tour.propertyId, properties) : undefined;
+  const prop = tour ? getProperty(tour.propertyId ?? undefined, properties) : undefined;
   const agent = tcms.find((t) => t.id === lead.assignedTcmId);
 
   const rendered = renderTemplate(stage, lang, {

@@ -131,7 +131,7 @@ export function EventDialog({ open, onOpenChange, eventId, event, defaultStart }
   };
 
   const remove = () => {
-    if (!stored) return;
+    if (!existing) return;
     deleteEvent(existing.id);
     toast.success("Event deleted.");
     onOpenChange(false);
