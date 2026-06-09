@@ -110,6 +110,15 @@ async function ensureIndexes(db: Db) {
       name: "sessions.expiresAt",
       run: () => db.collection("sessions").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
     },
+    {
+      name: "assignment_notifications",
+      run: () =>
+        db.collection("assignment_notifications").createIndexes([
+          { key: { tenantId: 1, assignedToId: 1, status: 1 } },
+          { key: { tenantId: 1, entityId: 1 } },
+          { key: { tenantId: 1, assignedById: 1, status: 1 } },
+        ]),
+    },
   ];
 
   // Run sequentially with isolation: a single bad index must NOT prevent boot.

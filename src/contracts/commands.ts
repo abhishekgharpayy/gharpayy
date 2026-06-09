@@ -8,6 +8,8 @@ export const CommandType = z.enum([
   "cmd.lead.assign",
   "cmd.lead.change_stage",
   "cmd.lead.delete",
+  "cmd.lead.accept_assignment",
+  "cmd.lead.pass_assignment",
   // Tours
   "cmd.tour.schedule",
   "cmd.tour.reschedule",
@@ -15,6 +17,8 @@ export const CommandType = z.enum([
   "cmd.tour.complete",
   "cmd.tour.update",
   "cmd.tour.update_post_tour",
+  "cmd.tour.accept_assignment",
+  "cmd.tour.pass_assignment",
   // Todos
   "cmd.todo.create",
   "cmd.todo.update",
@@ -92,6 +96,16 @@ export const DeleteLeadCmd = Base.extend({
   payload: z.object({ leadId: z.string() }),
 });
 
+export const AcceptLeadAssignmentCmd = Base.extend({
+  type: z.literal("cmd.lead.accept_assignment"),
+  payload: z.object({ notificationId: z.string() }),
+});
+
+export const PassLeadAssignmentCmd = Base.extend({
+  type: z.literal("cmd.lead.pass_assignment"),
+  payload: z.object({ notificationId: z.string(), newAssigneeId: z.string() }),
+});
+
 // ---------- Tours ----------
 export const ScheduleTourCmd = Base.extend({
   type: z.literal("cmd.tour.schedule"),
@@ -147,6 +161,16 @@ export const UpdatePostTourCmd = Base.extend({
       filledAt: z.string().nullable().optional(),
     }),
   }),
+});
+
+export const AcceptTourAssignmentCmd = Base.extend({
+  type: z.literal("cmd.tour.accept_assignment"),
+  payload: z.object({ notificationId: z.string() }),
+});
+
+export const PassTourAssignmentCmd = Base.extend({
+  type: z.literal("cmd.tour.pass_assignment"),
+  payload: z.object({ notificationId: z.string(), newAssigneeId: z.string() }),
 });
 
 // ---------- Todos ----------
@@ -246,6 +270,8 @@ export const Command = z.discriminatedUnion("type", [
   AssignLeadCmd,
   ChangeStageCmd,
   DeleteLeadCmd,
+  AcceptLeadAssignmentCmd,
+  PassLeadAssignmentCmd,
   CreateTodoCmd,
   UpdateTodoCmd,
   AssignTodoCmd,
@@ -259,6 +285,8 @@ export const Command = z.discriminatedUnion("type", [
   CompleteTourCmd,
   UpdateTourCmd,
   UpdatePostTourCmd,
+  AcceptTourAssignmentCmd,
+  PassTourAssignmentCmd,
   LogActivityCmd,
   UpdateActivityCmd,
   DeleteActivityCmd,

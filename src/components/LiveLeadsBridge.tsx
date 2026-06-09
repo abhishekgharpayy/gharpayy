@@ -10,6 +10,8 @@ import { onEvent, getSocket } from "@/lib/api/socket";
 import type { Lead as LegacyLead, LeadStage, Intent } from "@/lib/types";
 import type { Lead as WireLead, DomainEvent } from "@/contracts";
 import { normalizeLeadRecord } from "@/lib/lead-helpers";
+import { useAuthUser } from "@/lib/auth-store";
+import { useNotifications } from "@/lib/notifications";
 
 function toLegacy(w: WireLead, fallbackTcmId = ""): LegacyLead {
   return normalizeLeadRecord({
@@ -94,12 +96,68 @@ export function LiveLeadsBridge() {
         setLeads(cur.map((l) => (l.id === e.payload.leadId
           ? { ...l, assignedTcmId: e.payload.tcmId, assigneeId: e.payload.tcmId, updatedAt: new Date().toISOString() }
           : l)));
+        
+        const me = useAuthUser.getState().user;
+        if (me && e.payload.originalAssignedById === me.id) {
+          const leadName = cur.find((l) => l.id === e.payload.leadId)?.name || "a lead";
+          const assigneeName = e.payload.assigneeName || "the member";
+          useNotifications.getState().push({
+            id: `n:assignment_accepted:${e.payload.leadId}:${Date.now()}`,
+            ts: Date.now(),
+            audience: [],
+            recipientId: me.id,
+            severity: "success",
+            title: "Lead assignment accepted",
+            body: `${assigneeName} accepted the assignment of ${leadName}'s lead.`,
+            href: "/inbox",
+            kind: "system",
+            leadId: e.payload.leadId,
+          });
+        }
+      } else if (e.type === "evt.tour.assignment_accepted") {
+        const me = useAuthUser.getState().user;
+        if (me && e.payload.originalAssignedById === me.id) {
+          const leadName = cur.find((l) => l.id === e.payload.leadId)?.name || "a lead";
+          const assigneeName = e.payload.assigneeName || "the member";
+          useNotifications.getState().push({
+            id: `n:assignment_accepted:${e.payload.tourId}:${Date.now()}`,
+            ts: Date.now(),
+            audience: [],
+            recipientId: me.id,
+            severity: "success",
+            title: "Tour assignment accepted",
+            body: `${assigneeName} accepted the assignment of ${leadName}'s tour.`,
+            href: "/inbox",
+            kind: "system",
+            leadId: e.payload.leadId,
+          });
+        }
       } else if (e.type === "evt.lead.stage_changed") {
         setLeads(cur.map((l) => (l.id === e.payload.leadId
           ? { ...l, stage: e.payload.to as LeadStage, updatedAt: new Date().toISOString() }
           : l)));
       } else if (e.type === "evt.lead.deleted") {
         setLeads(cur.filter((l) => l.id !== e.payload.leadId));
+      } else if (e.type === "evt.lead.assignment_pending") {
+        const me = useAuthUser.getState().user;
+        if (me && e.actor === me.id) {
+          const leadName = cur.find((l) => l.id === e.payload.leadId)?.name || "a lead";
+          const assigneeName = tcmsRef.current.find(t => t.id === e.payload.tcmId)?.name 
+            || "the selected member";
+            
+          useNotifications.getState().push({
+            id: `n:pending_assignment:${e.payload.leadId}:${Date.now()}`,
+            ts: Date.now(),
+            audience: [],
+            recipientId: me.id,
+            severity: "success",
+            title: "Lead assigned",
+            body: `You assigned ${leadName}'s lead to ${assigneeName}`,
+            href: "/inbox",
+            kind: "system",
+            leadId: e.payload.leadId,
+          });
+        }
       }
     });
 

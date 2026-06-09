@@ -278,7 +278,7 @@ export function notifyTourScheduled(input: {
       audience: [],
       recipientId: recipient.id,
       severity: isSender ? "success" : "info",
-      title: isSender ? "Tour scheduled" : "Tour assigned to you",
+      title: isSender ? "Tour assigned" : "Tour assigned to you",
       body: isSender
         ? `You assigned ${input.leadName}'s tour to ${input.assigneeName?.trim() || "the assigned member"}`
         : `${input.senderName} assigned ${input.leadName}'s tour to you`,

@@ -12,11 +12,21 @@ import {
 import { Tour, Lead, PostTourUpdate } from "../../../../src/contracts/entities.js";
 import { emit, newEventId } from "../../realtime/event-bus.js";
 import type { JwtClaims } from "../../auth/auth.js";
+import type { UserDoc } from "../../auth/auth.js";
 import { autoLogActivity } from "../activities/command-handlers.js";
+import {
+  createTourAssignmentNotification,
+  applyAssignmentCommand,
+} from "../leads/assignment-notification-handlers.js";
 
 const TOURS = "tours";
 
 export async function applyTourCommand(cmd: Command, user: JwtClaims) {
+  // Delegate assignment notification commands
+  if (cmd.type === "cmd.tour.accept_assignment" || cmd.type === "cmd.tour.pass_assignment") {
+    return applyAssignmentCommand(cmd, user);
+  }
+
   const now = new Date().toISOString();
   const correlationId = cmd._id;
 
@@ -83,6 +93,21 @@ export async function applyTourCommand(cmd: Command, user: JwtClaims) {
         user,
         correlationId,
       });
+
+      // Create a pending assignment notification for the TCM, UNLESS the
+      // scheduler is scheduling for themselves (self-assignment: no notification needed).
+      if (p.tcmId !== user.sub) {
+        const schedUser = await col<UserDoc>("users").findOne({ _id: user.sub, tenantId: user.tenantId });
+        await createTourAssignmentNotification({
+          tourId: tour._id,
+          leadId: p.leadId,
+          leadName: lead.name,
+          assignedById: user.sub,
+          assignedByName: schedUser?.fullName ?? user.fullName ?? user.sub,
+          assignedToId: p.tcmId,
+          tenantId: user.tenantId,
+        });
+      }
 
       return { ok: true, eventIds: [evtId], data: { tour } };
     }

@@ -8,6 +8,8 @@ export const EventType = z.enum([
   "evt.lead.assigned",
   "evt.lead.stage_changed",
   "evt.lead.deleted",
+  "evt.lead.assignment_pending",
+  "evt.lead.assignment_passed",
   // Todos
   "evt.todo.created",
   "evt.todo.updated",
@@ -20,12 +22,15 @@ export const EventType = z.enum([
   "evt.activity.logged",
   "evt.activity.updated",
   "evt.activity.deleted",
-  // Future modules - declare now so contracts stay stable.
+  // Tour
   "evt.tour.scheduled",
   "evt.tour.rescheduled",
   "evt.tour.completed",
   "evt.tour.cancelled",
   "evt.tour.updated",
+  "evt.tour.assignment_accepted",
+  "evt.tour.assignment_passed",
+  // Future modules
   "evt.room.blocked",
   "evt.room.released",
 ]);
@@ -53,7 +58,7 @@ export const LeadUpdatedEvt = Envelope.extend({
 });
 export const LeadAssignedEvt = Envelope.extend({
   type: z.literal("evt.lead.assigned"),
-  payload: z.object({ leadId: z.string(), tcmId: z.string() }),
+  payload: z.object({ leadId: z.string(), tcmId: z.string(), originalAssignedById: z.string().optional(), assigneeName: z.string().optional() }),
 });
 export const LeadStageChangedEvt = Envelope.extend({
   type: z.literal("evt.lead.stage_changed"),
@@ -143,12 +148,47 @@ export const TourUpdatedEvt = Envelope.extend({
   payload: z.object({ tourId: z.string(), patch: z.record(z.string(), z.unknown()) }),
 });
 
+// ---------- Assignment notification events ----------
+export const LeadAssignmentPendingEvt = Envelope.extend({
+  type: z.literal("evt.lead.assignment_pending"),
+  payload: z.object({ leadId: z.string(), tcmId: z.string() }),
+});
+export const LeadAssignmentPassedEvt = Envelope.extend({
+  type: z.literal("evt.lead.assignment_passed"),
+  payload: z.object({
+    leadId: z.string(),
+    passedById: z.string(),
+    passedByName: z.string(),
+    passedToId: z.string(),
+    passedToName: z.string(),
+    originalAssignedById: z.string(),
+  }),
+});
+export const TourAssignmentAcceptedEvt = Envelope.extend({
+  type: z.literal("evt.tour.assignment_accepted"),
+  payload: z.object({ tourId: z.string(), tcmId: z.string(), leadId: z.string(), originalAssignedById: z.string().optional(), assigneeName: z.string().optional() }),
+});
+export const TourAssignmentPassedEvt = Envelope.extend({
+  type: z.literal("evt.tour.assignment_passed"),
+  payload: z.object({
+    tourId: z.string(),
+    leadId: z.string(),
+    passedById: z.string(),
+    passedByName: z.string(),
+    passedToId: z.string(),
+    passedToName: z.string(),
+    originalAssignedById: z.string(),
+  }),
+});
+
 export const DomainEvent = z.discriminatedUnion("type", [
   LeadCreatedEvt,
   LeadUpdatedEvt,
   LeadAssignedEvt,
   LeadStageChangedEvt,
   LeadDeletedEvt,
+  LeadAssignmentPendingEvt,
+  LeadAssignmentPassedEvt,
   TodoCreatedEvt,
   TodoUpdatedEvt,
   TodoAssignedEvt,
@@ -164,5 +204,7 @@ export const DomainEvent = z.discriminatedUnion("type", [
   TourCompletedEvt,
   TourCancelledEvt,
   TourUpdatedEvt,
+  TourAssignmentAcceptedEvt,
+  TourAssignmentPassedEvt,
 ]);
 export type DomainEvent = z.infer<typeof DomainEvent>;
