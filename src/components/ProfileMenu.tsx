@@ -46,7 +46,8 @@ const ROLE_META = {
 export function ProfileMenu() {
   const navigate = useNavigate();
   const authUser = useAuthUser((s) => s.user);
-  const meta = ROLE_META[(authUser?.role ?? "flow-ops").replace(/_/g, "-") as keyof typeof ROLE_META];
+  const meta =
+    ROLE_META[(authUser?.role ?? "flow-ops").replace(/_/g, "-") as keyof typeof ROLE_META];
   const personName = authUser?.fullName ?? authUser?.username ?? authUser?.email ?? "Account";
   const computeInitials = (n: string) =>
     n
@@ -67,12 +68,21 @@ export function ProfileMenu() {
           className="relative inline-flex h-8 w-8 items-center justify-center rounded-full bg-accent text-[11px] font-semibold text-accent-foreground outline-none ring-offset-background transition focus-visible:ring-2 focus-visible:ring-accent"
         >
           {initials}
-          <span className={cn("absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-background", meta.dot)} />
+          <span
+            className={cn(
+              "absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-background",
+              meta.dot,
+            )}
+          />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64">
         <DropdownMenuLabel className="flex items-center gap-2">
-          <div className={cn("inline-flex h-8 w-8 items-center justify-center rounded-full bg-accent/15 text-[11px] font-semibold")}>
+          <div
+            className={cn(
+              "inline-flex h-8 w-8 items-center justify-center rounded-full bg-accent/15 text-[11px] font-semibold",
+            )}
+          >
             {initials}
           </div>
           <div className="min-w-0">
@@ -84,10 +94,14 @@ export function ProfileMenu() {
         <DropdownMenuSeparator />
 
         <DropdownMenuItem asChild>
-          <Link to="/settings"><Settings className="mr-2 h-4 w-4" /> Settings</Link>
+          <Link to="/settings">
+            <Settings className="mr-2 h-4 w-4" /> Settings
+          </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
-          <Link to="/help"><HelpCircle className="mr-2 h-4 w-4" /> How to use</Link>
+          <Link to="/help">
+            <HelpCircle className="mr-2 h-4 w-4" /> How to use
+          </Link>
         </DropdownMenuItem>
 
         <DropdownMenuSeparator />

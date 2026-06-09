@@ -37,7 +37,13 @@ describe("topSuggestion", () => {
     const list = [
       pick({
         lead: lead({ id: "1", name: "A" }),
-        nba: { verb: "schedule", label: "Schedule", reason: "new", pressure: "normal", ageMinutes: 0 },
+        nba: {
+          verb: "schedule",
+          label: "Schedule",
+          reason: "new",
+          pressure: "normal",
+          ageMinutes: 0,
+        },
       }),
     ];
     expect(topSuggestion(list)?.lead.id).toBe("1");

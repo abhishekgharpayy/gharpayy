@@ -15,11 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -57,24 +53,32 @@ function catalogVacantBeds(property: CatalogProperty): number {
 function catalogTotalBeds(property: CatalogProperty): number | null {
   if (property.source === "ops") return Number(property.totalBeds ?? 0) || null;
   if (!property.pg) return null;
-  return [property.pg.prices.single, property.pg.prices.double, property.pg.prices.triple]
-    .filter((price) => price > 0).length;
+  return [property.pg.prices.single, property.pg.prices.double, property.pg.prices.triple].filter(
+    (price) => price > 0,
+  ).length;
 }
 
 function normalizeInventoryText(value: string): string {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
 }
 
-function propertyMatchesTcmZone(property: CatalogProperty, tcm: { zone?: string; zones?: string[] }): boolean {
+function propertyMatchesTcmZone(
+  property: CatalogProperty,
+  tcm: { zone?: string; zones?: string[] },
+): boolean {
   const zoneText = normalizeInventoryText(tmZone(tcm));
   if (!zoneText) return false;
-  const propertyText = normalizeInventoryText([
-    property.area,
-    property.name,
-    property.pg?.locality,
-    property.ops?.area,
-  ].filter(Boolean).join(" "));
-  return propertyText.includes(zoneText) || zoneText.includes(normalizeInventoryText(property.area));
+  const propertyText = normalizeInventoryText(
+    [property.area, property.name, property.pg?.locality, property.ops?.area]
+      .filter(Boolean)
+      .join(" "),
+  );
+  return (
+    propertyText.includes(zoneText) || zoneText.includes(normalizeInventoryText(property.area))
+  );
 }
 
 export function ImpactFocusInventoryPanel({
@@ -83,15 +87,20 @@ export function ImpactFocusInventoryPanel({
   onPropertyTap,
 }: {
   tcmFilter: string;
-  tcmOptions: Array<{ id: string; fullName?: string; name?: string; zone?: string; zones?: string[] }>;
+  tcmOptions: Array<{
+    id: string;
+    fullName?: string;
+    name?: string;
+    zone?: string;
+    zones?: string[];
+  }>;
   onPropertyTap?: (area: string) => void;
 }) {
   const properties = useApp((s) => s.properties);
   const focusProps = useTcmContacts((s) => s.focusProps);
   const [manageOpen, setManageOpen] = useState(false);
 
-  const activeTcm =
-    tcmFilter !== "all" ? tcmOptions.find((t) => t.id === tcmFilter) : undefined;
+  const activeTcm = tcmFilter !== "all" ? tcmOptions.find((t) => t.id === tcmFilter) : undefined;
 
   const rows = useMemo(() => {
     const list = activeTcm ? [activeTcm] : tcmOptions;
@@ -136,15 +145,23 @@ export function ImpactFocusInventoryPanel({
             <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent/20 text-[10px] font-bold text-accent">
               {tmInitials(primaryRow.tcm)}
             </div>
-            <span className="font-medium text-foreground">{tmName(primaryRow.tcm).split(" ")[0]}</span>
+            <span className="font-medium text-foreground">
+              {tmName(primaryRow.tcm).split(" ")[0]}
+            </span>
             <span>·</span>
-            <span>{primaryRow.vacant} {primaryRow.label}</span>
+            <span>
+              {primaryRow.vacant} {primaryRow.label}
+            </span>
             <span>·</span>
-            <span>{primaryRow.props.length} propert{primaryRow.props.length === 1 ? "y" : "ies"}</span>
+            <span>
+              {primaryRow.props.length} propert{primaryRow.props.length === 1 ? "y" : "ies"}
+            </span>
           </div>
 
           {primaryRow.props.length === 0 ? (
-            <p className="mb-2 text-[11px] italic text-muted-foreground">No focus set — tap Manage to pin properties.</p>
+            <p className="mb-2 text-[11px] italic text-muted-foreground">
+              No focus set — tap Manage to pin properties.
+            </p>
           ) : (
             <div className="mb-2 flex gap-2 overflow-x-auto pb-1">
               {primaryRow.props.map((p) => (
@@ -154,7 +171,9 @@ export function ImpactFocusInventoryPanel({
                   onClick={() => onPropertyTap?.(p.area)}
                   className="flex min-w-[8.5rem] shrink-0 items-center justify-between gap-2 rounded-lg border border-border bg-background px-2.5 py-2 text-left hover:border-accent/50 hover:bg-accent/5"
                 >
-                  <span className="truncate text-[11px] font-semibold text-foreground">{p.name}</span>
+                  <span className="truncate text-[11px] font-semibold text-foreground">
+                    {p.name}
+                  </span>
                   <Badge
                     variant="outline"
                     className={cn(
@@ -182,7 +201,9 @@ export function ImpactFocusInventoryPanel({
           {rows.slice(1).map(({ tcm, props, vacant, label }) => (
             <div key={tcm.id} className="flex items-center gap-2 text-[10px] text-muted-foreground">
               <span className="font-semibold text-foreground">{tmName(tcm).split(" ")[0]}</span>
-              <span>{vacant} {label}</span>
+              <span>
+                {vacant} {label}
+              </span>
               <span>· {props.length} props</span>
             </div>
           ))}
@@ -210,7 +231,13 @@ function ManageFocusDialog({
   open: boolean;
   onOpenChange: (v: boolean) => void;
   defaultTcmId: string;
-  tcmOptions: Array<{ id: string; fullName?: string; name?: string; zone?: string; zones?: string[] }>;
+  tcmOptions: Array<{
+    id: string;
+    fullName?: string;
+    name?: string;
+    zone?: string;
+    zones?: string[];
+  }>;
 }) {
   const properties = useApp((s) => s.properties);
   const focusProps = useTcmContacts((s) => s.focusProps);
@@ -255,7 +282,9 @@ function ManageFocusDialog({
 
         <div className="grid grid-cols-2 gap-4 px-6 pt-5 pb-4 shrink-0">
           <div className="space-y-1.5">
-            <Label className="text-[11px] uppercase tracking-widest text-muted-foreground font-semibold">TCM</Label>
+            <Label className="text-[11px] uppercase tracking-widest text-muted-foreground font-semibold">
+              TCM
+            </Label>
             <Select value={tcmId} onValueChange={setTcmId}>
               <SelectTrigger className="h-11 text-sm rounded-xl border-border bg-background">
                 <SelectValue>
@@ -273,7 +302,9 @@ function ManageFocusDialog({
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label className="text-[11px] uppercase tracking-widest text-muted-foreground font-semibold">Search</Label>
+            <Label className="text-[11px] uppercase tracking-widest text-muted-foreground font-semibold">
+              Search
+            </Label>
             <Input
               className="h-11 text-sm rounded-xl border-border bg-background"
               placeholder="Property name or area"
@@ -291,7 +322,10 @@ function ManageFocusDialog({
             <button
               type="button"
               className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
-              onClick={() => { clearFocus(tcmId); toast("Focus cleared"); }}
+              onClick={() => {
+                clearFocus(tcmId);
+                toast("Focus cleared");
+              }}
             >
               <X className="h-3.5 w-3.5" /> Clear all
             </button>
@@ -322,18 +356,31 @@ function ManageFocusDialog({
                 <div
                   className={cn(
                     "h-5 w-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors",
-                    on ? "bg-orange-500 border-orange-500" : "border-muted-foreground/40 bg-background",
+                    on
+                      ? "bg-orange-500 border-orange-500"
+                      : "border-muted-foreground/40 bg-background",
                   )}
                 >
                   {on ? (
                     <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 12 12">
-                      <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      <path
+                        d="M2 6l3 3 5-5"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
                     </svg>
                   ) : null}
                 </div>
 
                 <div className="flex-1 min-w-0">
-                  <div className={cn("text-sm font-semibold truncate", on ? "text-orange-700 dark:text-orange-300" : "text-foreground")}>
+                  <div
+                    className={cn(
+                      "text-sm font-semibold truncate",
+                      on ? "text-orange-700 dark:text-orange-300" : "text-foreground",
+                    )}
+                  >
                     {p.name}
                   </div>
                   <div className="text-[12px] text-muted-foreground truncate">

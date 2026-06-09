@@ -12,7 +12,12 @@ import {
   ImpactFocusPopover,
   ImpactQueueMetaBar,
 } from "@/components/impact/ImpactQueueHeaderControls";
-import { COLUMNS, type ColumnKey, COLUMN_STAGE_TARGET, type ImpactEnriched } from "@/components/impact/impact-queue-types";
+import {
+  COLUMNS,
+  type ColumnKey,
+  COLUMN_STAGE_TARGET,
+  type ImpactEnriched,
+} from "@/components/impact/impact-queue-types";
 import {
   type QueueChipFilter,
   type ViewMode,
@@ -31,7 +36,13 @@ import { leadHasValidProperty, pickBestPropertyForLead } from "@/lib/crm10x/fix-
 import { useAuthUser } from "@/lib/auth-store";
 import { useImpactQueueKeyboard } from "@/hooks/useImpactQueueKeyboard";
 import { useImpactMorningDigest } from "@/hooks/useImpactMorningDigest";
-import { memberDisplayName, memberOptionLabel, memberShortLabel, useActiveTcMs, useOrgMembers } from "@/hooks/useOrgDirectory";
+import {
+  memberDisplayName,
+  memberOptionLabel,
+  memberShortLabel,
+  useActiveTcMs,
+  useOrgMembers,
+} from "@/hooks/useOrgDirectory";
 import {
   classifyImpactPriority,
   IMPACT_PRIORITY_META,
@@ -40,11 +51,25 @@ import {
 } from "@/lib/crm10x/impact-hard-actions";
 import { useApp } from "@/lib/store";
 import { api } from "@/lib/api/client";
-import { useQuotationsQuery, useSetQuotationStatus, formatINR, type Quotation } from "@/lib/crm10x/quotations";
+import {
+  useQuotationsQuery,
+  useSetQuotationStatus,
+  formatINR,
+  type Quotation,
+} from "@/lib/crm10x/quotations";
 import { useTcmContacts } from "@/lib/crm10x/tcm-contacts";
 import { useLeadInterests, useToggleInterest } from "@/lib/crm10x/lead-interests";
 import { useCRM10x } from "@/lib/crm10x/store";
-import { useCheckin, useUpsertCheckin, usePatchCheckin, STAGE_LABEL, riskLevel, RISK_CLASS, RISK_LABEL, type CheckIn } from "@/lib/checkins/store";
+import {
+  useCheckin,
+  useUpsertCheckin,
+  usePatchCheckin,
+  STAGE_LABEL,
+  riskLevel,
+  RISK_CLASS,
+  RISK_LABEL,
+  type CheckIn,
+} from "@/lib/checkins/store";
 import type { ActivityLog, Lead, Property, TCM, Tour } from "@/lib/types";
 import {
   resolvePropertyById,
@@ -62,11 +87,17 @@ import {
   type TourQueueBand,
 } from "@/lib/crm10x/tour-queue-bands";
 import {
-  IMPACT_TEMPLATES, renderImpactTemplate,
-  type ImpactScenario, type ImpactTpl, type ImpactTplCtx,
+  IMPACT_TEMPLATES,
+  renderImpactTemplate,
+  type ImpactScenario,
+  type ImpactTpl,
+  type ImpactTplCtx,
 } from "@/lib/crm10x/impact-templates";
 import {
-  scoreLead, computeNBA, pressureColor, intentChip,
+  scoreLead,
+  computeNBA,
+  pressureColor,
+  intentChip,
   type NextBestAction,
 } from "@/lib/crm10x/impact-scoring";
 import { QuotationBuilder } from "@/components/crm10x/QuotationBuilder";
@@ -78,34 +109,84 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
-  Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
 } from "@/components/ui/sheet";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { dispatch } from "@/lib/api/command-bus";
 import {
-  Calendar, CheckCircle2, ChevronLeft, ChevronRight, ClipboardCopy,
-  FileText, LayoutGrid, ListOrdered, Phone, Plus,
-  Search, Sparkles, Target, Timer, UserCheck, Wallet, Zap,
-  Beaker, X, Heart, Star, Activity, Sunrise, MapPin,
-  RotateCcw, KeyRound, ScrollText, Building2, Video, Briefcase, Info, MoreHorizontal, AlertTriangle, MessageSquareCode,
-  ArchiveX, UserRound,
+  Calendar,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  ClipboardCopy,
+  FileText,
+  LayoutGrid,
+  ListOrdered,
+  Phone,
+  Plus,
+  Search,
+  Sparkles,
+  Target,
+  Timer,
+  UserCheck,
+  Wallet,
+  Zap,
+  Beaker,
+  X,
+  Heart,
+  Star,
+  Activity,
+  Sunrise,
+  MapPin,
+  RotateCcw,
+  KeyRound,
+  ScrollText,
+  Building2,
+  Video,
+  Briefcase,
+  Info,
+  MoreHorizontal,
+  AlertTriangle,
+  MessageSquareCode,
+  ArchiveX,
+  UserRound,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useMountedNow } from "@/hooks/use-now";
 import { useAuditLog } from "@/lib/crm10x/audit-log";
 import { useIdentityStore } from "@/lib/lead-identity/store";
 import { LeadPasteParser } from "@/components/leads/LeadPasteParser";
-import { hasCapturedLeadName, pickRelevantActiveTour, resolveBestLeadName } from "@/lib/lead-helpers";
+import {
+  hasCapturedLeadName,
+  pickRelevantActiveTour,
+  resolveBestLeadName,
+} from "@/lib/lead-helpers";
 
 /* ================================================================== */
 /*  Impact Queue — 10x                                                 */
@@ -121,7 +202,9 @@ const TOUR_TYPES = [
   { value: "virtual", label: "Virtual", icon: Video },
   { value: "pre-book-pitch", label: "Pre-book", icon: Briefcase },
 ] as const;
-const TOUR_TYPE_LABELS = Object.fromEntries(TOUR_TYPES.map((item) => [item.value, item.label])) as Record<string, string>;
+const TOUR_TYPE_LABELS = Object.fromEntries(
+  TOUR_TYPES.map((item) => [item.value, item.label]),
+) as Record<string, string>;
 function normalizePhone(raw: string): string {
   const digits = raw.replace(/\D/g, "");
   if (!digits) return raw.trim();
@@ -154,12 +237,14 @@ function isToday(iso: string) {
   return isTodayIST(iso);
 }
 function isThisWeek(iso: string) {
-  const d = new Date(iso); const n = new Date();
+  const d = new Date(iso);
+  const n = new Date();
   const diff = (+n - +d) / 86_400_000;
   return diff >= 0 && diff <= 7;
 }
 function isThisMonth(iso: string) {
-  const d = new Date(iso); const n = new Date();
+  const d = new Date(iso);
+  const n = new Date();
   return d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth();
 }
 function parseInstant(iso: string | null | undefined): Date | null {
@@ -170,21 +255,34 @@ function parseInstant(iso: string | null | undefined): Date | null {
 function fmtTime(iso: string) {
   const d = parseInstant(iso);
   if (!d) return "—";
-  return new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", hour: "numeric", minute: "2-digit" }).format(d);
+  return new Intl.DateTimeFormat("en-IN", {
+    timeZone: "Asia/Kolkata",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(d);
 }
 function fmtWhen(iso: string) {
   const d = parseInstant(iso);
   if (!d) return "—";
   return new Intl.DateTimeFormat("en-IN", {
     timeZone: "Asia/Kolkata",
-    weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit",
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit",
   }).format(d);
 }
 function fmtDate(iso: string | null | undefined) {
   if (!iso) return "—";
   const d = parseInstant(iso);
   if (!d) return "—";
-  return new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", year: "numeric" }).format(d);
+  return new Intl.DateTimeFormat("en-IN", {
+    timeZone: "Asia/Kolkata",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(d);
 }
 function fmtRel(iso: string, nowMs: number) {
   const d = parseInstant(iso);
@@ -258,13 +356,22 @@ export function useImpactStateForLead(leadInput?: Lead | null) {
     let column: ColumnKey = "inbox";
     if (lead.stage === "booked") column = "booked";
     else if (lead.stage === "quote-sent" || lead.stage === "negotiation") column = "quoted";
-    else if (lastQuote && (lastQuote.status === "sent" || lastQuote.status === "paid")) column = "quoted";
+    else if (lastQuote && (lastQuote.status === "sent" || lastQuote.status === "paid"))
+      column = "quoted";
     else if (openTour && isToday(openTour.scheduledAt)) column = "onTour";
-    else if (openTour || lead.stage === "tour-scheduled" || lead.stage === "on-tour" || lead.stage === "tour-done") column = "scheduled";
+    else if (
+      openTour ||
+      lead.stage === "tour-scheduled" ||
+      lead.stage === "on-tour" ||
+      lead.stage === "tour-done"
+    )
+      column = "scheduled";
 
     const nba = computeNBA(lead, openTour, lastQuote);
     const { score } = scoreLead(lead, openTour, lastQuote);
-    const catalogProperty = openTour ? resolvePropertyById(openTour.propertyId, opsProperties) : undefined;
+    const catalogProperty = openTour
+      ? resolvePropertyById(openTour.propertyId, opsProperties)
+      : undefined;
     const tcm = tcmOptions.find((candidate) => candidate.id === lead.assignedTcmId);
 
     return {
@@ -300,17 +407,29 @@ function isValidPhone(v: string) {
 
 function parsePastedText(text: string): { name?: string; phone?: string; location?: string } {
   const phone = text.match(/\b[6-9]\d{9}\b/)?.[0];
-  const words = text.replace(phone ?? "", "").trim().split(/\s+/);
+  const words = text
+    .replace(phone ?? "", "")
+    .trim()
+    .split(/\s+/);
   const locationKeywords = [
-    "koramangala","bellandur","hsr","whitefield","indiranagar",
-    "marathahalli","btm","hebbal","electronic city","jayanagar",
-    "jp nagar","yelahanka","sarjapur","bannerghatta"
+    "koramangala",
+    "bellandur",
+    "hsr",
+    "whitefield",
+    "indiranagar",
+    "marathahalli",
+    "btm",
+    "hebbal",
+    "electronic city",
+    "jayanagar",
+    "jp nagar",
+    "yelahanka",
+    "sarjapur",
+    "bannerghatta",
   ];
-  const location = words.find(w =>
-    locationKeywords.some(k => w.toLowerCase().includes(k))
-  );
+  const location = words.find((w) => locationKeywords.some((k) => w.toLowerCase().includes(k)));
   const name = words
-    .filter(w => w !== location && !/\d/.test(w))
+    .filter((w) => w !== location && !/\d/.test(w))
     .slice(0, 2)
     .join(" ");
   return {
@@ -374,16 +493,21 @@ export function ImpactQueue() {
       })
       .map((m) => ({ id: m.id, name: m.name }));
     if (fromDirectory.length > 0) {
-      return Array.from(new Map(fromDirectory.map((m) => [m.id, m])).values())
-        .sort((a, b) => a.name.localeCompare(b.name));
+      return Array.from(new Map(fromDirectory.map((m) => [m.id, m])).values()).sort((a, b) =>
+        a.name.localeCompare(b.name),
+      );
     }
     return tcmOptions
       .filter((t: any) => {
         if (!isAdminScoped) return true;
-        const zones = normalize(Array.isArray(t.zones) ? t.zones : (t.zone ? [t.zone] : []));
+        const zones = normalize(Array.isArray(t.zones) ? t.zones : t.zone ? [t.zone] : []);
         return zones.some((z) => myZones.has(z));
       })
-      .map((t: any) => ({ id: t.id, name: t.fullName ?? t.name, zones: t.zones ?? (t.zone ? [t.zone] : []) }))
+      .map((t: any) => ({
+        id: t.id,
+        name: t.fullName ?? t.name,
+        zones: t.zones ?? (t.zone ? [t.zone] : []),
+      }))
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [orgMembers, tcmOptions, authUser?.role, authUser?.zones, authUser?.id]);
   const setLeadStage = useApp((s) => s.setLeadStage);
@@ -523,9 +647,16 @@ export function ImpactQueue() {
         let column: ColumnKey = "inbox";
         if (lead.stage === "booked") column = "booked";
         else if (lead.stage === "quote-sent" || lead.stage === "negotiation") column = "quoted";
-        else if (lastQuote && (lastQuote.status === "sent" || lastQuote.status === "paid")) column = "quoted";
+        else if (lastQuote && (lastQuote.status === "sent" || lastQuote.status === "paid"))
+          column = "quoted";
         else if (openTour && isToday(openTour.scheduledAt)) column = "onTour";
-        else if (openTour || lead.stage === "tour-scheduled" || lead.stage === "on-tour" || lead.stage === "tour-done") column = "scheduled";
+        else if (
+          openTour ||
+          lead.stage === "tour-scheduled" ||
+          lead.stage === "on-tour" ||
+          lead.stage === "tour-done"
+        )
+          column = "scheduled";
 
         const nba = computeNBA(lead, openTour, lastQuote);
         const { score } = scoreLead(lead, openTour, lastQuote);
@@ -535,7 +666,7 @@ export function ImpactQueue() {
             : undefined;
         const tourTimeHint =
           openTour && (column === "scheduled" || column === "onTour")
-            ? buildTourTimeHint(openTour, at) ?? undefined
+            ? (buildTourTimeHint(openTour, at) ?? undefined)
             : undefined;
         return { lead, openTour, lastQuote, nba, score, column, tourBand, tourTimeHint };
       });
@@ -546,11 +677,15 @@ export function ImpactQueue() {
   useEffect(() => {
     const due = leads.filter((lead) => {
       if (lead.stage === "on-tour" || autoPromotedRef.current.has(lead.id)) return false;
-      const openTour = tours.find((t) => t.leadId === lead.id && (t.status === "scheduled" || t.status === "confirmed"));
+      const openTour = tours.find(
+        (t) => t.leadId === lead.id && (t.status === "scheduled" || t.status === "confirmed"),
+      );
       return openTour && isTodayIST(openTour.scheduledAt);
     });
     for (const lead of due) {
-      const tour = tours.find((t) => t.leadId === lead.id && (t.status === "scheduled" || t.status === "confirmed"));
+      const tour = tours.find(
+        (t) => t.leadId === lead.id && (t.status === "scheduled" || t.status === "confirmed"),
+      );
       if (!tour) continue;
       autoPromotedRef.current.add(lead.id);
       void markTourStarted(tour.id).catch(() => {
@@ -564,7 +699,7 @@ export function ImpactQueue() {
     const s = new Set<string>();
     for (const e of enriched) {
       if (e.lead.preferredArea) s.add(e.lead.preferredArea);
-      if (e.lead.areas) e.lead.areas.forEach(a => s.add(a));
+      if (e.lead.areas) e.lead.areas.forEach((a) => s.add(a));
     }
     return Array.from(s).filter(Boolean).sort();
   }, [enriched]);
@@ -575,31 +710,41 @@ export function ImpactQueue() {
       if (chipFilter === "warm" && e.lead.intent !== "warm") return false;
       if (chipFilter === "cold" && e.lead.intent !== "cold") return false;
       if (chipFilter === "overdue" && e.nba.pressure !== "escalate") return false;
-      if (chipFilter === "tour-today" && !(e.openTour && isToday(e.openTour.scheduledAt))) return false;
+      if (chipFilter === "tour-today" && !(e.openTour && isToday(e.openTour.scheduledAt)))
+        return false;
       if (chipFilter === "quote-pending" && e.lastQuote?.status !== "sent") return false;
       if (e.lead.stage === "dropped") return false;
 
-      if (areaFilter !== "all" && e.lead.preferredArea?.toLowerCase() !== areaFilter.toLowerCase() && !e.lead.areas?.map(a => a.toLowerCase()).includes(areaFilter.toLowerCase())) return false;
-      if (typeFilter !== "all" && e.lead.type?.toLowerCase() !== typeFilter.toLowerCase()) return false;
-      if (roomFilter !== "all" && e.lead.room?.toLowerCase() !== roomFilter.toLowerCase()) return false;
-      if (needFilter !== "all" && e.lead.need?.toLowerCase() !== needFilter.toLowerCase()) return false;
+      if (
+        areaFilter !== "all" &&
+        e.lead.preferredArea?.toLowerCase() !== areaFilter.toLowerCase() &&
+        !e.lead.areas?.map((a) => a.toLowerCase()).includes(areaFilter.toLowerCase())
+      )
+        return false;
+      if (typeFilter !== "all" && e.lead.type?.toLowerCase() !== typeFilter.toLowerCase())
+        return false;
+      if (roomFilter !== "all" && e.lead.room?.toLowerCase() !== roomFilter.toLowerCase())
+        return false;
+      if (needFilter !== "all" && e.lead.need?.toLowerCase() !== needFilter.toLowerCase())
+        return false;
 
       return true;
     });
   }, [enriched, chipFilter, areaFilter, typeFilter, roomFilter, needFilter]);
 
-  const stackSorted = useMemo(
-    () => {
-      const sorted = [...filtered].sort((a, b) => b.score - a.score);
-      if (stageFilter === "all") return sorted;
-      return sorted.filter((e) => e.column === stageFilter);
-    },
-    [filtered, stageFilter],
-  );
+  const stackSorted = useMemo(() => {
+    const sorted = [...filtered].sort((a, b) => b.score - a.score);
+    if (stageFilter === "all") return sorted;
+    return sorted.filter((e) => e.column === stageFilter);
+  }, [filtered, stageFilter]);
 
   const boardBuckets = useMemo(() => {
     const b: Record<ColumnKey, ImpactEnriched[]> = {
-      inbox: [], scheduled: [], onTour: [], quoted: [], booked: [],
+      inbox: [],
+      scheduled: [],
+      onTour: [],
+      quoted: [],
+      booked: [],
     };
     filtered.forEach((e) => b[e.column].push(e));
     const at = Date.now();
@@ -623,37 +768,37 @@ export function ImpactQueue() {
 
   /* --------- live counters --------- */
   const counters = useMemo(() => {
-  const safeTours = tours ?? [];
-  const safeQuotes = quotes ?? [];
-  const safeBookings = bookings ?? [];
-  const safeLeads = leads ?? [];
+    const safeTours = tours ?? [];
+    const safeQuotes = quotes ?? [];
+    const safeBookings = bookings ?? [];
+    const safeLeads = leads ?? [];
 
-  const scopedTours =
-    tcmFilter === "all" ? safeTours : safeTours.filter(t => t.tcmId === tcmFilter);
-  const scopedQuotes =
-    tcmFilter === "all" ? safeQuotes : safeQuotes.filter(q => q.tcmId === tcmFilter);
-  const scopedBookings =
-    tcmFilter === "all" ? safeBookings : safeBookings.filter(b => b.tcmId === tcmFilter);
-  const scopedLeads =
-    tcmFilter === "all"
-      ? safeLeads
-      : safeLeads.filter(l => {
-          const assignedTo = (l.assignedTcmId || l.assigneeId || "").trim();
-          if (assignedTo) return assignedTo === tcmFilter;
-          return canSelectTcmScope;
-        });
+    const scopedTours =
+      tcmFilter === "all" ? safeTours : safeTours.filter((t) => t.tcmId === tcmFilter);
+    const scopedQuotes =
+      tcmFilter === "all" ? safeQuotes : safeQuotes.filter((q) => q.tcmId === tcmFilter);
+    const scopedBookings =
+      tcmFilter === "all" ? safeBookings : safeBookings.filter((b) => b.tcmId === tcmFilter);
+    const scopedLeads =
+      tcmFilter === "all"
+        ? safeLeads
+        : safeLeads.filter((l) => {
+            const assignedTo = (l.assignedTcmId || l.assigneeId || "").trim();
+            if (assignedTo) return assignedTo === tcmFilter;
+            return canSelectTcmScope;
+          });
 
-  const toursScheduledToday = scopedTours.filter(t => isToday(t.scheduledAt)).length;
-  const toursCompletedToday = scopedTours.filter(
-    t => t.status === "completed" && isToday(t.updatedAt),
-  ).length;
-  const toursToday = toursScheduledToday + toursCompletedToday;
-  const quotesToday = scopedQuotes.filter(q => isToday(q.sentAt)).length;
-  const bookingsMonth = scopedBookings.filter(b => isThisMonth(b.ts)).length;
-  const leadsToday = scopedLeads.filter(l => isToday(l.createdAt)).length;
+    const toursScheduledToday = scopedTours.filter((t) => isToday(t.scheduledAt)).length;
+    const toursCompletedToday = scopedTours.filter(
+      (t) => t.status === "completed" && isToday(t.updatedAt),
+    ).length;
+    const toursToday = toursScheduledToday + toursCompletedToday;
+    const quotesToday = scopedQuotes.filter((q) => isToday(q.sentAt)).length;
+    const bookingsMonth = scopedBookings.filter((b) => isThisMonth(b.ts)).length;
+    const leadsToday = scopedLeads.filter((l) => isToday(l.createdAt)).length;
 
-  return { toursToday, quotesToday, bookingsMonth, leadsToday };
-}, [tours, quotes, bookings, leads, tcmFilter, canSelectTcmScope]);
+    return { toursToday, quotesToday, bookingsMonth, leadsToday };
+  }, [tours, quotes, bookings, leads, tcmFilter, canSelectTcmScope]);
 
   const quotesToday = useMemo(() => {
     const scoped = tcmFilter === "all" ? quotes : quotes.filter((q) => q.tcmId === tcmFilter);
@@ -665,9 +810,11 @@ export function ImpactQueue() {
   // Visible targets — tweak as the BBD target evolves.
   const targets = { leadsToday: 40, toursToday: 10, quotesToday: 10, bookingsMonth: 45 };
   const tone = (got: number, target: number) =>
-    got >= target ? "text-success border-success/30 bg-success/10"
-    : got >= target * 0.5 ? "text-warning border-warning/30 bg-warning/10"
-    : "text-danger border-danger/30 bg-danger/10";
+    got >= target
+      ? "text-success border-success/30 bg-success/10"
+      : got >= target * 0.5
+        ? "text-warning border-warning/30 bg-warning/10"
+        : "text-danger border-danger/30 bg-danger/10";
 
   const escalations = stackSorted.filter((e) => e.nba.pressure === "escalate").length;
 
@@ -679,12 +826,19 @@ export function ImpactQueue() {
       if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
       const target = event.target as HTMLElement | null;
       const tagName = target?.tagName;
-      if (tagName === "INPUT" || tagName === "TEXTAREA" || tagName === "SELECT" || target?.isContentEditable) return;
+      if (
+        tagName === "INPUT" ||
+        tagName === "TEXTAREA" ||
+        tagName === "SELECT" ||
+        target?.isContentEditable
+      )
+        return;
       const currentIndex = leadIdsOrdered.indexOf(selectedLeadId);
       if (currentIndex < 0) return;
-      const nextIndex = event.key === "ArrowRight"
-        ? Math.min(currentIndex + 1, leadIdsOrdered.length - 1)
-        : Math.max(currentIndex - 1, 0);
+      const nextIndex =
+        event.key === "ArrowRight"
+          ? Math.min(currentIndex + 1, leadIdsOrdered.length - 1)
+          : Math.max(currentIndex - 1, 0);
       if (nextIndex === currentIndex) return;
       event.preventDefault();
       selectLead(leadIdsOrdered[nextIndex]);
@@ -715,9 +869,7 @@ export function ImpactQueue() {
       <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
         {/* Row 1: heading left | controls right */}
         <div className="flex flex-wrap items-center justify-between gap-2 px-4 pt-3 pb-1">
-          <h1 className="text-xl font-display font-bold shrink-0">
-            Impact Queue
-          </h1>
+          <h1 className="text-xl font-display font-bold shrink-0">Impact Queue</h1>
 
           <div className="flex flex-wrap items-center justify-end gap-2">
             <TenXCommandBar
@@ -791,18 +943,32 @@ export function ImpactQueue() {
               <div className="h-8 min-w-[8rem] rounded-md border border-border bg-background px-3 py-2 text-[11px] font-semibold text-foreground flex items-center gap-1.5">
                 {(() => {
                   const me = tcmOptions.find((t: any) => t.id === selfScopeId);
-                  const name = (me as any)?.fullName ?? (me as any)?.name ?? authUser?.fullName ?? "My queue";
+                  const name =
+                    (me as any)?.fullName ?? (me as any)?.name ?? authUser?.fullName ?? "My queue";
                   const zone = (me as any)?.zones?.[0] ?? (me as any)?.zone ?? "";
-                  return zone ? <><span>{name}</span><span className="text-muted-foreground font-normal">· {zone}</span></> : name;
+                  return zone ? (
+                    <>
+                      <span>{name}</span>
+                      <span className="text-muted-foreground font-normal">· {zone}</span>
+                    </>
+                  ) : (
+                    name
+                  );
                 })()}
               </div>
             ) : (
               <Select value={tcmFilter} onValueChange={setTcmFilter}>
-                <SelectTrigger className="h-8 text-[11px] w-40 bg-background"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-8 text-[11px] w-40 bg-background">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all" className="text-[11px]">All Members</SelectItem>
+                  <SelectItem value="all" className="text-[11px]">
+                    All Members
+                  </SelectItem>
                   {memberScopeOptions.map((m) => (
-                    <SelectItem key={m.id} value={m.id} className="text-[11px]">{memberOptionLabel(m)}</SelectItem>
+                    <SelectItem key={m.id} value={m.id} className="text-[11px]">
+                      {memberOptionLabel(m)}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -810,12 +976,14 @@ export function ImpactQueue() {
             <div className="flex rounded-md border border-border overflow-hidden bg-background">
               <button
                 className={`h-8 px-2 text-[9px] uppercase tracking-wider font-semibold flex items-center gap-1 ${view === "stack" ? "bg-accent text-accent-foreground" : "text-muted-foreground"}`}
-                onClick={() => setView("stack")}>
+                onClick={() => setView("stack")}
+              >
                 <ListOrdered className="h-3 w-3" /> Stack
               </button>
               <button
                 className={`h-8 px-2 text-[9px] uppercase tracking-wider font-semibold flex items-center gap-1 ${view === "board" ? "bg-accent text-accent-foreground" : "text-muted-foreground"}`}
-                onClick={() => setView("board")}>
+                onClick={() => setView("board")}
+              >
                 <LayoutGrid className="h-3 w-3" /> Board
               </button>
             </div>
@@ -824,7 +992,9 @@ export function ImpactQueue() {
 
         {/* Row 2: subtitle */}
         <div className="px-4 pb-2.5">
-          <p className="text-[11px] text-muted-foreground">One Screen Conversion Engine (Lead → Booked)</p>
+          <p className="text-[11px] text-muted-foreground">
+            One Screen Conversion Engine (Lead → Booked)
+          </p>
         </div>
 
         <div className="border-t border-border/70 px-3 py-2 bg-muted/10">
@@ -842,36 +1012,58 @@ export function ImpactQueue() {
         <ImpactQueueMetaBar leadCount={filtered.length} view={view} />
       </div>
 
-      <MessageLabSheet open={messageLabOpen} onOpenChange={setMessageLabOpen} tcmOptions={tcmOptions} />
+      <MessageLabSheet
+        open={messageLabOpen}
+        onOpenChange={setMessageLabOpen}
+        tcmOptions={tcmOptions}
+      />
 
       {unassignedLeads > 0 && role !== "tcm" && (
         <div className="text-[11px] rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-warning">
-          {unassignedLeads} lead{unassignedLeads === 1 ? "" : "s"} without an assigned TCM — assign in lead panel so Hard Actions route correctly.
+          {unassignedLeads} lead{unassignedLeads === 1 ? "" : "s"} without an assigned TCM — assign
+          in lead panel so Hard Actions route correctly.
         </div>
       )}
 
       {/* ---------------- 10x Command Bar ---------------- */}
 
-      {(chipFilter !== "all" || query.trim() || areaFilter !== "all" || typeFilter !== "all" || roomFilter !== "all" || needFilter !== "all") && (
+      {(chipFilter !== "all" ||
+        query.trim() ||
+        areaFilter !== "all" ||
+        typeFilter !== "all" ||
+        roomFilter !== "all" ||
+        needFilter !== "all") && (
         <div className="flex flex-wrap items-center gap-2 text-[11px] rounded-md border border-border bg-muted/30 px-2.5 py-1.5">
           <span className="text-muted-foreground">Showing:</span>
           {chipFilter !== "all" && (
-            <Badge variant="outline" className="text-[10px]">{CHIP_LABELS[chipFilter]}</Badge>
+            <Badge variant="outline" className="text-[10px]">
+              {CHIP_LABELS[chipFilter]}
+            </Badge>
           )}
           {areaFilter !== "all" && (
-            <Badge variant="outline" className="text-[10px]">{areaFilter}</Badge>
+            <Badge variant="outline" className="text-[10px]">
+              {areaFilter}
+            </Badge>
           )}
           {typeFilter !== "all" && (
-            <Badge variant="outline" className="text-[10px]">{typeFilter}</Badge>
+            <Badge variant="outline" className="text-[10px]">
+              {typeFilter}
+            </Badge>
           )}
           {roomFilter !== "all" && (
-            <Badge variant="outline" className="text-[10px]">{roomFilter}</Badge>
+            <Badge variant="outline" className="text-[10px]">
+              {roomFilter}
+            </Badge>
           )}
           {needFilter !== "all" && (
-            <Badge variant="outline" className="text-[10px]">{needFilter}</Badge>
+            <Badge variant="outline" className="text-[10px]">
+              {needFilter}
+            </Badge>
           )}
           {query.trim() && (
-            <Badge variant="outline" className="text-[10px]">“{query.trim()}”</Badge>
+            <Badge variant="outline" className="text-[10px]">
+              “{query.trim()}”
+            </Badge>
           )}
           <button
             type="button"
@@ -893,148 +1085,169 @@ export function ImpactQueue() {
       {booting && leads.length === 0 && leadsSyncStatus !== "error" && (
         <div className="rounded-lg border border-border bg-card p-8 text-center space-y-2 animate-pulse">
           <div className="text-xs font-medium text-muted-foreground">Loading your queue…</div>
-          <div className="text-[10px] text-muted-foreground">Fetching leads and tours from server</div>
+          <div className="text-[10px] text-muted-foreground">
+            Fetching leads and tours from server
+          </div>
         </div>
       )}
 
       {/* ---------------- View ---------------- */}
-      {!booting || leads.length > 0 ? (view === "stack" ? (
-        <div className="space-y-2">
-          {/* Stage filter bar — stack view only */}
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mr-1">Stage</span>
-            {([
-              { key: "all",       label: "All stages" },
-              { key: "inbox",     label: "Inbox" },
-              { key: "scheduled", label: "Tour scheduled" },
-              { key: "onTour",    label: "On tour" },
-              { key: "quoted",    label: "Quote sent" },
-              { key: "booked",    label: "Booked" },
-            ] as const).map((s) => (
-              <button
-                key={s.key}
-                type="button"
-                onClick={() => setStageFilter(s.key)}
-                className={`h-6 rounded-full border px-2.5 text-[10px] font-semibold transition-colors ${
-                  stageFilter === s.key
-                    ? "bg-foreground text-background border-foreground"
-                    : "border-border bg-background text-muted-foreground hover:border-foreground/40 hover:text-foreground"
-                }`}
-              >
-                {s.label}
-                {s.key !== "all" && (
-                  <span className="ml-1 opacity-60">
-                    {filtered.filter((e) => e.column === s.key).length}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-          {stackSorted.length === 0 && (
-            <div className="rounded-lg border border-border bg-card p-10 text-center text-xs text-muted-foreground space-y-2">
-              <p>
-                {chipFilter !== "all" || query.trim() || areaFilter !== "all" || typeFilter !== "all" || roomFilter !== "all" || needFilter !== "all"
-                  ? "No leads match your filters."
-                  : "Queue clear. Add a lead or relax 🌱"}
-              </p>
-              {(chipFilter !== "all" || query.trim() || areaFilter !== "all" || typeFilter !== "all" || roomFilter !== "all" || needFilter !== "all") && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-7 text-[10px]"
-                  onClick={() => {
-                    setChipFilter("all");
-                    setAreaFilter("all");
-                    setTypeFilter("all");
-                    setRoomFilter("all");
-                    setNeedFilter("all");
-                    setQuery("");
-                  }}
+      {!booting || leads.length > 0 ? (
+        view === "stack" ? (
+          <div className="space-y-2">
+            {/* Stage filter bar — stack view only */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mr-1">
+                Stage
+              </span>
+              {(
+                [
+                  { key: "all", label: "All stages" },
+                  { key: "inbox", label: "Inbox" },
+                  { key: "scheduled", label: "Tour scheduled" },
+                  { key: "onTour", label: "On tour" },
+                  { key: "quoted", label: "Quote sent" },
+                  { key: "booked", label: "Booked" },
+                ] as const
+              ).map((s) => (
+                <button
+                  key={s.key}
+                  type="button"
+                  onClick={() => setStageFilter(s.key)}
+                  className={`h-6 rounded-full border px-2.5 text-[10px] font-semibold transition-colors ${
+                    stageFilter === s.key
+                      ? "bg-foreground text-background border-foreground"
+                      : "border-border bg-background text-muted-foreground hover:border-foreground/40 hover:text-foreground"
+                  }`}
                 >
-                  Show all leads
-                </Button>
-              )}
-            </div>
-          )}
-          {stackSorted.map((e, i) => (
-            <LeadRow
-              key={e.lead.id}
-              rank={i + 1}
-              enriched={e}
-              tcms={tcms}
-              tcmOptions={tcmOptions}
-              properties={properties}
-              autoOpen={focusLeadId === e.lead.id}
-              focusAction={focusLeadId === e.lead.id ? focusAction : null}
-              keyboardHighlight={keyboardLeadId === e.lead.id}
-              onAutoOpenConsumed={() => {
-                setFocusLeadId(null);
-                setFocusAction(null);
-              }}
-            />
-          ))}
-        </div>
-      ) : (
-        <div className="w-full min-w-0 overflow-x-auto pb-1">
-          <div className="grid grid-cols-5 gap-2 h-[calc(100vh-270px)] min-h-[430px] min-w-[720px]">
-            {COLUMNS.map((c) => (
-              <div
-                key={c.key}
-                className={`min-w-0 h-full overflow-hidden rounded-xl border-l-2 ${c.tint} border-t border-r border-b border-border bg-background shadow-sm`}
-              >
-                <div
-                  className={cn(
-                    "flex h-11 shrink-0 items-center justify-between gap-2 border-b px-3",
-                    COLUMN_HEADER_TONE[c.key],
-                  )}
-                  title={COLUMN_HELP[c.key]}
-                >
-                  <div className="flex min-w-0 items-center gap-2">
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-background/80">
-                      <c.icon className="h-3.5 w-3.5" />
+                  {s.label}
+                  {s.key !== "all" && (
+                    <span className="ml-1 opacity-60">
+                      {filtered.filter((e) => e.column === s.key).length}
                     </span>
-                    <div className="min-w-0">
-                      <div className="truncate text-[12px] font-semibold text-foreground">
-                        {c.label}
-                      </div>
-                      <div className="truncate text-[9px] text-muted-foreground">
-                        {COLUMN_HELP[c.key]}
-                      </div>
-                    </div>
-                  </div>
-                  <span className="shrink-0 rounded-full border border-border bg-background px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
-                    {boardBuckets[c.key].length}
-                  </span>
-                </div>
-                <div className="h-[calc(100%-2.75rem)] overflow-y-auto overflow-x-hidden bg-muted/15 p-2">
-                  {c.key === "inbox" && boardBuckets.inbox.length === 0 && chipFilter === "all" && query.trim() === "" && (
-                    <div
-                      className="mb-2 rounded-lg border border-dashed border-border bg-background/80 px-2 py-1.5 text-[10px] text-muted-foreground"
-                      title="New/contacted leads without an active tour or quote appear here."
-                    >
-                      No unworked leads in this scope.
-                    </div>
                   )}
-                  <BoardColumnBody
-                    columnKey={c.key}
-                    items={boardBuckets[c.key]}
-                    tcms={tcms}
-                    tcmOptions={tcmOptions}
-                    properties={properties}
-                    nowMs={tick ? Date.now() : 0}
-                    focusLeadId={focusLeadId}
-                    focusAction={focusAction}
-                    onFocusConsumed={() => {
-                      setFocusLeadId(null);
-                      setFocusAction(null);
+                </button>
+              ))}
+            </div>
+            {stackSorted.length === 0 && (
+              <div className="rounded-lg border border-border bg-card p-10 text-center text-xs text-muted-foreground space-y-2">
+                <p>
+                  {chipFilter !== "all" ||
+                  query.trim() ||
+                  areaFilter !== "all" ||
+                  typeFilter !== "all" ||
+                  roomFilter !== "all" ||
+                  needFilter !== "all"
+                    ? "No leads match your filters."
+                    : "Queue clear. Add a lead or relax 🌱"}
+                </p>
+                {(chipFilter !== "all" ||
+                  query.trim() ||
+                  areaFilter !== "all" ||
+                  typeFilter !== "all" ||
+                  roomFilter !== "all" ||
+                  needFilter !== "all") && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-[10px]"
+                    onClick={() => {
+                      setChipFilter("all");
+                      setAreaFilter("all");
+                      setTypeFilter("all");
+                      setRoomFilter("all");
+                      setNeedFilter("all");
+                      setQuery("");
                     }}
-                  />
-                </div>
+                  >
+                    Show all leads
+                  </Button>
+                )}
               </div>
+            )}
+            {stackSorted.map((e, i) => (
+              <LeadRow
+                key={e.lead.id}
+                rank={i + 1}
+                enriched={e}
+                tcms={tcms}
+                tcmOptions={tcmOptions}
+                properties={properties}
+                autoOpen={focusLeadId === e.lead.id}
+                focusAction={focusLeadId === e.lead.id ? focusAction : null}
+                keyboardHighlight={keyboardLeadId === e.lead.id}
+                onAutoOpenConsumed={() => {
+                  setFocusLeadId(null);
+                  setFocusAction(null);
+                }}
+              />
             ))}
           </div>
-        </div>
-      )) : null}
+        ) : (
+          <div className="w-full min-w-0 overflow-x-auto pb-1">
+            <div className="grid grid-cols-5 gap-2 h-[calc(100vh-270px)] min-h-[430px] min-w-[720px]">
+              {COLUMNS.map((c) => (
+                <div
+                  key={c.key}
+                  className={`min-w-0 h-full overflow-hidden rounded-xl border-l-2 ${c.tint} border-t border-r border-b border-border bg-background shadow-sm`}
+                >
+                  <div
+                    className={cn(
+                      "flex h-11 shrink-0 items-center justify-between gap-2 border-b px-3",
+                      COLUMN_HEADER_TONE[c.key],
+                    )}
+                    title={COLUMN_HELP[c.key]}
+                  >
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-background/80">
+                        <c.icon className="h-3.5 w-3.5" />
+                      </span>
+                      <div className="min-w-0">
+                        <div className="truncate text-[12px] font-semibold text-foreground">
+                          {c.label}
+                        </div>
+                        <div className="truncate text-[9px] text-muted-foreground">
+                          {COLUMN_HELP[c.key]}
+                        </div>
+                      </div>
+                    </div>
+                    <span className="shrink-0 rounded-full border border-border bg-background px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                      {boardBuckets[c.key].length}
+                    </span>
+                  </div>
+                  <div className="h-[calc(100%-2.75rem)] overflow-y-auto overflow-x-hidden bg-muted/15 p-2">
+                    {c.key === "inbox" &&
+                      boardBuckets.inbox.length === 0 &&
+                      chipFilter === "all" &&
+                      query.trim() === "" && (
+                        <div
+                          className="mb-2 rounded-lg border border-dashed border-border bg-background/80 px-2 py-1.5 text-[10px] text-muted-foreground"
+                          title="New/contacted leads without an active tour or quote appear here."
+                        >
+                          No unworked leads in this scope.
+                        </div>
+                      )}
+                    <BoardColumnBody
+                      columnKey={c.key}
+                      items={boardBuckets[c.key]}
+                      tcms={tcms}
+                      tcmOptions={tcmOptions}
+                      properties={properties}
+                      nowMs={tick ? Date.now() : 0}
+                      focusLeadId={focusLeadId}
+                      focusAction={focusAction}
+                      onFocusConsumed={() => {
+                        setFocusLeadId(null);
+                        setFocusAction(null);
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+      ) : null}
 
       <DroppedLeadsSheet open={droppedSheetOpen} onOpenChange={setDroppedSheetOpen} />
     </div>
@@ -1046,15 +1259,27 @@ export function ImpactQueue() {
 /* ================================================================== */
 
 function Counter({
-  label, got, target, tone, icon: Icon,
-}: { label: string; got: number; target: number; tone: string; icon: typeof Calendar }) {
+  label,
+  got,
+  target,
+  tone,
+  icon: Icon,
+}: {
+  label: string;
+  got: number;
+  target: number;
+  tone: string;
+  icon: typeof Calendar;
+}) {
   void tone;
   return (
     <div className="min-w-0 flex-1 rounded-md bg-muted/35 px-2.5 py-1.5">
       <div className="flex items-center gap-2">
         <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
         <div className="min-w-0 flex-1">
-          <div className="truncate text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">{label}</div>
+          <div className="truncate text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">
+            {label}
+          </div>
           <div className="flex items-baseline gap-1.5">
             <span className="text-lg font-display font-semibold leading-none">{got}</span>
             <span className="text-[10px] font-mono text-muted-foreground">/ {target}</span>
@@ -1102,7 +1327,9 @@ function QuotesWeekCounter({
         <div className="flex items-center gap-2">
           <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           <div className="min-w-0 flex-1">
-            <div className="truncate text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">Quotes today</div>
+            <div className="truncate text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">
+              Quotes today
+            </div>
             <div className="flex items-baseline gap-1.5">
               <span className="text-lg font-display font-semibold leading-none">{got}</span>
               <span className="text-[10px] font-mono text-muted-foreground">/ {target}</span>
@@ -1122,20 +1349,29 @@ function QuotesWeekCounter({
           </SheetHeader>
           <div className="mt-4 space-y-2">
             {quotes.length === 0 ? (
-              <p className="text-xs text-muted-foreground italic py-6 text-center">No quotes sent today yet.</p>
+              <p className="text-xs text-muted-foreground italic py-6 text-center">
+                No quotes sent today yet.
+              </p>
             ) : (
               quotes.map((q) => {
                 const lead = leadById.get(q.leadId);
-                const expired = q.status === "sent" && (parseInstant(q.validUntilISO)?.getTime() ?? Infinity) < Date.now();
+                const expired =
+                  q.status === "sent" &&
+                  (parseInstant(q.validUntilISO)?.getTime() ?? Infinity) < Date.now();
                 const status = expired ? "expired" : q.status;
                 return (
                   <div key={q.id} className="rounded-lg border border-border p-3 space-y-2 text-xs">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <div className="font-semibold truncate">{lead?.name ?? "Unknown lead"}</div>
-                        <div className="text-[10px] text-muted-foreground truncate">{q.propertyName} · {q.roomType}</div>
+                        <div className="text-[10px] text-muted-foreground truncate">
+                          {q.propertyName} · {q.roomType}
+                        </div>
                       </div>
-                      <Badge variant="outline" className={`text-[9px] shrink-0 ${QUOTE_STATUS_TONE[status]}`}>
+                      <Badge
+                        variant="outline"
+                        className={`text-[9px] shrink-0 ${QUOTE_STATUS_TONE[status]}`}
+                      >
                         {status}
                       </Badge>
                     </div>
@@ -1174,7 +1410,11 @@ function QuotesWeekCounter({
                         size="sm"
                         variant="ghost"
                         className="h-7 text-[10px] gap-1"
-                        onClick={() => void navigator.clipboard.writeText(q.message).then(() => toast.success("Copied"))}
+                        onClick={() =>
+                          void navigator.clipboard
+                            .writeText(q.message)
+                            .then(() => toast.success("Copied"))
+                        }
                       >
                         <ClipboardCopy className="h-3 w-3" /> Copy
                       </Button>
@@ -1217,16 +1457,18 @@ function BoardColumnBody({
 }) {
   const useBands = columnKey === "scheduled" || columnKey === "onTour";
   const [postTourOpen, setPostTourOpen] = useState(true);
-  const postTourItems = columnKey === "scheduled"
-    ? items.filter((item) => item.lead.stage === "tour-done")
-    : [];
+  const postTourItems =
+    columnKey === "scheduled" ? items.filter((item) => item.lead.stage === "tour-done") : [];
   const activeItems = postTourItems.length
     ? items.filter((item) => item.lead.stage !== "tour-done")
     : items;
 
   const grouped = useMemo(() => {
     const map: Record<TourQueueBand, ImpactEnriched[]> = {
-      fire: [], confirm: [], soon: [], later: [],
+      fire: [],
+      confirm: [],
+      soon: [],
+      later: [],
     };
     if (!useBands) return map;
     const at = nowMs || Date.now();
@@ -1285,7 +1527,10 @@ function BoardColumnBody({
         <Collapsible open={postTourOpen} onOpenChange={setPostTourOpen}>
           <section className="overflow-hidden rounded-md border border-success/35 bg-success/5">
             <CollapsibleTrigger asChild>
-              <button type="button" className="flex w-full items-center justify-between gap-2 px-2 py-1.5 text-left">
+              <button
+                type="button"
+                className="flex w-full items-center justify-between gap-2 px-2 py-1.5 text-left"
+              >
                 <span>
                   <span className="block text-[9px] font-bold uppercase tracking-wider text-success">
                     Post-tour · {postTourItems.length}
@@ -1294,7 +1539,12 @@ function BoardColumnBody({
                     Fill outcome, objection, follow-up
                   </span>
                 </span>
-                <ChevronRight className={cn("h-3 w-3 text-success transition-transform", postTourOpen && "rotate-90")} />
+                <ChevronRight
+                  className={cn(
+                    "h-3 w-3 text-success transition-transform",
+                    postTourOpen && "rotate-90",
+                  )}
+                />
               </button>
             </CollapsibleTrigger>
             <CollapsibleContent>
@@ -1358,17 +1608,34 @@ function BoardColumnBody({
 /* ================================================================== */
 
 type EnrichedLite = {
-  lead: Lead; openTour?: Tour; lastQuote?: Quotation;
-  nba: NextBestAction; score: number; column: ColumnKey;
+  lead: Lead;
+  openTour?: Tour;
+  lastQuote?: Quotation;
+  nba: NextBestAction;
+  score: number;
+  column: ColumnKey;
   tourBand?: TourQueueBand;
   tourTimeHint?: string;
 };
 
 function LeadRow({
-  enriched, rank, tcms, tcmOptions, properties, compact, autoOpen, focusAction, onAutoOpenConsumed,
+  enriched,
+  rank,
+  tcms,
+  tcmOptions,
+  properties,
+  compact,
+  autoOpen,
+  focusAction,
+  onAutoOpenConsumed,
   keyboardHighlight,
 }: {
-  enriched: EnrichedLite; rank?: number; tcms: TCM[]; tcmOptions: TCM[]; properties: Property[]; compact?: boolean;
+  enriched: EnrichedLite;
+  rank?: number;
+  tcms: TCM[];
+  tcmOptions: TCM[];
+  properties: Property[];
+  compact?: boolean;
   autoOpen?: boolean;
   focusAction?: LeadFocusAction | null;
   onAutoOpenConsumed?: () => void;
@@ -1382,7 +1649,12 @@ function LeadRow({
   const priorityMeta = IMPACT_PRIORITY_META[priority];
   const colMeta = COLUMNS.find((c) => c.key === column)!;
   const areaText = (lead.areas?.filter(Boolean).join(", ") || lead.preferredArea || "").trim();
-  const blrText = lead.inBLR === true ? "In Bengaluru" : lead.inBLR === false ? "Out of Bengaluru" : "Bengaluru unknown";
+  const blrText =
+    lead.inBLR === true
+      ? "In Bengaluru"
+      : lead.inBLR === false
+        ? "Out of Bengaluru"
+        : "Bengaluru unknown";
   const assignedToMember = lead.assignedTcmId
     ? tcmOptions.find((item) => item.id === lead.assignedTcmId)
     : null;
@@ -1390,10 +1662,14 @@ function LeadRow({
     ? tcmOptions.find((item) => item.id === lead.createdBy)
     : null;
   const assignedToName = lead.assignedTcmId
-    ? assignedToMember ? memberShortLabel(assignedToMember) : lead.assignedTcmId.slice(-6)
+    ? assignedToMember
+      ? memberShortLabel(assignedToMember)
+      : lead.assignedTcmId.slice(-6)
     : "Unassigned";
   const assignedByName = lead.createdBy
-    ? assignedByMember ? memberShortLabel(assignedByMember) : lead.createdBy.slice(-6)
+    ? assignedByMember
+      ? memberShortLabel(assignedByMember)
+      : lead.createdBy.slice(-6)
     : "System";
   const openTourType = openTour?.tourType ?? "physical";
   const { data: interestedPropertyIds = [] } = useLeadInterests(lead.id);
@@ -1471,27 +1747,40 @@ function LeadRow({
             </span>
             {openTour && (
               <span className="text-[10px] font-semibold text-accent flex items-center gap-1">
-                  <Calendar className="h-2.5 w-2.5 shrink-0" />
-                  Tour: {fmtTourScheduleLabel(openTour.scheduledAt)} · {TOUR_TYPE_LABELS[openTourType] ?? openTourType}
+                <Calendar className="h-2.5 w-2.5 shrink-0" />
+                Tour: {fmtTourScheduleLabel(openTour.scheduledAt)} ·{" "}
+                {TOUR_TYPE_LABELS[openTourType] ?? openTourType}
               </span>
             )}
           </div>
           {(pickedProperty || latestObjection) && (
             <div className="mt-1 flex flex-wrap gap-1">
               {pickedProperty && (
-                <Badge variant="outline" className="text-[9px] bg-success/10 text-success border-success/40">
+                <Badge
+                  variant="outline"
+                  className="text-[9px] bg-success/10 text-success border-success/40"
+                >
                   {pickedProperty.name}
                 </Badge>
               )}
               {latestObjection && (
-                <Badge variant="outline" className="text-[9px] bg-warning/10 text-warning border-warning/40">
-                  Objection: {latestObjection.code === "none" ? "None" : latestObjection.code.replace(/-/g, " ")}
+                <Badge
+                  variant="outline"
+                  className="text-[9px] bg-warning/10 text-warning border-warning/40"
+                >
+                  Objection:{" "}
+                  {latestObjection.code === "none"
+                    ? "None"
+                    : latestObjection.code.replace(/-/g, " ")}
                 </Badge>
               )}
             </div>
           )}
           {staleQuote && (
-            <Badge variant="outline" className="mt-1 text-[9px] border-danger/50 text-danger bg-danger/10">
+            <Badge
+              variant="outline"
+              className="mt-1 text-[9px] border-danger/50 text-danger bg-danger/10"
+            >
               Quote 24h+ · follow up
             </Badge>
           )}
@@ -1519,7 +1808,8 @@ function LeadInterestedPropertiesPicker({ lead }: { lead: Lead }) {
     .filter(Boolean) as CatalogProperty[];
 
   const list = useMemo(
-    () => searchPropertyCatalog(query, properties, { preferredArea: lead.preferredArea, limit: 16 }),
+    () =>
+      searchPropertyCatalog(query, properties, { preferredArea: lead.preferredArea, limit: 16 }),
     [properties, query, lead.preferredArea],
   );
 
@@ -1558,7 +1848,8 @@ function LeadInterestedPropertiesPicker({ lead }: { lead: Lead }) {
 
       {liked.length === 0 && !open && (
         <p className="text-[11px] text-muted-foreground italic">
-          No favourites yet — tap <span className="font-semibold">Add</span> to pin the rooms they liked.
+          No favourites yet — tap <span className="font-semibold">Add</span> to pin the rooms they
+          liked.
         </p>
       )}
 
@@ -1570,10 +1861,16 @@ function LeadInterestedPropertiesPicker({ lead }: { lead: Lead }) {
               className="group text-[10px] rounded-md border border-accent/40 bg-accent/10 px-2 py-1 flex items-center gap-1.5"
             >
               <Star className="h-3 w-3 text-accent" />
-              <span className="font-semibold">#{i + 1} {p.name}</span>
-              <span className="text-muted-foreground">· {p.area} · {formatINR(p.pricePerBed)}</span>
+              <span className="font-semibold">
+                #{i + 1} {p.name}
+              </span>
+              <span className="text-muted-foreground">
+                · {p.area} · {formatINR(p.pricePerBed)}
+              </span>
               {p.source === "hub" && (
-                <Badge variant="outline" className="text-[8px]">Hub</Badge>
+                <Badge variant="outline" className="text-[8px]">
+                  Hub
+                </Badge>
               )}
               {p.vacantBeds !== undefined && (
                 <Badge
@@ -1620,9 +1917,7 @@ function LeadInterestedPropertiesPicker({ lead }: { lead: Lead }) {
                   type="button"
                   onClick={() => toggleInterest({ leadId: lead.id, propertyId: p.id })}
                   className={`w-full text-left text-[11px] px-2 py-1 rounded border flex items-center gap-2 transition ${
-                    on
-                      ? "bg-accent/10 border-accent/50"
-                      : "border-border hover:bg-muted/40"
+                    on ? "bg-accent/10 border-accent/50" : "border-border hover:bg-muted/40"
                   }`}
                 >
                   <div
@@ -1655,9 +1950,7 @@ function LeadInterestedPropertiesPicker({ lead }: { lead: Lead }) {
               );
             })}
             {sortedList.length === 0 && (
-              <p className="text-[11px] text-muted-foreground text-center py-3">
-                No matches.
-              </p>
+              <p className="text-[11px] text-muted-foreground text-center py-3">No matches.</p>
             )}
           </div>
         </div>
@@ -1667,8 +1960,15 @@ function LeadInterestedPropertiesPicker({ lead }: { lead: Lead }) {
 }
 
 function LeadDrawer({
-  open, onOpenChange, enriched, tcm, tcmOptions, catalogProperty, opsProperties,
-  pendingAction, onPendingActionConsumed,
+  open,
+  onOpenChange,
+  enriched,
+  tcm,
+  tcmOptions,
+  catalogProperty,
+  opsProperties,
+  pendingAction,
+  onPendingActionConsumed,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -1684,12 +1984,20 @@ function LeadDrawer({
   const colMeta = COLUMNS.find((c) => c.key === column)!;
   const setLeadStage = useApp((s) => s.setLeadStage);
   const STAGES: Lead["stage"][] = [
-    "new", "contacted", "tour-scheduled", "tour-done", "negotiation", "booked",
+    "new",
+    "contacted",
+    "tour-scheduled",
+    "tour-done",
+    "negotiation",
+    "booked",
   ];
   const currentStageIndex = STAGES.indexOf(lead.stage);
   const stageLabel = (stage: string) => stage.replace(/-/g, " ");
   const previousStage = currentStageIndex > 0 ? STAGES[currentStageIndex - 1] : undefined;
-  const nextStage = currentStageIndex >= 0 && currentStageIndex < STAGES.length - 1 ? STAGES[currentStageIndex + 1] : undefined;
+  const nextStage =
+    currentStageIndex >= 0 && currentStageIndex < STAGES.length - 1
+      ? STAGES[currentStageIndex + 1]
+      : undefined;
   const moveStage = async (dir: -1 | 1) => {
     if (currentStageIndex < 0) return;
     const next = STAGES[Math.min(STAGES.length - 1, Math.max(0, currentStageIndex + dir))];
@@ -1722,22 +2030,33 @@ function LeadDrawer({
           <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-accent/60 to-transparent" />
           <div className="flex items-center gap-2 flex-wrap">
             <SheetTitle className="text-base font-display">{lead.name}</SheetTitle>
-            <Badge variant="outline" className={`text-[9px] uppercase ${intentChip(lead.intent)}`}>{lead.intent}</Badge>
+            <Badge variant="outline" className={`text-[9px] uppercase ${intentChip(lead.intent)}`}>
+              {lead.intent}
+            </Badge>
             <Badge variant="outline" className="text-[9px] uppercase gap-1">
               <colMeta.icon className="h-2.5 w-2.5" /> {colMeta.label}
             </Badge>
           </div>
           <SheetDescription className="text-[11px] flex items-center gap-1 flex-wrap">
             <Phone className="h-3 w-3" /> {lead.phone}
-            <span>·</span><span>{lead.preferredArea}</span>
-            <span>·</span><span>{formatINR(lead.budget)}</span>
-            {tcm && <><span>·</span><span>TCM: {tcm.name}</span></>}
+            <span>·</span>
+            <span>{lead.preferredArea}</span>
+            <span>·</span>
+            <span>{formatINR(lead.budget)}</span>
+            {tcm && (
+              <>
+                <span>·</span>
+                <span>TCM: {tcm.name}</span>
+              </>
+            )}
           </SheetDescription>
 
           <div className="grid gap-2">
             <div className="flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-wider text-muted-foreground">
               <span>Stage progress</span>
-              <span className="rounded-full border px-2 py-0.5">{currentStageIndex >= 0 ? currentStageIndex + 1 : "—"}/{STAGES.length}</span>
+              <span className="rounded-full border px-2 py-0.5">
+                {currentStageIndex >= 0 ? currentStageIndex + 1 : "—"}/{STAGES.length}
+              </span>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <Button
@@ -1776,13 +2095,15 @@ function LeadDrawer({
               {openTour && (
                 <Badge variant="outline" className="text-[10px] gap-1">
                   <Calendar className="h-3 w-3" />
-                  {catalogProperty?.name ?? "Property"} · {fmtTime(openTour.scheduledAt)} ({mounted ? fmtRel(openTour.scheduledAt, now) : "—"})
+                  {catalogProperty?.name ?? "Property"} · {fmtTime(openTour.scheduledAt)} (
+                  {mounted ? fmtRel(openTour.scheduledAt, now) : "—"})
                 </Badge>
               )}
               {lastQuote && (
                 <Badge variant="outline" className="text-[10px] gap-1">
                   <FileText className="h-3 w-3" />
-                  {formatINR(lastQuote.discountedPrice)} · {lastQuote.propertyName} · {lastQuote.status}
+                  {formatINR(lastQuote.discountedPrice)} · {lastQuote.propertyName} ·{" "}
+                  {lastQuote.status}
                 </Badge>
               )}
             </div>
@@ -1823,13 +2144,30 @@ function LeadDrawer({
 /* ================================================================== */
 
 export function CommandActions({
-  lead, tcm, tcmOptions, openTour, lastQuote, nba, catalogProperty, opsProperties, column,
-  scheduleOpen, schedulePrefill, onScheduleOpenChange, onSchedulePrefillClear,
-  pendingAction, onPendingActionConsumed,
+  lead,
+  tcm,
+  tcmOptions,
+  openTour,
+  lastQuote,
+  nba,
+  catalogProperty,
+  opsProperties,
+  column,
+  scheduleOpen,
+  schedulePrefill,
+  onScheduleOpenChange,
+  onSchedulePrefillClear,
+  pendingAction,
+  onPendingActionConsumed,
 }: {
-  lead: Lead; tcm?: TCM; openTour?: Tour; lastQuote?: Quotation; nba: NextBestAction;
+  lead: Lead;
+  tcm?: TCM;
+  openTour?: Tour;
+  lastQuote?: Quotation;
+  nba: NextBestAction;
   tcmOptions: TCM[];
-  catalogProperty?: CatalogProperty; opsProperties: Property[];
+  catalogProperty?: CatalogProperty;
+  opsProperties: Property[];
   column: ColumnKey;
   scheduleOpen?: boolean;
   schedulePrefill?: PG | null;
@@ -1904,7 +2242,14 @@ export function CommandActions({
       entityId: lead.id,
       action: "call_logged",
       summary: `Call logged by ${currentUser.name}`,
-      after: { type: "call_logged", leadId: lead.id, actorId: currentUser.id, actorName: currentUser.name, at, meta: { callType: "manual" } },
+      after: {
+        type: "call_logged",
+        leadId: lead.id,
+        actorId: currentUser.id,
+        actorName: currentUser.name,
+        at,
+        meta: { callType: "manual" },
+      },
     });
     try {
       await api.command({
@@ -1930,20 +2275,23 @@ export function CommandActions({
     }
   };
 
-  const baseCtx: ImpactTplCtx = useMemo(() => ({
-    leadName: lead.name.split(" ")[0],
-    agentName: tcm?.name,
-    agentPhone: tcmPhone,
-    propertyName: catalogProperty?.name ?? lastQuote?.propertyName,
-    propertyAddress: catalogProperty?.area,
-    tourWhen: openTour ? fmtWhen(openTour.scheduledAt) : undefined,
-    roomType: lastQuote?.roomType,
-    price: lastQuote?.discountedPrice,
-    altPrice: lastQuote ? Math.max(0, lastQuote.discountedPrice - 1500) : undefined,
-    area: lead.preferredArea,
-    budget: lead.budget,
-    moveIn: fmtDate(lead.moveInDate),
-  }), [lead, tcm, tcmPhone, catalogProperty, lastQuote, openTour]);
+  const baseCtx: ImpactTplCtx = useMemo(
+    () => ({
+      leadName: lead.name.split(" ")[0],
+      agentName: tcm?.name,
+      agentPhone: tcmPhone,
+      propertyName: catalogProperty?.name ?? lastQuote?.propertyName,
+      propertyAddress: catalogProperty?.area,
+      tourWhen: openTour ? fmtWhen(openTour.scheduledAt) : undefined,
+      roomType: lastQuote?.roomType,
+      price: lastQuote?.discountedPrice,
+      altPrice: lastQuote ? Math.max(0, lastQuote.discountedPrice - 1500) : undefined,
+      area: lead.preferredArea,
+      budget: lead.budget,
+      moveIn: fmtDate(lead.moveInDate),
+    }),
+    [lead, tcm, tcmPhone, catalogProperty, lastQuote, openTour],
+  );
 
   /* primary scenario picker (changes with state) */
   const primaryScenario: ImpactScenario = useMemo(() => {
@@ -2008,8 +2356,8 @@ export function CommandActions({
 
       {/* Action toolbar — context-aware */}
       <div className="flex flex-wrap gap-1.5 pt-2 border-t border-border">
-        {(column === "inbox" || scheduleDialogOpen) && (
-          dossier.ready ? (
+        {(column === "inbox" || scheduleDialogOpen) &&
+          (dossier.ready ? (
             <ScheduleTourDialog
               lead={lead}
               open={scheduleDialogOpen}
@@ -2030,34 +2378,54 @@ export function CommandActions({
             >
               <Calendar className="h-3 w-3" /> Schedule locked
             </Button>
-          )
-        )}
+          ))}
 
         {column === "scheduled" && openTour && (
           <>
             <ConfirmTourButton lead={lead} tour={openTour} />
-            {isTodayIST(openTour.scheduledAt) && +new Date(openTour.scheduledAt) > now && lead.stage !== "on-tour" && (
-              <Button size="sm" variant="outline" className={`h-7 text-[10px] gap-1 ${actionButtonClass}`}
-                onClick={() => { void markTourStarted(openTour.id).then(() => toast.success("Tour marked live")).catch(() => toast.error("Failed to start tour")); }}>
-                <UserCheck className="h-3 w-3" /> Move to on-tour
-              </Button>
-            )}
+            {isTodayIST(openTour.scheduledAt) &&
+              +new Date(openTour.scheduledAt) > now &&
+              lead.stage !== "on-tour" && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className={`h-7 text-[10px] gap-1 ${actionButtonClass}`}
+                  onClick={() => {
+                    void markTourStarted(openTour.id)
+                      .then(() => toast.success("Tour marked live"))
+                      .catch(() => toast.error("Failed to start tour"));
+                  }}
+                >
+                  <UserCheck className="h-3 w-3" /> Move to on-tour
+                </Button>
+              )}
             {+new Date(openTour.scheduledAt) <= now && (
               <>
-                <Button size="sm" className={`h-7 text-[10px] gap-1 ${actionButtonClass}`}
+                <Button
+                  size="sm"
+                  className={`h-7 text-[10px] gap-1 ${actionButtonClass}`}
                   onClick={() => {
                     void completeTour(openTour.id)
                       .then(() => toast.success("Visit completed · post-tour unlocked"))
-                      .catch((err) => toast.error(err instanceof Error ? err.message : "Failed to complete tour"));
-                  }}>
+                      .catch((err) =>
+                        toast.error(err instanceof Error ? err.message : "Failed to complete tour"),
+                      );
+                  }}
+                >
                   <CheckCircle2 className="h-3 w-3" /> Visit done
                 </Button>
-                <Button size="sm" variant="outline" className={`h-7 text-[10px] gap-1 text-destructive hover:text-destructive ${actionButtonClass}`}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className={`h-7 text-[10px] gap-1 text-destructive hover:text-destructive ${actionButtonClass}`}
                   onClick={() => {
                     void updateTourDetails(openTour.id, { status: "no-show", showUp: false })
                       .then(() => toast("Marked no-show · lead returned for follow-up"))
-                      .catch((err) => toast.error(err instanceof Error ? err.message : "Failed to mark no-show"));
-                  }}>
+                      .catch((err) =>
+                        toast.error(err instanceof Error ? err.message : "Failed to mark no-show"),
+                      );
+                  }}
+                >
                   <AlertTriangle className="h-3 w-3" /> No-show
                 </Button>
               </>
@@ -2072,20 +2440,32 @@ export function CommandActions({
 
         {column === "onTour" && openTour && (
           <>
-            <Button size="sm" variant="outline" className={`h-7 text-[10px] gap-1 ${actionButtonClass}`}
+            <Button
+              size="sm"
+              variant="outline"
+              className={`h-7 text-[10px] gap-1 ${actionButtonClass}`}
               onClick={() => {
                 void completeTour(openTour.id)
                   .then(() => toast.success("Tour completed"))
-                  .catch((err) => toast.error(err instanceof Error ? err.message : "Failed to complete tour"));
-              }}>
+                  .catch((err) =>
+                    toast.error(err instanceof Error ? err.message : "Failed to complete tour"),
+                  );
+              }}
+            >
               <CheckCircle2 className="h-3 w-3" /> Tour done
             </Button>
-            <Button size="sm" variant="outline" className={`h-7 text-[10px] gap-1 text-destructive hover:text-destructive ${actionButtonClass}`}
+            <Button
+              size="sm"
+              variant="outline"
+              className={`h-7 text-[10px] gap-1 text-destructive hover:text-destructive ${actionButtonClass}`}
               onClick={() => {
                 void updateTourDetails(openTour.id, { status: "no-show", showUp: false })
                   .then(() => toast("Marked no-show · lead returned for follow-up"))
-                  .catch((err) => toast.error(err instanceof Error ? err.message : "Failed to mark no-show"));
-              }}>
+                  .catch((err) =>
+                    toast.error(err instanceof Error ? err.message : "Failed to mark no-show"),
+                  );
+              }}
+            >
               <AlertTriangle className="h-3 w-3" /> No-show
             </Button>
           </>
@@ -2095,12 +2475,33 @@ export function CommandActions({
           <>
             {lastQuote.status === "sent" && (
               <>
-                <Button size="sm" className={`h-7 text-[10px] gap-1 ${actionButtonClass}`}
-                  onClick={() => { setQuotationStatus.mutate({ id: lastQuote.id, leadId: lastQuote.leadId, status: "paid" }); toast.success("Quote accepted · paid"); }}>
+                <Button
+                  size="sm"
+                  className={`h-7 text-[10px] gap-1 ${actionButtonClass}`}
+                  onClick={() => {
+                    setQuotationStatus.mutate({
+                      id: lastQuote.id,
+                      leadId: lastQuote.leadId,
+                      status: "paid",
+                    });
+                    toast.success("Quote accepted · paid");
+                  }}
+                >
                   <Wallet className="h-3 w-3" /> Mark paid
                 </Button>
-                <Button size="sm" variant="outline" className={`h-7 text-[10px] ${actionButtonClass}`}
-                  onClick={() => { setQuotationStatus.mutate({ id: lastQuote.id, leadId: lastQuote.leadId, status: "not-paid" }); toast("Marked not paid"); }}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className={`h-7 text-[10px] ${actionButtonClass}`}
+                  onClick={() => {
+                    setQuotationStatus.mutate({
+                      id: lastQuote.id,
+                      leadId: lastQuote.leadId,
+                      status: "not-paid",
+                    });
+                    toast("Marked not paid");
+                  }}
+                >
                   Not paid
                 </Button>
               </>
@@ -2139,13 +2540,28 @@ export function CommandActions({
           </>
         )}
         {(column === "inbox" || column === "quoted") && (
-          <Button size="sm" variant="ghost" className={`h-7 text-[10px] gap-1 ${actionButtonClass}`}
-            onClick={() => void logCallAction()} disabled={loggingCall}>
-            {loggingCall ? <RotateCcw className="h-3 w-3 animate-spin" /> : <Phone className="h-3 w-3" />} Log call
+          <Button
+            size="sm"
+            variant="ghost"
+            className={`h-7 text-[10px] gap-1 ${actionButtonClass}`}
+            onClick={() => void logCallAction()}
+            disabled={loggingCall}
+          >
+            {loggingCall ? (
+              <RotateCcw className="h-3 w-3 animate-spin" />
+            ) : (
+              <Phone className="h-3 w-3" />
+            )}{" "}
+            Log call
           </Button>
         )}
         {column === "booked" && (
-          <CheckInOpsButton lead={lead} existing={checkin} open={checkinOpen} onOpenChange={setCheckinOpen} />
+          <CheckInOpsButton
+            lead={lead}
+            existing={checkin}
+            open={checkinOpen}
+            onOpenChange={setCheckinOpen}
+          />
         )}
         {lastQuote && column !== "quoted" && (
           <BookingDialog
@@ -2160,22 +2576,29 @@ export function CommandActions({
       </div>
 
       {checkin && <CheckInAuditReport checkin={checkin} lead={lead} compact />}
-      <LeadActivityTimeline activities={activities.filter((a) => a.leadId === lead.id)} tcms={useApp.getState().tcms} />
+      <LeadActivityTimeline
+        activities={activities.filter((a) => a.leadId === lead.id)}
+        tcms={useApp.getState().tcms}
+      />
 
       {/* Tier override */}
       <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
         Override intent:
         {(["hot", "warm", "cold"] as const).map((t) => (
-          <button key={t}
+          <button
+            key={t}
             onClick={() => void updateIntent(t)}
-            className={`px-2 py-0.5 rounded-full border uppercase tracking-wider ${lead.intent === t ? intentChip(t) : "border-border"}`}>
+            className={`px-2 py-0.5 rounded-full border uppercase tracking-wider ${lead.intent === t ? intentChip(t) : "border-border"}`}
+          >
             {t}
           </button>
         ))}
         <span className="mx-1">·</span>
         {lead.stage !== "dropped" && (
-          <button onClick={() => void dropLead()}
-            className="px-2 py-0.5 rounded-full border border-border hover:text-danger">
+          <button
+            onClick={() => void dropLead()}
+            className="px-2 py-0.5 rounded-full border border-border hover:text-danger"
+          >
             Drop
           </button>
         )}
@@ -2199,9 +2622,14 @@ export function CommandActions({
 /* ================================================================== */
 
 function TemplateMessenger({
-  leadPhone, initialScenario, ctx, highlight = false,
+  leadPhone,
+  initialScenario,
+  ctx,
+  highlight = false,
 }: {
-  leadPhone: string; initialScenario: ImpactScenario; ctx: ImpactTplCtx;
+  leadPhone: string;
+  initialScenario: ImpactScenario;
+  ctx: ImpactTplCtx;
   highlight?: boolean;
 }) {
   const [scenario, setScenario] = useState<ImpactScenario>(initialScenario);
@@ -2231,22 +2659,29 @@ function TemplateMessenger({
     follow: { label: "Follow up", scenario: "quote-followup" },
     post: { label: "Post tour", scenario: "tour-noshow" },
   };
-  const selectedSet = Object.entries(scenarioSets).find(([, item]) => item.scenario === scenario)?.[0] ?? "first";
+  const selectedSet =
+    Object.entries(scenarioSets).find(([, item]) => item.scenario === scenario)?.[0] ?? "first";
 
   return (
-    <div className={cn(
-      "rounded-md border bg-card/60 p-2 space-y-2",
-      highlight ? "border-accent ring-2 ring-accent/30" : "border-border",
-    )}>
+    <div
+      className={cn(
+        "rounded-md border bg-card/60 p-2 space-y-2",
+        highlight ? "border-accent ring-2 ring-accent/30" : "border-border",
+      )}
+    >
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
           WhatsApp template
         </div>
         <Select value={selectedSet} onValueChange={(v) => apply(scenarioSets[v].scenario)}>
-          <SelectTrigger className="h-7 text-[11px] w-44"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="h-7 text-[11px] w-44">
+            <SelectValue />
+          </SelectTrigger>
           <SelectContent>
             {Object.entries(scenarioSets).map(([k, item]) => (
-              <SelectItem key={k} value={k} className="text-xs">{item.label}</SelectItem>
+              <SelectItem key={k} value={k} className="text-xs">
+                {item.label}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -2254,9 +2689,11 @@ function TemplateMessenger({
 
       <div className="flex flex-wrap gap-1">
         {variants.map((v) => (
-          <button key={v.id}
+          <button
+            key={v.id}
             onClick={() => apply(scenario, v.id)}
-            className={`h-6 px-2 rounded text-[10px] uppercase tracking-wider font-semibold border ${tpl.id === v.id ? "bg-accent text-accent-foreground border-accent" : "bg-card text-muted-foreground border-border hover:border-foreground/40"}`}>
+            className={`h-6 px-2 rounded text-[10px] uppercase tracking-wider font-semibold border ${tpl.id === v.id ? "bg-accent text-accent-foreground border-accent" : "bg-card text-muted-foreground border-border hover:border-foreground/40"}`}
+          >
             {v.label}
           </button>
         ))}
@@ -2270,13 +2707,27 @@ function TemplateMessenger({
       />
 
       <div className="flex flex-wrap gap-1.5">
-        <Button size="sm" className={`h-7 text-[10px] gap-1 ${actionButtonClass}`} onClick={() => void copy()}>
+        <Button
+          size="sm"
+          className={`h-7 text-[10px] gap-1 ${actionButtonClass}`}
+          onClick={() => void copy()}
+        >
           <ClipboardCopy className="h-3 w-3" /> {copied ? "Copied!" : "Copy template"}
         </Button>
-        <Button size="sm" variant="outline" className={`h-7 text-[10px] gap-1 ${actionButtonClass}`} onClick={() => void copy()}>
+        <Button
+          size="sm"
+          variant="outline"
+          className={`h-7 text-[10px] gap-1 ${actionButtonClass}`}
+          onClick={() => void copy()}
+        >
           <ClipboardCopy className="h-3 w-3" /> {copied ? "Copied!" : "Copy text"}
         </Button>
-        <Button size="sm" variant="ghost" className={`h-7 text-[10px] ${actionButtonClass}`} onClick={reset}>
+        <Button
+          size="sm"
+          variant="ghost"
+          className={`h-7 text-[10px] ${actionButtonClass}`}
+          onClick={reset}
+        >
           Reset
         </Button>
         {!ctx.agentPhone && (
@@ -2296,7 +2747,8 @@ function LeadActivityTimeline({ activities, tcms }: { activities: ActivityLog[];
     .slice(0, 5);
 
   const actorName = (actor: string) =>
-    tcms.find((t) => t.id === actor)?.name ?? (actor === "flow-ops" ? "Flow Ops" : actor === "system" ? "System" : actor);
+    tcms.find((t) => t.id === actor)?.name ??
+    (actor === "flow-ops" ? "Flow Ops" : actor === "system" ? "System" : actor);
 
   return (
     <div className="rounded-md border border-border bg-card/70 p-2 space-y-2">
@@ -2308,8 +2760,15 @@ function LeadActivityTimeline({ activities, tcms }: { activities: ActivityLog[];
       ) : (
         <div className="space-y-1">
           {rows.map((a) => (
-            <div key={a.id} className="flex items-start gap-2 rounded border border-border/70 p-1.5 text-[11px]">
-              {a.kind === "call_logged" ? <Phone className="h-3 w-3 text-accent mt-0.5" /> : <Activity className="h-3 w-3 text-muted-foreground mt-0.5" />}
+            <div
+              key={a.id}
+              className="flex items-start gap-2 rounded border border-border/70 p-1.5 text-[11px]"
+            >
+              {a.kind === "call_logged" ? (
+                <Phone className="h-3 w-3 text-accent mt-0.5" />
+              ) : (
+                <Activity className="h-3 w-3 text-muted-foreground mt-0.5" />
+              )}
               <div className="min-w-0 flex-1">
                 <div className="font-medium">
                   {a.kind === "call_logged" ? `Call logged by ${actorName(a.actor)}` : a.text}
@@ -2329,10 +2788,17 @@ function LeadActivityTimeline({ activities, tcms }: { activities: ActivityLog[];
 /* ================================================================== */
 
 function NegotiationPlaybook({
-  lead, leadPhone, ctx, open: controlledOpen, onOpenChange: controlledOnOpenChange,
+  lead,
+  leadPhone,
+  ctx,
+  open: controlledOpen,
+  onOpenChange: controlledOnOpenChange,
 }: {
-  lead: Lead; leadPhone: string; ctx: ImpactTplCtx;
-  open?: boolean; onOpenChange?: (v: boolean) => void;
+  lead: Lead;
+  leadPhone: string;
+  ctx: ImpactTplCtx;
+  open?: boolean;
+  onOpenChange?: (v: boolean) => void;
 }) {
   const [internalOpen, setInternalOpen] = useState(false);
   const open = controlledOpen ?? internalOpen;
@@ -2343,10 +2809,11 @@ function NegotiationPlaybook({
 
   function resolveTemplate(template: string, lead: Lead, ctx: ImpactTplCtx): string {
     return template
-      .replace(/\{price\}/g,
-        lead.budget ? `₹${lead.budget.toLocaleString("en-IN")}` : "")
-      .replace(/\{altPrice\}/g,
-        lead.budget ? `₹${(lead.budget * 0.9).toLocaleString("en-IN")}` : "")
+      .replace(/\{price\}/g, lead.budget ? `₹${lead.budget.toLocaleString("en-IN")}` : "")
+      .replace(
+        /\{altPrice\}/g,
+        lead.budget ? `₹${(lead.budget * 0.9).toLocaleString("en-IN")}` : "",
+      )
       .replace(/\{propertyName\}/g, ctx.propertyName ?? "the property")
       .replace(/\{roomType\}/g, "triple")
       .replace(/\{leadName\}/g, lead.name ?? "")
@@ -2361,15 +2828,19 @@ function NegotiationPlaybook({
   };
 
   const paths: { key: ImpactScenario; title: string; tag: string }[] = [
-    { key: "negotiate-hold",  title: "Hold price · add value", tag: "Keep rent, sweeten the deal" },
-    { key: "negotiate-alt",   title: "Alternate room/property", tag: "Lower-priced swap" },
-    { key: "negotiate-floor", title: "Floor price offer",       tag: "Manager-approved minimum" },
+    { key: "negotiate-hold", title: "Hold price · add value", tag: "Keep rent, sweeten the deal" },
+    { key: "negotiate-alt", title: "Alternate room/property", tag: "Lower-priced swap" },
+    { key: "negotiate-floor", title: "Floor price offer", tag: "Manager-approved minimum" },
   ];
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="outline" className={`h-7 text-[10px] gap-1 ${actionButtonClass}`}>
+        <Button
+          size="sm"
+          variant="outline"
+          className={`h-7 text-[10px] gap-1 ${actionButtonClass}`}
+        >
           <Sparkles className="h-3 w-3" /> Negotiate
         </Button>
       </DialogTrigger>
@@ -2390,23 +2861,38 @@ function NegotiationPlaybook({
                   return (
                     <div key={tpl.id} className="rounded bg-muted/40 p-2 space-y-1">
                       <div className="flex items-center justify-between">
-                        <Badge variant="outline" className="text-[9px] uppercase">{tpl.label}</Badge>
+                        <Badge variant="outline" className="text-[9px] uppercase">
+                          {tpl.label}
+                        </Badge>
                         <div className="flex gap-1">
-                          <Button size="sm" variant="ghost" className="h-6 text-[10px] gap-1"
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 text-[10px] gap-1"
                             onClick={() => {
                               void copyText(msg, "Copied!");
                               setCopiedId(tpl.id);
-                              window.setTimeout(() => setCopiedId((id) => id === tpl.id ? null : id), 2000);
-                            }}>
-                            <ClipboardCopy className="h-3 w-3" /> {copiedId === tpl.id ? "Copied!" : "Copy"}
+                              window.setTimeout(
+                                () => setCopiedId((id) => (id === tpl.id ? null : id)),
+                                2000,
+                              );
+                            }}
+                          >
+                            <ClipboardCopy className="h-3 w-3" />{" "}
+                            {copiedId === tpl.id ? "Copied!" : "Copy"}
                           </Button>
-                          <Button size="sm" className="h-6 text-[10px] gap-1"
-                            onClick={() => copyNegotiation(msg, tpl.label)}>
+                          <Button
+                            size="sm"
+                            className="h-6 text-[10px] gap-1"
+                            onClick={() => copyNegotiation(msg, tpl.label)}
+                          >
                             <ClipboardCopy className="h-3 w-3" /> Copy
                           </Button>
                         </div>
                       </div>
-                      <div className="text-[11px] whitespace-pre-wrap font-mono leading-relaxed">{msg}</div>
+                      <div className="text-[11px] whitespace-pre-wrap font-mono leading-relaxed">
+                        {msg}
+                      </div>
                     </div>
                   );
                 })}
@@ -2533,24 +3019,37 @@ function ScheduleTourDialog({
     const q = propertySearch.trim().toLowerCase();
     let list = PGS;
     if (q) {
-      list = PGS.filter(p => p.name.toLowerCase().includes(q) || p.area?.toLowerCase().includes(q));
+      list = PGS.filter(
+        (p) => p.name.toLowerCase().includes(q) || p.area?.toLowerCase().includes(q),
+      );
     } else if (lead.preferredArea) {
-      const byArea = PGS.filter(p => p.area.toLowerCase().includes(lead.preferredArea.toLowerCase()));
+      const byArea = PGS.filter((p) =>
+        p.area.toLowerCase().includes(lead.preferredArea.toLowerCase()),
+      );
       if (byArea.length > 0) list = byArea;
     }
     return list.slice(0, 6);
   }, [propertySearch, lead.preferredArea]);
 
-  const resolvedAgentId = selectedAgent || lead.assignedTcmId || tcmOptions[0]?.id || currentTcmId || "";
+  const resolvedAgentId =
+    selectedAgent || lead.assignedTcmId || tcmOptions[0]?.id || currentTcmId || "";
   const timeOptions = useMemo(() => tourTimeSlotsForDate(date), [date]);
   const hasValidTime = Boolean(time) && timeOptions.includes(time);
   const scheduleErrors = {
     property: selectedProperty ? "" : "Property is required.",
     agent: resolvedAgentId ? "" : "Agent is required.",
     date: date && date >= today ? "" : "Date must be today or future.",
-    time: hasValidTime ? "" : date === today ? "Pick a future time slot." : "Time slot is required.",
+    time: hasValidTime
+      ? ""
+      : date === today
+        ? "Pick a future time slot."
+        : "Time slot is required.",
   };
-  const canSchedule = !scheduleErrors.property && !scheduleErrors.agent && !scheduleErrors.date && !scheduleErrors.time;
+  const canSchedule =
+    !scheduleErrors.property &&
+    !scheduleErrors.agent &&
+    !scheduleErrors.date &&
+    !scheduleErrors.time;
 
   const handleScheduleTour = async () => {
     setSubmitted(true);
@@ -2588,9 +3087,10 @@ function ScheduleTourDialog({
         </DialogTrigger>
       )}
       <DialogContent className="max-w-md">
-        <DialogHeader><DialogTitle className="text-sm">Schedule tour · {lead.name}</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle className="text-sm">Schedule tour · {lead.name}</DialogTitle>
+        </DialogHeader>
         <div className="space-y-3">
-          
           <div className="flex flex-col gap-1">
             <label className="text-[10px] uppercase text-muted-foreground">PROPERTY</label>
             <div className="relative">
@@ -2599,7 +3099,10 @@ function ScheduleTourDialog({
                 type="text"
                 placeholder="Search or type new name..."
                 value={propertySearch}
-                onChange={e => { setPropertySearch(e.target.value); setSelectedProperty(null); }}
+                onChange={(e) => {
+                  setPropertySearch(e.target.value);
+                  setSelectedProperty(null);
+                }}
                 className="w-full border border-border rounded-md pl-7 pr-3 py-1.5 text-xs bg-transparent focus:outline-none focus:ring-1 focus:ring-primary h-8"
               />
             </div>
@@ -2624,7 +3127,9 @@ function ScheduleTourDialog({
                     )}
                   >
                     <div className="font-medium">{property.name}</div>
-                    <div className="text-[10px] text-muted-foreground">{property.area} · Property Hub</div>
+                    <div className="text-[10px] text-muted-foreground">
+                      {property.area} · Property Hub
+                    </div>
                   </button>
                 ))}
               </div>
@@ -2690,7 +3195,9 @@ function ScheduleTourDialog({
                 onChange={(e) => setDate(e.target.value)}
                 min={today}
               />
-              {submitted && scheduleErrors.date && <p className="mt-1 text-[10px] text-danger">{scheduleErrors.date}</p>}
+              {submitted && scheduleErrors.date && (
+                <p className="mt-1 text-[10px] text-danger">{scheduleErrors.date}</p>
+              )}
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-[10px] uppercase text-muted-foreground">Time</label>
@@ -2712,7 +3219,9 @@ function ScheduleTourDialog({
                   )}
                 </SelectContent>
               </Select>
-              {submitted && scheduleErrors.time && <p className="mt-1 text-[10px] text-danger">{scheduleErrors.time}</p>}
+              {submitted && scheduleErrors.time && (
+                <p className="mt-1 text-[10px] text-danger">{scheduleErrors.time}</p>
+              )}
             </div>
           </div>
 
@@ -2770,14 +3279,26 @@ function ConfirmTourButton({ lead, tour }: { lead: Lead; tour: Tour }) {
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-md">
-        <DialogHeader><DialogTitle className="text-sm">Confirm tour to {lead.name}</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle className="text-sm">Confirm tour to {lead.name}</DialogTitle>
+        </DialogHeader>
         <div className="space-y-3">
           <div>
-            <Label className="text-[10px] uppercase text-muted-foreground">TCM phone (saved for next time)</Label>
-            <Input className="h-8 text-xs" placeholder="+91 9xxxxxxxxx" value={phone} onChange={(event) => setPhoneLocal(event.target.value)} />
+            <Label className="text-[10px] uppercase text-muted-foreground">
+              TCM phone (saved for next time)
+            </Label>
+            <Input
+              className="h-8 text-xs"
+              placeholder="+91 9xxxxxxxxx"
+              value={phone}
+              onChange={(event) => setPhoneLocal(event.target.value)}
+            />
           </div>
           <div className="rounded-lg p-3" style={{ background: "#075E54" }}>
-            <div className="rounded-xl px-3 py-2 text-[12px] whitespace-pre-wrap font-mono" style={{ background: "#DCF8C6", color: "#111", borderRadius: "12px 12px 2px 12px" }}>
+            <div
+              className="rounded-xl px-3 py-2 text-[12px] whitespace-pre-wrap font-mono"
+              style={{ background: "#DCF8C6", color: "#111", borderRadius: "12px 12px 2px 12px" }}
+            >
               {message}
             </div>
           </div>
@@ -2817,7 +3338,13 @@ function ReminderRow({ tour }: { tour: Tour }) {
       </div>
       <div className="flex gap-1">
         {opts.map((option) => (
-          <Button key={option.min} size="sm" variant="outline" className="h-7 text-[10px] flex-1" onClick={() => setReminder(option.min)}>
+          <Button
+            key={option.min}
+            size="sm"
+            variant="outline"
+            className="h-7 text-[10px] flex-1"
+            onClick={() => setReminder(option.min)}
+          >
             {option.label}
           </Button>
         ))}
@@ -2827,11 +3354,19 @@ function ReminderRow({ tour }: { tour: Tour }) {
 }
 
 function QuotationDialog({
-  lead, label = "Create quote", variant = "default",
-  open: controlledOpen, onOpenChange: controlledOnOpenChange, hideTrigger = false,
+  lead,
+  label = "Create quote",
+  variant = "default",
+  open: controlledOpen,
+  onOpenChange: controlledOnOpenChange,
+  hideTrigger = false,
 }: {
-  lead: Lead; label?: string; variant?: "default" | "ghost";
-  open?: boolean; onOpenChange?: (v: boolean) => void; hideTrigger?: boolean;
+  lead: Lead;
+  label?: string;
+  variant?: "default" | "ghost";
+  open?: boolean;
+  onOpenChange?: (v: boolean) => void;
+  hideTrigger?: boolean;
 }) {
   const [internalOpen, setInternalOpen] = useState(false);
   const open = controlledOpen ?? internalOpen;
@@ -2839,14 +3374,20 @@ function QuotationDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       {!hideTrigger && (
-      <DialogTrigger asChild>
-        <Button size="sm" variant={variant === "ghost" ? "ghost" : "default"} className={`h-7 text-[10px] gap-1 ${actionButtonClass}`}>
-          <FileText className="h-3 w-3" /> {label}
-        </Button>
-      </DialogTrigger>
+        <DialogTrigger asChild>
+          <Button
+            size="sm"
+            variant={variant === "ghost" ? "ghost" : "default"}
+            className={`h-7 text-[10px] gap-1 ${actionButtonClass}`}
+          >
+            <FileText className="h-3 w-3" /> {label}
+          </Button>
+        </DialogTrigger>
       )}
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader><DialogTitle className="text-sm">Quotation · {lead.name}</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle className="text-sm">Quotation · {lead.name}</DialogTitle>
+        </DialogHeader>
         <QuotationBuilder lead={lead} embedded onSent={() => setOpen(false)} />
       </DialogContent>
     </Dialog>
@@ -2854,10 +3395,19 @@ function QuotationDialog({
 }
 
 function BookingDialog({
-  lead, quote, openTour, open: controlledOpen, onOpenChange: controlledOnOpenChange, hideTrigger = false,
+  lead,
+  quote,
+  openTour,
+  open: controlledOpen,
+  onOpenChange: controlledOnOpenChange,
+  hideTrigger = false,
 }: {
-  lead: Lead; quote: Quotation; openTour?: Tour;
-  open?: boolean; onOpenChange?: (v: boolean) => void; hideTrigger?: boolean;
+  lead: Lead;
+  quote: Quotation;
+  openTour?: Tour;
+  open?: boolean;
+  onOpenChange?: (v: boolean) => void;
+  hideTrigger?: boolean;
 }) {
   const closeDeal = useApp((s) => s.closeDeal);
   const { mutate: upsertCheckin } = useUpsertCheckin();
@@ -2870,21 +3420,32 @@ function BookingDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       {!hideTrigger && (
-      <DialogTrigger asChild>
-        <Button size="sm" className={`h-7 text-[10px] gap-1 bg-success text-success-foreground hover:bg-success/90 ${actionButtonClass}`}>
-          <CheckCircle2 className="h-3 w-3" /> Book
-        </Button>
-      </DialogTrigger>
+        <DialogTrigger asChild>
+          <Button
+            size="sm"
+            className={`h-7 text-[10px] gap-1 bg-success text-success-foreground hover:bg-success/90 ${actionButtonClass}`}
+          >
+            <CheckCircle2 className="h-3 w-3" /> Book
+          </Button>
+        </DialogTrigger>
       )}
       <DialogContent className="max-w-sm">
-        <DialogHeader><DialogTitle className="text-sm">Close booking · {lead.name}</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle className="text-sm">Close booking · {lead.name}</DialogTitle>
+        </DialogHeader>
         <div className="space-y-3">
           <div className="text-[11px] text-muted-foreground">
-            {quote.propertyName} · {quote.roomType}{quote.roomNumber ? ` #${quote.roomNumber}` : ""}
+            {quote.propertyName} · {quote.roomType}
+            {quote.roomNumber ? ` #${quote.roomNumber}` : ""}
           </div>
           <div>
             <Label className="text-[10px] uppercase text-muted-foreground">Monthly rent</Label>
-            <Input type="number" className="h-8 text-xs" value={amt} onChange={(event) => setAmt(Number(event.target.value))} />
+            <Input
+              type="number"
+              className="h-8 text-xs"
+              value={amt}
+              onChange={(event) => setAmt(Number(event.target.value))}
+            />
           </div>
           <div className="text-[10px] text-muted-foreground">
             Prebook collected: {formatINR(quote.prebook)} · Deposit: {formatINR(quote.deposit)}
@@ -2906,7 +3467,7 @@ function BookingDialog({
                   leadId: lead.id,
                   rent: amt,
                   deposit: quote.deposit,
-                  propertyId: (quote.propertyId ?? openTour?.propertyId) ?? undefined,
+                  propertyId: quote.propertyId ?? openTour?.propertyId ?? undefined,
                   propertyName: quote.propertyName,
                 });
                 toast.success("Booking closed");
@@ -2921,7 +3482,11 @@ function BookingDialog({
             {closing && <RotateCcw className="h-3 w-3 mr-1 animate-spin" />}
             Confirm booking
           </Button>
-          {!openTour && <div className="text-[10px] text-warning">No tour found — booking will be marked as direct.</div>}
+          {!openTour && (
+            <div className="text-[10px] text-warning">
+              No tour found — booking will be marked as direct.
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
@@ -2929,10 +3494,17 @@ function BookingDialog({
 }
 
 function DirectBookButton({
-  lead, openTour, opsProperties, open: controlledOpen, onOpenChange: controlledOnOpenChange,
+  lead,
+  openTour,
+  opsProperties,
+  open: controlledOpen,
+  onOpenChange: controlledOnOpenChange,
 }: {
-  lead: Lead; openTour?: Tour; opsProperties: Property[];
-  open?: boolean; onOpenChange?: (v: boolean) => void;
+  lead: Lead;
+  openTour?: Tour;
+  opsProperties: Property[];
+  open?: boolean;
+  onOpenChange?: (v: boolean) => void;
 }) {
   const properties = opsProperties;
   const closeDeal = useApp((s) => s.closeDeal);
@@ -2951,7 +3523,8 @@ function DirectBookButton({
   const [submitting, setSubmitting] = useState(false);
 
   const filtered = useMemo(
-    () => searchPropertyCatalog(propQuery, properties, { preferredArea: lead.preferredArea, limit: 8 }),
+    () =>
+      searchPropertyCatalog(propQuery, properties, { preferredArea: lead.preferredArea, limit: 8 }),
     [properties, propQuery, lead.preferredArea],
   );
 
@@ -2959,7 +3532,13 @@ function DirectBookButton({
     let pid = propId;
     let name = propName || propQuery.trim();
     if (!pid && name) {
-      const created = addProperty({ name, area: lead.preferredArea, pricePerBed: rent, totalBeds: 1, vacantBeds: 1 });
+      const created = addProperty({
+        name,
+        area: lead.preferredArea,
+        pricePerBed: rent,
+        totalBeds: 1,
+        vacantBeds: 1,
+      });
       pid = created.id;
       name = created.name;
     }
@@ -2973,7 +3552,13 @@ function DirectBookButton({
     }
     setSubmitting(true);
     try {
-      closeDeal({ leadId: lead.id, tourId: openTour?.id ?? "direct", propertyId: pid, tcmId: lead.assignedTcmId, amount: rent });
+      closeDeal({
+        leadId: lead.id,
+        tourId: openTour?.id ?? "direct",
+        propertyId: pid,
+        tcmId: lead.assignedTcmId,
+        amount: rent,
+      });
       const resolved = resolvePropertyById(pid, properties);
       const ci = await upsertCheckin({
         leadId: lead.id,
@@ -3000,19 +3585,35 @@ function DirectBookButton({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="outline" className={`h-7 text-[10px] gap-1 ${actionButtonClass}`}>
+        <Button
+          size="sm"
+          variant="outline"
+          className={`h-7 text-[10px] gap-1 ${actionButtonClass}`}
+        >
           <Wallet className="h-3 w-3" /> Direct book
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-md">
-        <DialogHeader><DialogTitle className="text-sm">Direct book · {lead.name}</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle className="text-sm">Direct book · {lead.name}</DialogTitle>
+        </DialogHeader>
         <div className="space-y-3">
-          <p className="text-[10px] text-muted-foreground">Skip the funnel. Use this when the lead is ready right now.</p>
+          <p className="text-[10px] text-muted-foreground">
+            Skip the funnel. Use this when the lead is ready right now.
+          </p>
           <div>
             <Label className="text-[10px] uppercase text-muted-foreground">Property</Label>
             <div className="relative">
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-              <Input className="h-8 pl-7 text-xs" placeholder="Search or type new" value={propQuery} onChange={(event) => { setPropQuery(event.target.value); setPropId(""); }} />
+              <Input
+                className="h-8 pl-7 text-xs"
+                placeholder="Search or type new"
+                value={propQuery}
+                onChange={(event) => {
+                  setPropQuery(event.target.value);
+                  setPropId("");
+                }}
+              />
             </div>
             <div className="max-h-32 overflow-y-auto mt-1 space-y-1">
               {filtered.map((item) => (
@@ -3037,21 +3638,49 @@ function DirectBookButton({
             </div>
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <Field label="Monthly rent"><Input type="number" className="h-8 text-xs" value={rent} onChange={(event) => setRent(Number(event.target.value))} /></Field>
-            <Field label="Move-in"><Input type="date" className="h-8 text-xs" value={moveIn} onChange={(event) => setMoveIn(event.target.value)} /></Field>
+            <Field label="Monthly rent">
+              <Input
+                type="number"
+                className="h-8 text-xs"
+                value={rent}
+                onChange={(event) => setRent(Number(event.target.value))}
+              />
+            </Field>
+            <Field label="Move-in">
+              <Input
+                type="date"
+                className="h-8 text-xs"
+                value={moveIn}
+                onChange={(event) => setMoveIn(event.target.value)}
+              />
+            </Field>
           </div>
           <Field label="Payment mode">
             <Select value={mode} onValueChange={(value) => setMode(value as typeof mode)}>
-              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
-                <SelectItem value="upi" className="text-xs">UPI</SelectItem>
-                <SelectItem value="card" className="text-xs">Card</SelectItem>
-                <SelectItem value="cash" className="text-xs">Cash</SelectItem>
-                <SelectItem value="bank" className="text-xs">Bank transfer</SelectItem>
+                <SelectItem value="upi" className="text-xs">
+                  UPI
+                </SelectItem>
+                <SelectItem value="card" className="text-xs">
+                  Card
+                </SelectItem>
+                <SelectItem value="cash" className="text-xs">
+                  Cash
+                </SelectItem>
+                <SelectItem value="bank" className="text-xs">
+                  Bank transfer
+                </SelectItem>
               </SelectContent>
             </Select>
           </Field>
-          <Button className={`w-full h-8 text-xs ${actionButtonClass}`} onClick={() => void submit()} disabled={submitting}>
+          <Button
+            className={`w-full h-8 text-xs ${actionButtonClass}`}
+            onClick={() => void submit()}
+            disabled={submitting}
+          >
             {submitting && <RotateCcw className="h-3 w-3 mr-1 animate-spin" />}
             Confirm direct booking
           </Button>
@@ -3062,27 +3691,49 @@ function DirectBookButton({
 }
 
 function CheckInOpsButton({
-  lead, existing, open: controlledOpen, onOpenChange: controlledOnOpenChange,
-}: { lead: Lead; existing?: CheckIn | null; open?: boolean; onOpenChange?: (v: boolean) => void }) {
+  lead,
+  existing,
+  open: controlledOpen,
+  onOpenChange: controlledOnOpenChange,
+}: {
+  lead: Lead;
+  existing?: CheckIn | null;
+  open?: boolean;
+  onOpenChange?: (v: boolean) => void;
+}) {
   const [internalOpen, setInternalOpen] = useState(false);
   const open = controlledOpen ?? internalOpen;
   const setOpen = controlledOnOpenChange ?? setInternalOpen;
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" variant={existing ? "default" : "outline"} className={`h-7 text-[10px] gap-1 ${actionButtonClass}`}>
+        <Button
+          size="sm"
+          variant={existing ? "default" : "outline"}
+          className={`h-7 text-[10px] gap-1 ${actionButtonClass}`}
+        >
           <KeyRound className="h-3 w-3" /> Check-in
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-3xl max-h-[88vh] overflow-y-auto">
-        <DialogHeader><DialogTitle className="text-sm">Check-in command · {lead.name}</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle className="text-sm">Check-in command · {lead.name}</DialogTitle>
+        </DialogHeader>
         <CheckInPanel lead={lead} />
       </DialogContent>
     </Dialog>
   );
 }
 
-function CheckInAuditReport({ checkin, lead, compact = false }: { checkin: CheckIn; lead: Lead; compact?: boolean }) {
+function CheckInAuditReport({
+  checkin,
+  lead,
+  compact = false,
+}: {
+  checkin: CheckIn;
+  lead: Lead;
+  compact?: boolean;
+}) {
   const risk = riskLevel(checkin);
   return (
     <div className="rounded-md border border-border bg-card/70 p-2 space-y-2">
@@ -3090,22 +3741,38 @@ function CheckInAuditReport({ checkin, lead, compact = false }: { checkin: Check
         <div className="text-[10px] uppercase tracking-wider font-semibold flex items-center gap-1.5">
           <ScrollText className="h-3 w-3" /> Check-in audit report
         </div>
-        <Badge variant="outline" className={`text-[9px] ${RISK_CLASS[risk]}`}>{RISK_LABEL[risk]}</Badge>
+        <Badge variant="outline" className={`text-[9px] ${RISK_CLASS[risk]}`}>
+          {RISK_LABEL[risk]}
+        </Badge>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-[10px]">
         <AuditMetric label="Stage" value={STAGE_LABEL[checkin.stage]} />
         <AuditMetric label="Room" value={checkin.roomNumber || "Pending"} />
         <AuditMetric label="Balance" value={formatINR(checkin.balanceDue)} />
-        <AuditMetric label="Delays" value={String(checkin.delays.length)} danger={checkin.delays.length >= 2} />
+        <AuditMetric
+          label="Delays"
+          value={String(checkin.delays.length)}
+          danger={checkin.delays.length >= 2}
+        />
       </div>
       {!compact && (
         <div className="space-y-1 max-h-36 overflow-y-auto">
-          {checkin.history.slice().reverse().map((entry, index) => (
-            <div key={`${entry.at}-${index}`} className="flex items-start gap-2 text-[10px] rounded border border-border/70 p-1.5">
-              <span className="font-mono text-muted-foreground shrink-0">{fmtWhen(entry.at)}</span>
-              <span className="flex-1">{entry.note ?? `${lead.name}: ${STAGE_LABEL[entry.stage]}`}</span>
-            </div>
-          ))}
+          {checkin.history
+            .slice()
+            .reverse()
+            .map((entry, index) => (
+              <div
+                key={`${entry.at}-${index}`}
+                className="flex items-start gap-2 text-[10px] rounded border border-border/70 p-1.5"
+              >
+                <span className="font-mono text-muted-foreground shrink-0">
+                  {fmtWhen(entry.at)}
+                </span>
+                <span className="flex-1">
+                  {entry.note ?? `${lead.name}: ${STAGE_LABEL[entry.stage]}`}
+                </span>
+              </div>
+            ))}
         </div>
       )}
     </div>
@@ -3114,7 +3781,9 @@ function CheckInAuditReport({ checkin, lead, compact = false }: { checkin: Check
 
 function AuditMetric({ label, value, danger }: { label: string; value: string; danger?: boolean }) {
   return (
-    <div className={`rounded border p-1.5 ${danger ? "border-danger/40 bg-danger/5 text-danger" : "border-border bg-muted/20"}`}>
+    <div
+      className={`rounded border p-1.5 ${danger ? "border-danger/40 bg-danger/5 text-danger" : "border-border bg-muted/20"}`}
+    >
       <div className="text-muted-foreground">{label}</div>
       <div className="font-semibold truncate">{value}</div>
     </div>
@@ -3144,7 +3813,15 @@ function MessageLabButton({ tcmOptions }: { tcmOptions: TCM[] }) {
   );
 }
 
-function MessageLabSheet({ open, onOpenChange, tcmOptions }: { open: boolean; onOpenChange: (v: boolean) => void; tcmOptions: TCM[] }) {
+function MessageLabSheet({
+  open,
+  onOpenChange,
+  tcmOptions,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  tcmOptions: TCM[];
+}) {
   const opsProperties = useApp((s) => s.properties);
   const catalog = useMemo(() => allCatalogProperties(opsProperties), [opsProperties]);
   const phones = useTcmContacts((s) => s.phones);
@@ -3159,27 +3836,44 @@ function MessageLabSheet({ open, onOpenChange, tcmOptions }: { open: boolean; on
   const tcm = tcmOptions.find((item) => item.id === tcmId);
   const property = catalog.find((item) => item.id === propId);
 
-  const ctx: ImpactTplCtx = useMemo(() => ({
-    leadName,
-    agentName: memberDisplayName(tcm, ""),
-    agentPhone: phones[tcmId] ?? "",
-    propertyName: property?.name,
-    propertyAddress: property?.area,
-    tourWhen,
-    roomType: "Shared · Triple",
-    price,
-    altPrice,
-    area: property?.area,
-    budget,
-    moveIn: fmtDate(new Date().toISOString()),
-  }), [leadName, tcm, phones, tcmId, property?.name, property?.area, tourWhen, price, altPrice, budget]);
+  const ctx: ImpactTplCtx = useMemo(
+    () => ({
+      leadName,
+      agentName: memberDisplayName(tcm, ""),
+      agentPhone: phones[tcmId] ?? "",
+      propertyName: property?.name,
+      propertyAddress: property?.area,
+      tourWhen,
+      roomType: "Shared · Triple",
+      price,
+      altPrice,
+      area: property?.area,
+      budget,
+      moveIn: fmtDate(new Date().toISOString()),
+    }),
+    [
+      leadName,
+      tcm,
+      phones,
+      tcmId,
+      property?.name,
+      property?.area,
+      tourWhen,
+      price,
+      altPrice,
+      budget,
+    ],
+  );
 
   const scenarios = Object.keys(IMPACT_TEMPLATES) as ImpactScenario[];
   const copy = (text: string) => copyText(text);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-4xl p-0 flex flex-col gap-0 overflow-hidden">
+      <SheetContent
+        side="right"
+        className="w-full sm:max-w-4xl p-0 flex flex-col gap-0 overflow-hidden"
+      >
         <SheetHeader className="border-b border-border bg-card px-5 py-4 space-y-3">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
@@ -3191,8 +3885,12 @@ function MessageLabSheet({ open, onOpenChange, tcmOptions }: { open: boolean; on
               </SheetDescription>
             </div>
             <div className="rounded-lg border border-border bg-muted/35 px-3 py-2 text-right">
-              <div className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">Ready for</div>
-              <div className="text-sm font-semibold">{leadName || "Lead"} · {property?.area ?? "Area"}</div>
+              <div className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">
+                Ready for
+              </div>
+              <div className="text-sm font-semibold">
+                {leadName || "Lead"} · {property?.area ?? "Area"}
+              </div>
             </div>
           </div>
 
@@ -3206,67 +3904,128 @@ function MessageLabSheet({ open, onOpenChange, tcmOptions }: { open: boolean; on
               </Badge>
             </div>
             <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
-              <Field label="Lead name"><Input className="h-8 text-xs" value={leadName} onChange={(event) => setLeadName(event.target.value)} /></Field>
-              <Field label="Lead phone"><Input className="h-8 text-xs" placeholder="+91 9xxxxxxxxx" value={leadPhone} onChange={(event) => setLeadPhone(event.target.value)} /></Field>
-            <Field label="TCM">
-              <Select value={tcmId} onValueChange={setTcmId}>
-                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {tcmOptions.map((item: any) => (
-                    <SelectItem key={item.id} value={item.id} className="text-xs">{memberOptionLabel(item)}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-            <Field label="Property">
-              <Select value={propId} onValueChange={setPropId}>
-                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {catalog.map((item) => (
-                    <SelectItem key={item.id} value={item.id} className="text-xs">
-                      {item.name}{item.source === "hub" ? " · Hub" : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-            <Field label="Tour when"><Input className="h-8 text-xs" value={tourWhen} onChange={(event) => setTourWhen(event.target.value)} /></Field>
-            <Field label="Budget"><Input className="h-8 text-xs" type="number" value={budget} onChange={(event) => setBudget(Number(event.target.value))} /></Field>
-            <Field label="Price"><Input className="h-8 text-xs" type="number" value={price} onChange={(event) => setPrice(Number(event.target.value))} /></Field>
-            <Field label="Alt price"><Input className="h-8 text-xs" type="number" value={altPrice} onChange={(event) => setAltPrice(Number(event.target.value))} /></Field>
+              <Field label="Lead name">
+                <Input
+                  className="h-8 text-xs"
+                  value={leadName}
+                  onChange={(event) => setLeadName(event.target.value)}
+                />
+              </Field>
+              <Field label="Lead phone">
+                <Input
+                  className="h-8 text-xs"
+                  placeholder="+91 9xxxxxxxxx"
+                  value={leadPhone}
+                  onChange={(event) => setLeadPhone(event.target.value)}
+                />
+              </Field>
+              <Field label="TCM">
+                <Select value={tcmId} onValueChange={setTcmId}>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {tcmOptions.map((item: any) => (
+                      <SelectItem key={item.id} value={item.id} className="text-xs">
+                        {memberOptionLabel(item)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label="Property">
+                <Select value={propId} onValueChange={setPropId}>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {catalog.map((item) => (
+                      <SelectItem key={item.id} value={item.id} className="text-xs">
+                        {item.name}
+                        {item.source === "hub" ? " · Hub" : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label="Tour when">
+                <Input
+                  className="h-8 text-xs"
+                  value={tourWhen}
+                  onChange={(event) => setTourWhen(event.target.value)}
+                />
+              </Field>
+              <Field label="Budget">
+                <Input
+                  className="h-8 text-xs"
+                  type="number"
+                  value={budget}
+                  onChange={(event) => setBudget(Number(event.target.value))}
+                />
+              </Field>
+              <Field label="Price">
+                <Input
+                  className="h-8 text-xs"
+                  type="number"
+                  value={price}
+                  onChange={(event) => setPrice(Number(event.target.value))}
+                />
+              </Field>
+              <Field label="Alt price">
+                <Input
+                  className="h-8 text-xs"
+                  type="number"
+                  value={altPrice}
+                  onChange={(event) => setAltPrice(Number(event.target.value))}
+                />
+              </Field>
             </div>
           </div>
         </SheetHeader>
         <div className="flex-1 overflow-y-auto bg-muted/15 p-5">
           <div className="grid gap-4 xl:grid-cols-2">
-          {scenarios.map((scenario) => (
-            <section key={scenario} className="space-y-2">
-              <div className="sticky top-0 z-10 -mx-1 bg-muted/15 px-1 py-1 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold backdrop-blur">
-                {scenario.replace(/-/g, " ")}
-              </div>
-              {IMPACT_TEMPLATES[scenario].map((tpl) => {
-                const text = renderImpactTemplate(tpl, ctx);
-                return (
-                  <div key={tpl.id} className="rounded-xl border border-border bg-card p-3 shadow-sm">
-                    <div className="flex items-center justify-between gap-2">
-                      <Badge variant="outline" className="text-[9px] uppercase bg-background">{tpl.label}</Badge>
-                      <div className="flex gap-1">
-                        <Button size="sm" variant="ghost" className="h-7 text-[10px] gap-1" onClick={() => copy(text)}>
-                          <ClipboardCopy className="h-3 w-3" /> Copy
-                        </Button>
-                        <Button size="sm" className="h-7 text-[10px] gap-1" onClick={() => copy(text)}>
-                          <ClipboardCopy className="h-3 w-3" /> Copy
-                        </Button>
+            {scenarios.map((scenario) => (
+              <section key={scenario} className="space-y-2">
+                <div className="sticky top-0 z-10 -mx-1 bg-muted/15 px-1 py-1 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold backdrop-blur">
+                  {scenario.replace(/-/g, " ")}
+                </div>
+                {IMPACT_TEMPLATES[scenario].map((tpl) => {
+                  const text = renderImpactTemplate(tpl, ctx);
+                  return (
+                    <div
+                      key={tpl.id}
+                      className="rounded-xl border border-border bg-card p-3 shadow-sm"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <Badge variant="outline" className="text-[9px] uppercase bg-background">
+                          {tpl.label}
+                        </Badge>
+                        <div className="flex gap-1">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 text-[10px] gap-1"
+                            onClick={() => copy(text)}
+                          >
+                            <ClipboardCopy className="h-3 w-3" /> Copy
+                          </Button>
+                          <Button
+                            size="sm"
+                            className="h-7 text-[10px] gap-1"
+                            onClick={() => copy(text)}
+                          >
+                            <ClipboardCopy className="h-3 w-3" /> Copy
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="mt-2 rounded-lg bg-muted/35 p-2.5 text-[11px] whitespace-pre-wrap font-mono leading-relaxed text-foreground">
+                        {text}
                       </div>
                     </div>
-                    <div className="mt-2 rounded-lg bg-muted/35 p-2.5 text-[11px] whitespace-pre-wrap font-mono leading-relaxed text-foreground">
-                      {text}
-                    </div>
-                  </div>
-                );
-              })}
-            </section>
-          ))}
+                  );
+                })}
+              </section>
+            ))}
           </div>
         </div>
       </SheetContent>
@@ -3279,14 +4038,26 @@ function MessageLabSheet({ open, onOpenChange, tcmOptions }: { open: boolean; on
 /* ================================================================== */
 
 function TenXCommandBar({
-  lastRerank, escalations, counters, targets, stackSorted, tick, onFocusLead,
-  digestOpen, onDigestOpenChange,
+  lastRerank,
+  escalations,
+  counters,
+  targets,
+  stackSorted,
+  tick,
+  onFocusLead,
+  digestOpen,
+  onDigestOpenChange,
 }: {
   lastRerank: number;
   escalations: number;
   counters: { leadsToday: number; toursToday: number; quotesToday: number; bookingsMonth: number };
   targets: { leadsToday: number; toursToday: number; quotesToday: number; bookingsMonth: number };
-  stackSorted: Array<{ lead: { id: string; name: string }; score: number; nba: { label: string; pressure: string }; column: string }>;
+  stackSorted: Array<{
+    lead: { id: string; name: string };
+    score: number;
+    nba: { label: string; pressure: string };
+    column: string;
+  }>;
   tick: number;
   onFocusLead?: (leadId: string) => void;
   digestOpen?: boolean;
@@ -3299,15 +4070,23 @@ function TenXCommandBar({
   const moved = Math.min(streak, 99);
 
   const ago = lastRerank === 0 ? 0 : Math.max(0, Math.floor((Date.now() - lastRerank) / 1000));
-  const agoLabel = lastRerank === 0 ? "—" : ago < 60 ? `${ago}s ago` : `${Math.floor(ago / 60)}m ago`;
+  const agoLabel =
+    lastRerank === 0 ? "—" : ago < 60 ? `${ago}s ago` : `${Math.floor(ago / 60)}m ago`;
   void tick;
 
-  const progress = Math.min(100, Math.round(((counters.bookingsMonth / Math.max(targets.bookingsMonth, 1)) * 100)));
+  const progress = Math.min(
+    100,
+    Math.round((counters.bookingsMonth / Math.max(targets.bookingsMonth, 1)) * 100),
+  );
 
   return (
     <Dialog open={digestOpen} onOpenChange={onDigestOpenChange}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="outline" className="h-8 gap-1.5 text-[11px] px-2.5 bg-background">
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-8 gap-1.5 text-[11px] px-2.5 bg-background"
+        >
           <Sunrise className="h-3.5 w-3.5" /> Daily digest
         </Button>
       </DialogTrigger>
@@ -3321,8 +4100,16 @@ function TenXCommandBar({
           <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
             <DigestStat label="Live re-rank" value={`${agoLabel} · auto 60s`} />
             <DigestStat label="Streak" value={`${moved} moved`} tone="success" />
-            <DigestStat label="SLA breach" value={`${breach} leads`} tone={breach > 0 ? "danger" : "default"} />
-            <DigestStat label="Month target" value={`${counters.bookingsMonth}/${targets.bookingsMonth}`} sub={`${progress}%`} />
+            <DigestStat
+              label="SLA breach"
+              value={`${breach} leads`}
+              tone={breach > 0 ? "danger" : "default"}
+            />
+            <DigestStat
+              label="Month target"
+              value={`${counters.bookingsMonth}/${targets.bookingsMonth}`}
+              sub={`${progress}%`}
+            />
           </div>
 
           <div className="rounded-lg border border-border bg-muted/25 p-3">
@@ -3333,7 +4120,10 @@ function TenXCommandBar({
               <DigestStat label="Leads" value={`${counters.leadsToday}/${targets.leadsToday}`} />
               <DigestStat label="Tours" value={`${counters.toursToday}/${targets.toursToday}`} />
               <DigestStat label="Quotes" value={`${counters.quotesToday}/${targets.quotesToday}`} />
-              <DigestStat label="Bookings" value={`${counters.bookingsMonth}/${targets.bookingsMonth}`} />
+              <DigestStat
+                label="Bookings"
+                value={`${counters.bookingsMonth}/${targets.bookingsMonth}`}
+              />
             </div>
           </div>
 
@@ -3343,68 +4133,86 @@ function TenXCommandBar({
               <div className="text-xl font-display font-semibold">{moved}</div>
             </div>
             <div className="rounded-md border border-border p-2 text-center">
-              <div className="text-[9px] uppercase tracking-wider text-muted-foreground">Stalled</div>
+              <div className="text-[9px] uppercase tracking-wider text-muted-foreground">
+                Stalled
+              </div>
               <div className="text-xl font-display font-semibold text-danger">{stalled.length}</div>
             </div>
             <div className="rounded-md border border-border p-2 text-center">
-              <div className="text-[9px] uppercase tracking-wider text-muted-foreground">Booked</div>
-              <div className="text-xl font-display font-semibold text-success">{counters.bookingsMonth}</div>
+              <div className="text-[9px] uppercase tracking-wider text-muted-foreground">
+                Booked
+              </div>
+              <div className="text-xl font-display font-semibold text-success">
+                {counters.bookingsMonth}
+              </div>
             </div>
           </div>
 
-              <div>
-                <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Tomorrow's top 5</div>
-                <ol className="space-y-1">
-                  {top5.length === 0 && <li className="text-xs text-muted-foreground italic">Queue clear.</li>}
-                  {top5.map((e, i) => (
-                    <li key={e.lead.id}>
-                      <button
-                        type="button"
-                        onClick={() => onFocusLead?.(e.lead.id)}
-                        className="w-full flex items-center gap-2 text-xs rounded-md border border-border bg-card p-2 text-left hover:border-accent/50 hover:bg-accent/5 transition"
-                      >
-                        <span className="h-5 w-5 rounded-full bg-accent/15 text-accent text-[10px] font-semibold flex items-center justify-center">{i + 1}</span>
-                        <span className="font-medium truncate flex-1">{e.lead.name}</span>
-                        <Badge variant="outline" className="text-[9px]">{e.nba.label}</Badge>
-                      </button>
-                    </li>
-                  ))}
-                </ol>
-              </div>
-
-              {stalled.length > 0 && (
-                <div>
-                  <div className="text-[10px] uppercase tracking-wider text-danger font-semibold mb-1">Stalled — escalate</div>
-                  <ul className="space-y-1">
-                    {stalled.map((e) => (
-                      <li key={e.lead.id}>
-                        <button
-                          type="button"
-                          onClick={() => onFocusLead?.(e.lead.id)}
-                          className="w-full flex items-center gap-2 text-xs rounded-md border border-danger/30 bg-danger/5 p-2 text-left hover:border-danger/50 transition"
-                        >
-                          <Zap className="h-3 w-3 text-danger" />
-                          <span className="font-medium truncate flex-1">{e.lead.name}</span>
-                          <Badge variant="outline" className="text-[9px] border-danger/40 text-danger">{e.nba.label}</Badge>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+          <div>
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">
+              Tomorrow's top 5
+            </div>
+            <ol className="space-y-1">
+              {top5.length === 0 && (
+                <li className="text-xs text-muted-foreground italic">Queue clear.</li>
               )}
+              {top5.map((e, i) => (
+                <li key={e.lead.id}>
+                  <button
+                    type="button"
+                    onClick={() => onFocusLead?.(e.lead.id)}
+                    className="w-full flex items-center gap-2 text-xs rounded-md border border-border bg-card p-2 text-left hover:border-accent/50 hover:bg-accent/5 transition"
+                  >
+                    <span className="h-5 w-5 rounded-full bg-accent/15 text-accent text-[10px] font-semibold flex items-center justify-center">
+                      {i + 1}
+                    </span>
+                    <span className="font-medium truncate flex-1">{e.lead.name}</span>
+                    <Badge variant="outline" className="text-[9px]">
+                      {e.nba.label}
+                    </Badge>
+                  </button>
+                </li>
+              ))}
+            </ol>
+          </div>
 
-              <Button
-                size="sm"
-                className="w-full gap-1.5"
-                onClick={() => {
-                  const txt = `*Daily digest*\nMoved: ${moved}  ·  Stalled: ${stalled.length}  ·  Booked: ${counters.bookingsMonth}\n\nTomorrow's top 5:\n${top5.map((e, i) => `${i + 1}. ${e.lead.name} — ${e.nba.label}`).join("\n")}`;
-                  navigator.clipboard?.writeText(txt);
-                  markDigestSentToday();
-                  toast.success("Digest copied — paste into WhatsApp");
-                }}
-              >
-                <ClipboardCopy className="h-3.5 w-3.5" /> Copy digest for WhatsApp
-              </Button>
+          {stalled.length > 0 && (
+            <div>
+              <div className="text-[10px] uppercase tracking-wider text-danger font-semibold mb-1">
+                Stalled — escalate
+              </div>
+              <ul className="space-y-1">
+                {stalled.map((e) => (
+                  <li key={e.lead.id}>
+                    <button
+                      type="button"
+                      onClick={() => onFocusLead?.(e.lead.id)}
+                      className="w-full flex items-center gap-2 text-xs rounded-md border border-danger/30 bg-danger/5 p-2 text-left hover:border-danger/50 transition"
+                    >
+                      <Zap className="h-3 w-3 text-danger" />
+                      <span className="font-medium truncate flex-1">{e.lead.name}</span>
+                      <Badge variant="outline" className="text-[9px] border-danger/40 text-danger">
+                        {e.nba.label}
+                      </Badge>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <Button
+            size="sm"
+            className="w-full gap-1.5"
+            onClick={() => {
+              const txt = `*Daily digest*\nMoved: ${moved}  ·  Stalled: ${stalled.length}  ·  Booked: ${counters.bookingsMonth}\n\nTomorrow's top 5:\n${top5.map((e, i) => `${i + 1}. ${e.lead.name} — ${e.nba.label}`).join("\n")}`;
+              navigator.clipboard?.writeText(txt);
+              markDigestSentToday();
+              toast.success("Digest copied — paste into WhatsApp");
+            }}
+          >
+            <ClipboardCopy className="h-3.5 w-3.5" /> Copy digest for WhatsApp
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
@@ -3424,11 +4232,19 @@ function DigestStat({
 }) {
   return (
     <div className="rounded-md border border-border bg-card px-2.5 py-2">
-      <div className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">{label}</div>
-      <div className={cn(
-        "mt-1 text-lg font-display font-semibold leading-none",
-        tone === "success" ? "text-success" : tone === "danger" ? "text-danger" : "text-foreground",
-      )}>
+      <div className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">
+        {label}
+      </div>
+      <div
+        className={cn(
+          "mt-1 text-lg font-display font-semibold leading-none",
+          tone === "success"
+            ? "text-success"
+            : tone === "danger"
+              ? "text-danger"
+              : "text-foreground",
+        )}
+      >
         {value}
       </div>
       {sub ? <div className="mt-1 text-[10px] text-muted-foreground">{sub}</div> : null}
@@ -3436,16 +4252,24 @@ function DigestStat({
   );
 }
 
-function DroppedLeadsSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
+function DroppedLeadsSheet({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+}) {
   const leads = useApp((s) => s.leads);
   const tcms = useApp((s) => s.tcms);
-  
+
   const droppedLeads = useMemo(() => {
-    return leads.filter(l => l.stage === "dropped").sort((a, b) => {
-      const ta = new Date(a.updatedAt).getTime();
-      const tb = new Date(b.updatedAt).getTime();
-      return tb - ta;
-    });
+    return leads
+      .filter((l) => l.stage === "dropped")
+      .sort((a, b) => {
+        const ta = new Date(a.updatedAt).getTime();
+        const tb = new Date(b.updatedAt).getTime();
+        return tb - ta;
+      });
   }, [leads]);
 
   return (
@@ -3466,9 +4290,9 @@ function DroppedLeadsSheet({ open, onOpenChange }: { open: boolean; onOpenChange
               No dropped leads.
             </div>
           ) : (
-            droppedLeads.map(lead => (
-              <button 
-                key={lead.id} 
+            droppedLeads.map((lead) => (
+              <button
+                key={lead.id}
                 type="button"
                 onClick={() => {
                   useApp.getState().selectLead(lead.id);
@@ -3478,8 +4302,15 @@ function DroppedLeadsSheet({ open, onOpenChange }: { open: boolean; onOpenChange
               >
                 <div className="absolute top-0 left-0 bottom-0 w-1 bg-destructive/60" />
                 <div className="flex justify-between items-start">
-                  <div className="font-medium text-sm text-foreground truncate pl-2">{lead.name || "Unknown Lead"}</div>
-                  <Badge variant="outline" className="text-[9px] text-destructive border-destructive/20 bg-destructive/5 shrink-0">Dropped</Badge>
+                  <div className="font-medium text-sm text-foreground truncate pl-2">
+                    {lead.name || "Unknown Lead"}
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className="text-[9px] text-destructive border-destructive/20 bg-destructive/5 shrink-0"
+                  >
+                    Dropped
+                  </Badge>
                 </div>
                 <div className="text-xs text-muted-foreground pl-2 space-y-1">
                   <div className="flex items-center gap-1.5 truncate">
@@ -3492,7 +4323,8 @@ function DroppedLeadsSheet({ open, onOpenChange }: { open: boolean; onOpenChange
                   )}
                   {lead.assignedTcmId && (
                     <div className="flex items-center gap-1.5 truncate pt-1">
-                      <UserRound className="h-3 w-3" /> Assigned to {tcms.find(t => t.id === lead.assignedTcmId)?.name || lead.assignedTcmId}
+                      <UserRound className="h-3 w-3" /> Assigned to{" "}
+                      {tcms.find((t) => t.id === lead.assignedTcmId)?.name || lead.assignedTcmId}
                     </div>
                   )}
                 </div>

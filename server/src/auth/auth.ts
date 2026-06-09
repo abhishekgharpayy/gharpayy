@@ -3,14 +3,19 @@ import { SignJWT, jwtVerify } from "jose";
 import { env } from "../config/env.js";
 import { col } from "../db/mongo.js";
 import { ulid } from "../../../src/contracts/ids.js";
-import { DEFAULT_SCOPES, type TopRole, type UserStatus, type Scope } from "../../../src/contracts/roles.js";
+import {
+  DEFAULT_SCOPES,
+  type TopRole,
+  type UserStatus,
+  type Scope,
+} from "../../../src/contracts/roles.js";
 
 const secret = new TextEncoder().encode(env.JWT_SECRET);
 
 export interface UserDoc {
   _id: string;
-  username: string;       // lowercase, unique
-  email: string;          // lowercase, unique
+  username: string; // lowercase, unique
+  email: string; // lowercase, unique
   phone?: string;
   isTcm?: boolean;
   passwordHash: string;
@@ -18,10 +23,10 @@ export interface UserDoc {
   role: TopRole;
   status: UserStatus;
   zones: string[];
-  managerId?: string | null;   // for admin
-  adminId?: string | null;     // for member
-  adminIds?: string[];         // for manager
-  memberIds?: string[];        // for admin
+  managerId?: string | null; // for admin
+  adminId?: string | null; // for member
+  adminIds?: string[]; // for manager
+  memberIds?: string[]; // for admin
   tenantId: string;
   invitedAt?: string | null;
   deletedAt?: string | null;
@@ -88,7 +93,12 @@ export async function ensureDefaultSuperAdmin(): Promise<void> {
 
   const users = col<UserDoc>("users");
   const existing = await users.findOne({
-    $or: [{ username }, { email }, { username: "superadmin@gharpayy" }, { email: "superadmin@gharpayy" }],
+    $or: [
+      { username },
+      { email },
+      { username: "superadmin@gharpayy" },
+      { email: "superadmin@gharpayy" },
+    ],
   });
 
   const now = new Date().toISOString();
@@ -107,7 +117,11 @@ export async function ensureDefaultSuperAdmin(): Promise<void> {
     // different secret, or the doc was tampered with), reset it. This makes
     // every redeploy guarantee the documented credentials work.
     let passwordOk = false;
-    try { passwordOk = await argon2.verify(existing.passwordHash, password); } catch { passwordOk = false; }
+    try {
+      passwordOk = await argon2.verify(existing.passwordHash, password);
+    } catch {
+      passwordOk = false;
+    }
     if (!passwordOk) patch.passwordHash = await argon2.hash(password);
 
     if (Object.keys(patch).length) {
@@ -146,7 +160,9 @@ export async function loginUser(identifier: string, password: string): Promise<J
   if (!user) throw Object.assign(new Error("Invalid credentials"), { code: "UNAUTHENTICATED" });
 
   if (user.status === "inactive") {
-    throw Object.assign(new Error("Account is deactivated. Contact your administrator."), { code: "FORBIDDEN" });
+    throw Object.assign(new Error("Account is deactivated. Contact your administrator."), {
+      code: "FORBIDDEN",
+    });
   }
   if (user.status === "deleted") {
     throw Object.assign(new Error("Account is no longer available."), { code: "FORBIDDEN" });
@@ -156,7 +172,10 @@ export async function loginUser(identifier: string, password: string): Promise<J
   if (!ok) throw Object.assign(new Error("Invalid credentials"), { code: "UNAUTHENTICATED" });
 
   if (user.status === "invited") {
-    await users.updateOne({ _id: user._id }, { $set: { status: "active", updatedAt: new Date().toISOString() } });
+    await users.updateOne(
+      { _id: user._id },
+      { $set: { status: "active", updatedAt: new Date().toISOString() } },
+    );
     user.status = "active";
   }
 

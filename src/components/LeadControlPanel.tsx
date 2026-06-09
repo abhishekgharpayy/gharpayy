@@ -95,7 +95,11 @@ import { ActivityTimeline } from "@/components/activities/ActivityTimeline";
 import { ActivityComposer } from "@/components/activities/ActivityComposer";
 import { TodoPanel } from "@/components/todos/TodoPanel";
 import { useActivities } from "@/hooks/useActivities";
-import { allCatalogProperties, resolvePropertyById, searchPropertyCatalog } from "@/lib/crm10x/property-catalog";
+import {
+  allCatalogProperties,
+  resolvePropertyById,
+  searchPropertyCatalog,
+} from "@/lib/crm10x/property-catalog";
 import { pressureColor } from "@/lib/crm10x/impact-scoring";
 import type { LeadFocusAction } from "@/lib/crm10x/impact-hard-actions";
 import { formatINR, useQuotationsQuery } from "@/lib/crm10x/quotations";
@@ -129,7 +133,9 @@ const TOUR_TYPES = [
   { value: "virtual", label: "Virtual", icon: Video },
   { value: "pre-book-pitch", label: "Pre-book", icon: Briefcase },
 ];
-const TOUR_TYPE_LABELS = Object.fromEntries(TOUR_TYPES.map((item) => [item.value, item.label])) as Record<string, string>;
+const TOUR_TYPE_LABELS = Object.fromEntries(
+  TOUR_TYPES.map((item) => [item.value, item.label]),
+) as Record<string, string>;
 const CALL_DURATION_OPTIONS = [
   { value: "0.5", label: "30 sec" },
   { value: "1", label: "1 min" },
@@ -358,7 +364,8 @@ export function LeadControlPanel() {
           id: authUser.id,
           name: authUser.fullName || authUser.username || authUser.email,
           role: "member",
-          zones: (authUser as any).zones ?? ((authUser as any).zone ? [(authUser as any).zone] : []),
+          zones:
+            (authUser as any).zones ?? ((authUser as any).zone ? [(authUser as any).zone] : []),
         };
 
     const unique = new Map<string, typeof selfOption>();
@@ -422,7 +429,8 @@ export function LeadControlPanel() {
     if (lead.stage === "quote-sent") return "quote";
     if (completedPostTour) return "quote";
     if (pendingPostTour || lead.stage === "tour-done") return "post";
-    if (hasScheduledTour || lead.stage === "tour-scheduled" || lead.stage === "on-tour") return "tour";
+    if (hasScheduledTour || lead.stage === "tour-scheduled" || lead.stage === "on-tour")
+      return "tour";
     return "impact";
   })();
 
@@ -445,12 +453,12 @@ export function LeadControlPanel() {
       budget: String(leadProfile?.budgetStated || lead.budget || ""),
       moveInDate: profileDateToInput(leadProfile?.preferredMoveInDate || lead.moveInDate),
       occupation: leadProfile?.companyOrCollege || answers.occupation,
-      workLocation: preferenceAreasForLead(lead).join(", ") || lead.preferredArea || answers.workLocation,
+      workLocation:
+        preferenceAreasForLead(lead).join(", ") || lead.preferredArea || answers.workLocation,
       roomType: profileToScheduleRoomType(leadProfile?.roomType) || lead.room || answers.roomType,
       keyConcern: latestConcernFromObjections(leadObjections) || answers.keyConcern,
     }));
-    const requestedTab =
-      selectedLeadTab === "dossier" ? "impact" : selectedLeadTab;
+    const requestedTab = selectedLeadTab === "dossier" ? "impact" : selectedLeadTab;
     setTab((previousTab) => {
       const isNewLead = previousLeadIdRef.current !== lead.id;
       const isNewTabRequest = requestedTab !== previousRequestedTabRef.current;
@@ -615,12 +623,11 @@ export function LeadControlPanel() {
   const assignedMemberId = lead.assignedTcmId || lead.assigneeId || "";
   const tcm = getTcm(assignedMemberId);
   const selectedMember = orgMembers.find((m) => m.id === assignedMemberId) ?? null;
-  const actualPropertyName =
-    tourToShow?.propertyId
-      ? tourPropertyOptions.find((property) => property.id === tourToShow.propertyId)?.name ??
-        getProperty(tourToShow.propertyId, properties)?.name ??
-        null
-      : null;
+  const actualPropertyName = tourToShow?.propertyId
+    ? (tourPropertyOptions.find((property) => property.id === tourToShow.propertyId)?.name ??
+      getProperty(tourToShow.propertyId, properties)?.name ??
+      null)
+    : null;
   const assignmentLabel = selectedMember
     ? memberShortLabel(selectedMember)
     : formatAssignee(assignedMemberId, tcm?.name);
@@ -724,11 +731,11 @@ export function LeadControlPanel() {
       setPropertyId("");
       setScheduledAt("");
       setTab("tour");
-      
+
       if (tcmId !== lead.assignedTcmId) {
         reassignLead(lead.id, tcmId, "Assigned to tour manager");
       }
-      
+
       toast.success("Tour scheduled");
     } catch (err) {
       console.error("[LeadControlPanel] Failed to schedule tour:", err);
@@ -741,7 +748,11 @@ export function LeadControlPanel() {
 
   return (
     <Sheet open={!!selectedLeadId} onOpenChange={(o) => !o && selectLead(null)}>
-      <SheetContent side="right" className="w-full p-0 flex flex-col overflow-y-auto transition-all duration-300" style={{ maxWidth: 560 }}>
+      <SheetContent
+        side="right"
+        className="w-full p-0 flex flex-col overflow-y-auto transition-all duration-300"
+        style={{ maxWidth: 560 }}
+      >
         {/* Header block */}
         <SheetHeader className="px-4 py-3 border-b border-border space-y-2">
           <div className="flex items-start justify-between gap-3">
@@ -754,7 +765,9 @@ export function LeadControlPanel() {
               </SheetDescription>
             </div>
             {drawerImpactState && (
-              <div className={`min-w-[118px] rounded-md border px-2 py-1.5 text-right ${pressureColor(drawerImpactState.nba.pressure)}`}>
+              <div
+                className={`min-w-[118px] rounded-md border px-2 py-1.5 text-right ${pressureColor(drawerImpactState.nba.pressure)}`}
+              >
                 <div className="text-[9px] uppercase tracking-wider opacity-70">Next action</div>
                 <div className="text-xs font-semibold truncate">{drawerImpactState.nba.label}</div>
                 <div className="flex items-center justify-end gap-1 text-[11px] font-semibold">
@@ -771,13 +784,27 @@ export function LeadControlPanel() {
             <ObjectionTag leadId={lead.id} />
           </div>
           <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-            <span><CalendarIcon className="mr-1 inline h-3 w-3" />Move-in: <b className="font-medium text-foreground">{formatSafeDate(lead.moveInDate, "MMM d", "TBD")}</b></span>
-            <span><Wallet className="mr-1 inline h-3 w-3" />Budget: <b className="font-medium text-foreground">{formatBudget(lead.budget)}</b></span>
-            <span><MapPin className="mr-1 inline h-3 w-3" />Area: <b className="font-medium text-foreground">{leadLocation.area}</b></span>
+            <span>
+              <CalendarIcon className="mr-1 inline h-3 w-3" />
+              Move-in:{" "}
+              <b className="font-medium text-foreground">
+                {formatSafeDate(lead.moveInDate, "MMM d", "TBD")}
+              </b>
+            </span>
+            <span>
+              <Wallet className="mr-1 inline h-3 w-3" />
+              Budget: <b className="font-medium text-foreground">{formatBudget(lead.budget)}</b>
+            </span>
+            <span>
+              <MapPin className="mr-1 inline h-3 w-3" />
+              Area: <b className="font-medium text-foreground">{leadLocation.area}</b>
+            </span>
           </div>
           <div className="truncate text-[11px] text-muted-foreground">
             {actualPropertyName ? <>{actualPropertyName} · </> : null}
-            {assignmentLabel === "Unassigned" ? "Not assigned yet" : `Assigned · ${assignmentLabel}`}
+            {assignmentLabel === "Unassigned"
+              ? "Not assigned yet"
+              : `Assigned · ${assignmentLabel}`}
           </div>
         </SheetHeader>
 
@@ -809,7 +836,9 @@ export function LeadControlPanel() {
                 const tourUnlocked =
                   isVisitReady ||
                   hasScheduledTour ||
-                  ["on-tour", "tour-done", "quote-sent", "negotiation", "booked"].includes(lead.stage);
+                  ["on-tour", "tour-done", "quote-sent", "negotiation", "booked"].includes(
+                    lead.stage,
+                  );
                 const postUnlocked =
                   Boolean(pendingPostTour || completedPostTour) ||
                   ["tour-done", "quote-sent", "negotiation", "booked"].includes(lead.stage);
@@ -817,8 +846,9 @@ export function LeadControlPanel() {
                   Boolean(completedPostTour) ||
                   hasPaidQuote ||
                   ["quote-sent", "negotiation", "booked"].includes(lead.stage);
-                const negotiationUnlocked =
-                  ["quote-sent", "negotiation", "booked"].includes(lead.stage);
+                const negotiationUnlocked = ["quote-sent", "negotiation", "booked"].includes(
+                  lead.stage,
+                );
                 const checkinUnlocked = lead.stage === "booked" || hasPaidQuote;
                 const workflowTabs: Array<{ key: JourneyTab; enabled: boolean }> = [
                   { key: "impact", enabled: true },
@@ -828,18 +858,16 @@ export function LeadControlPanel() {
                   { key: "negotiation", enabled: negotiationUnlocked },
                   { key: "checkin", enabled: checkinUnlocked },
                 ];
-                return workflowTabs.filter(({ enabled }) => enabled).map(({ key: workflowTab }) => (
-                  <TabsTrigger
-                    key={workflowTab}
-                    value={workflowTab}
-                    className={tabTriggerClass}
-                  >
-                    {WORKFLOW_TAB_LABELS[workflowTab]}
-                    {workflowTab === "post" && pendingPostTour && (
-                      <span className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full bg-destructive align-middle" />
-                    )}
-                  </TabsTrigger>
-                ));
+                return workflowTabs
+                  .filter(({ enabled }) => enabled)
+                  .map(({ key: workflowTab }) => (
+                    <TabsTrigger key={workflowTab} value={workflowTab} className={tabTriggerClass}>
+                      {WORKFLOW_TAB_LABELS[workflowTab]}
+                      {workflowTab === "post" && pendingPostTour && (
+                        <span className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full bg-destructive align-middle" />
+                      )}
+                    </TabsTrigger>
+                  ));
               })()}
             </TabsList>
 
@@ -1096,7 +1124,9 @@ export function LeadControlPanel() {
                     variant="outline"
                     size="sm"
                     onClick={() => {
-                      void navigator.clipboard.writeText(TEMPLATES[0]?.body ?? "").then(() => toast.success("Template copied"));
+                      void navigator.clipboard
+                        .writeText(TEMPLATES[0]?.body ?? "")
+                        .then(() => toast.success("Template copied"));
                     }}
                   >
                     <Copy className="h-3.5 w-3.5 mr-1.5" /> Copy text
@@ -1114,7 +1144,9 @@ export function LeadControlPanel() {
                         size="sm"
                         className="h-7 text-[11px]"
                         onClick={() => {
-                          void navigator.clipboard.writeText(t.body).then(() => toast.success(`Copied: ${t.label}`));
+                          void navigator.clipboard
+                            .writeText(t.body)
+                            .then(() => toast.success(`Copied: ${t.label}`));
                         }}
                       >
                         {t.label}
@@ -1133,7 +1165,9 @@ export function LeadControlPanel() {
                     size="sm"
                     disabled={!customMsg.trim()}
                     onClick={() => {
-                      void navigator.clipboard.writeText(customMsg).then(() => toast.success("Copied"));
+                      void navigator.clipboard
+                        .writeText(customMsg)
+                        .then(() => toast.success("Copied"));
                       setCustomMsg("");
                     }}
                   >
@@ -1343,13 +1377,15 @@ export function LeadControlPanel() {
                   lead.propertyName ??
                   "";
                 const postTourPropertyName =
-                  rawPostTourPropertyName.trim() && rawPostTourPropertyName.trim().toLowerCase() !== "property"
+                  rawPostTourPropertyName.trim() &&
+                  rawPostTourPropertyName.trim().toLowerCase() !== "property"
                     ? rawPostTourPropertyName.trim()
                     : "Property not selected";
                 const pt = target.postTour;
                 const leadFirstName = resolveBestLeadName(lead).split(" ")[0] || "there";
                 const postTourFollowUpAt = () => {
-                  if (pt.nextFollowUpAt && parseSafeDate(pt.nextFollowUpAt)) return pt.nextFollowUpAt;
+                  if (pt.nextFollowUpAt && parseSafeDate(pt.nextFollowUpAt))
+                    return pt.nextFollowUpAt;
                   const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
                   tomorrow.setHours(11, 0, 0, 0);
                   return tomorrow.toISOString();
@@ -1369,17 +1405,23 @@ export function LeadControlPanel() {
                     `Follow up with ${resolveBestLeadName(lead)}`,
                     `Post-tour follow-up for ${postTourPropertyName}`,
                   );
-                  toast.success(`Reminder set for ${formatSafeDate(dueAt, "MMM d, p", "the selected time")}`);
+                  toast.success(
+                    `Reminder set for ${formatSafeDate(dueAt, "MMM d, p", "the selected time")}`,
+                  );
                 };
                 const copyPostTourMessage = async (kind: "thanks" | "update") => {
                   const propertyText =
-                    postTourPropertyName === "Property not selected" ? "the property" : postTourPropertyName;
+                    postTourPropertyName === "Property not selected"
+                      ? "the property"
+                      : postTourPropertyName;
                   const message =
                     kind === "thanks"
                       ? `Hi ${leadFirstName}, thank you for visiting ${propertyText}. I have noted your feedback and will help you with the next step.`
                       : `Hi ${leadFirstName}, quick update after your visit to ${propertyText}: the option is available around ${formatBudget(lead.budget)}. Please tell me if you want to proceed or compare one more option.`;
                   await navigator.clipboard.writeText(message);
-                  toast.success(kind === "thanks" ? "Thank-you message copied" : "Post-tour update copied");
+                  toast.success(
+                    kind === "thanks" ? "Thank-you message copied" : "Post-tour update copied",
+                  );
                 };
                 const nextFollowUpLocal = pt.nextFollowUpAt ? toLocal(pt.nextFollowUpAt) : "";
                 const nextFollowUpDate = nextFollowUpLocal.slice(0, 10);
@@ -1389,7 +1431,9 @@ export function LeadControlPanel() {
                     updatePostTour(target.id, { nextFollowUpAt: null });
                     return;
                   }
-                  updatePostTour(target.id, { nextFollowUpAt: new Date(`${date}T${time}`).toISOString() });
+                  updatePostTour(target.id, {
+                    nextFollowUpAt: new Date(`${date}T${time}`).toISOString(),
+                  });
                 };
                 const applyPostTourOutcome = async (outcome: NonNullable<typeof pt.outcome>) => {
                   const nowIso = new Date().toISOString();
@@ -1461,7 +1505,6 @@ export function LeadControlPanel() {
                           <BellRing className="h-3 w-3" /> Reminder
                         </Button>
                       </div>
-
                     </Section>
 
                     {/* ── SCORECARD ─────────────────────────────────────── */}
@@ -1486,7 +1529,11 @@ export function LeadControlPanel() {
                       <Textarea
                         key={`${target.id}:${pt.objection ?? "none"}`}
                         rows={3}
-                        placeholder={pt.objection === "Other" ? "Write the objection clearly..." : "Add context for the objection..."}
+                        placeholder={
+                          pt.objection === "Other"
+                            ? "Write the objection clearly..."
+                            : "Add context for the objection..."
+                        }
                         defaultValue={pt.objectionNote}
                         onBlur={(e) => updatePostTour(target.id, { objectionNote: e.target.value })}
                         onPointerDown={(e) => e.stopPropagation()}
@@ -1515,7 +1562,9 @@ export function LeadControlPanel() {
                           <Input
                             type="date"
                             value={nextFollowUpDate}
-                            onChange={(e) => updateNextFollowUp(e.target.value, nextFollowUpTime || "11:00")}
+                            onChange={(e) =>
+                              updateNextFollowUp(e.target.value, nextFollowUpTime || "11:00")
+                            }
                             className="h-9 min-w-0 text-sm"
                           />
                           <Select
@@ -1587,7 +1636,9 @@ export function LeadControlPanel() {
                           </SelectTrigger>
                           <SelectContent>
                             {OBJECTIONS.map((o) => (
-                              <SelectItem key={o} value={o} className="text-sm">{o}</SelectItem>
+                              <SelectItem key={o} value={o} className="text-sm">
+                                {o}
+                              </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
@@ -1653,9 +1704,7 @@ export function LeadControlPanel() {
                     ) : (
                       <div className="rounded-lg border border-warning/40 bg-warning/10 p-3 flex items-center gap-2 text-xs">
                         <ClipboardCheck className="h-4 w-4" />
-                        <span>
-                          Select outcome, then complete post-tour.
-                        </span>
+                        <span>Select outcome, then complete post-tour.</span>
                       </div>
                     )}
 
@@ -1761,7 +1810,10 @@ function NegotiationTab({ lead }: { lead: Lead }) {
       </div>
       <div className="space-y-2">
         {scripts.map((script) => (
-          <div key={script.title} className="rounded-md border border-border bg-muted/25 p-2 space-y-2">
+          <div
+            key={script.title}
+            className="rounded-md border border-border bg-muted/25 p-2 space-y-2"
+          >
             <div className="flex items-center justify-between gap-2">
               <div className="text-[11px] font-semibold">{script.title}</div>
               <Button
@@ -1858,32 +1910,37 @@ function ImpactTabContent({
           call: Boolean(latestAnsweredCall) && hasObjectionCapture,
           shortlist: visitReadyDone,
         }}
-        backAction={activeStep === "call" ? {
-          label: "Back",
-          onClick: () => {
-            removeDone(lead.id, preVisitTag("qualification"));
-            upsertProfile({ leadId: lead.id, qualificationCompleteAt: undefined });
-            toast.info("Back to qualification");
-          },
-        } : activeStep === "visit-ready" ? {
-          label: "Back",
-          onClick: () => {
-            markDone(lead.id, "impact:reopen-call");
-            toast.info("Back to call + objection");
-          },
-        } : undefined}
+        backAction={
+          activeStep === "call"
+            ? {
+                label: "Back",
+                onClick: () => {
+                  removeDone(lead.id, preVisitTag("qualification"));
+                  upsertProfile({ leadId: lead.id, qualificationCompleteAt: undefined });
+                  toast.info("Back to qualification");
+                },
+              }
+            : activeStep === "visit-ready"
+              ? {
+                  label: "Back",
+                  onClick: () => {
+                    markDone(lead.id, "impact:reopen-call");
+                    toast.info("Back to call + objection");
+                  },
+                }
+              : undefined
+        }
       />
 
       {activeStep === "qualification" && (
-        <LifecycleCard
-          title="Qualification"
-          centeredTitle
-        >
+        <LifecycleCard title="Qualification" centeredTitle>
           <div className="grid gap-2">
             <LeadDeepProfile lead={state.lead} defaultOpen showShiftingHistory={false} />
           </div>
           <div className="space-y-2 rounded-lg border border-border bg-muted/10 p-2.5">
-            <div className="text-center text-sm font-semibold text-foreground">Property selector</div>
+            <div className="text-center text-sm font-semibold text-foreground">
+              Property selector
+            </div>
             <PropertyShortlistStep
               lead={state.lead}
               doneTag={preVisitTag("qualification")}
@@ -1891,27 +1948,37 @@ function ImpactTabContent({
               toastMessage="Qualification saved. Call + objection unlocked."
               disabled={profileScore < 80}
               disabledReason="Complete profile to 80% and select one property."
-              onComplete={() => upsertProfile({ leadId: lead.id, qualificationCompleteAt: new Date().toISOString() })}
+              onComplete={() =>
+                upsertProfile({
+                  leadId: lead.id,
+                  qualificationCompleteAt: new Date().toISOString(),
+                })
+              }
             />
           </div>
         </LifecycleCard>
       )}
 
       {activeStep === "call" && (
-        <LifecycleCard
-          title="Call log"
-          centeredTitle
-        >
+        <LifecycleCard title="Call log" centeredTitle>
           <ProfileCallBrief lead={state.lead} />
           <PreVisitCallLogger lead={state.lead} calls={calls} />
           <ObjectionLogger lead={state.lead} context="call" />
           <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
             Call:{" "}
-            <span className={latestAnsweredCall ? "font-semibold text-success" : "font-semibold text-warning"}>
+            <span
+              className={
+                latestAnsweredCall ? "font-semibold text-success" : "font-semibold text-warning"
+              }
+            >
               {latestAnsweredCall ? "Connected" : "Not connected yet"}
             </span>
             {" · "}Objection:{" "}
-            <span className={hasObjectionCapture ? "font-semibold text-success" : "font-semibold text-warning"}>
+            <span
+              className={
+                hasObjectionCapture ? "font-semibold text-success" : "font-semibold text-warning"
+              }
+            >
               {hasObjectionCapture ? "Captured" : "Required"}
             </span>
           </div>
@@ -1927,10 +1994,7 @@ function ImpactTabContent({
       )}
 
       {activeStep === "visit-ready" && (
-        <LifecycleCard
-          title="Visit ready"
-          centeredTitle
-        >
+        <LifecycleCard title="Visit ready" centeredTitle>
           {visitReadyDone ? (
             <Button className="w-full h-9 text-xs" onClick={onGoTour}>
               <CalendarIcon className="h-3.5 w-3.5 mr-1.5" />
@@ -2007,7 +2071,8 @@ function PreVisitProgress({
   done: Record<PreVisitProgressKey, boolean>;
   backAction?: { label: string; onClick: () => void };
 }) {
-  const activeProgressKey: PreVisitProgressKey = activeStep === "visit-ready" ? "shortlist" : activeStep;
+  const activeProgressKey: PreVisitProgressKey =
+    activeStep === "visit-ready" ? "shortlist" : activeStep;
   return (
     <div className="rounded-lg border border-border bg-card p-3">
       <div className="mb-2 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
@@ -2023,7 +2088,9 @@ function PreVisitProgress({
           >
             {backAction.label}
           </Button>
-        ) : <span />}
+        ) : (
+          <span />
+        )}
         <span />
       </div>
       <div className="grid grid-cols-4 gap-1.5">
@@ -2073,7 +2140,11 @@ function LifecycleCard({
     <section className="rounded-lg border border-border bg-card p-3 space-y-3">
       <div className="flex items-start justify-between gap-3">
         <div className={cn("min-w-0 flex-1", centeredTitle ? "text-center" : "")}>
-          {eyebrow ? <div className="text-[10px] font-semibold uppercase tracking-wider text-accent">{eyebrow}</div> : null}
+          {eyebrow ? (
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-accent">
+              {eyebrow}
+            </div>
+          ) : null}
           {title ? <h3 className="text-sm font-semibold text-foreground">{title}</h3> : null}
           {helper ? <p className="text-[11px] text-muted-foreground">{helper}</p> : null}
         </div>
@@ -2084,14 +2155,29 @@ function LifecycleCard({
   );
 }
 
-function DiscoverySnapshot({ lead, score, nbaReason }: { lead: Lead; score: number; nbaReason: string }) {
+function DiscoverySnapshot({
+  lead,
+  score,
+  nbaReason,
+}: {
+  lead: Lead;
+  score: number;
+  nbaReason: string;
+}) {
   const profile = useCRM10x((s) => s.profiles[lead.id]);
   const allCalls = useCRM10x((s) => s.calls);
   const calls = useMemo(
     () => allCalls.filter((call) => call.leadId === lead.id),
     [allCalls, lead.id],
   );
-  const probability = computeBookingProbability({ lead, profile, tours: [], visits: [], objections: [], calls });
+  const probability = computeBookingProbability({
+    lead,
+    profile,
+    tours: [],
+    visits: [],
+    objections: [],
+    calls,
+  });
   const items = [
     ["Need", [lead.type, lead.room, lead.need].filter(Boolean).join(" · ") || "Not captured"],
     ["Areas", lead.areas?.length ? lead.areas.join(", ") : lead.preferredArea || "Not captured"],
@@ -2104,17 +2190,20 @@ function DiscoverySnapshot({ lead, score, nbaReason }: { lead: Lead; score: numb
     ["Best call time", inferBestCallTime(calls) ?? profile?.bestCallTime ?? "Ask on call"],
     ["Special request", lead.specialReqs || lead.notes || "None captured"],
   ];
-  const scoreTone = score >= 70
-    ? "border-success/40 bg-success/10 text-success"
-    : score >= 40
-      ? "border-warning/40 bg-warning/10 text-warning"
-      : "border-danger/40 bg-danger/10 text-danger";
+  const scoreTone =
+    score >= 70
+      ? "border-success/40 bg-success/10 text-success"
+      : score >= 40
+        ? "border-warning/40 bg-warning/10 text-warning"
+        : "border-danger/40 bg-danger/10 text-danger";
   return (
     <div className="space-y-2">
       <div className={`rounded-md border px-3 py-2 ${scoreTone}`}>
         <div className="flex items-center justify-between gap-2">
           <div>
-            <div className="text-[10px] uppercase tracking-wider opacity-70">Booking probability</div>
+            <div className="text-[10px] uppercase tracking-wider opacity-70">
+              Booking probability
+            </div>
             <div className="text-xs font-medium">{probability.recommendation || nbaReason}</div>
           </div>
           <div className="text-2xl font-display font-bold">{probability.score}%</div>
@@ -2138,7 +2227,10 @@ function ProfileCallBrief({ lead }: { lead: Lead }) {
   const { data: interests = [] } = useLeadInterests(lead.id);
   const [activePg, setActivePg] = useState<PG | null>(null);
   const selectedProperties = useMemo(
-    () => interests.map((id) => resolvePropertyById(id, properties)).filter((p): p is NonNullable<typeof p> => Boolean(p)),
+    () =>
+      interests
+        .map((id) => resolvePropertyById(id, properties))
+        .filter((p): p is NonNullable<typeof p> => Boolean(p)),
     [interests, properties],
   );
   const items = [
@@ -2146,7 +2238,10 @@ function ProfileCallBrief({ lead }: { lead: Lead }) {
     ["Areas", lead.areas?.length ? lead.areas.join(", ") : lead.preferredArea || "Not captured"],
     ["Budget", lead.budget ? formatBudget(lead.budget) : "Not captured"],
     ["Decision-maker", profileLabel(profile?.decisionMaker) || "Ask who decides"],
-    ["Location feasibility", locationFeasibilityLabel(profile?.locationFeasible) || "Ask area inventory fit"],
+    [
+      "Location feasibility",
+      locationFeasibilityLabel(profile?.locationFeasible) || "Ask area inventory fit",
+    ],
     ["Best time", profile?.bestCallTime || "Ask on call"],
   ];
   return (
@@ -2199,7 +2294,9 @@ function ProfileCallBrief({ lead }: { lead: Lead }) {
                     setActivePg(property.pg);
                     return;
                   }
-                  toast.info(`${property.name} is from ops inventory. Open Property Hub for full dossier.`);
+                  toast.info(
+                    `${property.name} is from ops inventory. Open Property Hub for full dossier.`,
+                  );
                 }}
                 title={property.pg ? "View property dossier" : "Ops property details only"}
               >
@@ -2275,7 +2372,7 @@ function profileToScheduleRoomType(value?: string | null) {
     triple: "Triple Sharing",
     any: "Single",
   };
-  return value ? map[value] ?? "" : "";
+  return value ? (map[value] ?? "") : "";
 }
 
 function profileToBookingSource(value?: string | null) {
@@ -2298,10 +2395,12 @@ function profileToDecisionMaker(value?: string | null) {
     parents: "parent",
     "company-hr": "group",
   };
-  return value ? map[value] ?? "" : "";
+  return value ? (map[value] ?? "") : "";
 }
 
-function latestConcernFromObjections(objections: Array<{ code?: string; leadWords?: string; handling?: string }>) {
+function latestConcernFromObjections(
+  objections: Array<{ code?: string; leadWords?: string; handling?: string }>,
+) {
   const latest = objections[0];
   if (!latest) return "";
   if (latest.leadWords) return latest.leadWords;
@@ -2309,7 +2408,13 @@ function latestConcernFromObjections(objections: Array<{ code?: string; leadWord
   return latest.handling || "";
 }
 
-function PreVisitCallLogger({ lead, calls }: { lead: Lead; calls: ReturnType<typeof useCRM10x.getState>["calls"] }) {
+function PreVisitCallLogger({
+  lead,
+  calls,
+}: {
+  lead: Lead;
+  calls: ReturnType<typeof useCRM10x.getState>["calls"];
+}) {
   const log = useCRM10x((s) => s.logCall);
   const [picked, setPicked] = useState<"" | "yes" | "no">("");
   const [durationMinutes, setDurationMinutes] = useState("");
@@ -2322,9 +2427,10 @@ function PreVisitCallLogger({ lead, calls }: { lead: Lead; calls: ReturnType<typ
     [calls],
   );
   const minutes = Number(durationMinutes);
-  const canSubmit = picked === "yes"
-    ? Number.isFinite(minutes) && minutes > 0 && notes.trim().length >= 3
-    : picked === "no" && Boolean(noPickOutcome);
+  const canSubmit =
+    picked === "yes"
+      ? Number.isFinite(minutes) && minutes > 0 && notes.trim().length >= 3
+      : picked === "no" && Boolean(noPickOutcome);
 
   const submit = () => {
     if (!picked) {
@@ -2343,10 +2449,9 @@ function PreVisitCallLogger({ lead, calls }: { lead: Lead; calls: ReturnType<typ
       toast.error("Select why the call was not picked");
       return;
     }
-    const outcome: CallOutcome = picked === "yes" ? "answered" : (noPickOutcome || "not-answered");
-    const callNote = picked === "yes"
-      ? notes.trim()
-      : `Call not picked: ${profileLabel(noPickOutcome)}`;
+    const outcome: CallOutcome = picked === "yes" ? "answered" : noPickOutcome || "not-answered";
+    const callNote =
+      picked === "yes" ? notes.trim() : `Call not picked: ${profileLabel(noPickOutcome)}`;
 
     log({
       leadId: lead.id,
@@ -2356,7 +2461,11 @@ function PreVisitCallLogger({ lead, calls }: { lead: Lead; calls: ReturnType<typ
       notes: callNote,
       loggedBy: lead.assignedTcmId || lead.assigneeId || "unassigned",
     });
-    toast.success(outcome === "answered" ? "Call connected. Objection capture unlocked." : "Call attempt logged.");
+    toast.success(
+      outcome === "answered"
+        ? "Call connected. Objection capture unlocked."
+        : "Call attempt logged.",
+    );
     setPicked("");
     setDurationMinutes("");
     setNoPickOutcome("");
@@ -2411,14 +2520,25 @@ function PreVisitCallLogger({ lead, calls }: { lead: Lead; calls: ReturnType<typ
               </div>
             </Field>
           </div>
-          <Textarea rows={3} className="text-xs resize-none" placeholder="What did the lead say?" value={notes} onChange={(e) => setNotes(e.target.value)} />
+          <Textarea
+            rows={3}
+            className="text-xs resize-none"
+            placeholder="What did the lead say?"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+          />
         </>
       ) : null}
 
       {picked === "no" ? (
         <Field label="Reason">
-          <Select value={noPickOutcome} onValueChange={(v) => setNoPickOutcome(v as Exclude<CallOutcome, "answered">)}>
-            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select reason" /></SelectTrigger>
+          <Select
+            value={noPickOutcome}
+            onValueChange={(v) => setNoPickOutcome(v as Exclude<CallOutcome, "answered">)}
+          >
+            <SelectTrigger className="h-8 text-xs">
+              <SelectValue placeholder="Select reason" />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="not-answered">Not answered</SelectItem>
               <SelectItem value="busy">Busy</SelectItem>
@@ -2452,9 +2572,13 @@ function PreVisitCallLogger({ lead, calls }: { lead: Lead; calls: ReturnType<typ
               <span>{format(new Date(previousCall.ts), "MMM d, h:mm a")}</span>
               <span>Attempt #{previousCall.attemptNumber}</span>
               <span>{profileLabel(previousCall.outcome)}</span>
-              {previousCall.durationSec > 0 ? <span>{Math.max(1, Math.round(previousCall.durationSec / 60))} min</span> : null}
+              {previousCall.durationSec > 0 ? (
+                <span>{Math.max(1, Math.round(previousCall.durationSec / 60))} min</span>
+              ) : null}
             </div>
-            <div className="whitespace-pre-wrap text-foreground">{previousCall.notes || "No notes captured."}</div>
+            <div className="whitespace-pre-wrap text-foreground">
+              {previousCall.notes || "No notes captured."}
+            </div>
           </div>
         ) : null}
       </div>
@@ -2466,7 +2590,13 @@ function PreVisitCallLogger({ lead, calls }: { lead: Lead; calls: ReturnType<typ
 }
 
 function preferenceAreasForLead(lead: Lead): string[] {
-  return Array.from(new Set([...(lead.areas ?? []), lead.preferredArea].map((area) => area?.trim()).filter(Boolean) as string[]));
+  return Array.from(
+    new Set(
+      [...(lead.areas ?? []), lead.preferredArea]
+        .map((area) => area?.trim())
+        .filter(Boolean) as string[],
+    ),
+  );
 }
 
 function PropertyMatchPreview({ lead }: { lead: Lead }) {
@@ -2477,30 +2607,41 @@ function PropertyMatchPreview({ lead }: { lead: Lead }) {
     const rows = areas.flatMap((area) =>
       searchPropertyCatalog(area, properties, { preferredArea: area, limit: 4 }),
     );
-    return rows.filter((property) => {
-      if (seen.has(property.id)) return false;
-      seen.add(property.id);
-      return true;
-    }).slice(0, 6);
+    return rows
+      .filter((property) => {
+        if (seen.has(property.id)) return false;
+        seen.add(property.id);
+        return true;
+      })
+      .slice(0, 6);
   }, [areas, properties]);
 
   return (
     <div className="rounded-md border border-border bg-muted/20 p-3 space-y-2">
       <div className="flex items-center justify-between gap-2">
         <div className="text-[11px] font-semibold">Suggested from preferred area</div>
-        <div className="text-[10px] text-muted-foreground truncate">{areas.join(", ") || "No area captured"}</div>
+        <div className="text-[10px] text-muted-foreground truncate">
+          {areas.join(", ") || "No area captured"}
+        </div>
       </div>
       <div className="grid gap-1.5">
-        {matches.length > 0 ? matches.map((property) => (
-          <div key={property.id} className="rounded-md border border-border bg-card px-2.5 py-2 text-xs">
-            <div className="font-semibold">{property.name}</div>
-            <div className="text-[10px] text-muted-foreground">
-              {property.area} · {formatBudget(property.pricePerBed)}
-              {property.vacantBeds !== undefined ? ` · ${property.vacantBeds} vacant` : ""}
+        {matches.length > 0 ? (
+          matches.map((property) => (
+            <div
+              key={property.id}
+              className="rounded-md border border-border bg-card px-2.5 py-2 text-xs"
+            >
+              <div className="font-semibold">{property.name}</div>
+              <div className="text-[10px] text-muted-foreground">
+                {property.area} · {formatBudget(property.pricePerBed)}
+                {property.vacantBeds !== undefined ? ` · ${property.vacantBeds} vacant` : ""}
+              </div>
             </div>
+          ))
+        ) : (
+          <div className="text-xs text-muted-foreground">
+            No property hub matches found for these areas yet.
           </div>
-        )) : (
-          <div className="text-xs text-muted-foreground">No property hub matches found for these areas yet.</div>
         )}
       </div>
     </div>
@@ -2534,13 +2675,17 @@ function PropertyShortlistStep({
   const list = useMemo(() => {
     const base = query.trim()
       ? searchPropertyCatalog(query, properties, { preferredArea: lead.preferredArea, limit: 12 })
-      : areas.flatMap((area) => searchPropertyCatalog(area, properties, { preferredArea: area, limit: 5 }));
+      : areas.flatMap((area) =>
+          searchPropertyCatalog(area, properties, { preferredArea: area, limit: 5 }),
+        );
     const seen = new Set<string>();
-    return base.filter((property) => {
-      if (seen.has(property.id)) return false;
-      seen.add(property.id);
-      return true;
-    }).slice(0, 12);
+    return base
+      .filter((property) => {
+        if (seen.has(property.id)) return false;
+        seen.add(property.id);
+        return true;
+      })
+      .slice(0, 12);
   }, [areas, lead.preferredArea, properties, query]);
 
   return (
@@ -2570,7 +2715,11 @@ function PropertyShortlistStep({
                 onClick={() => toggleInterest({ leadId: lead.id, propertyId: property.id })}
                 className="flex min-w-0 flex-1 items-center gap-2 text-left"
               >
-                {selected ? <Star className="h-3.5 w-3.5 text-accent" /> : <Circle className="h-3.5 w-3.5 text-muted-foreground" />}
+                {selected ? (
+                  <Star className="h-3.5 w-3.5 text-accent" />
+                ) : (
+                  <Circle className="h-3.5 w-3.5 text-muted-foreground" />
+                )}
                 <div className="min-w-0 flex-1">
                   <div className="truncate font-semibold">{property.name}</div>
                   <div className="truncate text-[10px] text-muted-foreground">
@@ -2589,7 +2738,9 @@ function PropertyShortlistStep({
                     setActivePg(property.pg);
                     return;
                   }
-                  toast.info(`${property.name} is from ops inventory. Open Property Hub for full dossier.`);
+                  toast.info(
+                    `${property.name} is from ops inventory. Open Property Hub for full dossier.`,
+                  );
                 }}
               >
                 View
@@ -2598,16 +2749,25 @@ function PropertyShortlistStep({
           );
         })}
         {list.length === 0 && (
-          <div className="py-5 text-center text-xs text-muted-foreground">No matching properties.</div>
+          <div className="py-5 text-center text-xs text-muted-foreground">
+            No matching properties.
+          </div>
         )}
       </div>
       <div className="rounded-md bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
-        Selected: <span className="font-semibold text-foreground">{interests.length}</span> property{interests.length === 1 ? "" : "ies"}
+        Selected: <span className="font-semibold text-foreground">{interests.length}</span> property
+        {interests.length === 1 ? "" : "ies"}
       </div>
       <Button
         className="w-full h-9 text-xs"
         disabled={disabled || interests.length === 0}
-        title={disabled ? disabledReason : interests.length === 0 ? "Select at least one property" : undefined}
+        title={
+          disabled
+            ? disabledReason
+            : interests.length === 0
+              ? "Select at least one property"
+              : undefined
+        }
         onClick={() => {
           markDone(lead.id, doneTag);
           onComplete?.();
@@ -2621,10 +2781,23 @@ function PropertyShortlistStep({
   );
 }
 
-function Section({ title, centeredTitle, children }: { title: string; centeredTitle?: boolean; children: React.ReactNode }) {
+function Section({
+  title,
+  centeredTitle,
+  children,
+}: {
+  title: string;
+  centeredTitle?: boolean;
+  children: React.ReactNode;
+}) {
   return (
     <section className="space-y-2">
-      <div className={cn("text-[11px] uppercase tracking-wider text-muted-foreground font-semibold", centeredTitle && "text-center")}>
+      <div
+        className={cn(
+          "text-[11px] uppercase tracking-wider text-muted-foreground font-semibold",
+          centeredTitle && "text-center",
+        )}
+      >
         {title}
       </div>
       <div className="space-y-2">{children}</div>
@@ -2669,7 +2842,14 @@ function UpcomingTourCard({
   members: { id: string; name: string; role: string; zones: string[] }[];
   leadName?: string;
 }) {
-  const { properties, rescheduleTour, cancelTour, markTourStarted, completeTour, updateTourDetails } = useApp();
+  const {
+    properties,
+    rescheduleTour,
+    cancelTour,
+    markTourStarted,
+    completeTour,
+    updateTourDetails,
+  } = useApp();
   const prop = properties.find((p) => p.id === tour.propertyId);
 
   // Handle both old CRM tour format (tcmId) and new MYT tour format (assignedTo, assignedToName)
@@ -2722,7 +2902,10 @@ function UpcomingTourCard({
           {formatSafeDate(tour.scheduledAt, "EEE, MMM d · p", "time unknown")}
         </span>
         {isPastTour && (
-          <Badge variant="outline" className="border-destructive/40 bg-destructive/10 text-destructive text-[10px]">
+          <Badge
+            variant="outline"
+            className="border-destructive/40 bg-destructive/10 text-destructive text-[10px]"
+          >
             {isOverdueOutcome ? "Outcome due" : "Time reached"}
           </Badge>
         )}
@@ -2837,7 +3020,9 @@ function UpcomingTourCard({
       )}
 
       {/* Action buttons */}
-      {(tour.status === "scheduled" || tour.status === "confirmed" || tour.status === "on-tour") && (
+      {(tour.status === "scheduled" ||
+        tour.status === "confirmed" ||
+        tour.status === "on-tour") && (
         <div className="flex flex-wrap gap-2 pt-1">
           {showReschedule ? (
             <div className="flex gap-2 w-full items-end">
@@ -2892,38 +3077,46 @@ function UpcomingTourCard({
                   <UserCheck className="h-3 w-3" /> Move to on-tour
                 </Button>
               )}
-              {isOutcomeDue && (tour.status as string) !== "completed" && (tour.status as string) !== "cancelled" && (
-                <Button
-                  size="sm"
-                  className="h-7 text-[11px] gap-1"
-                  variant={tour.status === "on-tour" ? "default" : "outline"}
-                  onClick={() => {
-                    void completeTour(tour.id)
-                      .then(() => toast.success("Visit completed · post-tour unlocked"))
-                      .catch((err) =>
-                        toast.error(err instanceof Error ? err.message : "Failed to complete tour"),
-                      );
-                  }}
-                >
-                  <CheckCircle2 className="h-3 w-3" /> Visit done
-                </Button>
-              )}
-              {isOutcomeDue && (tour.status as string) !== "completed" && (tour.status as string) !== "cancelled" && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-7 text-[11px] gap-1 text-destructive hover:text-destructive"
-                  onClick={() => {
-                    void updateTourDetails(tour.id, { status: "no-show", showUp: false })
-                      .then(() => toast("Marked no-show · reschedule or revive from queue"))
-                      .catch((err) =>
-                        toast.error(err instanceof Error ? err.message : "Failed to mark no-show"),
-                      );
-                  }}
-                >
-                  <AlertTriangle className="h-3 w-3" /> No-show
-                </Button>
-              )}
+              {isOutcomeDue &&
+                (tour.status as string) !== "completed" &&
+                (tour.status as string) !== "cancelled" && (
+                  <Button
+                    size="sm"
+                    className="h-7 text-[11px] gap-1"
+                    variant={tour.status === "on-tour" ? "default" : "outline"}
+                    onClick={() => {
+                      void completeTour(tour.id)
+                        .then(() => toast.success("Visit completed · post-tour unlocked"))
+                        .catch((err) =>
+                          toast.error(
+                            err instanceof Error ? err.message : "Failed to complete tour",
+                          ),
+                        );
+                    }}
+                  >
+                    <CheckCircle2 className="h-3 w-3" /> Visit done
+                  </Button>
+                )}
+              {isOutcomeDue &&
+                (tour.status as string) !== "completed" &&
+                (tour.status as string) !== "cancelled" && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-[11px] gap-1 text-destructive hover:text-destructive"
+                    onClick={() => {
+                      void updateTourDetails(tour.id, { status: "no-show", showUp: false })
+                        .then(() => toast("Marked no-show · reschedule or revive from queue"))
+                        .catch((err) =>
+                          toast.error(
+                            err instanceof Error ? err.message : "Failed to mark no-show",
+                          ),
+                        );
+                    }}
+                  >
+                    <AlertTriangle className="h-3 w-3" /> No-show
+                  </Button>
+                )}
               {(tour.status === "scheduled" || tour.status === "confirmed") && (
                 <Button
                   size="sm"
@@ -2931,7 +3124,8 @@ function UpcomingTourCard({
                   variant={isPastTour ? "default" : "outline"}
                   onClick={() => setShowReschedule(true)}
                 >
-                  <CalendarIcon className="h-3 w-3" /> {isPastTour ? "Reschedule overdue tour" : "Reschedule"}
+                  <CalendarIcon className="h-3 w-3" />{" "}
+                  {isPastTour ? "Reschedule overdue tour" : "Reschedule"}
                 </Button>
               )}
               {(tour.status === "scheduled" || tour.status === "confirmed") && (
@@ -2989,7 +3183,9 @@ function InlineScheduleTour({
     const q = propertyQuery.trim().toLowerCase();
     if (!q) return properties;
     return properties.filter((p) =>
-      [p.name, p.area, p.address].filter(Boolean).some((value) => String(value).toLowerCase().includes(q)),
+      [p.name, p.area, p.address]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(q)),
     );
   }, [properties, propertyQuery]);
 
@@ -3190,7 +3386,8 @@ function InlineScheduleTour({
                 </div>
                 {filteredProperties.map((p) => (
                   <SelectItem key={p.id} value={p.id}>
-                    {p.name}{p.area ? ` · ${p.area}` : ""}
+                    {p.name}
+                    {p.area ? ` · ${p.area}` : ""}
                   </SelectItem>
                 ))}
                 {filteredProperties.length === 0 && (
@@ -3345,9 +3542,23 @@ function useTourScorecard(tourId: string) {
   const [score, setScore] = useState<ScoreState>(() => {
     try {
       const raw = localStorage.getItem(storageKey);
-      return raw ? JSON.parse(raw) : { propertyFit: "", budgetFit: "", locationFit: "", decisionReadiness: "", moveInUrgency: "" };
+      return raw
+        ? JSON.parse(raw)
+        : {
+            propertyFit: "",
+            budgetFit: "",
+            locationFit: "",
+            decisionReadiness: "",
+            moveInUrgency: "",
+          };
     } catch {
-      return { propertyFit: "", budgetFit: "", locationFit: "", decisionReadiness: "", moveInUrgency: "" };
+      return {
+        propertyFit: "",
+        budgetFit: "",
+        locationFit: "",
+        decisionReadiness: "",
+        moveInUrgency: "",
+      };
     }
   });
 
@@ -3355,7 +3566,17 @@ function useTourScorecard(tourId: string) {
     const handleStorage = () => {
       try {
         const raw = localStorage.getItem(storageKey);
-        setScore(raw ? JSON.parse(raw) : { propertyFit: "", budgetFit: "", locationFit: "", decisionReadiness: "", moveInUrgency: "" });
+        setScore(
+          raw
+            ? JSON.parse(raw)
+            : {
+                propertyFit: "",
+                budgetFit: "",
+                locationFit: "",
+                decisionReadiness: "",
+                moveInUrgency: "",
+              },
+        );
       } catch {}
     };
     window.addEventListener(storageKey, handleStorage);
@@ -3365,8 +3586,8 @@ function useTourScorecard(tourId: string) {
   const pick = (key: keyof ScoreState, value: string) => {
     const next = { ...score, [key]: score[key] === value ? "" : value };
     setScore(next);
-    try { 
-      localStorage.setItem(storageKey, JSON.stringify(next)); 
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(next));
       window.dispatchEvent(new Event(storageKey));
     } catch {}
   };
@@ -3473,7 +3694,9 @@ function PostTourOutcomeActions({
               }}
             >
               <span className="w-full text-sm font-medium">{opt.label}</span>
-              <span className={`w-full break-words text-xs leading-snug ${selected ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
+              <span
+                className={`w-full break-words text-xs leading-snug ${selected ? "text-primary-foreground/70" : "text-muted-foreground"}`}
+              >
                 {opt.hint}
               </span>
             </Button>
@@ -3482,7 +3705,8 @@ function PostTourOutcomeActions({
       </div>
       {!formReady && !pt.filledAt && (
         <div className="rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-muted-foreground">
-          Complete {remaining.join(", ")} before selecting the final outcome. Scorecard is {pct}% filled.
+          Complete {remaining.join(", ")} before selecting the final outcome. Scorecard is {pct}%
+          filled.
         </div>
       )}
     </Section>

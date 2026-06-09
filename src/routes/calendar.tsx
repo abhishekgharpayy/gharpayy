@@ -23,16 +23,8 @@ import {
 } from "@/components/ui/select";
 import { useApp } from "@/lib/store";
 import { useAuthUser } from "@/lib/auth-store";
-import {
-  useCalendar,
-  KIND_META,
-  type CalEvent,
-  type CalEventKind,
-} from "@/lib/calendar-store";
-import {
-  selectBroadcastCalendar,
-  useNotifications,
-} from "@/lib/notifications";
+import { useCalendar, KIND_META, type CalEvent, type CalEventKind } from "@/lib/calendar-store";
+import { selectBroadcastCalendar, useNotifications } from "@/lib/notifications";
 import { MonthView } from "@/components/calendar/MonthView";
 import { TimeGridView } from "@/components/calendar/TimeGridView";
 import { AgendaView } from "@/components/calendar/AgendaView";
@@ -54,7 +46,12 @@ function CalendarPage() {
   const [view, setView] = useState<CalendarView>("week");
   const [focus, setFocus] = useState<Date>(new Date());
   const [selectedDay, setSelectedDay] = useState<Date | undefined>(new Date());
-  const [editing, setEditing] = useState<{ open: boolean; eventId?: string; event?: CalEvent; defaultStart?: Date }>({ open: false });
+  const [editing, setEditing] = useState<{
+    open: boolean;
+    eventId?: string;
+    event?: CalEvent;
+    defaultStart?: Date;
+  }>({ open: false });
   const [syncOpen, setSyncOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<CalEventKind | "all">("all");
@@ -96,7 +93,9 @@ function CalendarPage() {
           lead?.budget ? `Budget: ₹${Math.round(lead.budget / 1000)}k` : "",
           lead?.preferredArea ? `Area: ${lead.preferredArea}` : "",
           t.status ? `Tour status: ${t.status}` : "",
-        ].filter(Boolean).join("\n"),
+        ]
+          .filter(Boolean)
+          .join("\n"),
         reminder: 15,
         externalSource: "local",
         createdAt: t.createdAt,
@@ -123,7 +122,9 @@ function CalendarPage() {
           f.reason,
           lead?.phone ? `Phone: ${lead.phone}` : "",
           lead?.preferredArea ? `Area: ${lead.preferredArea}` : "",
-        ].filter(Boolean).join("\n"),
+        ]
+          .filter(Boolean)
+          .join("\n"),
         reminder: f.priority === "urgent" ? 10 : 15,
         externalSource: "local",
         createdAt: start.toISOString(),
@@ -158,7 +159,13 @@ function CalendarPage() {
   const allEvents = useMemo(() => {
     const byKey = new Map<string, CalEvent>();
     const keyFor = (e: CalEvent) =>
-      e.tourId ? `tour:${e.tourId}` : e.followUpId ? `follow:${e.followUpId}` : e.externalId ? `ext:${e.externalId}` : `event:${e.id}`;
+      e.tourId
+        ? `tour:${e.tourId}`
+        : e.followUpId
+          ? `follow:${e.followUpId}`
+          : e.externalId
+            ? `ext:${e.externalId}`
+            : `event:${e.id}`;
     for (const e of [...crmEvents, ...broadcastEvents]) {
       byKey.set(keyFor(e), e);
     }
@@ -244,7 +251,9 @@ function CalendarPage() {
           <div className="flex items-center gap-2">
             <CalendarDays className="h-5 w-5 text-primary" />
             <h1 className="text-lg font-semibold">Calendar</h1>
-            <Badge variant="secondary" className="ml-1">{allEvents.length} events</Badge>
+            <Badge variant="secondary" className="ml-1">
+              {allEvents.length} events
+            </Badge>
           </div>
 
           <div className="flex items-center gap-2">
@@ -276,7 +285,9 @@ function CalendarPage() {
             <Button variant="outline" onClick={() => setSyncOpen(true)}>
               <Settings2 className="h-4 w-4 mr-1.5" /> Sync
             </Button>
-            <Button onClick={() => setEditing({ open: true, defaultStart: selectedDay ?? new Date() })}>
+            <Button
+              onClick={() => setEditing({ open: true, defaultStart: selectedDay ?? new Date() })}
+            >
               <Plus className="h-4 w-4 mr-1.5" /> New event
             </Button>
           </div>
@@ -285,7 +296,9 @@ function CalendarPage() {
         {/* Sub-toolbar */}
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-1.5">
-            <Button size="sm" variant="outline" onClick={goToday}>Today</Button>
+            <Button size="sm" variant="outline" onClick={goToday}>
+              Today
+            </Button>
             <Button size="icon" variant="ghost" onClick={() => setFocus(navigate(view, focus, -1))}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
@@ -332,7 +345,10 @@ function CalendarPage() {
                         className="w-full rounded-md border bg-background px-2 py-1.5 text-left text-xs transition hover:bg-accent/40"
                       >
                         <div className="flex items-center gap-1.5">
-                          <span className="h-2 w-2 rounded-full" style={{ background: meta.color }} />
+                          <span
+                            className="h-2 w-2 rounded-full"
+                            style={{ background: meta.color }}
+                          />
                           <span className="min-w-0 flex-1 truncate font-medium">{event.title}</span>
                         </div>
                         <div className="mt-0.5 flex items-center gap-1 text-[10px] text-muted-foreground">
@@ -346,7 +362,9 @@ function CalendarPage() {
               )}
             </div>
             <div>
-              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">My calendars</div>
+              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                My calendars
+              </div>
               <ul className="space-y-1.5 text-sm">
                 {Object.entries(KIND_META).map(([k, m]) => (
                   <li key={k} className="flex items-center gap-2">
@@ -357,7 +375,9 @@ function CalendarPage() {
               </ul>
             </div>
             <div>
-              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Connected</div>
+              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                Connected
+              </div>
               <ConnectionsList onOpen={() => setSyncOpen(true)} />
             </div>
             <div className="mt-auto text-xs text-muted-foreground">
@@ -383,9 +403,7 @@ function CalendarPage() {
               onSlotClick={openSlot}
             />
           )}
-          {view === "agenda" && (
-            <AgendaView events={allEvents} onEventClick={openEvent} />
-          )}
+          {view === "agenda" && <AgendaView events={allEvents} onEventClick={openEvent} />}
         </div>
       </div>
 

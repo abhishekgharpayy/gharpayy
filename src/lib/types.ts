@@ -1,7 +1,23 @@
 export type Role = "flow-ops" | "tcm" | "hr" | "owner" | "super-admin";
 export type Intent = "hot" | "warm" | "cold";
-export type TourStatus = "scheduled" | "confirmed" | "completed" | "no-show" | "cancelled" | "on-tour";
-export type ClientDecision = "booked" | "thinking" | "awaiting" | "dropped" | "token-paid" | "draft" | "follow-up" | "rejected" | "not-interested" | null;
+export type TourStatus =
+  | "scheduled"
+  | "confirmed"
+  | "completed"
+  | "no-show"
+  | "cancelled"
+  | "on-tour";
+export type ClientDecision =
+  | "booked"
+  | "thinking"
+  | "awaiting"
+  | "dropped"
+  | "token-paid"
+  | "draft"
+  | "follow-up"
+  | "rejected"
+  | "not-interested"
+  | null;
 export type LeadStage =
   | "new"
   | "contacted"

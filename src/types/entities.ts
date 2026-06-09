@@ -153,11 +153,22 @@ export type FurnishingPref = "ac" | "non-ac" | "semi" | "any";
 export type FoodPref = "veg" | "non-veg" | "no-food" | "any";
 export type LangPref = "english" | "hindi" | "kannada" | "other";
 export type LeadSource =
-  | "whatsapp" | "website" | "referral" | "indiamart" | "google" | "walk-in" | "other";
+  | "whatsapp"
+  | "website"
+  | "referral"
+  | "indiamart"
+  | "google"
+  | "walk-in"
+  | "other";
 export type DecisionAuthority = "self" | "parents" | "company-hr";
 export type FlexibilityScore = 1 | 2 | 3 | 4 | 5;
 export type CallOutcome =
-  | "answered" | "not-answered" | "busy" | "switched-off" | "wrong-number" | "callback-requested";
+  | "answered"
+  | "not-answered"
+  | "busy"
+  | "switched-off"
+  | "wrong-number"
+  | "callback-requested";
 export type ObjectionCode =
   | "price-too-high"
   | "location-not-suitable"
@@ -174,9 +185,9 @@ export type ObjectionCode =
 export type ObjectionResolution = "yes" | "partially" | "no";
 
 export interface ShiftingDateEntry {
-  ts: string;            // when this update was logged
-  shiftingDate: string;  // ISO date the lead intends to shift on
-  reason?: string;       // free text e.g. "parents wanted next month"
+  ts: string; // when this update was logged
+  shiftingDate: string; // ISO date the lead intends to shift on
+  reason?: string; // free text e.g. "parents wanted next month"
   loggedBy: string;
 }
 
@@ -191,7 +202,7 @@ export interface DeepLeadProfile {
   companyOrCollege?: string;
   source?: LeadSource;
   referralName?: string;
-  preferredMoveInDate?: string;     // current/active shifting date (ISO)
+  preferredMoveInDate?: string; // current/active shifting date (ISO)
   shiftingHistory?: ShiftingDateEntry[]; // versioned trail
   flexible?: boolean;
   budgetStated?: number;
@@ -271,8 +282,12 @@ export interface AssignmentRecord {
   fromTcmId: string | null;
   toTcmId: string;
   reasonCategory:
-    | "out-of-area" | "capacity-full" | "lead-quality-mismatch"
-    | "specialized-pg" | "manager-override" | "auto-route";
+    | "out-of-area"
+    | "capacity-full"
+    | "lead-quality-mismatch"
+    | "specialized-pg"
+    | "manager-override"
+    | "auto-route";
   note?: string;
   zone: "extra-zone" | "my-zone" | "pool";
 }
@@ -306,8 +321,8 @@ export interface Quotation {
   id: string;
   leadId: string;
   tcmId?: string;
-  propertyId?: string;          // existing property if picked
-  propertyName: string;         // resolved label (custom or property name)
+  propertyId?: string; // existing property if picked
+  propertyName: string; // resolved label (custom or property name)
   roomType: string;
   roomNumber?: string;
   actualRent: number;
@@ -318,9 +333,9 @@ export interface Quotation {
   maintenanceType: "One-Time" | "Monthly";
   lockIn: string;
   notice: string;
-  validityMinutes: number;      // computed for stored snapshot
-  validUntilISO: string;        // ts when offer expires
-  message: string;              // rendered WhatsApp body
+  validityMinutes: number; // computed for stored snapshot
+  validUntilISO: string; // ts when offer expires
+  message: string; // rendered WhatsApp body
   status: QuotationStatus;
   sentAt: string;
   paidAt?: string;
@@ -418,10 +433,10 @@ export interface Contact {
 }
 
 export interface NearbyLandmark {
-  n: string;   // name
-  t: string;   // type (Tech Park, College, Mall, ...)
-  d: number;   // distance in km
-  w: number;   // walk minutes
+  n: string; // name
+  t: string; // type (Tech Park, College, Mall, ...)
+  d: number; // distance in km
+  w: number; // walk minutes
 }
 
 export interface PG {
@@ -466,12 +481,12 @@ export interface PG {
 }
 
 export interface Landmark {
-  n: string;            // name
-  a: string;            // area
-  t: string;            // type (Tech Park, MNC, College, Hospital, Mall, Company, ...)
-  p: string;            // pin
-  m: string;            // metro
-  x: string;            // notes / aliases / tenants
+  n: string; // name
+  a: string; // area
+  t: string; // type (Tech Park, MNC, College, Hospital, Mall, Company, ...)
+  p: string; // pin
+  m: string; // metro
+  x: string; // notes / aliases / tenants
   lat?: number | null;
   lng?: number | null;
 }

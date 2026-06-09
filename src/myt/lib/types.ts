@@ -1,4 +1,4 @@
-export type Role = 'flow-ops' | 'tcm' | 'hr';
+export type Role = "flow-ops" | "tcm" | "hr";
 
 export interface Zone {
   id: string;
@@ -9,7 +9,7 @@ export interface Zone {
   color?: string;
 }
 
-export type TeamMemberRole = 'flow-ops' | 'tcm';
+export type TeamMemberRole = "flow-ops" | "tcm";
 
 export interface TeamMember {
   id: string;
@@ -19,34 +19,27 @@ export interface TeamMember {
   phone: string;
 }
 
-export type TourStatus = 'scheduled' | 'confirmed' | 'completed' | 'no-show' | 'cancelled';
+export type TourStatus = "scheduled" | "confirmed" | "completed" | "no-show" | "cancelled";
 export type TourOutcome =
-  | 'booked'
-  | 'thinking'
-  | 'awaiting'
-  | 'token-paid'
-  | 'draft'
-  | 'follow-up'
-  | 'rejected'
-  | 'not-interested'
-  | 'dropped'
+  | "booked"
+  | "thinking"
+  | "awaiting"
+  | "token-paid"
+  | "draft"
+  | "follow-up"
+  | "rejected"
+  | "not-interested"
+  | "dropped"
   | null;
-export type BookingSource = 'call' | 'whatsapp' | 'referral' | 'walk-in' | 'ad' | 'organic';
-export type LeadType = 'urgent' | 'future';
+export type BookingSource = "call" | "whatsapp" | "referral" | "walk-in" | "ad" | "organic";
+export type LeadType = "urgent" | "future";
 
-export type TourType = 'physical' | 'virtual' | 'pre-book-pitch';
-export type Intent = 'hard' | 'medium' | 'soft';
-export type ConfirmationStrength = 'strong' | 'tentative' | 'weak';
-export type DecisionMaker = 'self' | 'parent' | 'group';
-export type WillBookToday = 'yes' | 'maybe' | 'no';
-export type WhyLost =
-  | 'price'
-  | 'location'
-  | 'food'
-  | 'delay'
-  | 'comparing'
-  | 'other'
-  | null;
+export type TourType = "physical" | "virtual" | "pre-book-pitch";
+export type Intent = "hard" | "medium" | "soft";
+export type ConfirmationStrength = "strong" | "tentative" | "weak";
+export type DecisionMaker = "self" | "parent" | "group";
+export type WillBookToday = "yes" | "maybe" | "no";
+export type WhyLost = "price" | "location" | "food" | "delay" | "comparing" | "other" | null;
 
 export interface TourQualification {
   moveInDate: string;
@@ -96,13 +89,13 @@ export interface Tour {
   whyLost: WhyLost;
 }
 
-export type DateRange = 'today' | 'week' | 'month';
+export type DateRange = "today" | "week" | "month";
 
 export interface MetricCard {
   label: string;
   value: number | string;
   change?: number;
-  color?: 'blue' | 'green' | 'amber' | 'red';
+  color?: "blue" | "green" | "amber" | "red";
 }
 
 export interface HeatmapData {
@@ -137,7 +130,7 @@ export interface MemberPerformance {
 }
 
 // MYT Lead Tracker
-export type LeadStatus = 'new' | 'contacted' | 'qualified' | 'tour-scheduled' | 'dead';
+export type LeadStatus = "new" | "contacted" | "qualified" | "tour-scheduled" | "dead";
 
 export interface Lead {
   id: string;
@@ -154,14 +147,14 @@ export interface Lead {
   createdAt: string;
   notes: string;
   // Marketplace fields
-  budgetPowerScore?: number;       // 0-100, vs zone median
-  urgencyExpiresAt?: string;       // ISO timestamp
-  conversionProbability?: number;  // 0-100
-  claimedBy?: string | null;       // TCM id who claimed
+  budgetPowerScore?: number; // 0-100, vs zone median
+  urgencyExpiresAt?: string; // ISO timestamp
+  conversionProbability?: number; // 0-100
+  claimedBy?: string | null; // TCM id who claimed
 }
 
 // Bookings
-export type AgreementStatus = 'pending' | 'signed' | 'moved-in';
+export type AgreementStatus = "pending" | "signed" | "moved-in";
 
 export interface Booking {
   id: string;
@@ -189,8 +182,8 @@ export interface CycleData {
 
 // ============ INVENTORY OS ============
 
-export type InventorySignal = 'hot' | 'balanced' | 'cold';
-export type RoomType = 'single' | 'double' | 'triple' | 'studio';
+export type InventorySignal = "hot" | "balanced" | "cold";
+export type RoomType = "single" | "double" | "triple" | "studio";
 
 export interface Property {
   id: string;
@@ -198,14 +191,14 @@ export interface Property {
   zoneId: string;
   area: string;
   address: string;
-  basePrice: number;       // per bed / month
-  foodRating: number;      // 0-5
-  hygieneRating: number;   // 0-5
+  basePrice: number; // per bed / month
+  foodRating: number; // 0-5
+  hygieneRating: number; // 0-5
   amenities: string[];
   ownerName: string;
   photoCount: number;
-  pageViews: number;       // last 7 days
-  shares: number;          // last 7 days
+  pageViews: number; // last 7 days
+  shares: number; // last 7 days
 }
 
 export interface Room {
@@ -217,7 +210,7 @@ export interface Room {
   currentPrice: number;
 }
 
-export type BlockStatus = 'active' | 'released' | 'converted';
+export type BlockStatus = "active" | "released" | "converted";
 
 export interface RoomBlock {
   id: string;
@@ -234,9 +227,9 @@ export interface RoomBlock {
 
 export interface PropertyScores {
   propertyId: string;
-  demandScore: number;      // 0-100
-  conversionScore: number;  // 0-100
-  velocityScore: number;    // 0-100, days-to-fill inverted
+  demandScore: number; // 0-100
+  conversionScore: number; // 0-100
+  velocityScore: number; // 0-100, days-to-fill inverted
   signal: InventorySignal;
   bedsTotal: number;
   bedsOccupied: number;

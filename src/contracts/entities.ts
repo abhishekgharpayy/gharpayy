@@ -20,13 +20,13 @@ export const LeadQuality = z.enum(["hot", "good", "bad"]);
 export type LeadQuality = z.infer<typeof LeadQuality>;
 
 export const Lead = z.object({
-  _id: z.string(),                       // ULID
+  _id: z.string(), // ULID
   name: z.string().min(1).max(120),
   phone: z.string().min(7).max(20),
   source: z.string().max(60).default("manual"),
   budget: z.number().int().min(0),
   budgetText: z.string().max(80).default(""),
-  moveInDate: z.string(),                // ISO date
+  moveInDate: z.string(), // ISO date
   preferredArea: z.string().max(120),
   zoneId: z.string().nullable().default(null),
   assignedTcmId: z.string().nullable().default(null),
@@ -40,16 +40,16 @@ export const Lead = z.object({
   email: z.string().max(160).default(""),
   areas: z.array(z.string().max(80)).max(20).default([]),
   fullAddress: z.string().max(1000).default(""),
-  type: z.string().max(60).default(""),         // student / working / family ...
-  room: z.string().max(60).default(""),         // single / double / triple ...
-  need: z.string().max(60).default(""),         // boys / girls / coliving ...
+  type: z.string().max(60).default(""), // student / working / family ...
+  room: z.string().max(60).default(""), // single / double / triple ...
+  need: z.string().max(60).default(""), // boys / girls / coliving ...
   inBLR: z.boolean().nullable().default(null),
   quality: LeadQuality.nullable().default(null),
   specialReqs: z.string().max(2000).default(""),
   notes: z.string().max(2000).default(""),
   zoneCategory: z.string().max(80).default(""), // bucket label
   assigneeId: z.string().nullable().default(null), // mirror of assignedTcmId for UI
-  stageLabel: z.string().max(120).default(""),  // long stage label e.g. "MYT [TENANT]"
+  stageLabel: z.string().max(120).default(""), // long stage label e.g. "MYT [TENANT]"
   createdAt: z.string(),
   updatedAt: z.string(),
   // Audit
@@ -64,12 +64,12 @@ export const TodoEntityType = z.enum(["none", "lead", "tour", "deal", "owner", "
 export type TodoEntityType = z.infer<typeof TodoEntityType>;
 
 export const TodoStatus = z.enum([
-  "open",          // created, awaiting acceptance if assigned
-  "pending-accept",// assigned to someone other than creator, not yet accepted
-  "accepted",      // assignee accepted, now actively owned
-  "in-progress",   // marked started
+  "open", // created, awaiting acceptance if assigned
+  "pending-accept", // assigned to someone other than creator, not yet accepted
+  "accepted", // assignee accepted, now actively owned
+  "in-progress", // marked started
   "done",
-  "declined",      // assignee declined; bounces back to creator
+  "declined", // assignee declined; bounces back to creator
   "cancelled",
 ]);
 export type TodoStatus = z.infer<typeof TodoStatus>;
@@ -77,19 +77,19 @@ export type TodoStatus = z.infer<typeof TodoStatus>;
 export const TodoPriority = z.enum(["low", "med", "high", "urgent"]);
 
 export const Todo = z.object({
-  _id: z.string(),                                     // ULID
+  _id: z.string(), // ULID
   title: z.string().min(1).max(200),
   notes: z.string().max(2000).default(""),
   // Attachment to a parent entity (or "none" for standalone My Tasks)
   entityType: TodoEntityType.default("none"),
   entityId: z.string().nullable().default(null),
   // People
-  createdBy: z.string(),                               // userId
-  assignedTo: z.string().nullable().default(null),     // userId, null = unassigned (My Tasks for creator)
+  createdBy: z.string(), // userId
+  assignedTo: z.string().nullable().default(null), // userId, null = unassigned (My Tasks for creator)
   // State
   status: TodoStatus.default("open"),
   priority: TodoPriority.default("med"),
-  dueAt: z.string().nullable().default(null),          // ISO
+  dueAt: z.string().nullable().default(null), // ISO
   completedAt: z.string().nullable().default(null),
   // Audit
   tenantId: z.string(),
@@ -158,33 +158,42 @@ export const Activity = z.object({
   // Engagement metrics
   durationSec: z.number().int().min(0).default(0),
   // Time anchors
-  occurredAt: z.string(),                 // when the touchpoint actually happened
+  occurredAt: z.string(), // when the touchpoint actually happened
   scheduledFor: z.string().nullable().default(null),
   // Linkages
   relatedTodoId: z.string().nullable().default(null),
   // Free-form structured payload (call recording url, email message-id, etc.)
   meta: z.record(z.string(), z.unknown()).default({}),
   // Audit
-  actor: z.string(),                      // userId who logged or triggered it
+  actor: z.string(), // userId who logged or triggered it
   tenantId: z.string(),
   createdAt: z.string(),
 });
 export type Activity = z.infer<typeof Activity>;
 
-export const TourStatus = z.enum(["scheduled", "confirmed", "completed", "no-show", "cancelled", "on-tour"]);
+export const TourStatus = z.enum([
+  "scheduled",
+  "confirmed",
+  "completed",
+  "no-show",
+  "cancelled",
+  "on-tour",
+]);
 export type TourStatus = z.infer<typeof TourStatus>;
 
-export const TourOutcome = z.enum([
-  "booked",
-  "thinking",
-  "awaiting",
-  "token-paid",
-  "draft",
-  "follow-up",
-  "rejected",
-  "not-interested",
-  "dropped",
-]).nullable();
+export const TourOutcome = z
+  .enum([
+    "booked",
+    "thinking",
+    "awaiting",
+    "token-paid",
+    "draft",
+    "follow-up",
+    "rejected",
+    "not-interested",
+    "dropped",
+  ])
+  .nullable();
 export type TourOutcome = z.infer<typeof TourOutcome>;
 
 export const PostTourUpdate = z.object({

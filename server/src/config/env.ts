@@ -33,4 +33,6 @@ const Env = z.object({
 });
 
 export const env = Env.parse(process.env);
-export const corsOrigins = env.CORS_ORIGINS.split(",").map((s) => s.trim()).filter(Boolean);
+export const corsOrigins = env.CORS_ORIGINS.split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
