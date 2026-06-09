@@ -111,6 +111,77 @@ async function ensureIndexes(db: Db) {
       run: () => db.collection("sessions").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
     },
     {
+      name: "tours",
+      run: () =>
+        db.collection("tours").createIndexes([
+          { key: { tenantId: 1, leadId: 1 } },
+          { key: { tenantId: 1, assignedTo: 1, scheduledAt: -1 } },
+          { key: { tenantId: 1, status: 1, scheduledAt: -1 } },
+          { key: { tenantId: 1, scheduledBy: 1 } },
+        ]),
+    },
+    {
+      name: "properties",
+      run: () =>
+        db.collection("properties").createIndexes([
+          { key: { tenantId: 1, name: 1 } },
+          { key: { tenantId: 1, zoneId: 1 } },
+          { key: { tenantId: 1, area: 1 } },
+        ]),
+    },
+    {
+      name: "zones",
+      run: () =>
+        db.collection("zones").createIndexes([
+          { key: { tenantId: 1, name: 1 } },
+          { key: { tenantId: 1, city: 1 } },
+        ]),
+    },
+    {
+      name: "activities",
+      run: () =>
+        db.collection("activities").createIndexes([
+          { key: { tenantId: 1, leadId: 1, createdAt: -1 } },
+          { key: { tenantId: 1, kind: 1, createdAt: -1 } },
+          { key: { tenantId: 1, tcmId: 1, createdAt: -1 } },
+        ]),
+    },
+    {
+      name: "todos",
+      run: () =>
+        db.collection("todos").createIndexes([
+          { key: { tenantId: 1, assignedTo: 1, status: 1 } },
+          { key: { tenantId: 1, leadId: 1, createdAt: -1 } },
+          { key: { tenantId: 1, createdBy: 1, status: 1 } },
+        ]),
+    },
+    {
+      name: "quotations",
+      run: () =>
+        db.collection("quotations").createIndexes([
+          { key: { tenantId: 1, leadId: 1 } },
+          { key: { tenantId: 1, propertyId: 1, createdAt: -1 } },
+          { key: { tenantId: 1, status: 1 } },
+          { key: { tenantId: 1, tcmId: 1, createdAt: -1 } },
+        ]),
+    },
+    {
+      name: "webhooks_in",
+      run: () =>
+        db.collection("webhooks_in").createIndexes([
+          { key: { tenantId: 1, receivedAt: -1 } },
+          { key: { vendor: 1, receivedAt: -1 } },
+        ]),
+    },
+    {
+      name: "user_activity",
+      run: () =>
+        db.collection("user_activity").createIndexes([
+          { key: { tenantId: 1, userId: 1, ts: -1 } },
+          { key: { tenantId: 1, action: 1, ts: -1 } },
+        ]),
+    },
+    {
       name: "assignment_notifications",
       run: () =>
         db.collection("assignment_notifications").createIndexes([
