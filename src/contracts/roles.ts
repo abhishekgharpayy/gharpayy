@@ -43,6 +43,12 @@ export const Scope = z.enum([
   "activity.read",
   "activity.log",
   "activity.delete",
+  "booking.read",
+  "booking.create",
+  "booking.update",
+  "tenant.read",
+  "tenant.create",
+  "tenant.update",
 ]);
 export type Scope = z.infer<typeof Scope>;
 
@@ -56,6 +62,8 @@ export const DEFAULT_SCOPES: Record<TopRole, Scope[]> = {
     "user.read",
     "todo.read", "todo.create", "todo.update", "todo.assign",
     "activity.read", "activity.log",
+    "booking.read", "booking.create", "booking.update",
+    "tenant.read", "tenant.create", "tenant.update",
   ],
   admin: [
     "lead.read", "lead.create", "lead.update", "lead.assign",
@@ -64,6 +72,8 @@ export const DEFAULT_SCOPES: Record<TopRole, Scope[]> = {
     "user.read",
     "todo.read", "todo.create", "todo.update", "todo.assign",
     "activity.read", "activity.log",
+    "booking.read", "booking.create", "booking.update",
+    "tenant.read", "tenant.create", "tenant.update",
   ],
   member: [
     "lead.read", "lead.create", "lead.update", "lead.claim",
@@ -72,6 +82,8 @@ export const DEFAULT_SCOPES: Record<TopRole, Scope[]> = {
     "user.read",
     "todo.read", "todo.create", "todo.update",
     "activity.read", "activity.log",
+    "booking.read", "booking.create",
+    "tenant.read",
   ],
   tcm: [
     "lead.read", "lead.create", "lead.update", "lead.claim",
@@ -80,6 +92,8 @@ export const DEFAULT_SCOPES: Record<TopRole, Scope[]> = {
     "user.read",
     "todo.read", "todo.create", "todo.update",
     "activity.read", "activity.log",
+    "booking.read",
+    "tenant.read",
   ],
   owner: [
     "tour.read",
