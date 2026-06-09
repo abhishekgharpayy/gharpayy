@@ -34,6 +34,8 @@ import { LiveSequencesBridge } from "./LiveSequencesBridge";
 import { ClientOnly } from "./ClientOnly";
 import { QuickCreateMenu } from "./QuickCreateMenu";
 import { LiveLeadsBridge } from "./LiveLeadsBridge";
+import { LiveBookingsBridge } from "./LiveBookingsBridge";
+import { LiveTenantsBridge } from "./LiveTenantsBridge";
 import { LivePropertiesBridge } from "./LivePropertiesBridge";
 import { LiveTcMsBridge } from "./LiveTcMsBridge";
 import { LiveToursAppBridge } from "./LiveToursAppBridge";
@@ -217,6 +219,8 @@ export function AppShell({ children }: { children: ReactNode }) {
       { to: "/admin/war-room", label: "War-Room TV", icon: Radio },
       { to: "/admin/leads", label: "Master Leads", icon: Target },
       { to: "/admin/visits", label: "Master Visits", icon: CalendarPlus },
+      { to: "/admin/bookings", label: "Bookings", icon: IndianRupee },
+      { to: "/admin/tenants", label: "Tenants", icon: Users },
       { to: "/admin/calendar", label: "Master Calendar", icon: Calendar },
       { to: "/admin/owners", label: "Master Owners", icon: ShieldCheck },
       { to: "/admin/people", label: "People 360", icon: Users },
@@ -242,6 +246,8 @@ export function AppShell({ children }: { children: ReactNode }) {
     <PictureInPictureProvider>
       <PipRouteSyncBridge />
       <LiveLeadsBridge />
+      <LiveBookingsBridge />
+      <LiveTenantsBridge />
       <LivePropertiesBridge />
       <LiveActivitiesBridge />
       <LiveTodosBridge />
