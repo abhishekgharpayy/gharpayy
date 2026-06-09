@@ -76,6 +76,7 @@ import { Route as MytBookingsRouteImport } from './routes/myt/bookings'
 import { Route as LeadsAddRouteImport } from './routes/leads.add'
 import { Route as AdminWarroomRouteImport } from './routes/admin.warroom'
 import { Route as AdminVisitsRouteImport } from './routes/admin.visits'
+import { Route as AdminTenantsRouteImport } from './routes/admin.tenants'
 import { Route as AdminSupremeRouteImport } from './routes/admin.supreme'
 import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
 import { Route as AdminPropertyRouteImport } from './routes/admin.property'
@@ -87,12 +88,14 @@ import { Route as AdminImpactRouteImport } from './routes/admin.impact'
 import { Route as AdminExportsRouteImport } from './routes/admin.exports'
 import { Route as AdminCommandRouteImport } from './routes/admin.command'
 import { Route as AdminCalendarRouteImport } from './routes/admin.calendar'
+import { Route as AdminBookingsRouteImport } from './routes/admin.bookings'
 import { Route as AdminAuditRouteImport } from './routes/admin.audit'
 import { Route as OwnerMediaRoomIdRouteImport } from './routes/owner/media.$roomId'
 import { Route as MytTourIdRouteImport } from './routes/myt/tour.$id'
 import { Route as MytTcmPerformanceRouteImport } from './routes/myt/tcm.performance'
 import { Route as MytTcmActionsRouteImport } from './routes/myt/tcm.actions'
 import { Route as MytFeedbackIdRouteImport } from './routes/myt/feedback.$id'
+import { Route as AdminTenantsIdRouteImport } from './routes/admin.tenants.$id'
 import { Route as MytTourIdReportRouteImport } from './routes/myt/tour.$id.report'
 
 const ZonesRoute = ZonesRouteImport.update({
@@ -430,6 +433,11 @@ const AdminVisitsRoute = AdminVisitsRouteImport.update({
   path: '/visits',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminTenantsRoute = AdminTenantsRouteImport.update({
+  id: '/tenants',
+  path: '/tenants',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminSupremeRoute = AdminSupremeRouteImport.update({
   id: '/supreme',
   path: '/supreme',
@@ -485,6 +493,11 @@ const AdminCalendarRoute = AdminCalendarRouteImport.update({
   path: '/calendar',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminBookingsRoute = AdminBookingsRouteImport.update({
+  id: '/bookings',
+  path: '/bookings',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminAuditRoute = AdminAuditRouteImport.update({
   id: '/audit',
   path: '/audit',
@@ -514,6 +527,11 @@ const MytFeedbackIdRoute = MytFeedbackIdRouteImport.update({
   id: '/myt/feedback/$id',
   path: '/myt/feedback/$id',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AdminTenantsIdRoute = AdminTenantsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => AdminTenantsRoute,
 } as any)
 const MytTourIdReportRoute = MytTourIdReportRouteImport.update({
   id: '/report',
@@ -555,6 +573,7 @@ export interface FileRoutesByFullPath {
   '/zone-brain': typeof ZoneBrainRoute
   '/zones': typeof ZonesRoute
   '/admin/audit': typeof AdminAuditRoute
+  '/admin/bookings': typeof AdminBookingsRoute
   '/admin/calendar': typeof AdminCalendarRoute
   '/admin/command': typeof AdminCommandRoute
   '/admin/exports': typeof AdminExportsRoute
@@ -566,6 +585,7 @@ export interface FileRoutesByFullPath {
   '/admin/property': typeof AdminPropertyRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/supreme': typeof AdminSupremeRoute
+  '/admin/tenants': typeof AdminTenantsRouteWithChildren
   '/admin/visits': typeof AdminVisitsRoute
   '/admin/warroom': typeof AdminWarroomRoute
   '/leads/add': typeof LeadsAddRoute
@@ -601,6 +621,7 @@ export interface FileRoutesByFullPath {
   '/myt/': typeof MytIndexRoute
   '/owner/': typeof OwnerIndexRoute
   '/supply-hub/': typeof SupplyHubIndexRoute
+  '/admin/tenants/$id': typeof AdminTenantsIdRoute
   '/myt/feedback/$id': typeof MytFeedbackIdRoute
   '/myt/tcm/actions': typeof MytTcmActionsRoute
   '/myt/tcm/performance': typeof MytTcmPerformanceRoute
@@ -641,6 +662,7 @@ export interface FileRoutesByTo {
   '/zone-brain': typeof ZoneBrainRoute
   '/zones': typeof ZonesRoute
   '/admin/audit': typeof AdminAuditRoute
+  '/admin/bookings': typeof AdminBookingsRoute
   '/admin/calendar': typeof AdminCalendarRoute
   '/admin/command': typeof AdminCommandRoute
   '/admin/exports': typeof AdminExportsRoute
@@ -652,6 +674,7 @@ export interface FileRoutesByTo {
   '/admin/property': typeof AdminPropertyRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/supreme': typeof AdminSupremeRoute
+  '/admin/tenants': typeof AdminTenantsRouteWithChildren
   '/admin/visits': typeof AdminVisitsRoute
   '/admin/warroom': typeof AdminWarroomRoute
   '/leads/add': typeof LeadsAddRoute
@@ -687,6 +710,7 @@ export interface FileRoutesByTo {
   '/myt': typeof MytIndexRoute
   '/owner': typeof OwnerIndexRoute
   '/supply-hub': typeof SupplyHubIndexRoute
+  '/admin/tenants/$id': typeof AdminTenantsIdRoute
   '/myt/feedback/$id': typeof MytFeedbackIdRoute
   '/myt/tcm/actions': typeof MytTcmActionsRoute
   '/myt/tcm/performance': typeof MytTcmPerformanceRoute
@@ -729,6 +753,7 @@ export interface FileRoutesById {
   '/zone-brain': typeof ZoneBrainRoute
   '/zones': typeof ZonesRoute
   '/admin/audit': typeof AdminAuditRoute
+  '/admin/bookings': typeof AdminBookingsRoute
   '/admin/calendar': typeof AdminCalendarRoute
   '/admin/command': typeof AdminCommandRoute
   '/admin/exports': typeof AdminExportsRoute
@@ -740,6 +765,7 @@ export interface FileRoutesById {
   '/admin/property': typeof AdminPropertyRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/supreme': typeof AdminSupremeRoute
+  '/admin/tenants': typeof AdminTenantsRouteWithChildren
   '/admin/visits': typeof AdminVisitsRoute
   '/admin/warroom': typeof AdminWarroomRoute
   '/leads/add': typeof LeadsAddRoute
@@ -775,6 +801,7 @@ export interface FileRoutesById {
   '/myt/': typeof MytIndexRoute
   '/owner/': typeof OwnerIndexRoute
   '/supply-hub/': typeof SupplyHubIndexRoute
+  '/admin/tenants/$id': typeof AdminTenantsIdRoute
   '/myt/feedback/$id': typeof MytFeedbackIdRoute
   '/myt/tcm/actions': typeof MytTcmActionsRoute
   '/myt/tcm/performance': typeof MytTcmPerformanceRoute
@@ -818,6 +845,7 @@ export interface FileRouteTypes {
     | '/zone-brain'
     | '/zones'
     | '/admin/audit'
+    | '/admin/bookings'
     | '/admin/calendar'
     | '/admin/command'
     | '/admin/exports'
@@ -829,6 +857,7 @@ export interface FileRouteTypes {
     | '/admin/property'
     | '/admin/settings'
     | '/admin/supreme'
+    | '/admin/tenants'
     | '/admin/visits'
     | '/admin/warroom'
     | '/leads/add'
@@ -864,6 +893,7 @@ export interface FileRouteTypes {
     | '/myt/'
     | '/owner/'
     | '/supply-hub/'
+    | '/admin/tenants/$id'
     | '/myt/feedback/$id'
     | '/myt/tcm/actions'
     | '/myt/tcm/performance'
@@ -904,6 +934,7 @@ export interface FileRouteTypes {
     | '/zone-brain'
     | '/zones'
     | '/admin/audit'
+    | '/admin/bookings'
     | '/admin/calendar'
     | '/admin/command'
     | '/admin/exports'
@@ -915,6 +946,7 @@ export interface FileRouteTypes {
     | '/admin/property'
     | '/admin/settings'
     | '/admin/supreme'
+    | '/admin/tenants'
     | '/admin/visits'
     | '/admin/warroom'
     | '/leads/add'
@@ -950,6 +982,7 @@ export interface FileRouteTypes {
     | '/myt'
     | '/owner'
     | '/supply-hub'
+    | '/admin/tenants/$id'
     | '/myt/feedback/$id'
     | '/myt/tcm/actions'
     | '/myt/tcm/performance'
@@ -991,6 +1024,7 @@ export interface FileRouteTypes {
     | '/zone-brain'
     | '/zones'
     | '/admin/audit'
+    | '/admin/bookings'
     | '/admin/calendar'
     | '/admin/command'
     | '/admin/exports'
@@ -1002,6 +1036,7 @@ export interface FileRouteTypes {
     | '/admin/property'
     | '/admin/settings'
     | '/admin/supreme'
+    | '/admin/tenants'
     | '/admin/visits'
     | '/admin/warroom'
     | '/leads/add'
@@ -1037,6 +1072,7 @@ export interface FileRouteTypes {
     | '/myt/'
     | '/owner/'
     | '/supply-hub/'
+    | '/admin/tenants/$id'
     | '/myt/feedback/$id'
     | '/myt/tcm/actions'
     | '/myt/tcm/performance'
@@ -1585,6 +1621,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminVisitsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/tenants': {
+      id: '/admin/tenants'
+      path: '/tenants'
+      fullPath: '/admin/tenants'
+      preLoaderRoute: typeof AdminTenantsRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/supreme': {
       id: '/admin/supreme'
       path: '/supreme'
@@ -1662,6 +1705,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminCalendarRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/bookings': {
+      id: '/admin/bookings'
+      path: '/bookings'
+      fullPath: '/admin/bookings'
+      preLoaderRoute: typeof AdminBookingsRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/audit': {
       id: '/admin/audit'
       path: '/audit'
@@ -1704,6 +1754,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MytFeedbackIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/tenants/$id': {
+      id: '/admin/tenants/$id'
+      path: '/$id'
+      fullPath: '/admin/tenants/$id'
+      preLoaderRoute: typeof AdminTenantsIdRouteImport
+      parentRoute: typeof AdminTenantsRoute
+    }
     '/myt/tour/$id/report': {
       id: '/myt/tour/$id/report'
       path: '/report'
@@ -1714,8 +1771,21 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AdminTenantsRouteChildren {
+  AdminTenantsIdRoute: typeof AdminTenantsIdRoute
+}
+
+const AdminTenantsRouteChildren: AdminTenantsRouteChildren = {
+  AdminTenantsIdRoute: AdminTenantsIdRoute,
+}
+
+const AdminTenantsRouteWithChildren = AdminTenantsRoute._addFileChildren(
+  AdminTenantsRouteChildren,
+)
+
 interface AdminRouteChildren {
   AdminAuditRoute: typeof AdminAuditRoute
+  AdminBookingsRoute: typeof AdminBookingsRoute
   AdminCalendarRoute: typeof AdminCalendarRoute
   AdminCommandRoute: typeof AdminCommandRoute
   AdminExportsRoute: typeof AdminExportsRoute
@@ -1727,6 +1797,7 @@ interface AdminRouteChildren {
   AdminPropertyRoute: typeof AdminPropertyRoute
   AdminSettingsRoute: typeof AdminSettingsRoute
   AdminSupremeRoute: typeof AdminSupremeRoute
+  AdminTenantsRoute: typeof AdminTenantsRouteWithChildren
   AdminVisitsRoute: typeof AdminVisitsRoute
   AdminWarroomRoute: typeof AdminWarroomRoute
   AdminIndexRoute: typeof AdminIndexRoute
@@ -1734,6 +1805,7 @@ interface AdminRouteChildren {
 
 const AdminRouteChildren: AdminRouteChildren = {
   AdminAuditRoute: AdminAuditRoute,
+  AdminBookingsRoute: AdminBookingsRoute,
   AdminCalendarRoute: AdminCalendarRoute,
   AdminCommandRoute: AdminCommandRoute,
   AdminExportsRoute: AdminExportsRoute,
@@ -1745,6 +1817,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminPropertyRoute: AdminPropertyRoute,
   AdminSettingsRoute: AdminSettingsRoute,
   AdminSupremeRoute: AdminSupremeRoute,
+  AdminTenantsRoute: AdminTenantsRouteWithChildren,
   AdminVisitsRoute: AdminVisitsRoute,
   AdminWarroomRoute: AdminWarroomRoute,
   AdminIndexRoute: AdminIndexRoute,
