@@ -73,13 +73,16 @@ export function AppShell({ children }: { children: ReactNode }) {
   const hydrateAuth = useAuthUser((s) => s.hydrate);
   // Map real DB role → personas the user is allowed to "view as".
   // Single-option roles see a static label instead of a dropdown.
+  // Owner portal is standalone at /property-owner/*, not exposed in the main CRM shell.
+  // The "owner" entry here is a safety fallback only — AuthGate redirects owners to
+  // /property-owner/dashboard before they can reach AppShell.
   const allowedPersonas: Record<string, Array<typeof role>> = {
     super_admin: ["super-admin"],
     manager:     ["hr"],
     admin:       ["hr"],
     member:      ["flow-ops"],
     tcm:         ["tcm"],
-    owner:       ["owner"],
+    owner:       ["flow-ops"], // fallback; owners are redirected by AuthGate before reaching here
   };
   const dbRole = authUser?.role;
   const allowed = (dbRole && allowedPersonas[dbRole]) || ["super-admin"];
@@ -186,6 +189,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       { to: "/property-hub", label: "Property Hub", icon: Building2 },
       { to: "/visit-war", label: "Visit War Room", icon: Radio },
       { to: "/calendar", label: "Calendar", icon: Calendar },
+      { to: "/owner-bookings", label: "Owner Bookings", icon: Calendar },
       { to: "/myt/marketplace", label: "Marketplace", icon: Store },
       { to: "/supply-hub", label: "Supply Hub", icon: Layers },
       { to: "/sequences", label: "Outreach", icon: Zap },
@@ -201,17 +205,6 @@ export function AppShell({ children }: { children: ReactNode }) {
       { to: "/follow-ups", label: "Follow-ups", icon: ClipboardList, badge: overdueCount },
       { to: "/myt/schedule", label: "Schedule Tour", icon: CalendarPlus },
     ]),
-    owner: [
-      { to: "/owner", label: "Owner Home", icon: ShieldCheck },
-      { to: "/owner/blocks", label: "Approvals", icon: Inbox },
-      { to: "/owner/rooms", label: "Rooms", icon: Building2 },
-      { to: "/owner/inventory", label: "Inventory", icon: Layers },
-      { to: "/owner/visits", label: "Tours", icon: Camera },
-      { to: "/impact", label: "Impact Queue", icon: HeartPulse },
-      { to: "/property-hub", label: "Property Hub", icon: Building2 },
-      { to: "/owner/insights", label: "Insights", icon: IndianRupee },
-      { to: "/my-tasks", label: "My Tasks", icon: ListTodo },
-    ],
     "super-admin": [
       { to: "/admin", label: "Cockpit", icon: Gauge },
       { to: "/admin/supreme", label: "Supreme \u00B7 God Mode", icon: Zap },
@@ -220,6 +213,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       { to: "/admin/leads", label: "Master Leads", icon: Target },
       { to: "/admin/visits", label: "Master Visits", icon: CalendarPlus },
       { to: "/admin/bookings", label: "Bookings", icon: IndianRupee },
+      { to: "/admin/owner-bookings", label: "Owner Console", icon: Boxes },
       { to: "/admin/tenants", label: "Tenants", icon: Users },
       { to: "/admin/calendar", label: "Master Calendar", icon: Calendar },
       { to: "/admin/owners", label: "Master Owners", icon: ShieldCheck },
@@ -231,6 +225,9 @@ export function AppShell({ children }: { children: ReactNode }) {
       { to: "/admin/exports", label: "Export Center", icon: ListTodo },
       { to: "/admin/settings", label: "Admin Settings", icon: Settings },
     ],
+    // Owner role is redirected to /property-owner/* by AuthGate before
+    // ever reaching AppShell — this entry is a safety fallback only.
+    owner: [],
   };
 
   const [superAdminMode, setSuperAdminMode] = useState<"admin" | "manager">("manager");
@@ -257,7 +254,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <LiveTcMsBridge />
       <LiveToursAppBridge />
       {shouldMountMytBridges ? <LiveToursBridge /> : null}
-      <div className="min-h-screen flex w-full bg-background text-foreground">
+      <div className="min-h-screen flex w-full bg-background text-foreground overflow-hidden">
       {sidebarOpen && (
         <button
           type="button"
@@ -302,10 +299,10 @@ export function AppShell({ children }: { children: ReactNode }) {
             "flow-ops": { label: "Flow Ops", dot: "bg-info" },
             tcm: { label: "TCM Desk", dot: "bg-accent" },
             hr: { label: "HR / Leadership", dot: "bg-success" },
-            owner: { label: "Owner Portal", dot: "bg-warning" },
             "super-admin": { label: "Super Admin", dot: "bg-destructive" },
+            owner: { label: "Property Owner", dot: "bg-primary" },
           } as const;
-          const meta = roleMeta[role];
+          const meta = roleMeta[role] ?? { label: role, dot: "bg-muted-foreground" };
           const userName = role === "tcm"
             ? (authUser?.fullName || tcms.find((t) => t.id === currentTcmId)?.name)
             : null;
@@ -460,7 +457,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
 
         <PipMount>
-          <main className="flex-1 w-full max-w-350 mx-auto p-4 pb-24 md:p-6 md:pb-6">{children}</main>
+          <main className="flex-1 flex flex-col min-h-0 w-full max-w-350 mx-auto p-4 pb-24 md:p-6 md:pb-6">{children}</main>
         </PipMount>
       </div>
 
