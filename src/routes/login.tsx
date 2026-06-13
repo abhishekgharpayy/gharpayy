@@ -39,7 +39,11 @@ function LoginPage() {
     try {
       const r = await api.login(identifier.trim(), password);
       setUser(r.user);
-      nav({ to: search.redirect || "/" });
+      if (r.user.role === "owner") {
+        nav({ to: search.redirect?.startsWith("/property-owner") ? search.redirect : "/property-owner/dashboard" });
+      } else {
+        nav({ to: search.redirect || "/" });
+      }
     } catch (e) {
       setErr((e as Error).message);
     } finally {
