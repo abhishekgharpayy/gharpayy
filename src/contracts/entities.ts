@@ -230,11 +230,60 @@ export type Tour = z.infer<typeof Tour>;
 export const BookingStatus = z.enum(["pending", "approved", "paid", "active", "expired", "cancelled"]);
 export type BookingStatus = z.infer<typeof BookingStatus>;
 
+/**
+ * Owner-facing lifecycle stages layered on top of the core booking status.
+ * Tracks the coordination flow between flow-ops (sales) and the property owner.
+ */
+export const OwnerBookingLifecycle = z.enum([
+  "created",
+  "shared_with_owner",
+  "viewed_by_owner",
+  "acknowledged",
+  "room_ready",
+  "move_in_approved",
+  "completed",
+  "rejected",
+  "cancelled",
+]);
+export type OwnerBookingLifecycle = z.infer<typeof OwnerBookingLifecycle>;
+
+export const OwnerDecision = z.enum(["approve", "approve_with_conditions", "reject"]);
+export type OwnerDecision = z.infer<typeof OwnerDecision>;
+
+export const ReadinessStatus = z.enum(["pending", "ready"]);
+export const ReadinessChecklist = z.object({
+  cleaning: ReadinessStatus.default("pending"),
+  furniture: ReadinessStatus.default("pending"),
+  internet: ReadinessStatus.default("pending"),
+  electricity: ReadinessStatus.default("pending"),
+  water: ReadinessStatus.default("pending"),
+  inspection: ReadinessStatus.default("pending"),
+});
+export type ReadinessChecklist = z.infer<typeof ReadinessChecklist>;
+
+export const PaymentLineStatus = z.enum(["received", "pending", "waived"]);
+export const PaymentLine = z.object({
+  id: z.string(),
+  label: z.string(),
+  amount: z.number().int().min(0),
+  status: PaymentLineStatus.default("pending"),
+  receivedAt: z.string().nullable().default(null),
+});
+export type PaymentLine = z.infer<typeof PaymentLine>;
+
+export const BookingHistoryEntry = z.object({
+  ts: z.string(),
+  actor: z.string(),
+  text: z.string(),
+});
+
 export const BookingEntity = z.object({
   _id: z.string(),
   leadId: z.string(),
   tourId: z.string(),
   propertyId: z.string(),
+  /** MongoDB _id of the owner user. Populated when the property has an ownerId. */
+  ownerId: z.string().nullable().default(null),
   tcmId: z.string(),
   amount: z.number().int().min(0),
   tenantName: z.string().min(1).max(120),
@@ -242,6 +291,30 @@ export const BookingEntity = z.object({
   deposit: z.number().int().min(0),
   moveInDate: z.string(),
   status: BookingStatus.default("pending"),
+  // ---- Owner portal lifecycle ----
+  ownerLifecycle: OwnerBookingLifecycle.default("created"),
+  ownerDecision: OwnerDecision.nullable().default(null),
+  ownerDecisionAt: z.string().nullable().default(null),
+  ownerConditionNote: z.string().nullable().default(null),
+  ownerRejectionReason: z.string().nullable().default(null),
+  sharedWithOwnerAt: z.string().nullable().default(null),
+  viewedByOwnerAt: z.string().nullable().default(null),
+  acknowledgedAt: z.string().nullable().default(null),
+  readyAt: z.string().nullable().default(null),
+  moveInApprovedAt: z.string().nullable().default(null),
+  completedAt: z.string().nullable().default(null),
+  // ---- Room readiness checklist ----
+  readiness: ReadinessChecklist.default({}),
+  // ---- Payment lines (richer than single `amount`) ----
+  paymentLines: z.array(PaymentLine).default([]),
+  // ---- Inventory details (room/bed specifics) ----
+  roomNumber: z.string().max(60).default(""),
+  bedNumber: z.string().max(20).default(""),
+  sharing: z.string().max(30).default(""),
+  floor: z.string().max(20).default(""),
+  // ---- History / audit trail ----
+  history: z.array(BookingHistoryEntry).default([]),
+  // ---- Legacy fields ----
   offerExpiresAt: z.string().nullable().default(null),
   paidRef: z.string().nullable().default(null),
   notes: z.string().max(2000).default(""),
