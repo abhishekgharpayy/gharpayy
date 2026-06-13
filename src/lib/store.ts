@@ -29,7 +29,7 @@ import { autoAssign as autoAssignFn } from "./routing";
 import { api } from "@/lib/api/client";
 import { isTodayIST } from "@/lib/crm10x/dates";
 import type { LeadFocusAction } from "@/lib/crm10x/impact-hard-actions";
-import { pushObjectionToOwner, pushTourViewToOwner } from "@/owner/team-bridge";
+
 import { emit as emitConnector } from "./connectors";
 import { personName } from "./people";
 import { normalizeLeadRecord } from "./lead-helpers";
@@ -608,8 +608,6 @@ export const useApp = create<AppState>()(
       tourId,
       text: "Tour marked completed",
     });
-    const prop = get().properties.find((p) => p.id === t.propertyId);
-    if (prop) pushTourViewToOwner(prop.name);
     const lead = get().leads.find((l) => l.id === t.leadId);
     emitConnector({
       kind: "tour.completed",
@@ -800,19 +798,8 @@ export const useApp = create<AppState>()(
         set((s) => ({ followUps: [f, ...s.followUps] }));
       }
     }
-    // Bridge → Owner: every NEW objection logged here pushes a demand-signal
-    // record into the Owner store so the owner's bars reflect real team activity.
     if (next.objection && next.objection !== prevObjection) {
-      const prop = get().properties.find((p) => p.id === t.propertyId);
-      const tcm = get().tcms.find((m) => m.id === t.tcmId);
-      if (prop) {
-        pushObjectionToOwner({
-          propertyKey: prop.name,
-          reasonLabel: next.objection,
-          notes: next.objectionNote || undefined,
-          loggedBy: tcm?.name ? `${tcm.name} (TCM)` : "TCM",
-        });
-      }
+      // Objection logged — could bridge to owner notification system
     }
   },
 
