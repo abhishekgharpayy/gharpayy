@@ -779,7 +779,7 @@ export function CheckInPanel({ lead }: { lead: Lead }) {
                     bookingId: booking.id,
                     leadId: lead.id,
                     propertyId: checkin.propertyId ?? "",
-                    propertyName: checkin.propertyName ?? "",
+                    // propertyName: checkin.propertyName ?? "",
                     tcmId: lead.assignedTcmId ?? "",
                     name: lead.name,
                     phone: lead.phone,
