@@ -2,7 +2,9 @@
 // Replaces ad-hoc dropdowns scattered across pages.
 
 import { useApp } from '@/lib/store';
-import { tourMessageLink, sendTourMessage } from '@/owner/messaging';
+function openWaMessage(text: string) {
+  window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+}
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { MessageCircle, Phone, CalendarPlus, BellRing, MoreVertical, ExternalLink, Sparkles } from 'lucide-react';
@@ -58,13 +60,8 @@ export function LeadActionsMenu({ lead, size = 'sm' }: Props) {
           disabled={!canSendTourMsg}
           onClick={() => {
             if (!tour || !property) return;
-            sendTourMessage('confirmation', {
-              tourId: tour.id, leadName: lead.name, phone: lead.phone,
-              propertyName: property.name, area: property.area,
-              tourDate: tour.scheduledAt.slice(0, 10),
-              tourTime: formatTime12h(tour.scheduledAt.slice(11, 16)),
-              tcmName: tcm?.name,
-            });
+            const txt = `Hi ${lead.name}! Your visit to *${property.name}* (${property.area}) is confirmed for ${formatTime12h(tour.scheduledAt.slice(11, 16))} on ${tour.scheduledAt.slice(0, 10)}. See you there! 🏠`;
+            openWaMessage(txt);
             toast.success('WhatsApp confirmation opened');
           }}
         >
@@ -74,13 +71,8 @@ export function LeadActionsMenu({ lead, size = 'sm' }: Props) {
           disabled={!canSendTourMsg}
           onClick={() => {
             if (!tour || !property) return;
-            sendTourMessage('reminder_2h', {
-              tourId: tour.id, leadName: lead.name, phone: lead.phone,
-              propertyName: property.name, area: property.area,
-              tourDate: tour.scheduledAt.slice(0, 10),
-              tourTime: formatTime12h(tour.scheduledAt.slice(11, 16)),
-              tcmName: tcm?.name,
-            });
+            const reminder = `⏰ Reminder: Your visit to *${property.name}* (${property.area}) is at ${formatTime12h(tour.scheduledAt.slice(11, 16))}. We're looking forward to showing you around!`;
+            openWaMessage(reminder);
             toast.success('2h reminder opened');
           }}
         >
