@@ -44,29 +44,40 @@ type Props = {
   lead: Lead;
   /** When true, form is shown inline (Impact Queue dialog) — no nested New quote dialog */
   embedded?: boolean;
-  onSent?: () => void;
+  onSent?: (quote?: Quotation) => void;
   onPaid?: () => void;
+  /** Pre-fill from owner booking form — skips property re-selection */
+  initialPg?: PG;
+  initialRoomType?: string;
+  initialActualRent?: number;
+  initialDeposit?: number;
+  initialRoomNumber?: string;
+  initialLockIn?: string;
+  initialNotice?: string;
+  initialPrebook?: number;
 };
 
-export function QuotationBuilder({ lead, embedded, onSent, onPaid }: Props) {
+export function QuotationBuilder({ lead, embedded, onSent, onPaid,
+  initialPg, initialRoomType, initialActualRent, initialDeposit, initialRoomNumber, initialLockIn, initialNotice, initialPrebook,
+}: Props) {
   const setLeadStage = useApp((s) => s.setLeadStage);
   const { mutate: add } = useAddQuotation();
   const { data: leadQuotes = [], isLoading } = useQuotationsQuery(lead.id);
   const { mutate: setStatus } = useSetQuotationStatus();
 
   const [open, setOpen] = useState(false);
-  const [selectedPg, setSelectedPg] = useState<PG | null>(null);
+  const [selectedPg, setSelectedPg] = useState<PG | null>(initialPg ?? null);
 
-  const [roomType, setRoomType] = useState("Shared");
-  const [roomNumber, setRoomNumber] = useState("");
-  const [actualRent, setActualRent] = useState<number>(15000);
-  const [discounted, setDiscounted] = useState<number>(12000);
-  const [deposit, setDeposit] = useState<number>(5000);
-  const [prebook, setPrebook] = useState<number>(5000);
+  const [roomType, setRoomType] = useState(initialRoomType ?? "Shared");
+  const [roomNumber, setRoomNumber] = useState(initialRoomNumber ?? "");
+  const [actualRent, setActualRent] = useState<number>(initialActualRent ?? 15000);
+  const [discounted, setDiscounted] = useState<number>(initialActualRent ?? 12000);
+  const [deposit, setDeposit] = useState<number>(initialDeposit ?? 5000);
+  const [prebook, setPrebook] = useState<number>(initialPrebook ?? 5000);
   const [maintenance, setMaintenance] = useState<number>(3000);
   const [maintenanceType, setMaintenanceType] = useState<"One-Time" | "Monthly">("One-Time");
-  const [lockIn, setLockIn] = useState("3 Months");
-  const [notice, setNotice] = useState("30 Days");
+  const [lockIn, setLockIn] = useState(initialLockIn ?? "3 Months");
+  const [notice, setNotice] = useState(initialNotice ?? "30 Days");
   const [validityMin, setValidityMin] = useState<number>(20);
 
   const applyPg = (pg: PG) => {
@@ -139,7 +150,7 @@ export function QuotationBuilder({ lead, embedded, onSent, onPaid }: Props) {
         void setLeadStage(lead.id, "quote-sent");
         void navigator.clipboard.writeText(message);
         if (quote) toast.success(`Quotation copied · ${formatINR(quote.discountedPrice)}`);
-        if (embedded) onSent?.();
+        if (embedded) onSent?.(quote);
         else setOpen(false);
       },
       onError: () => {
