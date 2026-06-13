@@ -24,17 +24,17 @@ function HelpPage() {
         <section className="space-y-3">
           <h2 className="font-display text-lg font-semibold flex items-center gap-2"><Sun className="h-4 w-4 text-accent" /> Daily operating rhythm</h2>
           <ol className="space-y-3">
-            <Step time="9:30 AM" title="Owners open the update window" link={{ to: '/owner', label: 'Owner Portal' }}
-              body="Each owner reviews every room individually. No bulk shortcuts. Status: Occupied / Vacating (date+rent) / Vacant / Blocked." />
-            <Step time="10:30 AM" title="Warning bell" body="Compliance score starts dropping for owners with unverified rooms." />
-            <Step time="11:00 AM" title="Auto-lock" link={{ to: '/owner/rooms', label: 'View locked rooms' }}
-              body="Unverified rooms flip to unsellable and vanish from team's sellable supply." accent="danger" />
+            <Step time="9:30 AM" title="Owners open the update window" link={{ to: '/property-owner/dashboard', label: 'Owner Portal' }}
+              body="Each owner reviews properties, bookings, and approvals from the Owner Portal Dashboard." />
+            <Step time="10:30 AM" title="Bookings review" body="Owners review pending booking approvals and manage their properties." />
+            <Step time="11:00 AM" title="Owner approvals" link={{ to: '/property-owner/approvals', label: 'Pending Approvals' }}
+              body="Owners approve/reject pending booking requests from the approvals panel." accent="danger" />
             <Step time="11 AM – 1 PM" title="Flow Ops activates new rooms" link={{ to: '/myt/flow-ops', label: 'Flow Ops' }}
               body="Every new room: 5 pitches or 2 qualified matches within 2 hours." />
             <Step time="1 PM – 7 PM" title="TCM runs visits" link={{ to: '/myt/tcm', label: 'TCM Desk' }}
               body="Each visit tied to a room_id. Post-visit report filed within 15 min - captures objection, budget gap, timeline." />
-            <Step time="Anytime" title="Owners approve blocks within 15 min" link={{ to: '/owner/blocks', label: 'Block requests' }}
-              body="High-intent leads need an owner OK in 15 min, else auto-released." />
+            <Step time="Anytime" title="Owners manage bookings" link={{ to: '/property-owner/bookings', label: 'Owner Bookings' }}
+              body="Owners can view all bookings, track readiness, and manage the booking lifecycle from the owner portal." />
             <Step time="7 PM" title="HR reviews compliance + leaderboard" link={{ to: '/myt', label: 'HR Tower' }}
               body="Daily snapshot: pitches, visits, outcomes. Owner responsiveness badge. Lead routing throttled below 70 score." />
           </ol>
