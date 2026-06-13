@@ -23,30 +23,37 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
   const hasToken = typeof window !== "undefined" && !!tokenStore.get();
   const isLoginRoute = pathname === "/login";
+  const isOwnerRoute = pathname.startsWith("/property-owner");
 
+  // Redirect unauthenticated users to login
   useEffect(() => {
     if (user || isLoginRoute || loading) return;
     const redirect = pathname || "/";
     void navigate({ to: "/login", search: { redirect }, replace: true }).catch(() => undefined);
   }, [user, isLoginRoute, loading, pathname, navigate]);
 
-  // Resolving auth: token present but user not yet loaded
-  if (hasToken && !user && loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
+  // Redirect authenticated owners away from the main CRM shell to their portal
+  useEffect(() => {
+    if (!user || loading || isOwnerRoute || isLoginRoute) return;
+    if (user.role === "owner") {
+      void navigate({ to: "/property-owner/dashboard", replace: true }).catch(() => undefined);
+    }
+  }, [user, loading, isOwnerRoute, isLoginRoute, navigate]);
 
-  // Not signed in → loading shell while useEffect redirects to /login
-  if (!user && !isLoginRoute) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
+  const spinner = (
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+    </div>
+  );
+
+  // Resolving auth: token present but user not yet loaded
+  if (hasToken && !user && loading) return spinner;
+
+  // Not signed in and not already on login → spinner while useEffect redirects
+  if (!user && !isLoginRoute) return spinner;
+
+  // Owner is authenticated but not yet on the owner portal → spinner while redirecting
+  if (user?.role === "owner" && !isOwnerRoute && !isLoginRoute) return spinner;
 
   return <>{children}</>;
 }
