@@ -30,7 +30,7 @@ const OBJECTIONS: { key: Objection; label: string }[] = [
 function SupplyHubDetail() {
   const { role } = useApp();
   const navigate = useNavigate();
-  useEffect(() => { if (role === "owner") navigate({ to: "/owner/inventory" }); }, [role, navigate]);
+  useEffect(() => { if (role === "owner") navigate({ to: "/property-owner/inventory" }); }, [role, navigate]);
   const { id } = useParams({ from: "/supply-hub/$id" });
   const pg = useMemo(() => PGS.find((p) => p.id === id), [id]);
 
