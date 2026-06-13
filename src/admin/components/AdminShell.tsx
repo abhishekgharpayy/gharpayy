@@ -10,6 +10,7 @@ const TABS = [
   { to: "/admin/leads", label: "Master Leads" },
   { to: "/admin/visits", label: "Master Visits" },
   { to: "/admin/bookings", label: "Bookings" },
+  { to: "/admin/owner-bookings", label: "Owner Bookings" },
   { to: "/admin/tenants", label: "Tenants" },
   { to: "/admin/calendar", label: "Calendar" },
   { to: "/admin/owners", label: "Owners" },
