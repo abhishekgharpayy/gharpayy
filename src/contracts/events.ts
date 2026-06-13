@@ -43,6 +43,8 @@ export const EventType = z.enum([
   // Future modules
   "evt.room.blocked",
   "evt.room.released",
+  // Owner sharing
+  "evt.booking.shared_with_owner",
 ]);
 export type EventType = z.infer<typeof EventType>;
 
@@ -212,6 +214,10 @@ export const BookingMarkedPaidEvt = Envelope.extend({
   type: z.literal("evt.booking.marked_paid"),
   payload: z.object({ bookingId: z.string(), paidRef: z.string() }),
 });
+export const BookingSharedWithOwnerEvt = Envelope.extend({
+  type: z.literal("evt.booking.shared_with_owner"),
+  payload: z.object({ bookingId: z.string(), ownerId: z.string() }),
+});
 
 // ---------- Tenant events ----------
 export const TenantCreatedEvt = Envelope.extend({
@@ -257,6 +263,7 @@ export const DomainEvent = z.discriminatedUnion("type", [
   BookingCancelledEvt,
   BookingApprovedEvt,
   BookingMarkedPaidEvt,
+  BookingSharedWithOwnerEvt,
   TenantCreatedEvt,
   TenantUpdatedEvt,
   TenantStatusChangedEvt,
