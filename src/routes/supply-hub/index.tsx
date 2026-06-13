@@ -25,7 +25,7 @@ function SupplyHubHome() {
   const { role } = useApp();
   const navigate = useNavigate();
   useEffect(() => {
-    if (role === "owner") navigate({ to: "/owner/inventory" });
+    if (role === "owner") navigate({ to: "/property-owner/inventory" });
   }, [role, navigate]);
 
   const [q, setQ] = useState("");
