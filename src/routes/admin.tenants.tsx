@@ -19,7 +19,7 @@ const STATUS_STYLES: Record<string, string> = {
   exited: "border-muted-foreground/30 text-muted-foreground",
 };
 
-function healthScore(tenant: { rent: number; createdAt: string }, payments: Array<{ tenantId: string; amount: number; createdAt: string }>): number {
+function healthScore(tenant: { id: string; rent: number; createdAt: string }, payments: Array<{ tenantId: string; amount: number; createdAt: string }>): number {
   const tenantPayments = payments.filter((p) => p.tenantId === tenant.id);
   const tenureMonths = Math.max(1, Math.floor((Date.now() - new Date(tenant.createdAt).getTime()) / (30 * 86400_000)));
   const onTimeCount = tenantPayments.length;
