@@ -19,7 +19,9 @@ import { Route as SequencesRouteImport } from './routes/sequences'
 import { Route as RevivalRouteImport } from './routes/revival'
 import { Route as RevenueRouteImport } from './routes/revenue'
 import { Route as QueueRouteImport } from './routes/queue'
+import { Route as PropertyOwnerRouteImport } from './routes/property-owner'
 import { Route as PropertyHubRouteImport } from './routes/property-hub'
+import { Route as OwnerBookingsRouteImport } from './routes/owner-bookings'
 import { Route as MyTasksRouteImport } from './routes/my-tasks'
 import { Route as ManagerRouteImport } from './routes/manager'
 import { Route as LoginRouteImport } from './routes/login'
@@ -42,17 +44,20 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as ActivityRouteImport } from './routes/activity'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SupplyHubIndexRouteImport } from './routes/supply-hub/index'
-import { Route as OwnerIndexRouteImport } from './routes/owner/index'
 import { Route as MytIndexRouteImport } from './routes/myt/index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as SupplyHubMatchRouteImport } from './routes/supply-hub/match'
 import { Route as SupplyHubAreasRouteImport } from './routes/supply-hub/areas'
 import { Route as SupplyHubIdRouteImport } from './routes/supply-hub/$id'
-import { Route as OwnerVisitsRouteImport } from './routes/owner/visits'
-import { Route as OwnerRoomsRouteImport } from './routes/owner/rooms'
-import { Route as OwnerInventoryRouteImport } from './routes/owner/inventory'
-import { Route as OwnerInsightsRouteImport } from './routes/owner/insights'
-import { Route as OwnerBlocksRouteImport } from './routes/owner/blocks'
+import { Route as PropertyOwnerVisitsRouteImport } from './routes/property-owner.visits'
+import { Route as PropertyOwnerRoomsRouteImport } from './routes/property-owner.rooms'
+import { Route as PropertyOwnerPropertiesRouteImport } from './routes/property-owner.properties'
+import { Route as PropertyOwnerProfileRouteImport } from './routes/property-owner.profile'
+import { Route as PropertyOwnerNotificationsRouteImport } from './routes/property-owner.notifications'
+import { Route as PropertyOwnerInventoryRouteImport } from './routes/property-owner.inventory'
+import { Route as PropertyOwnerDashboardRouteImport } from './routes/property-owner.dashboard'
+import { Route as PropertyOwnerBookingsRouteImport } from './routes/property-owner.bookings'
+import { Route as PropertyOwnerApprovalsRouteImport } from './routes/property-owner.approvals'
 import { Route as MytZonesRouteImport } from './routes/myt/zones'
 import { Route as MytWarRoomRouteImport } from './routes/myt/war-room'
 import { Route as MytToursRouteImport } from './routes/myt/tours'
@@ -82,6 +87,7 @@ import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
 import { Route as AdminPropertyRouteImport } from './routes/admin.property'
 import { Route as AdminPeopleRouteImport } from './routes/admin.people'
 import { Route as AdminOwnersRouteImport } from './routes/admin.owners'
+import { Route as AdminOwnerBookingsRouteImport } from './routes/admin.owner-bookings'
 import { Route as AdminLeadsRouteImport } from './routes/admin.leads'
 import { Route as AdminIntelligenceRouteImport } from './routes/admin.intelligence'
 import { Route as AdminImpactRouteImport } from './routes/admin.impact'
@@ -90,13 +96,15 @@ import { Route as AdminCommandRouteImport } from './routes/admin.command'
 import { Route as AdminCalendarRouteImport } from './routes/admin.calendar'
 import { Route as AdminBookingsRouteImport } from './routes/admin.bookings'
 import { Route as AdminAuditRouteImport } from './routes/admin.audit'
-import { Route as OwnerMediaRoomIdRouteImport } from './routes/owner/media.$roomId'
+import { Route as PropertyOwnerPropertiesNewRouteImport } from './routes/property-owner.properties.new'
 import { Route as MytTourIdRouteImport } from './routes/myt/tour.$id'
 import { Route as MytTcmPerformanceRouteImport } from './routes/myt/tcm.performance'
 import { Route as MytTcmActionsRouteImport } from './routes/myt/tcm.actions'
 import { Route as MytFeedbackIdRouteImport } from './routes/myt/feedback.$id'
 import { Route as AdminTenantsIdRouteImport } from './routes/admin.tenants.$id'
+import { Route as PropertyOwnerPropertiesIdRoomsRouteImport } from './routes/property-owner.properties.$id.rooms'
 import { Route as MytTourIdReportRouteImport } from './routes/myt/tour.$id.report'
+import { Route as PropertyOwnerPropertiesIdRoomsRoomIdRouteImport } from './routes/property-owner.properties.$id.rooms.$roomId'
 
 const ZonesRoute = ZonesRouteImport.update({
   id: '/zones',
@@ -148,9 +156,19 @@ const QueueRoute = QueueRouteImport.update({
   path: '/queue',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PropertyOwnerRoute = PropertyOwnerRouteImport.update({
+  id: '/property-owner',
+  path: '/property-owner',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PropertyHubRoute = PropertyHubRouteImport.update({
   id: '/property-hub',
   path: '/property-hub',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OwnerBookingsRoute = OwnerBookingsRouteImport.update({
+  id: '/owner-bookings',
+  path: '/owner-bookings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MyTasksRoute = MyTasksRouteImport.update({
@@ -263,11 +281,6 @@ const SupplyHubIndexRoute = SupplyHubIndexRouteImport.update({
   path: '/supply-hub/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const OwnerIndexRoute = OwnerIndexRouteImport.update({
-  id: '/owner/',
-  path: '/owner/',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const MytIndexRoute = MytIndexRouteImport.update({
   id: '/myt/',
   path: '/myt/',
@@ -293,30 +306,51 @@ const SupplyHubIdRoute = SupplyHubIdRouteImport.update({
   path: '/supply-hub/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
-const OwnerVisitsRoute = OwnerVisitsRouteImport.update({
-  id: '/owner/visits',
-  path: '/owner/visits',
-  getParentRoute: () => rootRouteImport,
+const PropertyOwnerVisitsRoute = PropertyOwnerVisitsRouteImport.update({
+  id: '/visits',
+  path: '/visits',
+  getParentRoute: () => PropertyOwnerRoute,
 } as any)
-const OwnerRoomsRoute = OwnerRoomsRouteImport.update({
-  id: '/owner/rooms',
-  path: '/owner/rooms',
-  getParentRoute: () => rootRouteImport,
+const PropertyOwnerRoomsRoute = PropertyOwnerRoomsRouteImport.update({
+  id: '/rooms',
+  path: '/rooms',
+  getParentRoute: () => PropertyOwnerRoute,
 } as any)
-const OwnerInventoryRoute = OwnerInventoryRouteImport.update({
-  id: '/owner/inventory',
-  path: '/owner/inventory',
-  getParentRoute: () => rootRouteImport,
+const PropertyOwnerPropertiesRoute = PropertyOwnerPropertiesRouteImport.update({
+  id: '/properties',
+  path: '/properties',
+  getParentRoute: () => PropertyOwnerRoute,
 } as any)
-const OwnerInsightsRoute = OwnerInsightsRouteImport.update({
-  id: '/owner/insights',
-  path: '/owner/insights',
-  getParentRoute: () => rootRouteImport,
+const PropertyOwnerProfileRoute = PropertyOwnerProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => PropertyOwnerRoute,
 } as any)
-const OwnerBlocksRoute = OwnerBlocksRouteImport.update({
-  id: '/owner/blocks',
-  path: '/owner/blocks',
-  getParentRoute: () => rootRouteImport,
+const PropertyOwnerNotificationsRoute =
+  PropertyOwnerNotificationsRouteImport.update({
+    id: '/notifications',
+    path: '/notifications',
+    getParentRoute: () => PropertyOwnerRoute,
+  } as any)
+const PropertyOwnerInventoryRoute = PropertyOwnerInventoryRouteImport.update({
+  id: '/inventory',
+  path: '/inventory',
+  getParentRoute: () => PropertyOwnerRoute,
+} as any)
+const PropertyOwnerDashboardRoute = PropertyOwnerDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => PropertyOwnerRoute,
+} as any)
+const PropertyOwnerBookingsRoute = PropertyOwnerBookingsRouteImport.update({
+  id: '/bookings',
+  path: '/bookings',
+  getParentRoute: () => PropertyOwnerRoute,
+} as any)
+const PropertyOwnerApprovalsRoute = PropertyOwnerApprovalsRouteImport.update({
+  id: '/approvals',
+  path: '/approvals',
+  getParentRoute: () => PropertyOwnerRoute,
 } as any)
 const MytZonesRoute = MytZonesRouteImport.update({
   id: '/myt/zones',
@@ -463,6 +497,11 @@ const AdminOwnersRoute = AdminOwnersRouteImport.update({
   path: '/owners',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminOwnerBookingsRoute = AdminOwnerBookingsRouteImport.update({
+  id: '/owner-bookings',
+  path: '/owner-bookings',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminLeadsRoute = AdminLeadsRouteImport.update({
   id: '/leads',
   path: '/leads',
@@ -503,11 +542,12 @@ const AdminAuditRoute = AdminAuditRouteImport.update({
   path: '/audit',
   getParentRoute: () => AdminRoute,
 } as any)
-const OwnerMediaRoomIdRoute = OwnerMediaRoomIdRouteImport.update({
-  id: '/owner/media/$roomId',
-  path: '/owner/media/$roomId',
-  getParentRoute: () => rootRouteImport,
-} as any)
+const PropertyOwnerPropertiesNewRoute =
+  PropertyOwnerPropertiesNewRouteImport.update({
+    id: '/new',
+    path: '/new',
+    getParentRoute: () => PropertyOwnerPropertiesRoute,
+  } as any)
 const MytTourIdRoute = MytTourIdRouteImport.update({
   id: '/myt/tour/$id',
   path: '/myt/tour/$id',
@@ -533,11 +573,23 @@ const AdminTenantsIdRoute = AdminTenantsIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => AdminTenantsRoute,
 } as any)
+const PropertyOwnerPropertiesIdRoomsRoute =
+  PropertyOwnerPropertiesIdRoomsRouteImport.update({
+    id: '/$id/rooms',
+    path: '/$id/rooms',
+    getParentRoute: () => PropertyOwnerPropertiesRoute,
+  } as any)
 const MytTourIdReportRoute = MytTourIdReportRouteImport.update({
   id: '/report',
   path: '/report',
   getParentRoute: () => MytTourIdRoute,
 } as any)
+const PropertyOwnerPropertiesIdRoomsRoomIdRoute =
+  PropertyOwnerPropertiesIdRoomsRoomIdRouteImport.update({
+    id: '/$roomId',
+    path: '/$roomId',
+    getParentRoute: () => PropertyOwnerPropertiesIdRoomsRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -561,7 +613,9 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/manager': typeof ManagerRoute
   '/my-tasks': typeof MyTasksRoute
+  '/owner-bookings': typeof OwnerBookingsRoute
   '/property-hub': typeof PropertyHubRoute
+  '/property-owner': typeof PropertyOwnerRouteWithChildren
   '/queue': typeof QueueRoute
   '/revenue': typeof RevenueRoute
   '/revival': typeof RevivalRoute
@@ -580,6 +634,7 @@ export interface FileRoutesByFullPath {
   '/admin/impact': typeof AdminImpactRoute
   '/admin/intelligence': typeof AdminIntelligenceRoute
   '/admin/leads': typeof AdminLeadsRoute
+  '/admin/owner-bookings': typeof AdminOwnerBookingsRoute
   '/admin/owners': typeof AdminOwnersRoute
   '/admin/people': typeof AdminPeopleRoute
   '/admin/property': typeof AdminPropertyRoute
@@ -609,25 +664,30 @@ export interface FileRoutesByFullPath {
   '/myt/tours': typeof MytToursRoute
   '/myt/war-room': typeof MytWarRoomRoute
   '/myt/zones': typeof MytZonesRoute
-  '/owner/blocks': typeof OwnerBlocksRoute
-  '/owner/insights': typeof OwnerInsightsRoute
-  '/owner/inventory': typeof OwnerInventoryRoute
-  '/owner/rooms': typeof OwnerRoomsRoute
-  '/owner/visits': typeof OwnerVisitsRoute
+  '/property-owner/approvals': typeof PropertyOwnerApprovalsRoute
+  '/property-owner/bookings': typeof PropertyOwnerBookingsRoute
+  '/property-owner/dashboard': typeof PropertyOwnerDashboardRoute
+  '/property-owner/inventory': typeof PropertyOwnerInventoryRoute
+  '/property-owner/notifications': typeof PropertyOwnerNotificationsRoute
+  '/property-owner/profile': typeof PropertyOwnerProfileRoute
+  '/property-owner/properties': typeof PropertyOwnerPropertiesRouteWithChildren
+  '/property-owner/rooms': typeof PropertyOwnerRoomsRoute
+  '/property-owner/visits': typeof PropertyOwnerVisitsRoute
   '/supply-hub/$id': typeof SupplyHubIdRoute
   '/supply-hub/areas': typeof SupplyHubAreasRoute
   '/supply-hub/match': typeof SupplyHubMatchRoute
   '/admin/': typeof AdminIndexRoute
   '/myt/': typeof MytIndexRoute
-  '/owner/': typeof OwnerIndexRoute
   '/supply-hub/': typeof SupplyHubIndexRoute
   '/admin/tenants/$id': typeof AdminTenantsIdRoute
   '/myt/feedback/$id': typeof MytFeedbackIdRoute
   '/myt/tcm/actions': typeof MytTcmActionsRoute
   '/myt/tcm/performance': typeof MytTcmPerformanceRoute
   '/myt/tour/$id': typeof MytTourIdRouteWithChildren
-  '/owner/media/$roomId': typeof OwnerMediaRoomIdRoute
+  '/property-owner/properties/new': typeof PropertyOwnerPropertiesNewRoute
   '/myt/tour/$id/report': typeof MytTourIdReportRoute
+  '/property-owner/properties/$id/rooms': typeof PropertyOwnerPropertiesIdRoomsRouteWithChildren
+  '/property-owner/properties/$id/rooms/$roomId': typeof PropertyOwnerPropertiesIdRoomsRoomIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -650,7 +710,9 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/manager': typeof ManagerRoute
   '/my-tasks': typeof MyTasksRoute
+  '/owner-bookings': typeof OwnerBookingsRoute
   '/property-hub': typeof PropertyHubRoute
+  '/property-owner': typeof PropertyOwnerRouteWithChildren
   '/queue': typeof QueueRoute
   '/revenue': typeof RevenueRoute
   '/revival': typeof RevivalRoute
@@ -669,6 +731,7 @@ export interface FileRoutesByTo {
   '/admin/impact': typeof AdminImpactRoute
   '/admin/intelligence': typeof AdminIntelligenceRoute
   '/admin/leads': typeof AdminLeadsRoute
+  '/admin/owner-bookings': typeof AdminOwnerBookingsRoute
   '/admin/owners': typeof AdminOwnersRoute
   '/admin/people': typeof AdminPeopleRoute
   '/admin/property': typeof AdminPropertyRoute
@@ -698,25 +761,30 @@ export interface FileRoutesByTo {
   '/myt/tours': typeof MytToursRoute
   '/myt/war-room': typeof MytWarRoomRoute
   '/myt/zones': typeof MytZonesRoute
-  '/owner/blocks': typeof OwnerBlocksRoute
-  '/owner/insights': typeof OwnerInsightsRoute
-  '/owner/inventory': typeof OwnerInventoryRoute
-  '/owner/rooms': typeof OwnerRoomsRoute
-  '/owner/visits': typeof OwnerVisitsRoute
+  '/property-owner/approvals': typeof PropertyOwnerApprovalsRoute
+  '/property-owner/bookings': typeof PropertyOwnerBookingsRoute
+  '/property-owner/dashboard': typeof PropertyOwnerDashboardRoute
+  '/property-owner/inventory': typeof PropertyOwnerInventoryRoute
+  '/property-owner/notifications': typeof PropertyOwnerNotificationsRoute
+  '/property-owner/profile': typeof PropertyOwnerProfileRoute
+  '/property-owner/properties': typeof PropertyOwnerPropertiesRouteWithChildren
+  '/property-owner/rooms': typeof PropertyOwnerRoomsRoute
+  '/property-owner/visits': typeof PropertyOwnerVisitsRoute
   '/supply-hub/$id': typeof SupplyHubIdRoute
   '/supply-hub/areas': typeof SupplyHubAreasRoute
   '/supply-hub/match': typeof SupplyHubMatchRoute
   '/admin': typeof AdminIndexRoute
   '/myt': typeof MytIndexRoute
-  '/owner': typeof OwnerIndexRoute
   '/supply-hub': typeof SupplyHubIndexRoute
   '/admin/tenants/$id': typeof AdminTenantsIdRoute
   '/myt/feedback/$id': typeof MytFeedbackIdRoute
   '/myt/tcm/actions': typeof MytTcmActionsRoute
   '/myt/tcm/performance': typeof MytTcmPerformanceRoute
   '/myt/tour/$id': typeof MytTourIdRouteWithChildren
-  '/owner/media/$roomId': typeof OwnerMediaRoomIdRoute
+  '/property-owner/properties/new': typeof PropertyOwnerPropertiesNewRoute
   '/myt/tour/$id/report': typeof MytTourIdReportRoute
+  '/property-owner/properties/$id/rooms': typeof PropertyOwnerPropertiesIdRoomsRouteWithChildren
+  '/property-owner/properties/$id/rooms/$roomId': typeof PropertyOwnerPropertiesIdRoomsRoomIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -741,7 +809,9 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/manager': typeof ManagerRoute
   '/my-tasks': typeof MyTasksRoute
+  '/owner-bookings': typeof OwnerBookingsRoute
   '/property-hub': typeof PropertyHubRoute
+  '/property-owner': typeof PropertyOwnerRouteWithChildren
   '/queue': typeof QueueRoute
   '/revenue': typeof RevenueRoute
   '/revival': typeof RevivalRoute
@@ -760,6 +830,7 @@ export interface FileRoutesById {
   '/admin/impact': typeof AdminImpactRoute
   '/admin/intelligence': typeof AdminIntelligenceRoute
   '/admin/leads': typeof AdminLeadsRoute
+  '/admin/owner-bookings': typeof AdminOwnerBookingsRoute
   '/admin/owners': typeof AdminOwnersRoute
   '/admin/people': typeof AdminPeopleRoute
   '/admin/property': typeof AdminPropertyRoute
@@ -789,25 +860,30 @@ export interface FileRoutesById {
   '/myt/tours': typeof MytToursRoute
   '/myt/war-room': typeof MytWarRoomRoute
   '/myt/zones': typeof MytZonesRoute
-  '/owner/blocks': typeof OwnerBlocksRoute
-  '/owner/insights': typeof OwnerInsightsRoute
-  '/owner/inventory': typeof OwnerInventoryRoute
-  '/owner/rooms': typeof OwnerRoomsRoute
-  '/owner/visits': typeof OwnerVisitsRoute
+  '/property-owner/approvals': typeof PropertyOwnerApprovalsRoute
+  '/property-owner/bookings': typeof PropertyOwnerBookingsRoute
+  '/property-owner/dashboard': typeof PropertyOwnerDashboardRoute
+  '/property-owner/inventory': typeof PropertyOwnerInventoryRoute
+  '/property-owner/notifications': typeof PropertyOwnerNotificationsRoute
+  '/property-owner/profile': typeof PropertyOwnerProfileRoute
+  '/property-owner/properties': typeof PropertyOwnerPropertiesRouteWithChildren
+  '/property-owner/rooms': typeof PropertyOwnerRoomsRoute
+  '/property-owner/visits': typeof PropertyOwnerVisitsRoute
   '/supply-hub/$id': typeof SupplyHubIdRoute
   '/supply-hub/areas': typeof SupplyHubAreasRoute
   '/supply-hub/match': typeof SupplyHubMatchRoute
   '/admin/': typeof AdminIndexRoute
   '/myt/': typeof MytIndexRoute
-  '/owner/': typeof OwnerIndexRoute
   '/supply-hub/': typeof SupplyHubIndexRoute
   '/admin/tenants/$id': typeof AdminTenantsIdRoute
   '/myt/feedback/$id': typeof MytFeedbackIdRoute
   '/myt/tcm/actions': typeof MytTcmActionsRoute
   '/myt/tcm/performance': typeof MytTcmPerformanceRoute
   '/myt/tour/$id': typeof MytTourIdRouteWithChildren
-  '/owner/media/$roomId': typeof OwnerMediaRoomIdRoute
+  '/property-owner/properties/new': typeof PropertyOwnerPropertiesNewRoute
   '/myt/tour/$id/report': typeof MytTourIdReportRoute
+  '/property-owner/properties/$id/rooms': typeof PropertyOwnerPropertiesIdRoomsRouteWithChildren
+  '/property-owner/properties/$id/rooms/$roomId': typeof PropertyOwnerPropertiesIdRoomsRoomIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -833,7 +909,9 @@ export interface FileRouteTypes {
     | '/login'
     | '/manager'
     | '/my-tasks'
+    | '/owner-bookings'
     | '/property-hub'
+    | '/property-owner'
     | '/queue'
     | '/revenue'
     | '/revival'
@@ -852,6 +930,7 @@ export interface FileRouteTypes {
     | '/admin/impact'
     | '/admin/intelligence'
     | '/admin/leads'
+    | '/admin/owner-bookings'
     | '/admin/owners'
     | '/admin/people'
     | '/admin/property'
@@ -881,25 +960,30 @@ export interface FileRouteTypes {
     | '/myt/tours'
     | '/myt/war-room'
     | '/myt/zones'
-    | '/owner/blocks'
-    | '/owner/insights'
-    | '/owner/inventory'
-    | '/owner/rooms'
-    | '/owner/visits'
+    | '/property-owner/approvals'
+    | '/property-owner/bookings'
+    | '/property-owner/dashboard'
+    | '/property-owner/inventory'
+    | '/property-owner/notifications'
+    | '/property-owner/profile'
+    | '/property-owner/properties'
+    | '/property-owner/rooms'
+    | '/property-owner/visits'
     | '/supply-hub/$id'
     | '/supply-hub/areas'
     | '/supply-hub/match'
     | '/admin/'
     | '/myt/'
-    | '/owner/'
     | '/supply-hub/'
     | '/admin/tenants/$id'
     | '/myt/feedback/$id'
     | '/myt/tcm/actions'
     | '/myt/tcm/performance'
     | '/myt/tour/$id'
-    | '/owner/media/$roomId'
+    | '/property-owner/properties/new'
     | '/myt/tour/$id/report'
+    | '/property-owner/properties/$id/rooms'
+    | '/property-owner/properties/$id/rooms/$roomId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -922,7 +1006,9 @@ export interface FileRouteTypes {
     | '/login'
     | '/manager'
     | '/my-tasks'
+    | '/owner-bookings'
     | '/property-hub'
+    | '/property-owner'
     | '/queue'
     | '/revenue'
     | '/revival'
@@ -941,6 +1027,7 @@ export interface FileRouteTypes {
     | '/admin/impact'
     | '/admin/intelligence'
     | '/admin/leads'
+    | '/admin/owner-bookings'
     | '/admin/owners'
     | '/admin/people'
     | '/admin/property'
@@ -970,25 +1057,30 @@ export interface FileRouteTypes {
     | '/myt/tours'
     | '/myt/war-room'
     | '/myt/zones'
-    | '/owner/blocks'
-    | '/owner/insights'
-    | '/owner/inventory'
-    | '/owner/rooms'
-    | '/owner/visits'
+    | '/property-owner/approvals'
+    | '/property-owner/bookings'
+    | '/property-owner/dashboard'
+    | '/property-owner/inventory'
+    | '/property-owner/notifications'
+    | '/property-owner/profile'
+    | '/property-owner/properties'
+    | '/property-owner/rooms'
+    | '/property-owner/visits'
     | '/supply-hub/$id'
     | '/supply-hub/areas'
     | '/supply-hub/match'
     | '/admin'
     | '/myt'
-    | '/owner'
     | '/supply-hub'
     | '/admin/tenants/$id'
     | '/myt/feedback/$id'
     | '/myt/tcm/actions'
     | '/myt/tcm/performance'
     | '/myt/tour/$id'
-    | '/owner/media/$roomId'
+    | '/property-owner/properties/new'
     | '/myt/tour/$id/report'
+    | '/property-owner/properties/$id/rooms'
+    | '/property-owner/properties/$id/rooms/$roomId'
   id:
     | '__root__'
     | '/'
@@ -1012,7 +1104,9 @@ export interface FileRouteTypes {
     | '/login'
     | '/manager'
     | '/my-tasks'
+    | '/owner-bookings'
     | '/property-hub'
+    | '/property-owner'
     | '/queue'
     | '/revenue'
     | '/revival'
@@ -1031,6 +1125,7 @@ export interface FileRouteTypes {
     | '/admin/impact'
     | '/admin/intelligence'
     | '/admin/leads'
+    | '/admin/owner-bookings'
     | '/admin/owners'
     | '/admin/people'
     | '/admin/property'
@@ -1060,25 +1155,30 @@ export interface FileRouteTypes {
     | '/myt/tours'
     | '/myt/war-room'
     | '/myt/zones'
-    | '/owner/blocks'
-    | '/owner/insights'
-    | '/owner/inventory'
-    | '/owner/rooms'
-    | '/owner/visits'
+    | '/property-owner/approvals'
+    | '/property-owner/bookings'
+    | '/property-owner/dashboard'
+    | '/property-owner/inventory'
+    | '/property-owner/notifications'
+    | '/property-owner/profile'
+    | '/property-owner/properties'
+    | '/property-owner/rooms'
+    | '/property-owner/visits'
     | '/supply-hub/$id'
     | '/supply-hub/areas'
     | '/supply-hub/match'
     | '/admin/'
     | '/myt/'
-    | '/owner/'
     | '/supply-hub/'
     | '/admin/tenants/$id'
     | '/myt/feedback/$id'
     | '/myt/tcm/actions'
     | '/myt/tcm/performance'
     | '/myt/tour/$id'
-    | '/owner/media/$roomId'
+    | '/property-owner/properties/new'
     | '/myt/tour/$id/report'
+    | '/property-owner/properties/$id/rooms'
+    | '/property-owner/properties/$id/rooms/$roomId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -1103,7 +1203,9 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   ManagerRoute: typeof ManagerRoute
   MyTasksRoute: typeof MyTasksRoute
+  OwnerBookingsRoute: typeof OwnerBookingsRoute
   PropertyHubRoute: typeof PropertyHubRoute
+  PropertyOwnerRoute: typeof PropertyOwnerRouteWithChildren
   QueueRoute: typeof QueueRoute
   RevenueRoute: typeof RevenueRoute
   RevivalRoute: typeof RevivalRoute
@@ -1134,20 +1236,13 @@ export interface RootRouteChildren {
   MytToursRoute: typeof MytToursRoute
   MytWarRoomRoute: typeof MytWarRoomRoute
   MytZonesRoute: typeof MytZonesRoute
-  OwnerBlocksRoute: typeof OwnerBlocksRoute
-  OwnerInsightsRoute: typeof OwnerInsightsRoute
-  OwnerInventoryRoute: typeof OwnerInventoryRoute
-  OwnerRoomsRoute: typeof OwnerRoomsRoute
-  OwnerVisitsRoute: typeof OwnerVisitsRoute
   SupplyHubIdRoute: typeof SupplyHubIdRoute
   SupplyHubAreasRoute: typeof SupplyHubAreasRoute
   SupplyHubMatchRoute: typeof SupplyHubMatchRoute
   MytIndexRoute: typeof MytIndexRoute
-  OwnerIndexRoute: typeof OwnerIndexRoute
   SupplyHubIndexRoute: typeof SupplyHubIndexRoute
   MytFeedbackIdRoute: typeof MytFeedbackIdRoute
   MytTourIdRoute: typeof MytTourIdRouteWithChildren
-  OwnerMediaRoomIdRoute: typeof OwnerMediaRoomIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -1222,11 +1317,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof QueueRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/property-owner': {
+      id: '/property-owner'
+      path: '/property-owner'
+      fullPath: '/property-owner'
+      preLoaderRoute: typeof PropertyOwnerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/property-hub': {
       id: '/property-hub'
       path: '/property-hub'
       fullPath: '/property-hub'
       preLoaderRoute: typeof PropertyHubRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/owner-bookings': {
+      id: '/owner-bookings'
+      path: '/owner-bookings'
+      fullPath: '/owner-bookings'
+      preLoaderRoute: typeof OwnerBookingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/my-tasks': {
@@ -1383,13 +1492,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SupplyHubIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/owner/': {
-      id: '/owner/'
-      path: '/owner'
-      fullPath: '/owner/'
-      preLoaderRoute: typeof OwnerIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/myt/': {
       id: '/myt/'
       path: '/myt'
@@ -1425,40 +1527,68 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SupplyHubIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/owner/visits': {
-      id: '/owner/visits'
-      path: '/owner/visits'
-      fullPath: '/owner/visits'
-      preLoaderRoute: typeof OwnerVisitsRouteImport
-      parentRoute: typeof rootRouteImport
+    '/property-owner/visits': {
+      id: '/property-owner/visits'
+      path: '/visits'
+      fullPath: '/property-owner/visits'
+      preLoaderRoute: typeof PropertyOwnerVisitsRouteImport
+      parentRoute: typeof PropertyOwnerRoute
     }
-    '/owner/rooms': {
-      id: '/owner/rooms'
-      path: '/owner/rooms'
-      fullPath: '/owner/rooms'
-      preLoaderRoute: typeof OwnerRoomsRouteImport
-      parentRoute: typeof rootRouteImport
+    '/property-owner/rooms': {
+      id: '/property-owner/rooms'
+      path: '/rooms'
+      fullPath: '/property-owner/rooms'
+      preLoaderRoute: typeof PropertyOwnerRoomsRouteImport
+      parentRoute: typeof PropertyOwnerRoute
     }
-    '/owner/inventory': {
-      id: '/owner/inventory'
-      path: '/owner/inventory'
-      fullPath: '/owner/inventory'
-      preLoaderRoute: typeof OwnerInventoryRouteImport
-      parentRoute: typeof rootRouteImport
+    '/property-owner/properties': {
+      id: '/property-owner/properties'
+      path: '/properties'
+      fullPath: '/property-owner/properties'
+      preLoaderRoute: typeof PropertyOwnerPropertiesRouteImport
+      parentRoute: typeof PropertyOwnerRoute
     }
-    '/owner/insights': {
-      id: '/owner/insights'
-      path: '/owner/insights'
-      fullPath: '/owner/insights'
-      preLoaderRoute: typeof OwnerInsightsRouteImport
-      parentRoute: typeof rootRouteImport
+    '/property-owner/profile': {
+      id: '/property-owner/profile'
+      path: '/profile'
+      fullPath: '/property-owner/profile'
+      preLoaderRoute: typeof PropertyOwnerProfileRouteImport
+      parentRoute: typeof PropertyOwnerRoute
     }
-    '/owner/blocks': {
-      id: '/owner/blocks'
-      path: '/owner/blocks'
-      fullPath: '/owner/blocks'
-      preLoaderRoute: typeof OwnerBlocksRouteImport
-      parentRoute: typeof rootRouteImport
+    '/property-owner/notifications': {
+      id: '/property-owner/notifications'
+      path: '/notifications'
+      fullPath: '/property-owner/notifications'
+      preLoaderRoute: typeof PropertyOwnerNotificationsRouteImport
+      parentRoute: typeof PropertyOwnerRoute
+    }
+    '/property-owner/inventory': {
+      id: '/property-owner/inventory'
+      path: '/inventory'
+      fullPath: '/property-owner/inventory'
+      preLoaderRoute: typeof PropertyOwnerInventoryRouteImport
+      parentRoute: typeof PropertyOwnerRoute
+    }
+    '/property-owner/dashboard': {
+      id: '/property-owner/dashboard'
+      path: '/dashboard'
+      fullPath: '/property-owner/dashboard'
+      preLoaderRoute: typeof PropertyOwnerDashboardRouteImport
+      parentRoute: typeof PropertyOwnerRoute
+    }
+    '/property-owner/bookings': {
+      id: '/property-owner/bookings'
+      path: '/bookings'
+      fullPath: '/property-owner/bookings'
+      preLoaderRoute: typeof PropertyOwnerBookingsRouteImport
+      parentRoute: typeof PropertyOwnerRoute
+    }
+    '/property-owner/approvals': {
+      id: '/property-owner/approvals'
+      path: '/approvals'
+      fullPath: '/property-owner/approvals'
+      preLoaderRoute: typeof PropertyOwnerApprovalsRouteImport
+      parentRoute: typeof PropertyOwnerRoute
     }
     '/myt/zones': {
       id: '/myt/zones'
@@ -1663,6 +1793,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminOwnersRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/owner-bookings': {
+      id: '/admin/owner-bookings'
+      path: '/owner-bookings'
+      fullPath: '/admin/owner-bookings'
+      preLoaderRoute: typeof AdminOwnerBookingsRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/leads': {
       id: '/admin/leads'
       path: '/leads'
@@ -1719,12 +1856,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAuditRouteImport
       parentRoute: typeof AdminRoute
     }
-    '/owner/media/$roomId': {
-      id: '/owner/media/$roomId'
-      path: '/owner/media/$roomId'
-      fullPath: '/owner/media/$roomId'
-      preLoaderRoute: typeof OwnerMediaRoomIdRouteImport
-      parentRoute: typeof rootRouteImport
+    '/property-owner/properties/new': {
+      id: '/property-owner/properties/new'
+      path: '/new'
+      fullPath: '/property-owner/properties/new'
+      preLoaderRoute: typeof PropertyOwnerPropertiesNewRouteImport
+      parentRoute: typeof PropertyOwnerPropertiesRoute
     }
     '/myt/tour/$id': {
       id: '/myt/tour/$id'
@@ -1761,12 +1898,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminTenantsIdRouteImport
       parentRoute: typeof AdminTenantsRoute
     }
+    '/property-owner/properties/$id/rooms': {
+      id: '/property-owner/properties/$id/rooms'
+      path: '/$id/rooms'
+      fullPath: '/property-owner/properties/$id/rooms'
+      preLoaderRoute: typeof PropertyOwnerPropertiesIdRoomsRouteImport
+      parentRoute: typeof PropertyOwnerPropertiesRoute
+    }
     '/myt/tour/$id/report': {
       id: '/myt/tour/$id/report'
       path: '/report'
       fullPath: '/myt/tour/$id/report'
       preLoaderRoute: typeof MytTourIdReportRouteImport
       parentRoute: typeof MytTourIdRoute
+    }
+    '/property-owner/properties/$id/rooms/$roomId': {
+      id: '/property-owner/properties/$id/rooms/$roomId'
+      path: '/$roomId'
+      fullPath: '/property-owner/properties/$id/rooms/$roomId'
+      preLoaderRoute: typeof PropertyOwnerPropertiesIdRoomsRoomIdRouteImport
+      parentRoute: typeof PropertyOwnerPropertiesIdRoomsRoute
     }
   }
 }
@@ -1792,6 +1943,7 @@ interface AdminRouteChildren {
   AdminImpactRoute: typeof AdminImpactRoute
   AdminIntelligenceRoute: typeof AdminIntelligenceRoute
   AdminLeadsRoute: typeof AdminLeadsRoute
+  AdminOwnerBookingsRoute: typeof AdminOwnerBookingsRoute
   AdminOwnersRoute: typeof AdminOwnersRoute
   AdminPeopleRoute: typeof AdminPeopleRoute
   AdminPropertyRoute: typeof AdminPropertyRoute
@@ -1812,6 +1964,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminImpactRoute: AdminImpactRoute,
   AdminIntelligenceRoute: AdminIntelligenceRoute,
   AdminLeadsRoute: AdminLeadsRoute,
+  AdminOwnerBookingsRoute: AdminOwnerBookingsRoute,
   AdminOwnersRoute: AdminOwnersRoute,
   AdminPeopleRoute: AdminPeopleRoute,
   AdminPropertyRoute: AdminPropertyRoute,
@@ -1834,6 +1987,66 @@ const LeadsRouteChildren: LeadsRouteChildren = {
 }
 
 const LeadsRouteWithChildren = LeadsRoute._addFileChildren(LeadsRouteChildren)
+
+interface PropertyOwnerPropertiesIdRoomsRouteChildren {
+  PropertyOwnerPropertiesIdRoomsRoomIdRoute: typeof PropertyOwnerPropertiesIdRoomsRoomIdRoute
+}
+
+const PropertyOwnerPropertiesIdRoomsRouteChildren: PropertyOwnerPropertiesIdRoomsRouteChildren =
+  {
+    PropertyOwnerPropertiesIdRoomsRoomIdRoute:
+      PropertyOwnerPropertiesIdRoomsRoomIdRoute,
+  }
+
+const PropertyOwnerPropertiesIdRoomsRouteWithChildren =
+  PropertyOwnerPropertiesIdRoomsRoute._addFileChildren(
+    PropertyOwnerPropertiesIdRoomsRouteChildren,
+  )
+
+interface PropertyOwnerPropertiesRouteChildren {
+  PropertyOwnerPropertiesNewRoute: typeof PropertyOwnerPropertiesNewRoute
+  PropertyOwnerPropertiesIdRoomsRoute: typeof PropertyOwnerPropertiesIdRoomsRouteWithChildren
+}
+
+const PropertyOwnerPropertiesRouteChildren: PropertyOwnerPropertiesRouteChildren =
+  {
+    PropertyOwnerPropertiesNewRoute: PropertyOwnerPropertiesNewRoute,
+    PropertyOwnerPropertiesIdRoomsRoute:
+      PropertyOwnerPropertiesIdRoomsRouteWithChildren,
+  }
+
+const PropertyOwnerPropertiesRouteWithChildren =
+  PropertyOwnerPropertiesRoute._addFileChildren(
+    PropertyOwnerPropertiesRouteChildren,
+  )
+
+interface PropertyOwnerRouteChildren {
+  PropertyOwnerApprovalsRoute: typeof PropertyOwnerApprovalsRoute
+  PropertyOwnerBookingsRoute: typeof PropertyOwnerBookingsRoute
+  PropertyOwnerDashboardRoute: typeof PropertyOwnerDashboardRoute
+  PropertyOwnerInventoryRoute: typeof PropertyOwnerInventoryRoute
+  PropertyOwnerNotificationsRoute: typeof PropertyOwnerNotificationsRoute
+  PropertyOwnerProfileRoute: typeof PropertyOwnerProfileRoute
+  PropertyOwnerPropertiesRoute: typeof PropertyOwnerPropertiesRouteWithChildren
+  PropertyOwnerRoomsRoute: typeof PropertyOwnerRoomsRoute
+  PropertyOwnerVisitsRoute: typeof PropertyOwnerVisitsRoute
+}
+
+const PropertyOwnerRouteChildren: PropertyOwnerRouteChildren = {
+  PropertyOwnerApprovalsRoute: PropertyOwnerApprovalsRoute,
+  PropertyOwnerBookingsRoute: PropertyOwnerBookingsRoute,
+  PropertyOwnerDashboardRoute: PropertyOwnerDashboardRoute,
+  PropertyOwnerInventoryRoute: PropertyOwnerInventoryRoute,
+  PropertyOwnerNotificationsRoute: PropertyOwnerNotificationsRoute,
+  PropertyOwnerProfileRoute: PropertyOwnerProfileRoute,
+  PropertyOwnerPropertiesRoute: PropertyOwnerPropertiesRouteWithChildren,
+  PropertyOwnerRoomsRoute: PropertyOwnerRoomsRoute,
+  PropertyOwnerVisitsRoute: PropertyOwnerVisitsRoute,
+}
+
+const PropertyOwnerRouteWithChildren = PropertyOwnerRoute._addFileChildren(
+  PropertyOwnerRouteChildren,
+)
 
 interface MytTcmRouteChildren {
   MytTcmActionsRoute: typeof MytTcmActionsRoute
@@ -1882,7 +2095,9 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   ManagerRoute: ManagerRoute,
   MyTasksRoute: MyTasksRoute,
+  OwnerBookingsRoute: OwnerBookingsRoute,
   PropertyHubRoute: PropertyHubRoute,
+  PropertyOwnerRoute: PropertyOwnerRouteWithChildren,
   QueueRoute: QueueRoute,
   RevenueRoute: RevenueRoute,
   RevivalRoute: RevivalRoute,
@@ -1913,20 +2128,13 @@ const rootRouteChildren: RootRouteChildren = {
   MytToursRoute: MytToursRoute,
   MytWarRoomRoute: MytWarRoomRoute,
   MytZonesRoute: MytZonesRoute,
-  OwnerBlocksRoute: OwnerBlocksRoute,
-  OwnerInsightsRoute: OwnerInsightsRoute,
-  OwnerInventoryRoute: OwnerInventoryRoute,
-  OwnerRoomsRoute: OwnerRoomsRoute,
-  OwnerVisitsRoute: OwnerVisitsRoute,
   SupplyHubIdRoute: SupplyHubIdRoute,
   SupplyHubAreasRoute: SupplyHubAreasRoute,
   SupplyHubMatchRoute: SupplyHubMatchRoute,
   MytIndexRoute: MytIndexRoute,
-  OwnerIndexRoute: OwnerIndexRoute,
   SupplyHubIndexRoute: SupplyHubIndexRoute,
   MytFeedbackIdRoute: MytFeedbackIdRoute,
   MytTourIdRoute: MytTourIdRouteWithChildren,
-  OwnerMediaRoomIdRoute: OwnerMediaRoomIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
