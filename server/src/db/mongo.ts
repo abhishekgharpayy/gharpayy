@@ -222,6 +222,39 @@ async function ensureIndexes(db: Db) {
           { key: { tenantId: 1, leadId: 1 } },
           { key: { tenantId: 1, propertyId: 1, status: 1 } },
           { key: { tenantId: 1, status: 1 } },
+          // Owner portal queries
+          { key: { ownerId: 1, tenantId: 1, ownerLifecycle: 1 } },
+          { key: { ownerId: 1, tenantId: 1, createdAt: -1 } },
+        ]),
+    },
+    {
+      name: "properties.ownerId",
+      run: () =>
+        db.collection("properties").createIndex({ ownerId: 1, tenantId: 1 }, { name: "owner_properties" }),
+    },
+    {
+      name: "rooms",
+      run: () =>
+        db.collection("rooms").createIndexes([
+          { key: { propertyId: 1 } },
+          { key: { tenantId: 1, propertyId: 1 } },
+        ]),
+    },
+    {
+      name: "room_statuses",
+      run: () =>
+        db.collection("room_statuses").createIndexes([
+          { key: { roomId: 1 }, unique: true, name: "uniq_roomId" },
+          { key: { ownerId: 1 } },
+          { key: { propertyId: 1 } },
+        ]),
+    },
+    {
+      name: "room_actions",
+      run: () =>
+        db.collection("room_actions").createIndexes([
+          { key: { ownerId: 1, at: -1 } },
+          { key: { roomId: 1, at: -1 } },
         ]),
     },
     {
