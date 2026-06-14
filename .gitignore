@@ -35,3 +35,7 @@ dist-ssr
 # Legacy CRM reference (local only — do not commit)
 Gharpayy-Dashboard/
 gharpayy-dashboard/
+
+# Database schema documentation (auto-generated)
+DATABASE_SCHEMA.md
+.vercel/

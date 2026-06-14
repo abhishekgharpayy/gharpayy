@@ -1,7 +1,23 @@
 export type Role = "flow-ops" | "tcm" | "hr" | "owner" | "super-admin";
 export type Intent = "hot" | "warm" | "cold";
-export type TourStatus = "scheduled" | "confirmed" | "completed" | "no-show" | "cancelled";
-export type ClientDecision = "booked" | "thinking" | "awaiting" | "dropped" | "token-paid" | "draft" | "follow-up" | "rejected" | "not-interested" | null;
+export type TourStatus =
+  | "scheduled"
+  | "confirmed"
+  | "completed"
+  | "no-show"
+  | "cancelled"
+  | "on-tour";
+export type ClientDecision =
+  | "booked"
+  | "thinking"
+  | "awaiting"
+  | "dropped"
+  | "token-paid"
+  | "draft"
+  | "follow-up"
+  | "rejected"
+  | "not-interested"
+  | null;
 export type LeadStage =
   | "new"
   | "contacted"
@@ -96,8 +112,9 @@ export interface Tour {
   leadId: string;
   leadName?: string;
   phone?: string;
-  propertyId?: string;
+  propertyId?: string | null;
   tcmId: string;
+  assignedTo?: string;
   scheduledBy?: string;
   scheduledAt: string;
   tourType?: "physical" | "virtual" | "pre-book-pitch";
@@ -140,7 +157,7 @@ export interface ActivityLog {
   text: string;
 }
 
-export type FollowUpPriority = "high" | "medium" | "low";
+export type FollowUpPriority = "high" | "medium" | "low" | "urgent";
 export interface FollowUp {
   id: string;
   leadId: string;
@@ -178,6 +195,12 @@ export interface ActiveSequence {
 }
 
 /* ============== BOOKING ============== */
+export type BookingStatus = "pending" | "approved" | "paid" | "active" | "expired" | "cancelled";
+export type RentStatus = "paid" | "pending" | "overdue";
+export type PaymentMethod = "UPI" | "Cash" | "Bank" | "Card";
+export type PaymentType = "token" | "rent" | "deposit" | "other";
+export type TenantStatus = "active" | "notice" | "exited";
+
 export interface Booking {
   id: string;
   leadId: string;
@@ -185,5 +208,62 @@ export interface Booking {
   propertyId: string;
   tcmId: string;
   amount: number; // monthly rent
+  tenantName: string;
+  tenantPhone: string;
+  deposit: number;
+  moveInDate: string;
+  status: BookingStatus;
+  offerExpiresAt?: string | null;
+  paidRef?: string | null;
+  notes?: string;
   ts: string;
+  updatedAt: string;
+}
+
+export interface Tenant {
+  id: string;
+  bookingId: string;
+  leadId: string;
+  propertyId: string;
+  tcmId: string;
+  name: string;
+  phone: string;
+  email?: string;
+  roomNumber?: string;
+  moveInDate: string;
+  rent: number;
+  deposit: number;
+  status: TenantStatus;
+  noticeGivenAt?: string | null;
+  exitDate?: string | null;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RentRecord {
+  id: string;
+  bookingId: string;
+  tenantId: string;
+  tenantName: string;
+  propertyName: string;
+  month: string; // "YYYY-MM"
+  amount: number;
+  status: RentStatus;
+  paidAt?: string | null;
+  ref?: string | null;
+  createdAt: string;
+}
+
+export interface PaymentRecord {
+  id: string;
+  bookingId: string;
+  tenantId: string;
+  tenantName: string;
+  amount: number;
+  method: PaymentMethod;
+  ref?: string;
+  type: PaymentType;
+  notes?: string;
+  createdAt: string;
 }

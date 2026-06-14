@@ -1,6 +1,5 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useMemo } from "react";
-import { AppShell } from "@/components/AppShell";
 import { AdminShell } from "@/admin/components/AdminShell";
 import { useApp } from "@/lib/store";
 import { useAuthUser } from "@/lib/auth-store";
@@ -118,8 +117,7 @@ function AdminImpact() {
   };
 
   return (
-    <AppShell>
-      <AdminShell title="Impact Analytics" sub="Task queue performance and TCM workload">
+    <AdminShell title="Impact Analytics" sub="Task queue performance and TCM workload">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
           <div className="rounded-xl border border-border bg-card p-3">
             <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Total Tasks</div>
@@ -250,6 +248,5 @@ function AdminImpact() {
           </table>
         </div>
       </AdminShell>
-    </AppShell>
   );
 }

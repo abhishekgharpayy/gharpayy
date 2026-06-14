@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { Lead, LeadStage, Intent, Todo, TodoEntityType, TodoPriority, Activity, ActivityKind, ActivityEntityType, ActivityDirection, ActivityOutcome, TourStatus, TourOutcome } from "./entities.js";
+import { Lead, LeadStage, Intent, Todo, TodoEntityType, TodoPriority, Activity, ActivityKind, ActivityEntityType, ActivityDirection, ActivityOutcome, TourStatus, TourOutcome, BookingStatus, TenantStatus } from "./entities.js";
 
 // Command registry - every state-changing intent. Validated client + server.
 export const CommandType = z.enum([
@@ -31,6 +31,16 @@ export const CommandType = z.enum([
   "cmd.activity.log",
   "cmd.activity.update",
   "cmd.activity.delete",
+  // Bookings
+  "cmd.booking.create",
+  "cmd.booking.update",
+  "cmd.booking.cancel",
+  "cmd.booking.approve",
+  "cmd.booking.mark_paid",
+  // Tenants
+  "cmd.tenant.create",
+  "cmd.tenant.update",
+  "cmd.tenant.update_status",
 ]);
 export type CommandType = z.infer<typeof CommandType>;
 
@@ -264,6 +274,97 @@ export const DeleteActivityCmd = Base.extend({
   payload: z.object({ activityId: z.string() }),
 });
 
+// ---------- Bookings ----------
+export const CreateBookingCmd = Base.extend({
+  type: z.literal("cmd.booking.create"),
+  payload: z.object({
+    leadId: z.string(),
+    tourId: z.string(),
+    propertyId: z.string(),
+    tcmId: z.string(),
+    amount: z.number().int().min(0),
+    tenantName: z.string().min(1).max(120),
+    tenantPhone: z.string().min(7).max(20),
+    deposit: z.number().int().min(0),
+    moveInDate: z.string(),
+    notes: z.string().max(2000).optional(),
+  }),
+});
+
+export const UpdateBookingCmd = Base.extend({
+  type: z.literal("cmd.booking.update"),
+  payload: z.object({
+    bookingId: z.string(),
+    patch: z.object({
+      amount: z.number().int().min(0).optional(),
+      tenantName: z.string().min(1).max(120).optional(),
+      tenantPhone: z.string().min(7).max(20).optional(),
+      deposit: z.number().int().min(0).optional(),
+      moveInDate: z.string().optional(),
+      notes: z.string().max(2000).optional(),
+    }),
+  }),
+});
+
+export const CancelBookingCmd = Base.extend({
+  type: z.literal("cmd.booking.cancel"),
+  payload: z.object({ bookingId: z.string() }),
+});
+
+export const ApproveBookingCmd = Base.extend({
+  type: z.literal("cmd.booking.approve"),
+  payload: z.object({ bookingId: z.string() }),
+});
+
+export const MarkBookingPaidCmd = Base.extend({
+  type: z.literal("cmd.booking.mark_paid"),
+  payload: z.object({ bookingId: z.string(), paidRef: z.string() }),
+});
+
+// ---------- Tenants ----------
+export const CreateTenantCmd = Base.extend({
+  type: z.literal("cmd.tenant.create"),
+  payload: z.object({
+    bookingId: z.string(),
+    leadId: z.string(),
+    propertyId: z.string(),
+    tcmId: z.string(),
+    name: z.string().min(1).max(120),
+    phone: z.string().min(7).max(20),
+    email: z.string().max(160).optional(),
+    roomNumber: z.string().max(60).optional(),
+    moveInDate: z.string(),
+    rent: z.number().int().min(0),
+    deposit: z.number().int().min(0),
+    notes: z.string().max(2000).optional(),
+  }),
+});
+
+export const UpdateTenantCmd = Base.extend({
+  type: z.literal("cmd.tenant.update"),
+  payload: z.object({
+    tenantId: z.string(),
+    patch: z.object({
+      name: z.string().min(1).max(120).optional(),
+      phone: z.string().min(7).max(20).optional(),
+      email: z.string().max(160).optional(),
+      roomNumber: z.string().max(60).optional(),
+      rent: z.number().int().min(0).optional(),
+      deposit: z.number().int().min(0).optional(),
+      notes: z.string().max(2000).optional(),
+    }),
+  }),
+});
+
+export const UpdateTenantStatusCmd = Base.extend({
+  type: z.literal("cmd.tenant.update_status"),
+  payload: z.object({
+    tenantId: z.string(),
+    status: TenantStatus,
+    exitDate: z.string().nullable().optional(),
+  }),
+});
+
 export const Command = z.discriminatedUnion("type", [
   CreateLeadCmd,
   UpdateLeadCmd,
@@ -290,5 +391,13 @@ export const Command = z.discriminatedUnion("type", [
   LogActivityCmd,
   UpdateActivityCmd,
   DeleteActivityCmd,
+  CreateBookingCmd,
+  UpdateBookingCmd,
+  CancelBookingCmd,
+  ApproveBookingCmd,
+  MarkBookingPaidCmd,
+  CreateTenantCmd,
+  UpdateTenantCmd,
+  UpdateTenantStatusCmd,
 ]);
 export type Command = z.infer<typeof Command>;

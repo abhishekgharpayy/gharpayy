@@ -57,6 +57,14 @@ export function registerLeadsRoutes(app: FastifyInstance) {
       "cmd.todo.decline": ["todo.read"],
       "cmd.todo.complete": ["todo.update"],
       "cmd.todo.cancel": ["todo.update"],
+      "cmd.booking.create": ["booking.create"],
+      "cmd.booking.update": ["booking.update"],
+      "cmd.booking.cancel": ["booking.update"],
+      "cmd.booking.approve": ["booking.update"],
+      "cmd.booking.mark_paid": ["booking.update"],
+      "cmd.tenant.create": ["tenant.create"],
+      "cmd.tenant.update": ["tenant.update"],
+      "cmd.tenant.update_status": ["tenant.update"],
     };
     const need = scopeMap[cmd.type] ?? [];
     if (!need.every((s) => req.user!.scopes.includes(s as never))) {

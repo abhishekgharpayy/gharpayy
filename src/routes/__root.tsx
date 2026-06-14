@@ -11,7 +11,6 @@ import { KeyboardShortcuts } from "@/components/KeyboardShortcuts";
 import { AppProvider as MYTAppProvider } from "@/myt/lib/app-context";
 import { SettingsProvider as MYTSettingsProvider } from "@/myt/lib/settings-context";
 import { TourDataProvider as MYTTourDataProvider } from "@/myt/lib/tour-data-context";
-import { OwnerProvider } from "@/owner/owner-context";
 import { AuthGate } from "@/components/AuthGate";
 
 import appCss from "../styles.css?url";
@@ -83,13 +82,11 @@ function RootComponent() {
       <MYTSettingsProvider>
         <MYTTourDataProvider>
           <MYTAppProvider>
-            <OwnerProvider>
-              <AuthGate>
-                <Outlet />
-                <KeyboardShortcuts />
-              </AuthGate>
-              <Toaster />
-            </OwnerProvider>
+            <AuthGate>
+              <Outlet />
+              <KeyboardShortcuts />
+            </AuthGate>
+            <Toaster />
           </MYTAppProvider>
         </MYTTourDataProvider>
       </MYTSettingsProvider>

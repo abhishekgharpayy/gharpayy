@@ -1,9 +1,7 @@
 import { useMemo, useState } from "react";
 import { useApp, getProperty } from "@/lib/store";
 import { useCRM10x } from "@/lib/crm10x/store";
-import {
-  WA_TEMPLATES, renderTemplate, waLink, type TemplateStage,
-} from "@/lib/crm10x/templates";
+import { WA_TEMPLATES, renderTemplate, waLink, type TemplateStage } from "@/lib/crm10x/templates";
 import { recommendTemplate } from "@/lib/crm10x/analytics";
 import { getPropertyAssets, buildPdfShareMessage } from "@/lib/property-assets";
 import type { Lead } from "@/lib/types";
@@ -12,8 +10,15 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  ExternalLink, Languages, MessageSquare, Sparkles, FileText, CheckCircle2,
-  History, Filter, Trophy,
+  ExternalLink,
+  Languages,
+  MessageSquare,
+  Sparkles,
+  FileText,
+  CheckCircle2,
+  History,
+  Filter,
+  Trophy,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PGS as PG_LIST } from "@/supply-hub/data/pgs";
@@ -42,9 +47,7 @@ export function SmartWaLayer({ lead }: { lead: Lead }) {
     [allOutcomes, lead.id],
   );
 
-  const lastContactDays = calls[0]
-    ? (Date.now() - +new Date(calls[0].ts)) / 86_400_000
-    : Infinity;
+  const lastContactDays = calls[0] ? (Date.now() - +new Date(calls[0].ts)) / 86_400_000 : Infinity;
 
   const recommendation = useMemo(
     () => recommendTemplate({ lead, tours, lastContactDays }),
@@ -57,7 +60,7 @@ export function SmartWaLayer({ lead }: { lead: Lead }) {
   );
 
   const tour = tours[0];
-  const prop = tour ? getProperty(tour.propertyId, properties) : undefined;
+  const prop = tour ? getProperty(tour.propertyId ?? undefined, properties) : undefined;
   const agent = tcms.find((t) => t.id === lead.assignedTcmId);
 
   const rendered = useMemo(
@@ -70,7 +73,10 @@ export function SmartWaLayer({ lead }: { lead: Lead }) {
         property: prop?.name ?? "the property",
         date: tour ? new Date(tour.scheduledAt).toLocaleDateString() : "",
         time: tour
-          ? new Date(tour.scheduledAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+          ? new Date(tour.scheduledAt).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            })
           : "",
         price: prop?.pricePerBed ?? lead.budget,
         phone: lead.phone,
@@ -102,13 +108,13 @@ export function SmartWaLayer({ lead }: { lead: Lead }) {
   // Multi-property pitch: pick top 2 PGs near lead's area
   const matchedPgs = useMemo(() => {
     const area = lead.preferredArea.toLowerCase();
-    const filtered = PG_LIST.filter((pg) =>
-      pg.area.toLowerCase().includes(area) || area.includes(pg.area.toLowerCase()),
+    const filtered = PG_LIST.filter(
+      (pg) => pg.area.toLowerCase().includes(area) || area.includes(pg.area.toLowerCase()),
     );
     return (filtered.length ? filtered : PG_LIST).slice(0, 2);
   }, [lead.preferredArea]);
 
-  const sendPdfPitch = (pg: typeof matchedPgs[number]) => {
+  const sendPdfPitch = (pg: (typeof matchedPgs)[number]) => {
     const assets = getPropertyAssets(pg);
     const msg = buildPdfShareMessage(pg, {
       leadName: lead.name.split(" ")[0],
@@ -135,18 +141,22 @@ export function SmartWaLayer({ lead }: { lead: Lead }) {
   return (
     <div className="space-y-3">
       {/* Recommendation banner */}
-      <div className={`rounded-lg border p-3 flex items-start gap-2 ${
-        recommendation.urgency === "high"
-          ? "border-accent/40 bg-accent/5"
-          : recommendation.urgency === "medium"
-            ? "border-warning/40 bg-warning/5"
-            : "border-border bg-card"
-      }`}>
+      <div
+        className={`rounded-lg border p-3 flex items-start gap-2 ${
+          recommendation.urgency === "high"
+            ? "border-accent/40 bg-accent/5"
+            : recommendation.urgency === "medium"
+              ? "border-warning/40 bg-warning/5"
+              : "border-border bg-card"
+        }`}
+      >
         <Sparkles className="h-4 w-4 text-accent mt-0.5 shrink-0" />
         <div className="flex-1 text-xs">
           <div className="font-semibold flex items-center gap-1.5">
             Recommended: {WA_TEMPLATES[recommendation.stage].label}
-            <Badge variant="outline" className="text-[9px] uppercase">{recommendation.urgency}</Badge>
+            <Badge variant="outline" className="text-[9px] uppercase">
+              {recommendation.urgency}
+            </Badge>
           </div>
           <div className="text-muted-foreground mt-0.5">{recommendation.reason}</div>
         </div>
@@ -168,14 +178,15 @@ export function SmartWaLayer({ lead }: { lead: Lead }) {
           <MessageSquare className="h-3.5 w-3.5" /> Template picker
         </div>
         {(["core", "non-responder", "scenario", "revival"] as const).map((g) => {
-          const items = (Object.entries(WA_TEMPLATES) as [TemplateStage, typeof WA_TEMPLATES[TemplateStage]][])
-            .filter(([, v]) => v.group === g);
+          const items = (
+            Object.entries(WA_TEMPLATES) as [TemplateStage, (typeof WA_TEMPLATES)[TemplateStage]][]
+          ).filter(([, v]) => v.group === g);
           if (items.length === 0) return null;
           const groupLabel: Record<typeof g, string> = {
-            "core": "Core lifecycle",
+            core: "Core lifecycle",
             "non-responder": "Non-responder ladder",
-            "scenario": "Scenario-specific",
-            "revival": "Revival",
+            scenario: "Scenario-specific",
+            revival: "Revival",
           };
           return (
             <div key={g} className="space-y-1">
@@ -255,13 +266,29 @@ export function SmartWaLayer({ lead }: { lead: Lead }) {
       </div>
 
       {/* Per-lead message timeline (sent · replied · booked-after) with template filter */}
-      {totalSent > 0 && <MessageTimeline lead={lead} outcomes={outcomes} onMarkReplied={markMessageReplied} replyRate={replyRate} repliedCount={repliedCount} totalSent={totalSent} bookedAfterCount={outcomes.filter((o) => o.bookedAfter).length} />}
+      {totalSent > 0 && (
+        <MessageTimeline
+          lead={lead}
+          outcomes={outcomes}
+          onMarkReplied={markMessageReplied}
+          replyRate={replyRate}
+          repliedCount={repliedCount}
+          totalSent={totalSent}
+          bookedAfterCount={outcomes.filter((o) => o.bookedAfter).length}
+        />
+      )}
     </div>
   );
 }
 
 function MessageTimeline({
-  lead, outcomes, onMarkReplied, replyRate, repliedCount, totalSent, bookedAfterCount,
+  lead,
+  outcomes,
+  onMarkReplied,
+  replyRate,
+  repliedCount,
+  totalSent,
+  bookedAfterCount,
 }: {
   lead: Lead;
   outcomes: ReturnType<typeof useCRM10x.getState>["messageOutcomes"];
@@ -315,33 +342,58 @@ function MessageTimeline({
       </div>
       <ol className="space-y-1.5 max-h-64 overflow-y-auto pr-1 scrollbar-thin">
         {filtered.length === 0 && (
-          <li className="text-[11px] text-muted-foreground py-2 text-center">No sends for this filter.</li>
+          <li className="text-[11px] text-muted-foreground py-2 text-center">
+            No sends for this filter.
+          </li>
         )}
         {filtered.map((m) => (
-          <li key={m.id} className="flex items-start gap-2 text-[11px] border-l-2 pl-2 py-0.5
-            border-border">
+          <li
+            key={m.id}
+            className="flex items-start gap-2 text-[11px] border-l-2 pl-2 py-0.5
+            border-border"
+          >
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="font-medium capitalize">{m.stage.replace(/-/g, " ")}</span>
-                <span className="text-[9px] uppercase font-mono text-muted-foreground">{m.language}</span>
+                <span className="text-[9px] uppercase font-mono text-muted-foreground">
+                  {m.language}
+                </span>
                 {m.replied && (
-                  <Badge variant="outline" className="text-[9px] py-0 px-1 border-info/40 text-info">replied</Badge>
+                  <Badge
+                    variant="outline"
+                    className="text-[9px] py-0 px-1 border-info/40 text-info"
+                  >
+                    replied
+                  </Badge>
                 )}
                 {m.bookedAfter && (
-                  <Badge variant="outline" className="text-[9px] py-0 px-1 border-success/50 text-success gap-0.5">
+                  <Badge
+                    variant="outline"
+                    className="text-[9px] py-0 px-1 border-success/50 text-success gap-0.5"
+                  >
                     <Trophy className="h-2 w-2" /> booked
                   </Badge>
                 )}
               </div>
               <div className="text-muted-foreground text-[10px]">
-                {new Date(m.ts).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                {new Date(m.ts).toLocaleString([], {
+                  month: "short",
+                  day: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
                 {m.notes && <span> · {m.notes}</span>}
               </div>
             </div>
             {!m.replied && (
               <Button
-                size="sm" variant="ghost" className="h-6 px-2 text-[10px] shrink-0"
-                onClick={() => { onMarkReplied(m.id); toast.success("Reply logged"); }}
+                size="sm"
+                variant="ghost"
+                className="h-6 px-2 text-[10px] shrink-0"
+                onClick={() => {
+                  onMarkReplied(m.id);
+                  toast.success("Reply logged");
+                }}
               >
                 Mark replied
               </Button>

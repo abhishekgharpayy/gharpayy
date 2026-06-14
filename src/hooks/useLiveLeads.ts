@@ -27,13 +27,25 @@ export function useLiveLeads() {
     void refresh();
     const off = onEvent((e: DomainEvent) => {
       if (e.type === "evt.lead.created") {
-        setLeads((cur) => (cur.some((l) => l._id === e.payload.lead._id) ? cur : [e.payload.lead, ...cur]));
+        setLeads((cur) =>
+          cur.some((l) => l._id === e.payload.lead._id) ? cur : [e.payload.lead, ...cur],
+        );
       } else if (e.type === "evt.lead.updated") {
-        setLeads((cur) => cur.map((l) => (l._id === e.payload.leadId ? { ...l, ...e.payload.patch } as Lead : l)));
+        setLeads((cur) =>
+          cur.map((l) => (l._id === e.payload.leadId ? ({ ...l, ...e.payload.patch } as Lead) : l)),
+        );
       } else if (e.type === "evt.lead.assigned") {
-        setLeads((cur) => cur.map((l) => (l._id === e.payload.leadId ? { ...l, assignedTcmId: e.payload.tcmId } : l)));
+        setLeads((cur) =>
+          cur.map((l) =>
+            l._id === e.payload.leadId ? { ...l, assignedTcmId: e.payload.tcmId } : l,
+          ),
+        );
       } else if (e.type === "evt.lead.stage_changed") {
-        setLeads((cur) => cur.map((l) => (l._id === e.payload.leadId ? { ...l, stage: e.payload.to as Lead["stage"] } : l)));
+        setLeads((cur) =>
+          cur.map((l) =>
+            l._id === e.payload.leadId ? { ...l, stage: e.payload.to as Lead["stage"] } : l,
+          ),
+        );
       } else if (e.type === "evt.lead.deleted") {
         setLeads((cur) => cur.filter((l) => l._id !== e.payload.leadId));
       }
@@ -41,20 +53,31 @@ export function useLiveLeads() {
     return off;
   }, [refresh]);
 
-  const createLead = useCallback(async (input: { name: string; phone: string; budget: number; preferredArea: string; moveInDate: string; source?: string }) => {
-    return dispatch({
-      type: "cmd.lead.create",
-      payload: {
-        name: input.name,
-        phone: input.phone,
-        source: input.source ?? "manual",
-        budget: input.budget,
-        moveInDate: input.moveInDate,
-        preferredArea: input.preferredArea,
-        zoneId: null,
-      },
-    });
-  }, []);
+  const createLead = useCallback(
+    async (input: {
+      name: string;
+      phone: string;
+      budget: number;
+      preferredArea: string;
+      moveInDate: string;
+      source?: string;
+    }) => {
+      return dispatch({
+        type: "cmd.lead.create",
+        payload: {
+          name: input.name,
+          phone: input.phone,
+          source: input.source ?? "manual",
+          budget: input.budget,
+          budgetText: "",
+          moveInDate: input.moveInDate,
+          preferredArea: input.preferredArea,
+          zoneId: null,
+        },
+      });
+    },
+    [],
+  );
 
   return { leads, loading, error, refresh, createLead };
 }

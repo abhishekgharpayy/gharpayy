@@ -64,7 +64,7 @@ export function LiveLeadsBridge() {
 
     useLeadsSync.getState().setLoading();
 
-    void (async () => {
+    const load = async () => {
       try {
         const r = await api.leads.list({ limit: 200 });
         if (cancelled) return;
@@ -73,13 +73,15 @@ export function LiveLeadsBridge() {
         useLeadsSync.getState().setReady();
       } catch (e) {
         const msg = (e as Error).message;
-        console.warn("[LiveLeadsBridge] initial load failed:", msg);
+        console.warn("[LiveLeadsBridge] load failed:", msg);
         if (!cancelled) {
           setLeads([]);
           useLeadsSync.getState().setError(msg);
         }
       }
-    })();
+    };
+
+    void load();
 
     getSocket();
     const off = onEvent((e: DomainEvent) => {
@@ -144,7 +146,6 @@ export function LiveLeadsBridge() {
           const leadName = cur.find((l) => l.id === e.payload.leadId)?.name || "a lead";
           const assigneeName = tcmsRef.current.find(t => t.id === e.payload.tcmId)?.name 
             || "the selected member";
-            
           useNotifications.getState().push({
             id: `n:pending_assignment:${e.payload.leadId}:${Date.now()}`,
             ts: Date.now(),
@@ -161,8 +162,9 @@ export function LiveLeadsBridge() {
       }
     });
 
-    return () => { cancelled = true; off(); };
-  }, [setLeads]); // ← only setLeads (stable zustand ref), not tcms
+    const interval = setInterval(load, 5 * 60_000);
+    return () => { cancelled = true; off(); clearInterval(interval); };
+  }, [setLeads]);
 
   return null;
 }

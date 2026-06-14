@@ -16,7 +16,7 @@ export const Route = createFileRoute("/supply-hub/areas")({
 function AreasPage() {
   const { role } = useApp();
   const navigate = useNavigate();
-  useEffect(() => { if (role === "owner") navigate({ to: "/owner/inventory" }); }, [role, navigate]);
+  useEffect(() => { if (role === "owner") navigate({ to: "/property-owner/inventory" }); }, [role, navigate]);
 
   const counts = useMemo(() => {
     const c: Record<string, number> = {};

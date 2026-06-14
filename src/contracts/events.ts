@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { Lead, Todo, Activity, TourStatus } from "./entities.js";
+import { Lead, Todo, Activity, TourStatus, BookingEntity, TenantEntity } from "./entities.js";
 
 // Event registry - every event the system can emit. Server publishes, client + workers subscribe.
 export const EventType = z.enum([
@@ -30,9 +30,21 @@ export const EventType = z.enum([
   "evt.tour.updated",
   "evt.tour.assignment_accepted",
   "evt.tour.assignment_passed",
+  // Bookings
+  "evt.booking.created",
+  "evt.booking.updated",
+  "evt.booking.cancelled",
+  "evt.booking.approved",
+  "evt.booking.marked_paid",
+  // Tenants
+  "evt.tenant.created",
+  "evt.tenant.updated",
+  "evt.tenant.status_changed",
   // Future modules
   "evt.room.blocked",
   "evt.room.released",
+  // Owner sharing
+  "evt.booking.shared_with_owner",
 ]);
 export type EventType = z.infer<typeof EventType>;
 
@@ -181,6 +193,46 @@ export const TourAssignmentPassedEvt = Envelope.extend({
   }),
 });
 
+// ---------- Booking events ----------
+export const BookingCreatedEvt = Envelope.extend({
+  type: z.literal("evt.booking.created"),
+  payload: z.object({ booking: BookingEntity }),
+});
+export const BookingUpdatedEvt = Envelope.extend({
+  type: z.literal("evt.booking.updated"),
+  payload: z.object({ bookingId: z.string(), patch: z.record(z.string(), z.unknown()) }),
+});
+export const BookingCancelledEvt = Envelope.extend({
+  type: z.literal("evt.booking.cancelled"),
+  payload: z.object({ bookingId: z.string() }),
+});
+export const BookingApprovedEvt = Envelope.extend({
+  type: z.literal("evt.booking.approved"),
+  payload: z.object({ bookingId: z.string() }),
+});
+export const BookingMarkedPaidEvt = Envelope.extend({
+  type: z.literal("evt.booking.marked_paid"),
+  payload: z.object({ bookingId: z.string(), paidRef: z.string() }),
+});
+export const BookingSharedWithOwnerEvt = Envelope.extend({
+  type: z.literal("evt.booking.shared_with_owner"),
+  payload: z.object({ bookingId: z.string(), ownerId: z.string() }),
+});
+
+// ---------- Tenant events ----------
+export const TenantCreatedEvt = Envelope.extend({
+  type: z.literal("evt.tenant.created"),
+  payload: z.object({ tenant: TenantEntity }),
+});
+export const TenantUpdatedEvt = Envelope.extend({
+  type: z.literal("evt.tenant.updated"),
+  payload: z.object({ tenantId: z.string(), patch: z.record(z.string(), z.unknown()) }),
+});
+export const TenantStatusChangedEvt = Envelope.extend({
+  type: z.literal("evt.tenant.status_changed"),
+  payload: z.object({ tenantId: z.string(), from: z.string(), to: z.string(), exitDate: z.string().nullable() }),
+});
+
 export const DomainEvent = z.discriminatedUnion("type", [
   LeadCreatedEvt,
   LeadUpdatedEvt,
@@ -206,5 +258,14 @@ export const DomainEvent = z.discriminatedUnion("type", [
   TourUpdatedEvt,
   TourAssignmentAcceptedEvt,
   TourAssignmentPassedEvt,
+  BookingCreatedEvt,
+  BookingUpdatedEvt,
+  BookingCancelledEvt,
+  BookingApprovedEvt,
+  BookingMarkedPaidEvt,
+  BookingSharedWithOwnerEvt,
+  TenantCreatedEvt,
+  TenantUpdatedEvt,
+  TenantStatusChangedEvt,
 ]);
 export type DomainEvent = z.infer<typeof DomainEvent>;

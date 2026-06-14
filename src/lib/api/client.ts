@@ -10,7 +10,12 @@ import { localAdapter, isLocalMode } from "./local-adapter";
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 
 export class ApiError extends Error {
-  constructor(public code: string, message: string, public status: number, public details?: unknown) {
+  constructor(
+    public code: string,
+    message: string,
+    public status: number,
+    public details?: unknown,
+  ) {
     super(message);
   }
 }
@@ -27,13 +32,15 @@ const inFlightGetRequests = new Map<string, Promise<unknown>>();
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (!API_URL) throw new ApiError("NO_API_URL", "VITE_API_URL not configured", 0);
   const headers = new Headers(init.headers ?? {});
-  if (init.body != null && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+  if (init.body != null && !headers.has("Content-Type"))
+    headers.set("Content-Type", "application/json");
   if (!headers.has("Accept")) headers.set("Accept", "application/json");
   const t = tokenStore.get();
   if (t) headers.set("Authorization", `Bearer ${t}`);
 
   const method = (init.method ?? "GET").toUpperCase();
-  const dedupeKey = method === "GET" && init.body == null ? `${API_URL}${path}::${t ?? "anon"}` : null;
+  const dedupeKey =
+    method === "GET" && init.body == null ? `${API_URL}${path}::${t ?? "anon"}` : null;
   if (dedupeKey) {
     const existing = inFlightGetRequests.get(dedupeKey);
     if (existing) return existing as Promise<T>;
@@ -64,14 +71,22 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
         if (!res.ok) {
           if (res.status === 429) {
             const retryAfterValue = Number(body?.retryAfter ?? res.headers.get("Retry-After") ?? 2);
-            const retryAfter = Number.isFinite(retryAfterValue) && retryAfterValue > 0 ? retryAfterValue : 2;
+            const retryAfter =
+              Number.isFinite(retryAfterValue) && retryAfterValue > 0 ? retryAfterValue : 2;
             if (attempt < 3) {
-              console.warn(`[API] Rate limited, retrying in ${retryAfter} seconds (attempt ${attempt}/3)`);
+              console.warn(
+                `[API] Rate limited, retrying in ${retryAfter} seconds (attempt ${attempt}/3)`,
+              );
               await new Promise((resolve) => setTimeout(resolve, retryAfter * 1000));
               continue;
             }
           }
-          throw new ApiError(body?.code ?? "INTERNAL", body?.message ?? res.statusText, res.status, body?.details);
+          throw new ApiError(
+            body?.code ?? "INTERNAL",
+            body?.message ?? res.statusText,
+            res.status,
+            body?.details,
+          );
         }
         return body as T;
       } catch (e) {
@@ -94,7 +109,11 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return inFlight as Promise<T>;
 }
 function safeJson(t: string): any {
-  try { return JSON.parse(t); } catch { return null; }
+  try {
+    return JSON.parse(t);
+  } catch {
+    return null;
+  }
 }
 
 async function safe<T>(networkFn: () => Promise<T>, localFn: () => T): Promise<T> {
@@ -110,10 +129,12 @@ export type UserStatus = "active" | "inactive" | "invited" | "deleted";
 export interface ManagedUser {
   id: string;
   fullName: string;
+  name?: string;
   email: string;
   phone: string;
   username: string;
   role: AnyRole;
+  isTcm?: boolean;
   status: UserStatus;
   zones: string[];
   managerId?: string | null;
@@ -150,6 +171,7 @@ export interface AuthUser {
   zones: string[];
   scopes: string[];
   isTcm?: boolean;
+  name?: string;
 }
 
 export const api = {
@@ -159,7 +181,10 @@ export const api = {
   health: () => request<{ ok: true; ts: string }>("/api/health"),
 
   signup: (b: { email: string; password: string; name: string; role?: ManagedRole }) =>
-    request<{ ok: true; userId: string }>("/api/auth/signup", { method: "POST", body: JSON.stringify(b) }),
+    request<{ ok: true; userId: string }>("/api/auth/signup", {
+      method: "POST",
+      body: JSON.stringify(b),
+    }),
 
   login: async (identifier: string, password: string) => {
     const r = await request<{ token: string; user: AuthUser }>("/api/auth/login", {
@@ -181,13 +206,16 @@ export const api = {
       request<{ ok: true }>("/api/auth/update", { method: "PATCH", body: JSON.stringify(b) }),
   },
 
-  command: <R = unknown>(cmd: { _id: string; type: string; payload: Record<string, unknown> } & Record<string, unknown>) =>
+  command: <R = unknown>(
+    cmd: { _id: string; type: string; payload: Record<string, unknown> } & Record<string, unknown>,
+  ) =>
     safe<R>(
-      () => request<R>("/api/commands", {
-        method: "POST",
-        headers: { "Idempotency-Key": cmd._id },
-        body: JSON.stringify(cmd),
-      }),
+      () =>
+        request<R>("/api/commands", {
+          method: "POST",
+          headers: { "Idempotency-Key": cmd._id },
+          body: JSON.stringify(cmd),
+        }),
       () => localAdapter.command(cmd) as unknown as R,
     ),
 
@@ -195,10 +223,17 @@ export const api = {
     list: (q: Record<string, string | number> = {}) =>
       safe<{ items: unknown[]; nextCursor: string | null }>(
         () => {
-          const qs = new URLSearchParams(Object.entries(q).map(([k, v]) => [k, String(v)])).toString();
-          return request<{ items: unknown[]; nextCursor: string | null }>(`/api/leads${qs ? `?${qs}` : ""}`);
+          const qs = new URLSearchParams(
+            Object.entries(q).map(([k, v]) => [k, String(v)]),
+          ).toString();
+          return request<{ items: unknown[]; nextCursor: string | null }>(
+            `/api/leads${qs ? `?${qs}` : ""}`,
+          );
         },
-        () => localAdapter.listLeads({ limit: typeof q.limit === "number" ? q.limit : Number(q.limit ?? 100) }),
+        () =>
+          localAdapter.listLeads({
+            limit: typeof q.limit === "number" ? q.limit : Number(q.limit ?? 100),
+          }),
       ),
     get: (id: string) => request<unknown>(`/api/leads/${id}`),
   },
@@ -215,10 +250,17 @@ export const api = {
   },
 
   activities: {
-    list: <T = import("@/contracts").Activity>(q: { entityType: string; entityId: string; kind?: string; limit?: number }) =>
+    list: <T = import("@/contracts").Activity>(q: {
+      entityType: string;
+      entityId: string;
+      kind?: string;
+      limit?: number;
+    }) =>
       safe<{ items: T[] }>(
         () => {
-          const qs = new URLSearchParams(Object.entries(q).map(([k, v]) => [k, String(v)])).toString();
+          const qs = new URLSearchParams(
+            Object.entries(q).map(([k, v]) => [k, String(v)]),
+          ).toString();
           return request<{ items: T[] }>(`/api/activities?${qs}`);
         },
         () => localAdapter.listActivities(q) as unknown as { items: T[] },
@@ -228,35 +270,58 @@ export const api = {
   tours: {
     list: () =>
       safe<{ items: import("@/contracts").Tour[]; nextCursor: string | null }>(
-        () => request<{ items: import("@/contracts").Tour[]; nextCursor: string | null }>(`/api/tours`),
+        () =>
+          request<{ items: import("@/contracts").Tour[]; nextCursor: string | null }>(`/api/tours`),
         () => localAdapter.listTours(),
       ),
-      update: (tourId: string, updates: Record<string, unknown>) =>
-        request<{ ok: boolean }>(`/api/tours/${tourId}`, { method: "PATCH", body: JSON.stringify(updates) }),
-    },
+    update: (tourId: string, updates: Record<string, unknown>) =>
+      request<{ ok: boolean }>(`/api/tours/${tourId}`, {
+        method: "PATCH",
+        body: JSON.stringify(updates),
+      }),
+  },
 
   // ---------- User management (super_admin) ----------
   users: {
     list: (status?: UserStatus) =>
       request<ManagedUser[]>(`/api/users${status ? `?status=${status}` : ""}`),
     listLite: () =>
-      safe<{ items: { _id: string; name: string; email: string; role: string; isTcm?: boolean }[] }>(
-        () => request<{ items: { _id: string; name: string; email: string; role: string; isTcm?: boolean }[] }>("/api/users/list"),
+      safe<{
+        items: { _id: string; name: string; email: string; role: string; isTcm?: boolean }[];
+      }>(
+        () =>
+          request<{
+            items: { _id: string; name: string; email: string; role: string; isTcm?: boolean }[];
+          }>("/api/users/list"),
         () => localAdapter.listUsers(),
       ),
-    impersonate: (id: string) => request<{ ok: true }>("/api/auth/impersonate", { method: "POST", body: JSON.stringify({ id }) }),
+    impersonate: (id: string) =>
+      request<{ ok: true }>("/api/auth/impersonate", {
+        method: "POST",
+        body: JSON.stringify({ id }),
+      }),
     returnToSelf: () => request<{ ok: true }>("/api/auth/return"),
     get: (id: string) => request<ManagedUser>(`/api/users/${id}`),
     create: (b: {
-      fullName: string; email: string; phone?: string; password: string;
-      role: ManagedRole; zones?: string[];
+      fullName: string;
+      email: string;
+      phone?: string;
+      password: string;
+      role: ManagedRole;
+      zones?: string[];
     }) => request<ManagedUser>("/api/users", { method: "POST", body: JSON.stringify(b) }),
     update: (id: string, b: Record<string, unknown>) =>
       request<ManagedUser>(`/api/users/${id}`, { method: "PUT", body: JSON.stringify(b) }),
     resetPassword: (id: string, password: string) =>
-      request<{ ok: true }>(`/api/users/${id}`, { method: "PATCH", body: JSON.stringify({ password }) }),
+      request<{ ok: true }>(`/api/users/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ password }),
+      }),
     setStatus: (id: string, action: "activate" | "deactivate" | "delete") =>
-      request<{ ok: true }>(`/api/users/${id}/status`, { method: "PATCH", body: JSON.stringify({ action }) }),
+      request<{ ok: true }>(`/api/users/${id}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ action }),
+      }),
   },
 
   managers: {
@@ -280,23 +345,97 @@ export const api = {
       request<Zone>("/api/zones", { method: "POST", body: JSON.stringify(input) }),
     update: (id: string, input: ZoneInput) =>
       request<Zone>(`/api/zones/${id}`, { method: "PUT", body: JSON.stringify(input) }),
-    remove: (id: string) =>
-      request<{ ok: true }>(`/api/zones/${id}`, { method: "DELETE" }),
+    remove: (id: string) => request<{ ok: true }>(`/api/zones/${id}`, { method: "DELETE" }),
   },
   properties: {
     list: () => request<import("@/lib/types").Property[]>("/api/properties"),
     create: (input: any) =>
-      request<import("@/lib/types").Property>("/api/properties", { method: "POST", body: JSON.stringify(input) }),
+      request<import("@/lib/types").Property>("/api/properties", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
     update: (id: string, input: any) =>
-      request<import("@/lib/types").Property>(`/api/properties/${id}`, { method: "PUT", body: JSON.stringify(input) }),
-    remove: (id: string) =>
-      request<{ ok: true }>(`/api/properties/${id}`, { method: "DELETE" }),
+      request<import("@/lib/types").Property>(`/api/properties/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(input),
+      }),
+    remove: (id: string) => request<{ ok: true }>(`/api/properties/${id}`, { method: "DELETE" }),
   },
 
+  followUps: {
+    list: (q: { leadId?: string; done?: boolean; limit?: number } = {}) =>
+      request<{ items: Record<string, unknown>[] }>(
+        `/api/follow-ups?${new URLSearchParams(
+          Object.entries(q).map(([k, v]) => [k, String(v)]),
+        ).toString()}`,
+      ),
+    create: (input: {
+      leadId: string;
+      tourId?: string;
+      tcmId: string;
+      dueAt: string;
+      priority: "high" | "medium" | "low" | "urgent";
+      reason?: string;
+    }) =>
+      request<Record<string, unknown>>("/api/follow-ups", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+    update: (id: string, patch: Record<string, unknown>) =>
+      request<Record<string, unknown>>(`/api/follow-ups/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(patch),
+      }),
+  },
+  handoffs: {
+    list: (q: { leadId?: string; limit?: number } = {}) =>
+      request<{ items: Record<string, unknown>[] }>(
+        `/api/handoffs?${new URLSearchParams(
+          Object.entries(q).map(([k, v]) => [k, String(v)]),
+        ).toString()}`,
+      ),
+    create: (input: {
+      leadId: string;
+      from: string;
+      fromId: string;
+      to: string;
+      text: string;
+      priority: "normal" | "urgent";
+    }) =>
+      request<Record<string, unknown>>("/api/handoffs", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+    markRead: (leadId: string) =>
+      request<{ modifiedCount: number }>("/api/handoffs/mark-read", {
+        method: "POST",
+        body: JSON.stringify({ leadId }),
+      }),
+  },
+  sequences: {
+    list: (q: { leadId?: string; active?: boolean; limit?: number } = {}) =>
+      request<{ items: Record<string, unknown>[] }>(
+        `/api/sequences?${new URLSearchParams(
+          Object.entries(q).map(([k, v]) => [k, String(v)]),
+        ).toString()}`,
+      ),
+    create: (input: { leadId: string; kind: string }) =>
+      request<Record<string, unknown>>("/api/sequences", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+    update: (id: string, patch: Record<string, unknown>) =>
+      request<Record<string, unknown>>(`/api/sequences/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(patch),
+      }),
+  },
   stats: {
     dailyProgress: (date?: string) => {
       const qs = date ? `?date=${encodeURIComponent(date)}` : "";
-      return request<import("@/lib/stats-types").LeadsDailyProgressResponse>(`/api/stats/daily-progress${qs}`);
+      return request<import("@/lib/stats-types").LeadsDailyProgressResponse>(
+        `/api/stats/daily-progress${qs}`,
+      );
     },
     leaderboard: (
       period: import("@/lib/stats-types").LeaderboardPeriod = "this_month",
@@ -317,17 +456,66 @@ export const api = {
 
   activity: {
     login: (limit = 100) =>
-      request<{ items: { _id: string; type: string; occurredAt: string; payload: Record<string, unknown> }[] }>(
-        `/api/activity/login?limit=${limit}`,
-      ),
+      request<{
+        items: {
+          _id: string;
+          type: string;
+          occurredAt: string;
+          payload: Record<string, unknown>;
+        }[];
+      }>(`/api/activity/login?limit=${limit}`),
     all: (limit = 200) =>
-      request<{ items: { _id: string; type: string; occurredAt: string; payload: Record<string, unknown> }[] }>(
-        `/api/activity/all?limit=${limit}`,
-      ),
+      request<{
+        items: {
+          _id: string;
+          type: string;
+          occurredAt: string;
+          payload: Record<string, unknown>;
+        }[];
+      }>(`/api/activity/all?limit=${limit}`),
     lead: (leadId: string, limit = 200) =>
-      request<{ items: { _id: string; type: string; occurredAt: string; payload: Record<string, unknown> }[] }>(
-        `/api/activity/lead?leadId=${encodeURIComponent(leadId)}&limit=${limit}`,
+      request<{
+        items: {
+          _id: string;
+          type: string;
+          occurredAt: string;
+          payload: Record<string, unknown>;
+        }[];
+      }>(`/api/activity/lead?leadId=${encodeURIComponent(leadId)}&limit=${limit}`),
+  },
+
+  bookings: {
+    list: (q: Record<string, string | number> = {}) =>
+      safe<{ items: import("@/contracts").BookingEntity[]; nextCursor: string | null }>(
+        () => {
+          const qs = new URLSearchParams(
+            Object.entries(q).map(([k, v]) => [k, String(v)]),
+          ).toString();
+          return request<{ items: import("@/contracts").BookingEntity[]; nextCursor: string | null }>(
+            `/api/bookings${qs ? `?${qs}` : ""}`,
+          );
+        },
+        () => ({ items: [], nextCursor: null }),
       ),
+    get: (id: string) =>
+      request<import("@/contracts").BookingEntity>(`/api/bookings/${id}`),
+  },
+
+  tenants: {
+    list: (q: Record<string, string | number> = {}) =>
+      safe<{ items: import("@/contracts").TenantEntity[]; nextCursor: string | null }>(
+        () => {
+          const qs = new URLSearchParams(
+            Object.entries(q).map(([k, v]) => [k, String(v)]),
+          ).toString();
+          return request<{ items: import("@/contracts").TenantEntity[]; nextCursor: string | null }>(
+            `/api/tenants${qs ? `?${qs}` : ""}`,
+          );
+        },
+        () => ({ items: [], nextCursor: null }),
+      ),
+    get: (id: string) =>
+      request<import("@/contracts").TenantEntity>(`/api/tenants/${id}`),
   },
 
   assignmentNotifications: {
@@ -340,7 +528,8 @@ export const api = {
     /** Fetch notifications that were passed on (so the original assigner is informed) */
     listPassed: () =>
       safe<{ items: AssignmentNotificationItem[] }>(
-        () => request<{ items: AssignmentNotificationItem[] }>("/api/assignment-notifications/passed"),
+        () =>
+          request<{ items: AssignmentNotificationItem[] }>("/api/assignment-notifications/passed"),
         () => ({ items: [] }),
       ),
   },

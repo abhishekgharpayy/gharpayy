@@ -4,6 +4,7 @@ interface ImportMetaEnv {
   readonly VITE_AUTH_TOKEN_KEY?: string;
   readonly VITE_IMPACT_QUEUE_ENABLED?: string;
   readonly VITE_IMPACT_QUEUE_POLL_MS?: string;
+  readonly VITE_SENTRY_DSN?: string;
   readonly BASE_URL: string;
   readonly MODE: string;
   readonly DEV: boolean;

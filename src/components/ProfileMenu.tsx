@@ -16,25 +16,19 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuSubContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useApp } from "@/lib/store";
-import { memberAreaLabel, memberDisplayName, useActiveTcMs } from "@/hooks/useOrgDirectory";
+import { roleLabel } from "@/lib/role-labels";
 import { useAuthUser } from "@/lib/auth-store";
 import { cn } from "@/lib/utils";
 import {
   UserRound,
   UserPlus,
+  Users,
   Settings,
   HelpCircle,
   LogOut,
   RefreshCw,
-  Users,
   Building2,
   ShieldCheck,
   Target,
@@ -50,14 +44,12 @@ const ROLE_META = {
 } as const;
 
 export function ProfileMenu() {
-  const { role, setRole, currentTcmId, setCurrentTcmId, tcms } = useApp();
-  const { tcms: activeTcms } = useActiveTcMs();
-  const availableTcns = (activeTcms && activeTcms.length > 0) ? activeTcms : tcms;
   const navigate = useNavigate();
-  const meta = ROLE_META[role];
-  const tcm = role === "tcm" ? availableTcns.find((t) => t.id === currentTcmId) : null;
   const authUser = useAuthUser((s) => s.user);
-  const personName = tcm?.name ?? authUser?.fullName ?? authUser?.username ?? authUser?.email ?? "Account";
+  const meta =
+    ROLE_META[(authUser?.role ?? "flow-ops").replace(/_/g, "-") as keyof typeof ROLE_META] ??
+    ROLE_META["flow-ops"];
+  const personName = authUser?.fullName ?? authUser?.username ?? authUser?.email ?? "Account";
   const computeInitials = (n: string) =>
     n
       .split(/[\s@._-]+/)
@@ -65,11 +57,9 @@ export function ProfileMenu() {
       .slice(0, 2)
       .map((p) => p[0]?.toUpperCase() ?? "")
       .join("") || "U";
-  const initials = tcm?.initials ?? computeInitials(personName);
+  const initials = computeInitials(personName);
 
-  const roleDisplay = authUser?.role 
-    ? authUser.role.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
-    : "Member";
+  const roleDisplay = authUser?.role ? roleLabel(authUser.role) : "Flow Ops";
 
   return (
     <DropdownMenu>
@@ -79,12 +69,21 @@ export function ProfileMenu() {
           className="relative inline-flex h-8 w-8 items-center justify-center rounded-full bg-accent text-[11px] font-semibold text-accent-foreground outline-none ring-offset-background transition focus-visible:ring-2 focus-visible:ring-accent"
         >
           {initials}
-          <span className={cn("absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-background", meta.dot)} />
+          <span
+            className={cn(
+              "absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-background",
+              meta.dot,
+            )}
+          />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64">
         <DropdownMenuLabel className="flex items-center gap-2">
-          <div className={cn("inline-flex h-8 w-8 items-center justify-center rounded-full bg-accent/15 text-[11px] font-semibold")}>
+          <div
+            className={cn(
+              "inline-flex h-8 w-8 items-center justify-center rounded-full bg-accent/15 text-[11px] font-semibold",
+            )}
+          >
             {initials}
           </div>
           <div className="min-w-0">
@@ -93,33 +92,17 @@ export function ProfileMenu() {
           </div>
         </DropdownMenuLabel>
 
-        {role === "tcm" && availableTcns.length > 0 && (
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger>
-              <Users className="mr-2 h-4 w-4" /> Switch TCM
-            </DropdownMenuSubTrigger>
-            <DropdownMenuSubContent className="w-56">
-              <DropdownMenuRadioGroup value={currentTcmId} onValueChange={setCurrentTcmId}>
-                {availableTcns.map((t: any) => (
-                  <DropdownMenuRadioItem key={t.id} value={t.id}>
-                    {memberDisplayName(t)}
-                    <span className="ml-auto max-w-[96px] truncate text-[10px] text-muted-foreground">
-                      {memberAreaLabel(t)}
-                    </span>
-                  </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
-            </DropdownMenuSubContent>
-          </DropdownMenuSub>
-        )}
-
         <DropdownMenuSeparator />
 
         <DropdownMenuItem asChild>
-          <Link to="/settings"><Settings className="mr-2 h-4 w-4" /> Settings</Link>
+          <Link to="/settings">
+            <Settings className="mr-2 h-4 w-4" /> Settings
+          </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
-          <Link to="/help"><HelpCircle className="mr-2 h-4 w-4" /> How to use</Link>
+          <Link to="/help">
+            <HelpCircle className="mr-2 h-4 w-4" /> How to use
+          </Link>
         </DropdownMenuItem>
 
         <DropdownMenuSeparator />

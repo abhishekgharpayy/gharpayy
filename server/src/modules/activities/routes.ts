@@ -5,8 +5,8 @@ import { Activity } from "../../../../src/contracts/entities.js";
 import { requireAuth, requireScope } from "../../middleware/auth.js";
 
 const ListQuery = z.object({
-  entityType: z.string(),
-  entityId: z.string(),
+  entityType: z.string().optional(),
+  entityId: z.string().optional(),
   kind: z.string().optional(),
   limit: z.coerce.number().min(1).max(500).default(200),
 });
@@ -16,9 +16,9 @@ export function registerActivitiesRoutes(app: FastifyInstance) {
     const q = ListQuery.parse(req.query);
     const filter: Record<string, unknown> = {
       tenantId: req.user!.tenantId,
-      entityType: q.entityType,
-      entityId: q.entityId,
     };
+    if (q.entityType) filter.entityType = q.entityType;
+    if (q.entityId && q.entityId !== "_all_") filter.entityId = q.entityId;
     if (q.kind) filter.kind = q.kind;
     const items = await col<Activity>("activities")
       .find(filter)

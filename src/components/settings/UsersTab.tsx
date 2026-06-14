@@ -4,13 +4,21 @@ import { Loader2, MoreVertical, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { api, type ManagedUser, type UserStatus } from "@/lib/api/client";
 import { AddUserForm } from "./AddUserForm";
+import { roleLabel } from "@/lib/role-labels";
 
 export function UsersTab() {
   const [users, setUsers] = useState<ManagedUser[]>([]);
@@ -30,12 +38,17 @@ export function UsersTab() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
   const filtered = useMemo(
-    () => users
-      .filter((u) => (u.status || "active") === tab)
-      .sort((a, b) => (a.fullName || "").localeCompare(b.fullName || "", undefined, { sensitivity: "base" })),
+    () =>
+      users
+        .filter((u) => (u.status || "active") === tab)
+        .sort((a, b) =>
+          (a.fullName || "").localeCompare(b.fullName || "", undefined, { sensitivity: "base" }),
+        ),
     [users, tab],
   );
   const counts = {
@@ -50,7 +63,9 @@ export function UsersTab() {
       await api.users.setStatus(id, action);
       toast.success(`User ${action}d`);
       load();
-    } catch (e) { toast.error((e as Error).message); }
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
   };
 
   return (
@@ -70,10 +85,14 @@ export function UsersTab() {
             >
               {s}
               {counts[s] > 0 && (
-                <span className={
-                  "text-[10px] px-1.5 py-0.5 rounded-full " +
-                  (tab === s ? "bg-accent/20 text-accent" : "bg-muted text-muted-foreground")
-                }>{counts[s]}</span>
+                <span
+                  className={
+                    "text-[10px] px-1.5 py-0.5 rounded-full " +
+                    (tab === s ? "bg-accent/20 text-accent" : "bg-muted text-muted-foreground")
+                  }
+                >
+                  {counts[s]}
+                </span>
               )}
             </button>
           ))}
@@ -89,7 +108,12 @@ export function UsersTab() {
             <DialogHeader>
               <DialogTitle>Add new user</DialogTitle>
             </DialogHeader>
-            <AddUserForm onSuccess={() => { setShowAdd(false); load(); }} />
+            <AddUserForm
+              onSuccess={() => {
+                setShowAdd(false);
+                load();
+              }}
+            />
           </DialogContent>
         </Dialog>
       </div>
@@ -101,7 +125,10 @@ export function UsersTab() {
       ) : (
         <div className="space-y-2">
           {filtered.map((u) => (
-            <div key={u.id} className="flex items-center justify-between p-3 rounded-xl bg-card border hover:bg-secondary/30 transition-colors">
+            <div
+              key={u.id}
+              className="flex items-center justify-between p-3 rounded-xl bg-card border hover:bg-secondary/30 transition-colors"
+            >
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-9 h-9 rounded-full bg-accent/10 flex items-center justify-center shrink-0">
                   <span className="text-accent font-semibold text-sm">
@@ -111,7 +138,9 @@ export function UsersTab() {
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-medium truncate">{u.fullName}</p>
-                    <Badge variant="secondary" className="text-[10px] capitalize">{u.role.replace("_", " ")}</Badge>
+                    <Badge variant="secondary" className="text-[10px]">
+                      {roleLabel(u.role)}
+                    </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground truncate">{u.email}</p>
                   {u.phone && <p className="text-[11px] text-muted-foreground">{u.phone}</p>}
@@ -131,14 +160,28 @@ export function UsersTab() {
                   <DropdownMenuContent align="end">
                     {tab === "active" && (
                       <>
-                        <DropdownMenuItem onClick={() => setStatus(u.id, "deactivate")}>Deactivate</DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive" onClick={() => setStatus(u.id, "delete")}>Delete</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setStatus(u.id, "deactivate")}>
+                          Deactivate
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="text-destructive"
+                          onClick={() => setStatus(u.id, "delete")}
+                        >
+                          Delete
+                        </DropdownMenuItem>
                       </>
                     )}
                     {(tab === "inactive" || tab === "invited") && (
                       <>
-                        <DropdownMenuItem onClick={() => setStatus(u.id, "activate")}>Activate</DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive" onClick={() => setStatus(u.id, "delete")}>Delete</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setStatus(u.id, "activate")}>
+                          Activate
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="text-destructive"
+                          onClick={() => setStatus(u.id, "delete")}
+                        >
+                          Delete
+                        </DropdownMenuItem>
                       </>
                     )}
                   </DropdownMenuContent>

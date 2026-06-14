@@ -4,7 +4,13 @@ import { renderTemplate, waLink, WA_TEMPLATES, type TemplateStage } from "@/lib/
 import { useApp, getProperty } from "@/lib/store";
 import type { Lead } from "@/lib/types";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { ExternalLink, MessageSquare, Languages } from "lucide-react";
 import { toast } from "sonner";
@@ -17,11 +23,13 @@ export function WaTemplatePicker({ lead }: { lead: Lead }) {
   const sendMessage = useApp((s) => s.sendMessage);
 
   const [stage, setStage] = useState<TemplateStage>("follow-up");
-  const [lang, setLang] = useState<"english" | "hindi">(profile?.language === "hindi" ? "hindi" : "english");
+  const [lang, setLang] = useState<"english" | "hindi">(
+    profile?.language === "hindi" ? "hindi" : "english",
+  );
 
   const tours = useMemo(() => allTours.filter((t) => t.leadId === lead.id), [allTours, lead.id]);
   const tour = tours[0];
-  const prop = tour ? getProperty(tour.propertyId, properties) : undefined;
+  const prop = tour ? getProperty(tour.propertyId ?? undefined, properties) : undefined;
   const agent = tcms.find((t) => t.id === lead.assignedTcmId);
 
   const rendered = renderTemplate(stage, lang, {
@@ -31,7 +39,9 @@ export function WaTemplatePicker({ lead }: { lead: Lead }) {
     budget: Math.round(lead.budget / 1000) + "k",
     property: prop?.name ?? "the property",
     date: tour ? new Date(tour.scheduledAt).toLocaleDateString() : "",
-    time: tour ? new Date(tour.scheduledAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "",
+    time: tour
+      ? new Date(tour.scheduledAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+      : "",
     price: prop?.pricePerBed ?? lead.budget,
     phone: lead.phone,
   });
@@ -49,10 +59,14 @@ export function WaTemplatePicker({ lead }: { lead: Lead }) {
       </div>
       <div className="grid grid-cols-2 gap-2">
         <Select value={stage} onValueChange={(v) => setStage(v as TemplateStage)}>
-          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="h-8 text-xs">
+            <SelectValue />
+          </SelectTrigger>
           <SelectContent>
             {Object.entries(WA_TEMPLATES).map(([k, v]) => (
-              <SelectItem key={k} value={k} className="text-xs">{v.label}</SelectItem>
+              <SelectItem key={k} value={k} className="text-xs">
+                {v.label}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>

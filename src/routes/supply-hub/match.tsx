@@ -15,7 +15,7 @@ export const Route = createFileRoute("/supply-hub/match")({
 function SupplyHubMatch() {
   const { role } = useApp();
   const navigate = useNavigate();
-  useEffect(() => { if (role === "owner") navigate({ to: "/owner/inventory" }); }, [role, navigate]);
+  useEffect(() => { if (role === "owner") navigate({ to: "/property-owner/inventory" }); }, [role, navigate]);
 
   const [lead, setLead] = useState<Lead>({
     name: "",

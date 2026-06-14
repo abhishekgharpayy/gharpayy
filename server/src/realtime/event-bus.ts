@@ -52,6 +52,14 @@ function deriveAggregate(evt: DomainEvent): { type: string | null; id: string | 
     if ("activityId" in p && "entityType" in p && "entityId" in p) {
       return { type: p.entityType as string, id: p.entityId as string };
     }
+    if ("booking" in p && typeof p.booking === "object" && p.booking && "_id" in (p.booking as object)) {
+      return { type: "booking", id: (p.booking as { _id: string })._id };
+    }
+    if ("bookingId" in p && typeof p.bookingId === "string") return { type: "booking", id: p.bookingId };
+    if ("tenant" in p && typeof p.tenant === "object" && p.tenant && "_id" in (p.tenant as object)) {
+      return { type: "tenant", id: (p.tenant as { _id: string })._id };
+    }
+    if ("tenantId" in p && typeof p.tenantId === "string") return { type: "tenant", id: p.tenantId };
   }
   return { type: null, id: null };
 }

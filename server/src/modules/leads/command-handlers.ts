@@ -145,6 +145,16 @@ async function applyCommand(cmd: Command, user: JwtClaims): Promise<LedgerDoc["r
   if (cmd.type === "cmd.lead.accept_assignment" || cmd.type === "cmd.lead.pass_assignment") {
     return applyAssignmentCommand(cmd, user);
   }
+  // Delegate booking commands
+  if (cmd.type.startsWith("cmd.booking.")) {
+    const { applyBookingCommand } = await import("../bookings/command-handlers.js");
+    return (applyBookingCommand as any)(cmd, user);
+  }
+  // Delegate tenant commands
+  if (cmd.type.startsWith("cmd.tenant.")) {
+    const { applyTenantCommand } = await import("../tenants/command-handlers.js");
+    return (applyTenantCommand as any)(cmd, user);
+  }
 
   const { autoLogActivity } = await import("../activities/command-handlers.js");
 

@@ -8,6 +8,7 @@ import { CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { useMemo } from "react";
 import { useMountedNow } from "@/hooks/use-now";
+import { useAuthUser } from "@/lib/auth-store";
 
 export const Route = createFileRoute("/follow-ups")({
   head: () => ({
@@ -17,15 +18,22 @@ export const Route = createFileRoute("/follow-ups")({
 });
 
 function FollowUpsPage() {
-  const { followUps, leads, completeFollowUp, selectLead } = useApp();
+  const { followUps, leads, completeFollowUp, selectLead, role, currentTcmId } = useApp();
+  const authUser = useAuthUser((s) => s.user);
   const [, mounted] = useMountedNow();
 
+  const selfId = authUser?.id || (role === "tcm" ? currentTcmId : "");
+  const scopedFollowUps = useMemo(() => {
+    if (!selfId || role !== "tcm") return followUps;
+    return followUps.filter((f) => f.tcmId === selfId);
+  }, [followUps, role, selfId]);
+
   const enriched = useMemo(() => {
-    return followUps
+    return scopedFollowUps
       .filter((f) => !f.done)
       .map((f) => ({ f, lead: leads.find((l) => l.id === f.leadId) }))
       .filter((x) => x.lead);
-  }, [followUps, leads]);
+  }, [scopedFollowUps, leads]);
 
   const overdue = enriched.filter((x) => isPast(new Date(x.f.dueAt)) && !isToday(new Date(x.f.dueAt)));
   const today = enriched.filter((x) => isToday(new Date(x.f.dueAt)));

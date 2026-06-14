@@ -5,13 +5,21 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import { api, type ManagedRole } from "@/lib/api/client";
+import { managedRoleLabel } from "@/lib/role-labels";
 
 export function AddUserForm({ onSuccess }: { onSuccess: () => void }) {
   const [form, setForm] = useState({
-    fullName: "", email: "", phone: "", password: "",
+    fullName: "",
+    email: "",
+    phone: "",
+    password: "",
     role: "" as ManagedRole | "",
   });
   const [zones, setZones] = useState<{ id: string; name: string }[]>([]);
@@ -20,10 +28,13 @@ export function AddUserForm({ onSuccess }: { onSuccess: () => void }) {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    api.zones.list().then(setZones).catch(() => undefined);
+    api.zones
+      .list()
+      .then(setZones)
+      .catch(() => undefined);
   }, []);
 
-  const needsZone = form.role === "admin" || form.role === "member";
+  const needsZone = form.role === "admin" || form.role === "member" || form.role === "tcm";
 
   const submit = async () => {
     if (!form.fullName || !form.email || !form.password || !form.role) {
@@ -58,15 +69,27 @@ export function AddUserForm({ onSuccess }: { onSuccess: () => void }) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div className="space-y-1.5">
           <Label className="text-xs">Full Name *</Label>
-          <Input value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} placeholder="Jane Doe" />
+          <Input
+            value={form.fullName}
+            onChange={(e) => setForm({ ...form, fullName: e.target.value })}
+            placeholder="Jane Doe"
+          />
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs">Email *</Label>
-          <Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="jane@gharpayy.com" />
+          <Input
+            value={form.email}
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
+            placeholder="jane@gharpayy.com"
+          />
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs">Phone</Label>
-          <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+91…" />
+          <Input
+            value={form.phone}
+            onChange={(e) => setForm({ ...form, phone: e.target.value })}
+            placeholder="+91…"
+          />
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs">Initial Password *</Label>
@@ -92,25 +115,37 @@ export function AddUserForm({ onSuccess }: { onSuccess: () => void }) {
 
       <div className="space-y-1.5">
         <Label className="text-xs">Role *</Label>
-        <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v as ManagedRole })}>
-          <SelectTrigger><SelectValue placeholder="Select role…" /></SelectTrigger>
+        <Select
+          value={form.role}
+          onValueChange={(v) => setForm({ ...form, role: v as ManagedRole })}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select role…" />
+          </SelectTrigger>
           <SelectContent>
-            <SelectItem value="manager">Manager</SelectItem>
-            <SelectItem value="admin">Admin</SelectItem>
-            <SelectItem value="member">Member</SelectItem>
-            <SelectItem value="owner">Property Owner</SelectItem>
+            <SelectItem value="manager">{managedRoleLabel("manager")}</SelectItem>
+            <SelectItem value="admin">{managedRoleLabel("admin")}</SelectItem>
+            <SelectItem value="member">{managedRoleLabel("member")}</SelectItem>
+            <SelectItem value="owner">{managedRoleLabel("owner")}</SelectItem>
+            <SelectItem value="tcm">{managedRoleLabel("tcm")}</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
       {needsZone && (
         <div className="space-y-1.5">
-          <Label className="text-xs flex items-center gap-1.5"><MapPin size={12} /> Zone *</Label>
+          <Label className="text-xs flex items-center gap-1.5">
+            <MapPin size={12} /> Zone *
+          </Label>
           <Select value={zoneName} onValueChange={setZoneName}>
-            <SelectTrigger><SelectValue placeholder="Select zone…" /></SelectTrigger>
+            <SelectTrigger>
+              <SelectValue placeholder="Select zone…" />
+            </SelectTrigger>
             <SelectContent>
               {zones.map((z) => (
-                <SelectItem key={z.id} value={z.name}>{z.name}</SelectItem>
+                <SelectItem key={z.id} value={z.name}>
+                  {z.name}
+                </SelectItem>
               ))}
               {zones.length === 0 && (
                 <div className="px-3 py-2 text-xs text-muted-foreground">

@@ -20,6 +20,12 @@ import { registerPropertyRoutes } from "./modules/properties/routes.js";
 import { registerActivityFeedRoutes } from "./modules/activity/feed-routes.js";
 import { registerStatsRoutes } from "./modules/stats/routes.js";
 import { registerQuotationsRoutes } from "./modules/quotations/routes.js";
+import { registerFollowUpsRoutes } from "./modules/followups/routes.js";
+import { registerHandoffsRoutes } from "./modules/handoffs/routes.js";
+import { registerSequencesRoutes } from "./modules/sequences/routes.js";
+import { registerBookingsRoutes } from "./modules/bookings/routes.js";
+import { registerTenantsRoutes } from "./modules/tenants/routes.js";
+import { registerOwnerRoutes } from "./modules/owner/routes.js";
 import { ensureDefaultSuperAdmin } from "./auth/auth.js";
 
 async function main() {
@@ -40,6 +46,9 @@ async function main() {
       if (!origin) return cb(null, true);
       if (corsOrigins.includes(origin)) return cb(null, true);
       if (/^https:\/\/[a-z0-9-]+\.trycloudflare\.com$/.test(origin)) {
+        return cb(null, true);
+      }
+      if (/^https:\/\/[a-z0-9-]+\.vercel\.app$/.test(origin)) {
         return cb(null, true);
       }
       if (env.NODE_ENV === "development" && /^(https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?)$/.test(origin)) {
@@ -98,6 +107,12 @@ h1{margin:0 0 .5rem;font-size:1.5rem;color:#34d399}p{margin:.25rem 0;color:#94a3
   registerActivityFeedRoutes(app);
   registerStatsRoutes(app);
   registerQuotationsRoutes(app);
+  registerFollowUpsRoutes(app);
+  registerHandoffsRoutes(app);
+  registerSequencesRoutes(app);
+  registerBookingsRoutes(app);
+  registerTenantsRoutes(app);
+  registerOwnerRoutes(app);
 
   // Idempotent — bootstraps the canonical Super Admin if missing.
   await ensureDefaultSuperAdmin().catch((err) => app.log.warn({ err }, "ensureDefaultSuperAdmin failed"));

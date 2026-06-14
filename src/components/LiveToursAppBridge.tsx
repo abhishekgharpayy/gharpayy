@@ -45,16 +45,18 @@ export function LiveToursAppBridge() {
   useEffect(() => {
     let cancelled = false;
 
-    void (async () => {
+    const load = async () => {
       try {
         const r = await api.tours.list();
         if (cancelled) return;
         setTours(r.items.filter(isWireTour).map(toLegacyTour));
       } catch (e) {
-        console.warn("[LiveToursAppBridge] initial load failed:", (e as Error).message);
+        console.warn("[LiveToursAppBridge] load failed:", (e as Error).message);
         if (!cancelled) setTours([]);
       }
-    })();
+    };
+
+    void load();
 
     getSocket();
     const off = onEvent((e: DomainEvent) => {
@@ -112,9 +114,11 @@ export function LiveToursAppBridge() {
       }
     });
 
+    const interval = setInterval(load, 5 * 60_000);
     return () => {
       cancelled = true;
       off();
+      clearInterval(interval);
     };
   }, [setTours]);
 

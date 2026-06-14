@@ -5,8 +5,6 @@ import type { Lead } from "@/lib/types";
 
 function lead(partial: Partial<Lead> & Pick<Lead, "id" | "name">): Lead {
   return {
-    id: partial.id,
-    name: partial.name,
     phone: partial.phone ?? "9999999999",
     source: "manual",
     budget: 12000,
@@ -39,7 +37,13 @@ describe("topSuggestion", () => {
     const list = [
       pick({
         lead: lead({ id: "1", name: "A" }),
-        nba: { verb: "schedule", label: "Schedule", reason: "new", pressure: "normal", ageMinutes: 0 },
+        nba: {
+          verb: "schedule",
+          label: "Schedule",
+          reason: "new",
+          pressure: "normal",
+          ageMinutes: 0,
+        },
       }),
     ];
     expect(topSuggestion(list)?.lead.id).toBe("1");

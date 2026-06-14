@@ -310,14 +310,20 @@ export const RISK_CLASS: Record<0 | 1 | 2 | 3, string> = {
   3: "bg-red-500/15 text-red-600 border-red-500/30",
 };
 
-// === REACT QUERY MIGRATION (Mock Backend Store) ===
-let mockCheckins: CheckIn[] = [];
+// === REACT QUERY MIGRATION (Persisted Backend Store) ===
+// All fallback data uses the Zustand store which is persisted to localStorage
+// under key "gharpayy.checkins.v1". This ensures check-in data survives page refresh.
 const uid = (p = "ci") => `${p}-${Math.random().toString(36).slice(2, 9)}`;
 
 function recalcBalance(c: Partial<CheckIn>): number {
   const rent = c.rent ?? 0;
   const token = c.tokenAmount ?? 0;
   return Math.max(0, rent - token);
+}
+
+/** Get a writable snapshot of the persisted checkin store. */
+function checkinStore() {
+  return useCheckins.getState();
 }
 
 export function useCheckin(leadId: string) {
@@ -328,7 +334,7 @@ export function useCheckin(leadId: string) {
         const res = await apiClient.get<CheckIn>(`/checkins`, { params: { leadId } });
         return res;
       } catch (e) {
-        return mockCheckins.find(c => c.leadId === leadId) || null;
+        return checkinStore().forLead(leadId) || null;
       }
     },
   });
@@ -344,43 +350,7 @@ export function useUpsertCheckin() {
       try {
         return await apiClient.post<CheckIn>(`/checkins`, args);
       } catch (e) {
-        let existing = mockCheckins.find(c => c.leadId === args.leadId);
-        if (existing) {
-          const updates: Partial<CheckIn> = {};
-          if (args.bookingId && !existing.bookingId) updates.bookingId = args.bookingId;
-          if (args.rent && !existing.rent) updates.rent = args.rent;
-          if (args.deposit !== undefined && existing.deposit !== args.deposit) updates.deposit = args.deposit;
-          if (args.propertyId && !existing.propertyId) {
-            updates.propertyId = args.propertyId;
-            updates.propertyName = args.propertyName;
-          }
-          if (Object.keys(updates).length) {
-            existing = { ...existing, ...updates, balanceDue: recalcBalance({ ...existing, ...updates }), updatedAt: new Date().toISOString() };
-            mockCheckins = mockCheckins.map(c => c.id === existing!.id ? existing! : c);
-          }
-          return existing;
-        }
-        const now = new Date().toISOString();
-        const rent = args.rent ?? 0;
-        const deposit = args.deposit ?? 0;
-        const rec: CheckIn = {
-          id: uid(),
-          leadId: args.leadId,
-          bookingId: args.bookingId,
-          stage: "booked",
-          propertyId: args.propertyId,
-          propertyName: args.propertyName,
-          rent,
-          deposit,
-          balanceDue: recalcBalance({ rent, deposit }),
-          delays: [],
-          issues: [],
-          history: [{ stage: "booked", at: now }],
-          createdAt: now,
-          updatedAt: now,
-        };
-        mockCheckins = [rec, ...mockCheckins];
-        return rec;
+        return checkinStore().upsert(args as any);
       }
     },
     onSuccess: (data) => {
@@ -396,8 +366,8 @@ export function usePatchCheckin() {
       try {
         return await apiClient.patch<CheckIn>(`/checkins/${id}`, patch);
       } catch (e) {
-        mockCheckins = mockCheckins.map(c => c.id === id ? { ...c, ...patch, balanceDue: recalcBalance({ ...c, ...patch }), updatedAt: new Date().toISOString() } : c);
-        return mockCheckins.find(c => c.id === id);
+        checkinStore().patch(id, patch as any);
+        return checkinStore().forLead(leadId) || null;
       }
     },
     onSuccess: (data, { leadId }) => {
@@ -413,18 +383,8 @@ export function useSetCheckinStage() {
       try {
         return await apiClient.put<CheckIn>(`/checkins/${id}/stage`, { stage, by });
       } catch (e) {
-        mockCheckins = mockCheckins.map(c => {
-          if (c.id !== id) return c;
-          const now = new Date().toISOString();
-          const next: CheckIn = {
-            ...c, stage, updatedAt: now,
-            history: [...c.history, { stage, at: now, by }],
-          };
-          if (stage === "moved_in" && !c.movedInAt) next.movedInAt = now;
-          if (stage === "settled" && !c.settledAt) next.settledAt = now;
-          return next;
-        });
-        return mockCheckins.find(c => c.id === id);
+        checkinStore().setStage(id, stage, by);
+        return checkinStore().forLead(leadId) || null;
       }
     },
     onSuccess: (data, { leadId }) => {
@@ -440,12 +400,8 @@ export function useAddCheckinDelay() {
       try {
         return await apiClient.post<CheckIn>(`/checkins/${id}/delays`, delay);
       } catch (e) {
-        mockCheckins = mockCheckins.map(c => {
-          if (c.id !== id) return c;
-          const d: CheckInDelay = { ...delay, at: new Date().toISOString() };
-          return { ...c, delays: [...c.delays, d], updatedAt: new Date().toISOString() };
-        });
-        return mockCheckins.find(c => c.id === id);
+        checkinStore().addDelay(id, delay.to, delay.reason);
+        return checkinStore().forLead(leadId) || null;
       }
     },
     onSuccess: (data, { leadId }) => {
@@ -461,17 +417,8 @@ export function useAddCheckinIssue() {
       try {
         return await apiClient.post<CheckIn>(`/checkins/${id}/issues`, issue);
       } catch (e) {
-        mockCheckins = mockCheckins.map(c => {
-          if (c.id !== id) return c;
-          const newIssue: CheckInIssue = {
-            ...issue,
-            id: `iss-${Math.random().toString(36).slice(2, 8)}`,
-            status: "open",
-            openedAt: new Date().toISOString(),
-          };
-          return { ...c, issues: [...c.issues, newIssue], updatedAt: new Date().toISOString() };
-        });
-        return mockCheckins.find(c => c.id === id);
+        checkinStore().addIssue(id, issue.category, issue.description);
+        return checkinStore().forLead(leadId) || null;
       }
     },
     onSuccess: (data, { leadId }) => {
@@ -487,14 +434,8 @@ export function useSetCheckinIssueStatus() {
       try {
         return await apiClient.put<CheckIn>(`/checkins/${id}/issues/${issueId}/status`, { status });
       } catch (e) {
-        mockCheckins = mockCheckins.map(c => {
-          if (c.id !== id) return c;
-          const issues = c.issues.map(iss => 
-            iss.id === issueId ? { ...iss, status, resolvedAt: status === "resolved" ? new Date().toISOString() : iss.resolvedAt } : iss
-          );
-          return { ...c, issues, updatedAt: new Date().toISOString() };
-        });
-        return mockCheckins.find(c => c.id === id);
+        checkinStore().setIssueStatus(id, issueId, status);
+        return checkinStore().forLead(leadId) || null;
       }
     },
     onSuccess: (data, { leadId }) => {

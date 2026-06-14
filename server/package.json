@@ -10,7 +10,8 @@
     "start": "node dist/server/src/index.js",
     "worker": "tsx src/workers/index.ts",
     "worker:prod": "node dist/server/src/workers/index.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "migrate:owners": "tsx src/scripts/migrate-owners.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",
