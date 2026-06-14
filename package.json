@@ -5,10 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev",
-    "build": "vite build",
+    "build": "NODE_OPTIONS=\"--max-old-space-size=4096\" vite build",
     "build:server": "npm run build --prefix server",
     "build:all": "npm run build && npm run build:server",
-    "build:dev": "vite build --mode development",
+    "build:dev": "NODE_OPTIONS=\"--max-old-space-size=4096\" vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint .",
     "test": "vitest run",
