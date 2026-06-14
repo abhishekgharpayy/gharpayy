@@ -19,8 +19,8 @@ import { MongoClient } from "mongodb";
 
 // ── Config ──────────────────────────────────────────────────────────────────
 
-const RIA_URI = "mongodb+srv://gorav:gorav123@cluster0.lbxpk8i.mongodb.net/ops";
-const GOPS_URI = "mongodb+srv://goravgharpayy_db_user:gorav123@cluster0.bzvtk4h.mongodb.net/ops";
+const RIA_URI = process.env.RIA_URI as string;
+const GOPS_URI = process.env.GOPS_URI as string;
 
 const DB_NAME = "ops";
 
