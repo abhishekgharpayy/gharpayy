@@ -21,8 +21,9 @@ import {
   Moon,
 } from "lucide-react";
 import { useMemo, useState } from "react";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, isToday, isYesterday, isThisWeek, isThisMonth } from "date-fns";
 import type { Lead, LeadStage } from "@/lib/types";
+import { fmtTourScheduleLabel, isTodayIST } from "@/lib/crm10x/dates";
 import type { ResolvedLocation } from "@/lib/lead-helpers";
 import { useMountedNow } from "@/hooks/use-now";
 import { useUserMap } from "@/hooks/useUserMap";
@@ -174,12 +175,20 @@ function getMoveInLabel(iso: string | null | undefined): string {
 
 // ─── Page ────────────────────────────────────────────────────────
 function LeadsPage() {
-  const { leads, tours, properties, selectLead } = useApp();
+  const { leads, tours, properties, selectLead, tcms } = useApp();
   const [, mounted] = useMountedNow();
   const userMap = useUserMap();
 
   const [q, setQ] = useState("");
   const [stageFilter, setStageFilter] = useState<string>("all");
+  const [dateAddedFilter, setDateAddedFilter] = useState<string>("all");
+  const [memberFilter, setMemberFilter] = useState<string>("all");
+  const [zoneFilter, setZoneFilter] = useState<string>("all");
+
+  const memberName = (id: string) => userMap.get(id)?.name || id;
+
+  const addedByOptions = useMemo(() => Array.from(new Set(leads.map((l) => l.createdBy || "system"))).sort(), [leads]);
+  const zoneOptions = useMemo(() => Array.from(new Set(tcms.map(t => t.zone))).sort(), [tcms]);
   const [openBands, setOpenBands] = useState<Record<BandKey, boolean>>(
     Object.fromEntries(BAND_ORDER.map((k) => [k, BANDS[k].defaultOpen])) as Record<
       BandKey,
@@ -195,9 +204,34 @@ function LeadsPage() {
       if (q && !l.name.toLowerCase().includes(q.toLowerCase()) && !l.phone.includes(q))
         return false;
       if (stageFilter !== "all" && l.stage !== stageFilter) return false;
+      if (memberFilter !== "all" && (l.createdBy || "system") !== memberFilter) return false;
+      
+      if (zoneFilter !== "all") {
+        const tcm = tcms.find(t => t.id === l.assignedTcmId);
+        if (tcm?.zone !== zoneFilter) return false;
+      }
+
+      if (dateAddedFilter !== "all") {
+        const d = new Date(l.createdAt);
+        if (dateAddedFilter === "today" && !isToday(d)) return false;
+        if (dateAddedFilter === "yesterday" && !isYesterday(d)) return false;
+        if (dateAddedFilter === "this-week" && !isThisWeek(d)) return false;
+        if (dateAddedFilter === "this-month" && !isThisMonth(d)) return false;
+      }
       return true;
     });
-  }, [leads, q, stageFilter]);
+  }, [leads, q, stageFilter, memberFilter, zoneFilter, dateAddedFilter, tcms]);
+
+  // Today's stats
+  const todayLeads = useMemo(() => leads.filter((l) => isTodayIST(l.createdAt)), [leads]);
+  const todaySummaryCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    todayLeads.forEach(l => {
+      const by = l.createdBy || "system";
+      counts.set(by, (counts.get(by) || 0) + 1);
+    });
+    return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
+  }, [todayLeads]);
 
   // Group into bands
   const grouped = useMemo(() => {
@@ -275,8 +309,50 @@ function LeadsPage() {
                 ))}
               </SelectContent>
             </Select>
+            <Select value={dateAddedFilter} onValueChange={setDateAddedFilter}>
+              <SelectTrigger className="h-9 w-32 text-sm"><SelectValue placeholder="Date Added" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Time</SelectItem>
+                <SelectItem value="today">Today</SelectItem>
+                <SelectItem value="yesterday">Yesterday</SelectItem>
+                <SelectItem value="this-week">This Week</SelectItem>
+                <SelectItem value="this-month">This Month</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={memberFilter} onValueChange={setMemberFilter}>
+              <SelectTrigger className="h-9 w-36 text-sm"><SelectValue placeholder="Added By" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Members</SelectItem>
+                {addedByOptions.map(m => <SelectItem key={m} value={m}>{memberName(m)}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={zoneFilter} onValueChange={setZoneFilter}>
+              <SelectTrigger className="h-9 w-32 text-sm"><SelectValue placeholder="Zone" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Zones</SelectItem>
+                {zoneOptions.map(z => <SelectItem key={z} value={z}>{z}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
         </header>
+
+        {/* Today's Summary */}
+        {todayLeads.length > 0 && (
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+            <div className="rounded-lg border border-border bg-accent/5 p-3 flex flex-col justify-center">
+              <div className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider mb-1">Total Today</div>
+              <div className="text-2xl font-semibold text-accent">{todayLeads.length}</div>
+            </div>
+            {todaySummaryCounts.slice(0, 5).map(([id, count]) => (
+              <div key={id} className="rounded-lg border border-border bg-card p-3 flex flex-col justify-center">
+                <div className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider truncate mb-1" title={memberName(id)}>
+                  {memberName(id)}
+                </div>
+                <div className="text-xl font-semibold">{count}</div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Band sections */}
         {BAND_ORDER.map((band) => {
@@ -325,9 +401,10 @@ function LeadsPage() {
                 <>
                   <div className="grid grid-cols-12 px-4 py-2 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold border-t border-b border-border bg-muted/20">
                     <div className="col-span-3">Lead · phone</div>
-                    <div className="col-span-2">Stage</div>
+                    <div className="col-span-1">Stage</div>
+                    <div className="col-span-2">Created · by</div>
                     <div className="col-span-2">Intent · score</div>
-                    <div className="col-span-2">Area · budget</div>
+                    <div className="col-span-1">Area · budget</div>
                     <div className="col-span-2">Move-in · assigned</div>
                     <div className="col-span-1 text-right">Updated</div>
                   </div>
@@ -363,8 +440,14 @@ function LeadsPage() {
                           </div>
 
                           {/* Stage */}
-                          <div className="col-span-2">
+                          <div className="col-span-1">
                             <StageBadge stage={l.stage} />
+                          </div>
+
+                          {/* Created */}
+                          <div className="col-span-2 text-xs">
+                            <div>{fmtTourScheduleLabel(l.createdAt)}</div>
+                            <div className="text-muted-foreground truncate">{memberName(l.createdBy || "system")}</div>
                           </div>
 
                           {/* Intent + confidence */}
@@ -374,7 +457,7 @@ function LeadsPage() {
                           </div>
 
                           {/* Area + budget */}
-                          <div className="col-span-2 text-xs">
+                          <div className="col-span-1 text-xs pr-1">
                             <div className="truncate">{loc?.area ?? formatArea(l)}</div>
                             <div className="text-muted-foreground">{formatBudget(l.budget)}</div>
                           </div>

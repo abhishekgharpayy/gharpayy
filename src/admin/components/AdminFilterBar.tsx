@@ -13,13 +13,14 @@ interface Props {
   tcms: Array<{ id: string; name: string; zone: string }>;
   sources?: string[];
   stages?: string[];
+  addedByOptions?: string[];
 }
 
 const STAGES = ["new", "contacted", "tour-scheduled", "tour-done", "negotiation", "booked", "dropped"];
 const STATUSES: Array<"open" | "booked" | "lost" | "dormant"> = ["open", "booked", "lost", "dormant"];
 const BUCKETS: Array<"cold" | "warm" | "hot"> = ["cold", "warm", "hot"];
 
-export function AdminFilterBar({ filters, onChange, tcms, sources = [], stages = STAGES }: Props) {
+export function AdminFilterBar({ filters, onChange, tcms, sources = [], stages = STAGES, addedByOptions = [] }: Props) {
   const [savedViewName, setSavedViewName] = useState("");
   const zones = useMemo(() => Array.from(new Set(tcms.map((t) => t.zone))), [tcms]);
 
@@ -113,6 +114,8 @@ export function AdminFilterBar({ filters, onChange, tcms, sources = [], stages =
       <ChipRow label="Zone" values={zones} active={filters.zone} onToggle={(v) => toggle("zone", v)} />
       {sources.length > 0 && <ChipRow label="Source" values={sources} active={filters.source} onToggle={(v) => toggle("source", v)} />}
       <ChipRow label="Dormant" values={["30d", "60d", "90d"]} active={filters.dormant} onToggle={(v) => toggle("dormant", v)} />
+      <ChipRow label="Date Added" values={["today", "yesterday", "this-week", "this-month"]} active={filters.dateAdded || []} onToggle={(v) => toggle("dateAdded", v)} />
+      {addedByOptions.length > 0 && <ChipRow label="Added By" values={addedByOptions} active={filters.addedBy || []} onToggle={(v) => toggle("addedBy", v)} />}
       <div className="flex items-center gap-2 text-xs">
         <span className="text-muted-foreground">Quick:</span>
         <Button
