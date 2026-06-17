@@ -14,6 +14,8 @@ export interface AdminFilters {
   booked?: boolean;
   dormant: Array<"30d" | "60d" | "90d">;
   sort: string;
+  dateAdded: Array<"today" | "yesterday" | "this-week" | "this-month">;
+  addedBy: string[];
 }
 
 export const defaultAdminFilters: AdminFilters = {
@@ -26,9 +28,12 @@ export const defaultAdminFilters: AdminFilters = {
   probBucket: [],
   dormant: [],
   sort: "updated:desc",
+  dateAdded: [],
+  addedBy: [],
 };
 
 import type { AdminLeadRow } from "./selectors";
+import { isToday, isYesterday, isThisWeek, isThisMonth } from "date-fns";
 
 export function applyFilters(rows: AdminLeadRow[], f: AdminFilters): AdminLeadRow[] {
   let out = rows;
@@ -57,6 +62,23 @@ export function applyFilters(rows: AdminLeadRow[], f: AdminFilters): AdminLeadRo
   if (f.booked === true) out = out.filter((r) => r.booked);
   if (f.booked === false) out = out.filter((r) => !r.booked);
   if (f.dormant.length) out = out.filter((r) => r.dormantBucket && f.dormant.includes(r.dormantBucket));
+
+  if (f.dateAdded?.length) {
+    out = out.filter((r) => {
+      const d = new Date(r.lead.createdAt);
+      return f.dateAdded.some(range => {
+        if (range === "today") return isToday(d);
+        if (range === "yesterday") return isYesterday(d);
+        if (range === "this-week") return isThisWeek(d);
+        if (range === "this-month") return isThisMonth(d);
+        return false;
+      });
+    });
+  }
+
+  if (f.addedBy?.length) {
+    out = out.filter((r) => f.addedBy.includes(r.lead.createdBy || "system"));
+  }
 
   const [field, dir] = f.sort.split(":");
   const mul = dir === "asc" ? 1 : -1;

@@ -14,6 +14,7 @@ import { downloadAdminPdf } from "@/admin/lib/exporters/pdf";
 import { toast } from "sonner";
 import type { AdminLeadRow } from "@/admin/lib/selectors";
 import { useAuthUser } from "@/lib/auth-store";
+import { fmtTourScheduleLabel, isTodayIST } from "@/lib/crm10x/dates";
 
 export const Route = createFileRoute("/admin/leads")(
   {
@@ -35,7 +36,18 @@ function AdminLeads() {
   const [drawer, setDrawer] = useState<AdminLeadRow | null>(null);
 
   const sources = useMemo(() => Array.from(new Set(leads.map((l) => l.source))), [leads]);
+  const addedByOptions = useMemo(() => Array.from(new Set(leads.map((l) => l.createdBy || "system"))).sort(), [leads]);
   const filtered = useMemo(() => applyFilters(rows, filters), [rows, filters]);
+
+  const todayLeads = useMemo(() => leads.filter((l) => isTodayIST(l.createdAt)), [leads]);
+  const todaySummary = useMemo(() => {
+    const counts = new Map<string, number>();
+    todayLeads.forEach(l => {
+      const by = l.createdBy || "system";
+      counts.set(by, (counts.get(by) || 0) + 1);
+    });
+    return Array.from(counts.entries()).map(([by, count]) => `${count} by ${by}`).join(", ");
+  }, [todayLeads]);
 
   const toggle = (id: string) => {
     const next = new Set(selected);
@@ -74,7 +86,7 @@ function AdminLeads() {
 
   return (
     <AdminShell title="Master Lead Console" sub={`${filtered.length} of ${rows.length} leads · full control`}>
-      <AdminFilterBar filters={filters} onChange={setFilters} tcms={tcms} sources={sources} />
+      <AdminFilterBar filters={filters} onChange={setFilters} tcms={tcms} sources={sources} addedByOptions={addedByOptions} />
 
       <div className="rounded-xl border border-border bg-card/60 p-3 flex items-center justify-between flex-wrap gap-2">
         <div className="text-xs text-muted-foreground">{selected.size > 0 ? `${selected.size} selected` : "Select rows for bulk actions"}</div>
@@ -108,6 +120,16 @@ function AdminLeads() {
         </div>
       </div>
 
+      <div className="rounded-xl border border-border bg-card/60 p-3 flex items-center justify-between">
+        <div>
+          <div className="font-semibold text-foreground text-sm">Today's Acquisition</div>
+          <div className="text-muted-foreground mt-0.5 text-xs">
+            <span className="font-medium text-foreground">{todayLeads.length}</span> leads added today.
+            {todaySummary ? <span className="ml-1">({todaySummary})</span> : null}
+          </div>
+        </div>
+      </div>
+
       <div className="rounded-xl border border-border bg-card overflow-hidden">
         <div className="overflow-auto max-h-[60vh]">
           <table className="w-full text-xs">
@@ -124,6 +146,7 @@ function AdminLeads() {
                 </th>
                 <th className="p-2">Name</th>
                 <th className="p-2">Stage</th>
+                <th className="p-2">Created</th>
                 <th className="p-2">TCM</th>
                 <th className="p-2">Area</th>
                 <th className="p-2 text-right">Prob</th>
@@ -148,6 +171,10 @@ function AdminLeads() {
                   </td>
                   <td className="p-2">
                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted">{r.lead.stage}</span>
+                  </td>
+                  <td className="p-2 whitespace-nowrap">
+                    <div className="text-[11px]">{fmtTourScheduleLabel(r.lead.createdAt)}</div>
+                    <div className="text-[10px] text-muted-foreground">{r.lead.createdBy || "system"}</div>
                   </td>
                   <td className="p-2">{r.tcm?.name ?? "—"}</td>
                   <td className="p-2 truncate max-w-[120px]">{r.lead.preferredArea}</td>
@@ -193,7 +220,7 @@ function AdminLeads() {
               ))}
               {!filtered.length && (
                 <tr>
-                  <td colSpan={11} className="p-6 text-center text-muted-foreground">
+                  <td colSpan={12} className="p-6 text-center text-muted-foreground">
                     No leads match filters.
                   </td>
                 </tr>
