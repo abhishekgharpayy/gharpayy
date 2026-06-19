@@ -454,9 +454,15 @@ export function LeadPasteParser({ onDone }: Props) {
               </p>
             )}
             {!parsingAI && parsedOnce && (
-              <p className="flex items-center gap-1 rounded-md bg-success/10 px-2 py-1 text-[11px] text-success">
-                <CheckCircle2 className="h-3 w-3" /> Parsed ({lastParsedConfidence}%). Review before saving.
-              </p>
+              parsedByAI ? (
+                <p className="flex items-center gap-1 rounded-md bg-success/10 px-2 py-1 text-[11px] text-success">
+                  <CheckCircle2 className="h-3 w-3" /> Parsed by AI ({lastParsedConfidence}%). Review before saving.
+                </p>
+              ) : (
+                <p className="flex items-center gap-1 rounded-md border border-warning/30 bg-warning/10 px-2 py-1 text-[11px] text-warning-foreground">
+                  <AlertCircle className="h-3 w-3 text-warning" /> AI Parsing unavailable. Regex fallback used.
+                </p>
+              )
             )}
           </div>
         </Card>
