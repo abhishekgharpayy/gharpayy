@@ -416,11 +416,23 @@ export function CompactLeadPasteParser() {
             {/* SCROLLABLE CENTER AREA */}
             <div className="flex-1 overflow-y-auto space-y-2.5 px-0.5 pb-2 scrollbar-thin">
               {confidenceInfo && (
-                <div className="rounded-md border border-border/80 bg-card p-2 shadow-sm text-[10px]">
+                <div className={cn("rounded-md border p-2 shadow-sm text-[10px]", parsedByAI ? "border-border/80 bg-card" : "border-warning/30 bg-warning/10")}>
                   <div className="flex items-center justify-between mb-1.5">
-                    <span className="font-semibold">AI Confidence: <span className={confidenceInfo.quality === "High" ? "text-success" : confidenceInfo.quality === "Medium" ? "text-warning" : "text-destructive"}>{confidenceInfo.score}%</span></span>
+                    <span className="font-semibold flex items-center gap-1">
+                      {parsedByAI ? (
+                        <>
+                          <CheckCircle2 className="h-3 w-3 text-success" />
+                          AI Confidence: <span className={confidenceInfo.quality === "High" ? "text-success" : confidenceInfo.quality === "Medium" ? "text-warning" : "text-destructive"}>{confidenceInfo.score}%</span>
+                        </>
+                      ) : (
+                        <>
+                          <AlertCircle className="h-3 w-3 text-warning" />
+                          <span className="text-warning-foreground">AI Parsing unavailable. Regex fallback used.</span>
+                        </>
+                      )}
+                    </span>
                   </div>
-                  {missingFields.length > 0 && (
+                  {missingFields.length > 0 && parsedByAI && (
                     <div className="text-[9px] text-destructive/80 font-medium mb-1.5">
                       Missing: {missingFields.join(", ")}
                     </div>
