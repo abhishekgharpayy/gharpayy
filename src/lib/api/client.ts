@@ -236,6 +236,23 @@ export const api = {
           }),
       ),
     get: (id: string) => request<unknown>(`/api/leads/${id}`),
+    checkDuplicate: (phone: string) => request<{ exists: boolean; leadId?: string; owner?: string; currentStage?: string; name?: string }>(`/api/leads/check-duplicate?phone=${phone}`),
+    parseLead: async (text: string) => {
+      if (isLocalMode()) {
+        const t = tokenStore.get();
+        const res = await fetch("http://localhost:4000/api/leads/parse", {
+          method: "POST",
+          headers: { 
+            "Content-Type": "application/json",
+            ...(t ? { Authorization: `Bearer ${t}` } : {})
+          },
+          body: JSON.stringify({ text })
+        });
+        if (!res.ok) throw new Error("Local backend unavailable or failed");
+        return res.json();
+      }
+      return request<any>("/api/leads/parse", { method: "POST", body: JSON.stringify({ text }) });
+    },
   },
 
   todos: {

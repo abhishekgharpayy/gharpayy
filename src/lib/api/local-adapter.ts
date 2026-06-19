@@ -207,6 +207,10 @@ export const localAdapter = {
           zoneCategory: (p.zoneCategory as string) ?? "",
           assigneeId: (p.assigneeId as string | null) ?? null,
           stageLabel: (p.stageLabel as string) ?? "",
+          priorityScore: 0,
+          priorityState: "COLD",
+          nextBestAction: null,
+          priorityReason: null,
           createdAt: nowISO(), updatedAt: nowISO(),
           createdBy: USER, tenantId: TENANT,
         };

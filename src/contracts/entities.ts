@@ -36,6 +36,10 @@ export const Lead = z.object({
   tags: z.array(z.string().max(30)).max(10).default([]),
   nextFollowUpAt: z.string().nullable().default(null),
   responseSpeedMins: z.number().int().min(0).default(0),
+  priorityScore: z.number().int().min(0).max(100).default(0),
+  priorityState: z.enum(["HOT", "WARM", "COLD", "OVERDUE"]).default("COLD"),
+  nextBestAction: z.string().nullable().default(null),
+  priorityReason: z.string().nullable().default(null),
   // ---- Extended Quick-Add fields (additive, all optional with defaults) ----
   email: z.string().max(160).default(""),
   areas: z.array(z.string().max(80)).max(20).default([]),
@@ -114,6 +118,7 @@ export const ActivityKind = z.enum([
   "field_changed",
   "todo_linked",
   "tour_scheduled",
+  "ai_parse",
   // User-logged
   "call",
   "email",

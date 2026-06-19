@@ -30,6 +30,7 @@ const Env = z.object({
   SUPER_ADMIN_EMAIL: z.string().default("superadmin@gharpayy.com"),
   SUPER_ADMIN_PASSWORD: z.string().default("superadmin#gharpayy"),
   SUPER_ADMIN_NAME: z.string().default("Gharpayy Super Admin"),
+  GEMINI_API_KEY: z.string().optional(),
 });
 
 export const env = Env.parse(process.env);

@@ -282,6 +282,10 @@ export function LiveToursBridge() {
             updatedAt: tour.updatedAt,
             createdBy: tour.scheduledBy,
             tenantId: tour.tenantId,
+            priorityScore: 0,
+            priorityState: "COLD",
+            nextBestAction: null,
+            priorityReason: null,
           };
         }
         if (!leadMapRef.current[tour.leadId]) {
