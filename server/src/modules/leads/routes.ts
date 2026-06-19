@@ -257,6 +257,7 @@ Output ONLY a JSON object (no markdown, no backticks, no other text) with this e
     };
 
     try {
+      req.log.info("Executing Gemini API request for Lead Parsing...");
       const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${env.GEMINI_API_KEY}`,
         {
@@ -272,6 +273,7 @@ Output ONLY a JSON object (no markdown, no backticks, no other text) with this e
         return reply.code(502).send({ code: "BAD_GATEWAY", message: "Gemini API failed" });
       }
 
+      req.log.info("Gemini request executed successfully. Parsing data...");
       const data = await response.json();
       const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text;
       
