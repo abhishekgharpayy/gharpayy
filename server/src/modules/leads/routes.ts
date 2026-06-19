@@ -215,8 +215,10 @@ export function registerLeadsRoutes(app: FastifyInstance) {
 
   // POST /api/leads/parse
   app.post("/api/leads/parse", { preHandler: [requireAuth] }, async (req, reply) => {
+    req.log.info("[AI] Parse request received");
     const body = z.object({ text: z.string().min(3) }).parse(req.body);
     
+    req.log.info(`[AI] GEMINI_API_KEY loaded: ${!!env.GEMINI_API_KEY}`);
     if (!env.GEMINI_API_KEY) {
       return reply.code(500).send({ code: "INTERNAL_ERROR", message: "GEMINI_API_KEY is not configured on the server." });
     }
@@ -257,9 +259,9 @@ Output ONLY a JSON object (no markdown, no backticks, no other text) with this e
     };
 
     try {
-      req.log.info("Executing Gemini API request for Lead Parsing...");
+      req.log.info("[AI] Gemini request started");
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${env.GEMINI_API_KEY}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${env.GEMINI_API_KEY}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -267,13 +269,13 @@ Output ONLY a JSON object (no markdown, no backticks, no other text) with this e
         }
       );
 
+      req.log.info("[AI] Gemini response received");
       if (!response.ok) {
         const errText = await response.text();
-        req.log.error({ status: response.status, errText }, "Gemini API failed");
+        req.log.error({ status: response.status, errText }, "[AI] Gemini parsing failed");
         return reply.code(502).send({ code: "BAD_GATEWAY", message: "Gemini API failed" });
       }
 
-      req.log.info("Gemini request executed successfully. Parsing data...");
       const data = await response.json();
       const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text;
       
@@ -288,9 +290,10 @@ Output ONLY a JSON object (no markdown, no backticks, no other text) with this e
       if (cleanText.endsWith("\`\`\`")) cleanText = cleanText.replace(/\n?\`\`\`$/, "");
       
       const parsed = JSON.parse(cleanText);
+      req.log.info("[AI] Returning AI parsed result");
       return reply.send(parsed);
     } catch (err) {
-      req.log.error({ err }, "Failed to parse lead via Gemini");
+      req.log.error({ err }, "[AI] Gemini parsing failed");
       return reply.code(500).send({ code: "INTERNAL_ERROR", message: "Failed to parse lead via Gemini" });
     }
   });
