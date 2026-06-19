@@ -6,12 +6,13 @@ import { Button } from "@/components/ui/button";
 import {
   Phone, Mail, MessageSquare, MessageCircle, Calendar, StickyNote,
   MapPin, Bell, FileText, Receipt, Sparkles, ArrowRightLeft,
-  UserPlus, Pencil, Link2, Trash2,
+  UserPlus, Pencil, Link2, Trash2, Zap,
 } from "lucide-react";
 import type { Activity, ActivityKind } from "@/contracts";
 
 const KIND_META: Record<ActivityKind, { icon: typeof Phone; label: string; tone: string }> = {
   created:           { icon: Sparkles,      label: "Created",         tone: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" },
+  ai_parse:          { icon: Zap,           label: "AI Parsed",       tone: "bg-purple-500/10 text-purple-600 dark:text-purple-400" },
   stage_changed:     { icon: ArrowRightLeft,label: "Stage",           tone: "bg-violet-500/10 text-violet-600 dark:text-violet-400" },
   assigned:          { icon: UserPlus,      label: "Assigned",        tone: "bg-sky-500/10 text-sky-600 dark:text-sky-400" },
   field_changed:     { icon: Pencil,        label: "Updated",         tone: "bg-zinc-500/10 text-zinc-600 dark:text-zinc-400" },

@@ -5,10 +5,8 @@ import { Command } from "../../../../src/contracts/commands.js";
 import { Lead } from "../../../../src/contracts/entities.js";
 import { dispatch } from "./command-handlers.js";
 import { requireAuth, requireScope } from "../../middleware/auth.js";
-import {
-  getPendingAssignmentsForUser,
-  getPassedNotificationsForUser,
-} from "./assignment-notification-handlers.js";
+import { getPendingAssignmentsForUser, getPassedNotificationsForUser } from "./assignment-notification-handlers.js";
+import { env } from "../../config/env.js";
 
 const ListQuery = z.object({
   stage: z.string().optional(),
@@ -183,6 +181,121 @@ export function registerLeadsRoutes(app: FastifyInstance) {
       (role === "tcm" && (isMine || isTcmOwned || hasTour));
     if (!allowed) return reply.code(404).send({ code: "NOT_FOUND", message: "Lead not found" });
     return reply.send(lead);
+  });
+
+  // GET /api/leads/check-duplicate?phone=9876543210
+  app.get("/api/leads/check-duplicate", { preHandler: [requireAuth] }, async (req, reply) => {
+    const q = z.object({ phone: z.string() }).parse(req.query);
+    const cleanPhone = q.phone.replace(/\D/g, "").slice(-10);
+    if (!cleanPhone) return reply.send({ exists: false });
+
+    const existing = await col<Lead>("leads").findOne(
+      { phone: `+91${cleanPhone}`, tenantId: req.user!.tenantId },
+      { sort: { _id: -1 } }
+    );
+
+    if (!existing) return reply.send({ exists: false });
+
+    // Try to get assignee name
+    let ownerName = "Unassigned";
+    const assignee = existing.assigneeId ?? existing.assignedTcmId;
+    if (assignee) {
+      const u = await col("users").findOne({ _id: assignee });
+      if (u) ownerName = (u as any).fullName ?? (u as any).name;
+    }
+
+    return reply.send({
+      exists: true,
+      leadId: existing._id,
+      owner: ownerName,
+      createdAt: existing.createdAt,
+      currentStage: existing.stageLabel || existing.stage,
+    });
+  });
+
+  // POST /api/leads/parse
+  app.post("/api/leads/parse", { preHandler: [requireAuth] }, async (req, reply) => {
+    req.log.info("[AI] Parse request received");
+    const body = z.object({ text: z.string().min(3) }).parse(req.body);
+    
+    req.log.info(`[AI] GEMINI_API_KEY loaded: ${!!env.GEMINI_API_KEY}`);
+    if (!env.GEMINI_API_KEY) {
+      return reply.code(500).send({ code: "INTERNAL_ERROR", message: "GEMINI_API_KEY is not configured on the server." });
+    }
+
+    const systemPrompt = `You are an AI assistant that extracts real estate lead information from unstructured text (like WhatsApp messages, portal leads, notes).
+Extract only information explicitly present. If a value is uncertain: return null.
+Never infer: budget, room type, move-in date, occupation, gender preference unless explicitly stated.
+
+Output ONLY a JSON object (no markdown, no backticks, no other text) with this exact structure:
+{
+  "confidence": <number between 0 and 100 representing overall confidence>,
+  "fields": {
+    "name": "<extracted full name, or null>",
+    "phone": "<10-digit phone number without country code, or null>",
+    "email": "<extracted email, or null>",
+    "budget": "<extracted budget as a string, e.g. '8-12k' or null>",
+    "moveIn": "<extracted move-in date in YYYY-MM-DD or human readable, or null>",
+    "area": "<extracted location or areas, or null>",
+    "need": "<extracted need like 'Boys', 'Girls', 'Coed' or null>",
+    "type": "<extracted type like 'Student', 'Working' or null>",
+    "room": "<extracted room like 'Private', 'Shared' or null>",
+    "specialReqs": "<any special requests, amenities, or null>",
+    "internalNotes": "<any other extracted info, or null>"
+  },
+  "missing": [
+    "<array of keys from 'fields' that were null or not found>"
+  ]
+}
+`;
+
+    const requestBody = {
+      system_instruction: { parts: [{ text: systemPrompt }] },
+      contents: [{ parts: [{ text: body.text }] }],
+      generationConfig: {
+        temperature: 0.1,
+        response_mime_type: "application/json",
+      }
+    };
+
+    try {
+      req.log.info("[AI] Gemini request started");
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${env.GEMINI_API_KEY}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(requestBody),
+        }
+      );
+
+      req.log.info("[AI] Gemini response received");
+      if (!response.ok) {
+        const errText = await response.text();
+        req.log.error({ status: response.status, errText }, "[AI] Gemini parsing failed");
+        return reply.code(502).send({ code: "BAD_GATEWAY", message: "Gemini API failed" });
+      }
+
+      const data = await response.json();
+      const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      
+      if (!resultText) {
+        return reply.code(500).send({ code: "INTERNAL_ERROR", message: "No response text from Gemini" });
+      }
+
+      // Ensure it's clean JSON (strip possible markdown wrappers if the model ignores the prompt)
+      let cleanText = resultText.trim();
+      if (cleanText.startsWith("\`\`\`json")) cleanText = cleanText.replace(/^\`\`\`json\n?/, "");
+      if (cleanText.startsWith("\`\`\`")) cleanText = cleanText.replace(/^\`\`\`\n?/, "");
+      if (cleanText.endsWith("\`\`\`")) cleanText = cleanText.replace(/\n?\`\`\`$/, "");
+      
+      const parsed = JSON.parse(cleanText);
+      req.log.info("[AI] Returning AI parsed result");
+      return reply.send(parsed);
+    } catch (err) {
+      req.log.error({ err }, "[AI] Gemini parsing failed");
+      return reply.code(500).send({ code: "INTERNAL_ERROR", message: "Failed to parse lead via Gemini" });
+    }
   });
 
   // ---------- Assignment Notifications ----------

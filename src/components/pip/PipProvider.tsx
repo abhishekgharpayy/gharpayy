@@ -71,10 +71,41 @@ export function PictureInPictureProvider({ children }: { children: ReactNode }) 
       return;
     }
     try {
+      const pipPrefsStr = localStorage.getItem("pip-prefs-" + nextMode);
+      let reqWidth = Math.min(nextMode === "dashboard" ? 720 : 400, window.innerWidth);
+      let reqHeight = Math.min(nextMode === "capture" ? Math.floor(window.screen.availHeight * 0.9) : 760, window.innerHeight);
+
+      if (pipPrefsStr) {
+        try {
+          const pref = JSON.parse(pipPrefsStr);
+          if (pref.width && pref.height) {
+            reqWidth = pref.width;
+            reqHeight = pref.height;
+          }
+        } catch (e) {}
+      }
+
       const w = await window.documentPictureInPicture!.requestWindow({
-        width: Math.min(nextMode === "dashboard" ? 720 : 460, window.innerWidth),
-        height: Math.min(nextMode === "capture" ? 680 : 760, window.innerHeight),
+        width: reqWidth,
+        height: reqHeight,
       });
+
+      try {
+        if (pipPrefsStr) {
+          const pref = JSON.parse(pipPrefsStr);
+          if (pref.x !== undefined && pref.y !== undefined) {
+            w.moveTo(pref.x, pref.y);
+          }
+        } else if (nextMode === "capture") {
+          // Default: far right, 20px margin
+          const targetX = window.screen.availWidth - reqWidth - 20;
+          const screenAny = window.screen as any;
+          const targetY = screenAny.availTop !== undefined ? screenAny.availTop + 20 : 20;
+          w.moveTo(targetX, targetY);
+        }
+      } catch (e) {
+        // Ignore if browser restricts moveTo
+      }
 
       // Clone all stylesheets and inline styles so the dashboard inherits the
       // exact same theme tokens, fonts, and Tailwind utilities.
@@ -134,6 +165,15 @@ export function PictureInPictureProvider({ children }: { children: ReactNode }) 
       w.addEventListener("keydown", onKey);
 
       const onClose = () => {
+        try {
+          localStorage.setItem("pip-prefs-" + nextMode, JSON.stringify({
+            x: w.screenX,
+            y: w.screenY,
+            width: w.outerWidth,
+            height: w.outerHeight
+          }));
+        } catch (e) {}
+
         moRef.current?.disconnect();
         moRef.current = null;
         w.removeEventListener("keydown", onKey);

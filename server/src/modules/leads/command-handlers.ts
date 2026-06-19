@@ -288,6 +288,16 @@ async function applyCommand(cmd: Command, user: JwtClaims): Promise<LedgerDoc["r
         user, correlationId,
       });
 
+      if (p.parsedByAI) {
+        await autoLogActivity({
+          entityType: "lead", entityId: lead._id, kind: "ai_parse",
+          subject: `AI Extraction (${p.aiConfidence || 0}% confidence)`,
+          body: `Source: WhatsApp Paste\nMissing Fields: ${(p.missingFields || []).join(", ") || "None"}\n\nRaw:\n${p.rawSource || ""}`,
+          meta: { aiConfidence: p.aiConfidence, rawSource: p.rawSource, missing: p.missingFields || [], source: "WhatsApp Paste" },
+          user, correlationId,
+        });
+      }
+
       // If an assignee was specified AND it's not the creator themselves,
       // create a pending assignment notification. If assigning to self, directly
       // set the assigneeId (no need to notify yourself).

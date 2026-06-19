@@ -12,7 +12,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { AlertCircle, CheckCircle2, MapPin, Sparkles, Wand2 } from "lucide-react";
-import { parseLead, detectZone } from "@/lib/lead-identity/parser";
+import { detectZone } from "@/lib/lead-identity/parser";
+import { LeadParsingService, type AIParsedLead } from "@/lib/lead-identity/LeadParsingService";
 import { useIdentityStore } from "@/lib/lead-identity/store";
 import { memberOptionLabel, memberShortLabel, resolveMemberPrimaryZone, useOrgMembers, useOrgZones, useActiveTcMs } from "@/hooks/useOrgDirectory";
 import { useAuthUser } from "@/lib/auth-store";
@@ -89,7 +90,11 @@ export function LeadPasteParser({ onDone }: Props) {
 
   const [raw, setRaw] = useState("");
   const [parsedOnce, setParsedOnce] = useState(false);
-  const [lastParsedConfidence, setLastParsedConfidence] = useState<Record<string, number>>({});
+  const [parsingAI, setParsingAI] = useState(false);
+  const [lastParsedConfidence, setLastParsedConfidence] = useState<number>(0);
+  const [aiMissing, setAiMissing] = useState<string[]>([]);
+  const [parsedByAI, setParsedByAI] = useState(false);
+  const [rawSource, setRawSource] = useState("");
 
   // Quick-Add field state (same as QuickAddLeadPanel)
   const [name, setName] = useState("");
@@ -139,40 +144,59 @@ export function LeadPasteParser({ onDone }: Props) {
 
   // Auto-parse whenever the paste text changes
   useEffect(() => {
-    if (!raw || raw.length < 10) { setParsedOnce(false); return; }
-    const parsed = parseLead(raw);
-    if (!parsed) return;
-    // Track confidence scores for UI indicators
-    setLastParsedConfidence(parsed.confidence ?? {});
-    applyParsed(parsed);
-    setParsedOnce(true);
+    if (!raw || raw.length < 10) { 
+      setParsedOnce(false); 
+      setParsingAI(false);
+      return; 
+    }
+    
+    let isStale = false;
+    setParsingAI(true);
+    
+    LeadParsingService.parseLead(raw).then((parsed) => {
+      if (isStale) return;
+      setParsingAI(false);
+      if (!parsed || parsed.confidence === 0) return;
+      setLastParsedConfidence(parsed.confidence);
+      setAiMissing(parsed.missing);
+      setParsedByAI(parsed.parsedByAI);
+      setRawSource(parsed.rawSource);
+      applyParsed(parsed);
+      setParsedOnce(true);
+    });
+
+    return () => {
+      isStale = true;
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [raw]);
 
-  const applyParsed = (p: ParsedLeadDraft) => {
-    if (p.name) setName(p.name);
-    if (p.phone) setPhone(p.phone);
-    if (p.email) setEmail(p.email);
-    if (p.areas?.length) setAreasText(p.areas.join(", "));
-    else if (p.location) setAreasText(p.location);
-    if (p.fullAddress) setFullAddress(p.fullAddress);
-    if (p.budget) setBudget(p.budget);
+  const applyParsed = (p: AIParsedLead) => {
+    if (p.fields.name) setName(p.fields.name);
+    if (p.fields.phone) setPhone(p.fields.phone);
+    if (p.fields.email) setEmail(p.fields.email);
+    if (p.fields.area) setAreasText(p.fields.area);
+    if (p.fields.budget) setBudget(p.fields.budget);
+    
     // Accept moveIn if it's ISO format OR any non-empty string (parser tries to convert human dates)
-    if (p.moveIn) {
-      if (/^\d{4}-\d{2}-\d{2}$/.test(p.moveIn)) setMoveIn(p.moveIn);
-      else if (p.moveIn.trim().length > 0) setMoveIn(p.moveIn); // Fallback for unparseable dates
+    if (p.fields.moveIn) {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(p.fields.moveIn)) setMoveIn(p.fields.moveIn);
+      else if (p.fields.moveIn.trim().length > 0) setMoveIn(p.fields.moveIn); // Fallback for unparseable dates
     }
-    if (p.type) setType(p.type);
-    if (p.quality) setQuality(p.quality);
-    if (p.room) setRoom(p.room);
-    if (p.need) setNeed(p.need.split(" / ")[0] ?? p.need);
-    if (p.specialReqs) setSpecialReqs(p.specialReqs);
-    if (p.inBLR !== null && p.inBLR !== undefined) setInBLR(p.inBLR);
+    
+    if (p.fields.type) setType(p.fields.type);
+    if (p.fields.room) setRoom(p.fields.room);
+    if (p.fields.need) setNeed(p.fields.need.split(" / ")[0] ?? p.fields.need);
+    if (p.fields.specialReqs) setSpecialReqs(p.fields.specialReqs);
+    if (p.fields.internalNotes) setNotes(p.fields.internalNotes);
   };
 
   const reset = () => {
     setRaw(""); setParsedOnce(false);
-    setLastParsedConfidence({});
+    setLastParsedConfidence(0);
+    setAiMissing([]);
+    setParsedByAI(false);
+    setRawSource("");
     setName(""); setPhone(""); setEmail("");
     setAreasText(""); setFullAddress("");
     setBudget(""); setMoveIn("");
@@ -251,6 +275,9 @@ export function LeadPasteParser({ onDone }: Props) {
           zoneCategory: zoneBucket,
           assigneeId: selectedAssignee?.id ?? null,
           stageLabel: stage,
+          rawSource: rawSource || raw,
+          aiConfidence: lastParsedConfidence,
+          parsedByAI,
         },
       });
     } catch (error) {
@@ -346,7 +373,7 @@ export function LeadPasteParser({ onDone }: Props) {
         links: fullAddress.match(/https?:\/\/\S+/g) ?? [],
         inBLR: inBLR === undefined ? null : inBLR,
         zone: detectedZone,
-        rawSource: raw || `[Paste] ${name} ${phone}`,
+        rawSource: rawSource || raw || `[Paste] ${name} ${phone}`,
       },
       {
         quality,
@@ -421,9 +448,14 @@ export function LeadPasteParser({ onDone }: Props) {
               rows={9}
               className="min-h-[360px] flex-1 resize-none rounded-lg bg-background font-mono text-sm leading-relaxed"
             />
-            {parsedOnce && (
+            {parsingAI && (
+              <p className="flex items-center gap-1 rounded-md bg-blue-500/10 px-2 py-1 text-[11px] text-blue-500 animate-pulse">
+                <Wand2 className="h-3 w-3" /> Parsing with AI...
+              </p>
+            )}
+            {!parsingAI && parsedOnce && (
               <p className="flex items-center gap-1 rounded-md bg-success/10 px-2 py-1 text-[11px] text-success">
-                <CheckCircle2 className="h-3 w-3" /> Parsed. Review before saving.
+                <CheckCircle2 className="h-3 w-3" /> Parsed ({lastParsedConfidence}%). Review before saving.
               </p>
             )}
           </div>
@@ -456,15 +488,11 @@ export function LeadPasteParser({ onDone }: Props) {
               <Field label="Name *" invalid={isPending("name")} hint={fieldHint("name")}>
                 <div className="relative">
                   <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Rahul Sharma" className={invalidInputClass("name")} />
-                  {parsedOnce && lastParsedConfidence.name && (
+                  {parsedOnce && lastParsedConfidence > 0 && (
                     <div className="absolute right-1.5 top-1/2 -translate-y-1/2">
-                      {lastParsedConfidence.name >= 0.8 ? (
-                        <Badge className="text-[9px] bg-green-500">✓ High</Badge>
-                      ) : lastParsedConfidence.name >= 0.6 ? (
-                        <Badge variant="secondary" className="text-[9px]">~ Medium</Badge>
-                      ) : (
-                        <Badge variant="outline" className="text-[9px]">? Low</Badge>
-                      )}
+                      <Badge variant="outline" className={cn("text-[9px]", lastParsedConfidence > 80 ? "text-green-500 border-green-500/30" : "text-yellow-500 border-yellow-500/30")}>
+                        {lastParsedConfidence}%
+                      </Badge>
                     </div>
                   )}
                 </div>

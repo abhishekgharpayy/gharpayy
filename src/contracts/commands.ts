@@ -80,6 +80,10 @@ export const CreateLeadCmd = Base.extend({
     zoneCategory: z.string().max(80).optional(),
     assigneeId: z.string().nullable().optional(),
     stageLabel: z.string().max(120).optional(),
+    rawSource: z.string().max(5000).optional(),
+    parsedByAI: z.boolean().optional(),
+    aiConfidence: z.number().int().min(0).max(100).optional(),
+    missingFields: z.array(z.string()).optional(),
   }),
 });
 
