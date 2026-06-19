@@ -1,10 +1,7 @@
 import { LeadPasteParser } from "@/components/leads/LeadPasteParser";
 import { toast } from "sonner";
-import { usePip } from "./PipProvider";
 
 export function LeadCapturePipPanel() {
-  const { close } = usePip();
-
   return (
     <div className="bg-background min-h-screen pip-compact">
       <div className="px-3 py-2 border-b bg-muted/30">
@@ -12,8 +9,7 @@ export function LeadCapturePipPanel() {
       </div>
       <div className="p-3">
         <LeadPasteParser onDone={() => {
-          toast.success("Lead added to Inbox. Closing PiP.");
-          window.setTimeout(close, 650);
+          toast.success("Lead added to Inbox.");
         }} />
       </div>
     </div>
