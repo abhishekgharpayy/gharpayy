@@ -9,7 +9,7 @@ export default defineConfig({
       allowedHosts: [".trycloudflare.com"],
     },
     plugins: [
-      nitro({ preset: "vercel" })
+      nitro({ preset: "node-server" })
     ]
   },
 });
