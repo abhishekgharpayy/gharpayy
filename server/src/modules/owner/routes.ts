@@ -15,6 +15,7 @@ import { col } from "../../db/mongo.js";
 import { requireAuth } from "../../middleware/auth.js";
 import type { UserDoc } from "../../auth/auth.js";
 import type { BookingEntity } from "../../../../src/contracts/entities.js";
+import { ulid } from "../../../../src/contracts/ids.js";
 
 // ── Auth guard: role must be "owner" ────────────────────────────────────────
 async function requireOwner(req: FastifyRequest, reply: FastifyReply) {
@@ -170,7 +171,6 @@ export function registerOwnerRoutes(app: FastifyInstance) {
 
   app.post("/api/v1/owner/properties", { preHandler }, async (req, reply) => {
     const body = CreatePropertyBody.parse(req.body);
-    const { ulid } = await import("../../../../src/contracts/ids.js");
     const now = new Date().toISOString();
 
     // Get owner's name for denormalisation
@@ -343,7 +343,6 @@ export function registerOwnerRoutes(app: FastifyInstance) {
       return reply.code(403).send({ code: "FORBIDDEN", message: "Property not found or not owned by you" });
     }
 
-    const { ulid } = await import("../../../../src/contracts/ids.js");
     const now = new Date().toISOString();
     const roomId = `r-${body.propertyId}-${body.type.replace(/\s+/g, "-")}-${ulid().slice(-6)}`;
 
@@ -733,7 +732,6 @@ export function registerOwnerRoutes(app: FastifyInstance) {
   app.post("/api/v1/owner/actions", { preHandler }, async (req, reply) => {
     const ownerId = req.user!.sub;
     const body = req.body as { roomId: string; type: string; note?: string; by?: string };
-    const { ulid } = await import("../../../../src/contracts/ids.js");
     const actionId = ulid();
     const now = new Date().toISOString();
 

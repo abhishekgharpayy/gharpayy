@@ -1,5 +1,5 @@
 import { col } from "../db/mongo.js";
-import { redisPub, REDIS_CHANNELS } from "../db/redis.js";
+import { redisPub, REDIS_CHANNELS, isRedisAvailable } from "../db/redis.js";
 import { ulid } from "../../../src/contracts/ids.js";
 import { DomainEvent } from "../../../src/contracts/events.js";
 import { eventCounter, outboxLag } from "../platform/metrics.js";
@@ -157,7 +157,10 @@ async function drainOnce(): Promise<number> {
     );
     if (!doc) break;
     try {
-      await redisPub.publish(REDIS_CHANNELS.events, JSON.stringify(stripOutboxFields(doc)));
+      const redisOk = await isRedisAvailable();
+      if (redisOk) {
+        await redisPub.publish(REDIS_CHANNELS.events, JSON.stringify(stripOutboxFields(doc)));
+      }
       await c.updateOne({ _id: doc._id }, { $set: { publishedAt: new Date().toISOString() } });
       const lagMs = Date.now() - new Date(doc.occurredAt).getTime();
       outboxLag.observe(lagMs, { type: doc.type });

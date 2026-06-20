@@ -1,16 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { AdminShell } from "@/admin/components/AdminShell";
-import { useAdminRows } from "@/admin/lib/use-admin-rows";
-import { summarizeWhyNotClosing, summarizeTopObjections } from "@/admin/lib/selectors";
-import { useApp } from "@/lib/store";
-import { useVisitWar } from "@/lib/visits/war-store";
+import { useLiveSupremeMetrics } from "@/admin/lib/use-live-supreme";
+import { summarizeWhyNotClosing } from "@/admin/lib/selectors";
 import { useAuditLog } from "@/lib/crm10x/audit-log";
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
 } from "@/components/ui/sheet";
 import type { AdminLeadRow } from "@/admin/lib/selectors";
-import type { ObjectionRecord } from "@/lib/crm10x/types";
+import { LeadSparkline } from "@/admin/components/LeadSparkline";
 
 export const Route = createFileRoute("/admin/")(
   {
@@ -43,30 +41,42 @@ type DrawerContent =
   | null;
 
 function AdminCockpit() {
-  const rows = useAdminRows();
-  const { tcms, leads } = useApp();
-  const visits = useVisitWar((s) => s.records);
+  const { rows, isLoading, isError } = useLiveSupremeMetrics();
+  // Using useAuditLog for now until we migrate admin.audit.tsx
   const audit = useAuditLog((s) => s.entries)
     .filter((e) => e.action.startsWith("admin."))
     .slice(0, 8);
   const now = Date.now();
 
-  const leadNameMap = useMemo(() => {
-    const m = new Map<string, string>();
-    leads.forEach((l) => m.set(l.id, l.name));
-    return m;
-  }, [leads]);
-  const tcmNameMap = useMemo(() => {
-    const m = new Map<string, string>();
-    tcms.forEach((t) => m.set(t.id, t.name));
-    return m;
-  }, [tcms]);
+  const tcms = useMemo(() => {
+    const map = new Map<string, {id: string, name: string}>();
+    rows.forEach(r => {
+      if (r.tcm) map.set(r.tcm.id, { id: r.tcm.id, name: r.tcm.name });
+    });
+    return Array.from(map.values());
+  }, [rows]);
 
   const [whyTab, setWhyTab] = useState<WhyTab>("all");
   const [objTab, setObjTab] = useState<ObjTab>("all");
   const [objTcmFilter, setObjTcmFilter] = useState("all");
   const [tcmFilter, setTcmFilter] = useState("all");
   const [drawer, setDrawer] = useState<DrawerContent>(null);
+
+  if (isLoading) {
+    return (
+      <AdminShell title="Cockpit" sub="Loading live intelligence...">
+        <div className="p-8 text-center text-muted-foreground animate-pulse">Initializing God Mode...</div>
+      </AdminShell>
+    );
+  }
+
+  if (isError) {
+    return (
+      <AdminShell title="Cockpit" sub="Error loading metrics">
+        <div className="p-8 text-center text-destructive">Failed to fetch metrics. Please check your connection.</div>
+      </AdminShell>
+    );
+  }
 
   const open = rows.filter((r) => r.status === "open" || r.status === "dormant");
   const hot = open.filter((r) => r.probability >= 70);
@@ -200,11 +210,6 @@ function AdminCockpit() {
     return tcms.filter((t) => activeIds.has(t.id));
   }, [rows, tcms]);
 
-  console.log('📊 Fix 1 — sample lead:', JSON.stringify(leads[0], null, 2));
-  console.log('📊 Fix 2 — all lead names:', leads.map((l) => ({ id: l.id, name: l.name, preferredArea: l.preferredArea, stage: l.stage })));
-  console.log('📊 Fix 2 — checking for "Location" in names:', leads.find((l) => l.name === "Location" || l.name?.toLowerCase().includes("location")));
-  console.log('📊 Fix 1 — first 10 lead confidence/intent:', leads.slice(0, 10).map((l) => ({ name: l.name, confidence: l.confidence, intent: l.intent })));
-
   const top24h = useMemo(() => {
     let filtered = rows
       .filter((r) => !r.booked && r.lead.stage !== "dropped")
@@ -229,38 +234,39 @@ function AdminCockpit() {
   }, [rows, tcmFilter]);
 
   const livePulse = useMemo(() => {
-    return Object.values(visits)
-      .flatMap((v) => {
-        const alerts: { ts: number; id: string; text: string }[] = [];
-        const delayed = !!v.startedAt && !v.reachedAt && now - v.startedAt > 15 * 60_000;
-        if (delayed) {
-          alerts.push({ ts: v.startedAt!, id: v.tourId, text: "Delayed start" });
-        }
-        const completedAgo = v.completedAt ? now - v.completedAt : 0;
-        if (v.completedAt && !v.reaction && completedAgo > 2 * 3600_000) {
-          alerts.push({ ts: v.completedAt, id: v.tourId, text: "Post-visit silence" });
-        }
-        if (v.completedAt && v.outcome === "thinking" && completedAgo > 24 * 3600_000) {
-          alerts.push({ ts: v.completedAt, id: v.tourId, text: "Decision pending" });
-        }
-        const ghost = !!v.completedAt && completedAgo > 6 * 3600_000 && (!v.outcome || v.outcome === "thinking" || v.outcome === "follow-up");
-        if (ghost) {
-          alerts.push({ ts: v.completedAt!, id: v.tourId, text: "Ghost follow-up" });
-        }
-        const realLeadName = leadNameMap.get(v.leadId) || v.leadName;
-        const realTcmName = tcmNameMap.get(v.tcmId) || v.tcmName;
-        if (realLeadName === "Lead" || realLeadName === "Coordinator" || realTcmName === "Lead" || realTcmName === "Coordinator") return [];
-        return alerts.map((a) => ({
-          id: a.id,
-          kind: a.text,
-          ts: a.ts,
-          leadName: realLeadName,
-          coordinatorName: realTcmName,
-        }));
+    return rows.flatMap((row) => {
+        return row.visits.flatMap((v) => {
+          const alerts: { ts: number; id: string; text: string }[] = [];
+          const delayed = !!v.startedAt && !v.reachedAt && now - v.startedAt > 15 * 60_000;
+          if (delayed) {
+            alerts.push({ ts: v.startedAt!, id: v.tourId, text: "Delayed start" });
+          }
+          const completedAgo = v.completedAt ? now - v.completedAt : 0;
+          if (v.completedAt && !v.reaction && completedAgo > 2 * 3600_000) {
+            alerts.push({ ts: v.completedAt, id: v.tourId, text: "Post-visit silence" });
+          }
+          if (v.completedAt && v.outcome === "thinking" && completedAgo > 24 * 3600_000) {
+            alerts.push({ ts: v.completedAt, id: v.tourId, text: "Decision pending" });
+          }
+          const ghost = !!v.completedAt && completedAgo > 6 * 3600_000 && (!v.outcome || v.outcome === "thinking" || v.outcome === "follow-up");
+          if (ghost) {
+            alerts.push({ ts: v.completedAt!, id: v.tourId, text: "Ghost follow-up" });
+          }
+          const realLeadName = row.lead.name;
+          const realTcmName = row.tcm?.name || "Unassigned";
+          if (realLeadName === "Lead" || realLeadName === "Coordinator" || realTcmName === "Lead" || realTcmName === "Coordinator") return [];
+          return alerts.map((a) => ({
+            id: a.id,
+            kind: a.text,
+            ts: a.ts,
+            leadName: realLeadName,
+            coordinatorName: realTcmName,
+          }));
+        });
       })
       .sort((a, b) => b.ts - a.ts)
       .slice(0, 20);
-  }, [visits, now, leadNameMap, tcmNameMap]);
+  }, [rows, now]);
 
   return (
     <>
@@ -697,9 +703,9 @@ function ClosePanel({
           <li key={r.lead.id}>
             <button
               onClick={() => onSelectLead(r)}
-              className="w-full flex justify-between items-center p-1.5 rounded hover:bg-muted/50 transition-colors"
+              className="w-full flex justify-between items-center p-1.5 rounded hover:bg-muted/50 transition-colors gap-2"
             >
-              <span className="truncate text-left">
+              <span className="truncate text-left flex-1">
                 {(() => {
                   const rawName = r.lead.name;
                   const rawArea = r.lead.preferredArea;
@@ -709,7 +715,8 @@ function ClosePanel({
                   return <><span className="font-medium">{i + 1}. {name}</span>{area ? <span className="text-muted-foreground ml-1">· {area}</span> : null}</>;
                 })()}
               </span>
-              <span className="text-accent font-mono shrink-0 ml-2">{r.probability}%</span>
+              <LeadSparkline row={r} width={48} height={20} />
+              <span className="text-accent font-mono shrink-0 ml-1">{r.probability}%</span>
             </button>
           </li>
         ))}

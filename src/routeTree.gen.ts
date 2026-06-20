@@ -84,13 +84,17 @@ import { Route as AdminVisitsRouteImport } from './routes/admin.visits'
 import { Route as AdminTenantsRouteImport } from './routes/admin.tenants'
 import { Route as AdminSupremeRouteImport } from './routes/admin.supreme'
 import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
+import { Route as AdminRevenueRouteImport } from './routes/admin.revenue'
 import { Route as AdminPropertyRouteImport } from './routes/admin.property'
 import { Route as AdminPeopleRouteImport } from './routes/admin.people'
 import { Route as AdminOwnersRouteImport } from './routes/admin.owners'
 import { Route as AdminOwnerBookingsRouteImport } from './routes/admin.owner-bookings'
 import { Route as AdminLeadsRouteImport } from './routes/admin.leads'
+import { Route as AdminLeaderboardRouteImport } from './routes/admin.leaderboard'
 import { Route as AdminIntelligenceRouteImport } from './routes/admin.intelligence'
+import { Route as AdminImpactCommandRouteImport } from './routes/admin.impact-command'
 import { Route as AdminImpactRouteImport } from './routes/admin.impact'
+import { Route as AdminHealthScoreRouteImport } from './routes/admin.health-score'
 import { Route as AdminExportsRouteImport } from './routes/admin.exports'
 import { Route as AdminCommandRouteImport } from './routes/admin.command'
 import { Route as AdminCalendarRouteImport } from './routes/admin.calendar'
@@ -482,6 +486,11 @@ const AdminSettingsRoute = AdminSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminRevenueRoute = AdminRevenueRouteImport.update({
+  id: '/revenue',
+  path: '/revenue',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminPropertyRoute = AdminPropertyRouteImport.update({
   id: '/property',
   path: '/property',
@@ -507,14 +516,29 @@ const AdminLeadsRoute = AdminLeadsRouteImport.update({
   path: '/leads',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminLeaderboardRoute = AdminLeaderboardRouteImport.update({
+  id: '/leaderboard',
+  path: '/leaderboard',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminIntelligenceRoute = AdminIntelligenceRouteImport.update({
   id: '/intelligence',
   path: '/intelligence',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminImpactCommandRoute = AdminImpactCommandRouteImport.update({
+  id: '/impact-command',
+  path: '/impact-command',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminImpactRoute = AdminImpactRouteImport.update({
   id: '/impact',
   path: '/impact',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminHealthScoreRoute = AdminHealthScoreRouteImport.update({
+  id: '/health-score',
+  path: '/health-score',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminExportsRoute = AdminExportsRouteImport.update({
@@ -631,13 +655,17 @@ export interface FileRoutesByFullPath {
   '/admin/calendar': typeof AdminCalendarRoute
   '/admin/command': typeof AdminCommandRoute
   '/admin/exports': typeof AdminExportsRoute
+  '/admin/health-score': typeof AdminHealthScoreRoute
   '/admin/impact': typeof AdminImpactRoute
+  '/admin/impact-command': typeof AdminImpactCommandRoute
   '/admin/intelligence': typeof AdminIntelligenceRoute
+  '/admin/leaderboard': typeof AdminLeaderboardRoute
   '/admin/leads': typeof AdminLeadsRoute
   '/admin/owner-bookings': typeof AdminOwnerBookingsRoute
   '/admin/owners': typeof AdminOwnersRoute
   '/admin/people': typeof AdminPeopleRoute
   '/admin/property': typeof AdminPropertyRoute
+  '/admin/revenue': typeof AdminRevenueRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/supreme': typeof AdminSupremeRoute
   '/admin/tenants': typeof AdminTenantsRouteWithChildren
@@ -728,13 +756,17 @@ export interface FileRoutesByTo {
   '/admin/calendar': typeof AdminCalendarRoute
   '/admin/command': typeof AdminCommandRoute
   '/admin/exports': typeof AdminExportsRoute
+  '/admin/health-score': typeof AdminHealthScoreRoute
   '/admin/impact': typeof AdminImpactRoute
+  '/admin/impact-command': typeof AdminImpactCommandRoute
   '/admin/intelligence': typeof AdminIntelligenceRoute
+  '/admin/leaderboard': typeof AdminLeaderboardRoute
   '/admin/leads': typeof AdminLeadsRoute
   '/admin/owner-bookings': typeof AdminOwnerBookingsRoute
   '/admin/owners': typeof AdminOwnersRoute
   '/admin/people': typeof AdminPeopleRoute
   '/admin/property': typeof AdminPropertyRoute
+  '/admin/revenue': typeof AdminRevenueRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/supreme': typeof AdminSupremeRoute
   '/admin/tenants': typeof AdminTenantsRouteWithChildren
@@ -827,13 +859,17 @@ export interface FileRoutesById {
   '/admin/calendar': typeof AdminCalendarRoute
   '/admin/command': typeof AdminCommandRoute
   '/admin/exports': typeof AdminExportsRoute
+  '/admin/health-score': typeof AdminHealthScoreRoute
   '/admin/impact': typeof AdminImpactRoute
+  '/admin/impact-command': typeof AdminImpactCommandRoute
   '/admin/intelligence': typeof AdminIntelligenceRoute
+  '/admin/leaderboard': typeof AdminLeaderboardRoute
   '/admin/leads': typeof AdminLeadsRoute
   '/admin/owner-bookings': typeof AdminOwnerBookingsRoute
   '/admin/owners': typeof AdminOwnersRoute
   '/admin/people': typeof AdminPeopleRoute
   '/admin/property': typeof AdminPropertyRoute
+  '/admin/revenue': typeof AdminRevenueRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/supreme': typeof AdminSupremeRoute
   '/admin/tenants': typeof AdminTenantsRouteWithChildren
@@ -927,13 +963,17 @@ export interface FileRouteTypes {
     | '/admin/calendar'
     | '/admin/command'
     | '/admin/exports'
+    | '/admin/health-score'
     | '/admin/impact'
+    | '/admin/impact-command'
     | '/admin/intelligence'
+    | '/admin/leaderboard'
     | '/admin/leads'
     | '/admin/owner-bookings'
     | '/admin/owners'
     | '/admin/people'
     | '/admin/property'
+    | '/admin/revenue'
     | '/admin/settings'
     | '/admin/supreme'
     | '/admin/tenants'
@@ -1024,13 +1064,17 @@ export interface FileRouteTypes {
     | '/admin/calendar'
     | '/admin/command'
     | '/admin/exports'
+    | '/admin/health-score'
     | '/admin/impact'
+    | '/admin/impact-command'
     | '/admin/intelligence'
+    | '/admin/leaderboard'
     | '/admin/leads'
     | '/admin/owner-bookings'
     | '/admin/owners'
     | '/admin/people'
     | '/admin/property'
+    | '/admin/revenue'
     | '/admin/settings'
     | '/admin/supreme'
     | '/admin/tenants'
@@ -1122,13 +1166,17 @@ export interface FileRouteTypes {
     | '/admin/calendar'
     | '/admin/command'
     | '/admin/exports'
+    | '/admin/health-score'
     | '/admin/impact'
+    | '/admin/impact-command'
     | '/admin/intelligence'
+    | '/admin/leaderboard'
     | '/admin/leads'
     | '/admin/owner-bookings'
     | '/admin/owners'
     | '/admin/people'
     | '/admin/property'
+    | '/admin/revenue'
     | '/admin/settings'
     | '/admin/supreme'
     | '/admin/tenants'
@@ -1772,6 +1820,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminSettingsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/revenue': {
+      id: '/admin/revenue'
+      path: '/revenue'
+      fullPath: '/admin/revenue'
+      preLoaderRoute: typeof AdminRevenueRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/property': {
       id: '/admin/property'
       path: '/property'
@@ -1807,6 +1862,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminLeadsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/leaderboard': {
+      id: '/admin/leaderboard'
+      path: '/leaderboard'
+      fullPath: '/admin/leaderboard'
+      preLoaderRoute: typeof AdminLeaderboardRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/intelligence': {
       id: '/admin/intelligence'
       path: '/intelligence'
@@ -1814,11 +1876,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminIntelligenceRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/impact-command': {
+      id: '/admin/impact-command'
+      path: '/impact-command'
+      fullPath: '/admin/impact-command'
+      preLoaderRoute: typeof AdminImpactCommandRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/impact': {
       id: '/admin/impact'
       path: '/impact'
       fullPath: '/admin/impact'
       preLoaderRoute: typeof AdminImpactRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/health-score': {
+      id: '/admin/health-score'
+      path: '/health-score'
+      fullPath: '/admin/health-score'
+      preLoaderRoute: typeof AdminHealthScoreRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/exports': {
@@ -1940,13 +2016,17 @@ interface AdminRouteChildren {
   AdminCalendarRoute: typeof AdminCalendarRoute
   AdminCommandRoute: typeof AdminCommandRoute
   AdminExportsRoute: typeof AdminExportsRoute
+  AdminHealthScoreRoute: typeof AdminHealthScoreRoute
   AdminImpactRoute: typeof AdminImpactRoute
+  AdminImpactCommandRoute: typeof AdminImpactCommandRoute
   AdminIntelligenceRoute: typeof AdminIntelligenceRoute
+  AdminLeaderboardRoute: typeof AdminLeaderboardRoute
   AdminLeadsRoute: typeof AdminLeadsRoute
   AdminOwnerBookingsRoute: typeof AdminOwnerBookingsRoute
   AdminOwnersRoute: typeof AdminOwnersRoute
   AdminPeopleRoute: typeof AdminPeopleRoute
   AdminPropertyRoute: typeof AdminPropertyRoute
+  AdminRevenueRoute: typeof AdminRevenueRoute
   AdminSettingsRoute: typeof AdminSettingsRoute
   AdminSupremeRoute: typeof AdminSupremeRoute
   AdminTenantsRoute: typeof AdminTenantsRouteWithChildren
@@ -1961,13 +2041,17 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminCalendarRoute: AdminCalendarRoute,
   AdminCommandRoute: AdminCommandRoute,
   AdminExportsRoute: AdminExportsRoute,
+  AdminHealthScoreRoute: AdminHealthScoreRoute,
   AdminImpactRoute: AdminImpactRoute,
+  AdminImpactCommandRoute: AdminImpactCommandRoute,
   AdminIntelligenceRoute: AdminIntelligenceRoute,
+  AdminLeaderboardRoute: AdminLeaderboardRoute,
   AdminLeadsRoute: AdminLeadsRoute,
   AdminOwnerBookingsRoute: AdminOwnerBookingsRoute,
   AdminOwnersRoute: AdminOwnersRoute,
   AdminPeopleRoute: AdminPeopleRoute,
   AdminPropertyRoute: AdminPropertyRoute,
+  AdminRevenueRoute: AdminRevenueRoute,
   AdminSettingsRoute: AdminSettingsRoute,
   AdminSupremeRoute: AdminSupremeRoute,
   AdminTenantsRoute: AdminTenantsRouteWithChildren,

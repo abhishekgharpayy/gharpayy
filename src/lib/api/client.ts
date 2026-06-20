@@ -7,7 +7,7 @@
 // real network mode kicks in automatically.
 import { localAdapter, isLocalMode } from "./local-adapter";
 
-const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
+export const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 
 export class ApiError extends Error {
   constructor(

@@ -1,3 +1,7 @@
+// Fix for Node.js v24 DNS resolution issue on Windows — must be first
+import { setServers } from "dns";
+setServers(["8.8.8.8", "8.8.4.4"]);
+
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import cookie from "@fastify/cookie";
@@ -26,6 +30,7 @@ import { registerSequencesRoutes } from "./modules/sequences/routes.js";
 import { registerBookingsRoutes } from "./modules/bookings/routes.js";
 import { registerTenantsRoutes } from "./modules/tenants/routes.js";
 import { registerOwnerRoutes } from "./modules/owner/routes.js";
+import { registerAdminSupremeRoutes } from "./modules/admin/supreme.js";
 import { ensureDefaultSuperAdmin } from "./auth/auth.js";
 
 async function main() {
@@ -113,6 +118,7 @@ h1{margin:0 0 .5rem;font-size:1.5rem;color:#34d399}p{margin:.25rem 0;color:#94a3
   registerBookingsRoutes(app);
   registerTenantsRoutes(app);
   registerOwnerRoutes(app);
+  registerAdminSupremeRoutes(app);
 
   // Idempotent — bootstraps the canonical Super Admin if missing.
   await ensureDefaultSuperAdmin().catch((err) => app.log.warn({ err }, "ensureDefaultSuperAdmin failed"));

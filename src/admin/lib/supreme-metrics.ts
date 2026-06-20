@@ -185,3 +185,119 @@ export function computeSlaBreaches(rows: AdminLeadRow[]): SlaBreach[] {
   });
   return out.sort((a, b) => b.expectedValue - a.expectedValue).slice(0, 25);
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TCM Health Score — composite 0-100 score with grade, trend, and tips
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface TcmHealthScore {
+  tcmId: string;
+  name: string;
+  score: number;           // 0-100 composite
+  grade: "S" | "A" | "B" | "C" | "D" | "F";
+  trend: "up" | "flat" | "down";
+  breakdown: {
+    conversion: number;    // 0-25 pts
+    responseRate: number;  // 0-25 pts
+    pipeline: number;      // 0-20 pts
+    activity: number;      // 0-20 pts
+    dormancy: number;      // 0-10 pts (penalty)
+  };
+  tips: string[];
+  open: number;
+  booked: number;
+  lost: number;
+  pipelineValue: number;
+}
+
+export function computeHealthScores(rows: AdminLeadRow[]): TcmHealthScore[] {
+  const now = Date.now();
+  const by = new Map<string, AdminLeadRow[]>();
+
+  rows.forEach((r) => {
+    const id = r.lead.assignedTcmId || "unassigned";
+    (by.get(id) ?? by.set(id, []).get(id)!).push(r);
+  });
+
+  const out: TcmHealthScore[] = [];
+
+  by.forEach((rs, tcmId) => {
+    if (tcmId === "unassigned") return;
+    const name = rs[0].tcm?.name ?? tcmId;
+
+    const total = rs.length;
+    const booked = rs.filter((r) => r.booked).length;
+    const lost = rs.filter((r) => r.status === "lost").length;
+    const open = rs.filter((r) => r.status === "open").length;
+    const dormant = rs.filter((r) => r.status === "dormant").length;
+    const pipelineValue = rs.reduce((s, r) => s + r.expectedValue, 0);
+
+    // 1. Conversion score (0-25 pts)
+    const cvr = total > 0 ? booked / total : 0;
+    const convScore = Math.round(Math.min(1, cvr / 0.25) * 25); // 25% CVR = full score
+
+    // 2. Response rate score (0-25 pts) — % of open leads touched in last 3 days
+    const recentlyTouched = rs.filter(
+      (r) => r.status === "open" && now - r.lastTouchTs < 3 * 86_400_000,
+    ).length;
+    const responseScore = open > 0 ? Math.round((recentlyTouched / open) * 25) : 20;
+
+    // 3. Pipeline quality score (0-20 pts) — hot leads as % of open
+    const hot = rs.filter((r) => r.probability >= 70 && !r.booked).length;
+    const pipelineScore = open > 0 ? Math.round((hot / open) * 20) : 0;
+
+    // 4. Activity score (0-20 pts) — calls + tours per open lead
+    const totalCalls = rs.reduce((s, r) => s + r.calls.length, 0);
+    const totalTours = rs.reduce((s, r) => s + r.tours.length, 0);
+    const activityPerLead = open > 0 ? (totalCalls + totalTours) / open : 0;
+    const activityScore = Math.round(Math.min(1, activityPerLead / 3) * 20); // 3 touches per lead = full
+
+    // 5. Dormancy penalty (0-10 pts, deducted)
+    const dormancyPenalty = open > 0 ? Math.round((dormant / open) * 10) : 0;
+
+    const raw = convScore + responseScore + pipelineScore + activityScore - dormancyPenalty;
+    const score = Math.max(0, Math.min(100, raw));
+
+    const grade: TcmHealthScore["grade"] =
+      score >= 90 ? "S" :
+      score >= 75 ? "A" :
+      score >= 60 ? "B" :
+      score >= 45 ? "C" :
+      score >= 30 ? "D" : "F";
+
+    // Trend: compare hot% to open ratio
+    const trend: TcmHealthScore["trend"] =
+      score >= 65 ? "up" : score <= 35 ? "down" : "flat";
+
+    // Coaching tips
+    const tips: string[] = [];
+    if (convScore < 10) tips.push("Conversion is below 10% — focus on post-tour follow-ups");
+    if (responseScore < 12) tips.push("Over half of open leads haven't been touched in 3+ days");
+    if (pipelineScore < 8) tips.push("Less than 30% of open leads are hot — needs better qualification");
+    if (activityScore < 10) tips.push("Low activity per lead — increase call frequency");
+    if (dormancyPenalty > 5) tips.push(`${dormant} dormant leads dragging score — revive or drop`);
+    if (!tips.length) tips.push("Performing well — keep the momentum going");
+
+    out.push({
+      tcmId,
+      name,
+      score,
+      grade,
+      trend,
+      breakdown: {
+        conversion: convScore,
+        responseRate: responseScore,
+        pipeline: pipelineScore,
+        activity: activityScore,
+        dormancy: dormancyPenalty,
+      },
+      tips,
+      open,
+      booked,
+      lost,
+      pipelineValue,
+    });
+  });
+
+  return out.sort((a, b) => b.score - a.score);
+}

@@ -1,7 +1,7 @@
 import { Server as SocketServer, type Socket } from "socket.io";
 import { createAdapter } from "@socket.io/redis-adapter";
 import type { FastifyInstance } from "fastify";
-import { redisPub, redisSub, REDIS_CHANNELS } from "../db/redis.js";
+import { redisPub, redisSub, REDIS_CHANNELS, isRedisAvailable } from "../db/redis.js";
 import { verifyToken, type JwtClaims } from "../auth/auth.js";
 import { corsOrigins } from "../config/env.js";
 import type { DomainEvent } from "../../../src/contracts/events.js";
@@ -63,7 +63,23 @@ export async function attachSocketIO(app: FastifyInstance) {
     pingInterval: 25_000,
     pingTimeout: 60_000,
   });
-  io.adapter(createAdapter(redisPub, redisSub));
+  let redisOk = false;
+  try {
+    redisOk = await isRedisAvailable();
+  } catch (err) {
+    app.log.warn({ err }, "[ws] Redis availability check failed, using in-memory adapter");
+  }
+
+  if (redisOk) {
+    try {
+      io.adapter(createAdapter(redisPub, redisSub));
+    } catch (err) {
+      redisOk = false;
+      app.log.warn({ err }, "[ws] Redis adapter unavailable, using in-memory adapter");
+    }
+  } else {
+    app.log.warn("[ws] Redis unavailable, using in-memory adapter");
+  }
 
   io.use(async (socket, next) => {
     const token = (socket.handshake.auth?.token as string | undefined)
@@ -146,18 +162,25 @@ export async function attachSocketIO(app: FastifyInstance) {
   });
 
   // Bridge Redis pub/sub → Socket.IO rooms. Per-socket dedup happens at delivery.
-  await redisSub.subscribe(REDIS_CHANNELS.events);
-  redisSub.on("message", (channel, raw) => {
-    if (channel !== REDIS_CHANNELS.events) return;
+  if (redisOk) {
     try {
-      const evt = JSON.parse(raw) as DomainEvent & { aggregateType?: string; aggregateId?: string; seq?: number };
-      const tenantRoom = `tenant:${evt.tenantId}:leads`;
-      io!.to(tenantRoom).emit("evt", evt);
-      if (evt.aggregateType && evt.aggregateId) {
-        io!.to(`${evt.aggregateType}:${evt.aggregateId}`).emit("evt", evt);
-      }
+      await redisSub.subscribe(REDIS_CHANNELS.events);
     } catch (err) {
-      app.log.error({ err }, "[ws] bad event payload");
+      app.log.warn({ err }, "[ws] Redis unavailable, pub/sub skipped - real-time push disabled");
+      return;
     }
-  });
+    redisSub.on("message", (channel, raw) => {
+      if (channel !== REDIS_CHANNELS.events) return;
+      try {
+        const evt = JSON.parse(raw) as DomainEvent & { aggregateType?: string; aggregateId?: string; seq?: number };
+        const tenantRoom = `tenant:${evt.tenantId}:leads`;
+        io!.to(tenantRoom).emit("evt", evt);
+        if (evt.aggregateType && evt.aggregateId) {
+          io!.to(`${evt.aggregateType}:${evt.aggregateId}`).emit("evt", evt);
+        }
+      } catch (err) {
+        app.log.error({ err }, "[ws] bad event payload");
+      }
+    });
+  }
 }
