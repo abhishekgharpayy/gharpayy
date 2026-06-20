@@ -15,8 +15,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   CheckCircle2, AlertCircle, User, Phone, Mail, MapPin, Wallet,
   CalendarDays, Briefcase, BedDouble, Sparkles, Loader2, Flame, UserCheck, Tag,
-  Search, Building2,
+  Search, Building2, X,
 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { DuplicateModal } from "./DuplicateModal";
 import { QUICKAD_NEED_OPTIONS, QUICKAD_ROOM_OPTIONS, QUICKAD_TYPE_OPTIONS, parseBudgetAmount } from "@/lib/quickad-shared";
@@ -100,6 +101,8 @@ export function DirectLeadForm({ onCreated }: Props) {
   const [selectedPG, setSelectedPG] = useState<PG | null>(null);
   const [hubQuery, setHubQuery] = useState("");
   const [showHubResults, setShowHubResults] = useState(false);
+  const [showOtherModal, setShowOtherModal] = useState(false);
+  const [otherPropertyName, setOtherPropertyName] = useState("");
 
   const hubResults = useMemo(() => {
     const q = hubQuery.trim();
@@ -225,6 +228,7 @@ export function DirectLeadForm({ onCreated }: Props) {
         zoneCategory: draft.zoneBucket,
         assigneeId: assignee?.id ?? null,
         stageLabel: draft.stage,
+        propertySelection: draft.propertySelection,
       },
     });
     setSubmitting(false);
@@ -261,6 +265,7 @@ export function DirectLeadForm({ onCreated }: Props) {
     setDraft({ ...emptyDraft(), assigneeId: defaultAssigneeId });
     setSelectedPG(null);
     setHubQuery("");
+    setOtherPropertyName("");
     setTouched({});
     setMatch(null);
     onCreated?.(identityLead);
@@ -334,6 +339,7 @@ export function DirectLeadForm({ onCreated }: Props) {
                     if (selectedPG) {
                       setSelectedPG(null);
                       update("location", "");
+                      update("propertySelection", undefined);
                     }
                   }}
                   onFocus={() => setShowHubResults(true)}
@@ -355,30 +361,53 @@ export function DirectLeadForm({ onCreated }: Props) {
                   </div>
                 </div>
               )}
-              {showHubResults && hubResults.length > 0 && !selectedPG && (
-                <div className="absolute z-50 mt-1 w-full rounded-md border border-border bg-background shadow-lg max-h-48 overflow-y-auto">
-                  {hubResults.map(({ pg }) => (
-                    <button
-                      key={pg.id}
-                      type="button"
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        setSelectedPG(pg);
-                        update("location", pg.area);
-                        setHubQuery("");
-                        setShowHubResults(false);
-                      }}
-                      className="w-full text-left px-3 py-2 text-sm hover:bg-muted/50 transition-colors flex items-center gap-2 border-b border-border last:border-0"
-                    >
-                      <Building2 className="h-4 w-4 shrink-0 text-primary" />
-                      <div className="min-w-0 flex-1">
-                        <div className="font-medium truncate">{pg.name}</div>
-                        <div className="text-[11px] text-muted-foreground truncate">
-                          {pg.area} · {formatINR(Math.min(...[pg.prices.triple, pg.prices.double, pg.prices.single].filter(Boolean)))}/mo · IQ {pg.iq}
+              {showHubResults && !selectedPG && draft.propertySelection?.type !== "other" && (
+                <div className="absolute z-50 mt-1 w-full rounded-md border border-border bg-background shadow-lg max-h-56 flex flex-col">
+                  <div className="flex-1 overflow-y-auto">
+                    {hubResults.map(({ pg }) => (
+                      <button
+                        key={pg.id}
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          setSelectedPG(pg);
+                          update("location", pg.area);
+                          update("propertySelection", { type: "hub", propertyId: pg.id, propertyName: pg.name });
+                          setHubQuery("");
+                          setShowHubResults(false);
+                        }}
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-muted/50 transition-colors flex items-center gap-2 border-b border-border last:border-0"
+                      >
+                        <Building2 className="h-4 w-4 shrink-0 text-primary" />
+                        <div className="min-w-0 flex-1">
+                          <div className="font-medium truncate">{pg.name}</div>
+                          <div className="text-[11px] text-muted-foreground truncate">
+                            {pg.area} · {formatINR(Math.min(...[pg.prices.triple, pg.prices.double, pg.prices.single].filter(Boolean)))}/mo · IQ {pg.iq}
+                          </div>
                         </div>
-                      </div>
-                    </button>
-                  ))}
+                      </button>
+                    ))}
+                    {hubResults.length === 0 && (
+                      <div className="px-3 py-4 text-xs text-muted-foreground text-center">No properties found in Property Hub</div>
+                    )}
+                  </div>
+                  <div className="p-2 border-t border-border bg-muted/20 shrink-0">
+                    <Button variant="secondary" size="sm" className="w-full text-xs" onClick={(e) => { 
+                      e.preventDefault(); 
+                      setShowOtherModal(true); 
+                      setShowHubResults(false); 
+                    }}>Other Property</Button>
+                  </div>
+                </div>
+              )}
+              {draft.propertySelection?.type === "other" && draft.propertySelection.propertyName && (
+                <div className="mt-1.5 rounded-md border border-primary/40 bg-primary/5 p-2 flex justify-between items-center">
+                  <div className="text-sm font-semibold">Other: {draft.propertySelection.propertyName}</div>
+                  <Button variant="link" size="sm" className="h-auto p-0 text-xs" onClick={(e) => { 
+                    e.preventDefault();
+                    setOtherPropertyName(draft.propertySelection?.propertyName || "");
+                    setShowOtherModal(true);
+                  }}>Change</Button>
                 </div>
               )}
             </div>
@@ -517,6 +546,33 @@ export function DirectLeadForm({ onCreated }: Props) {
         onForceCreate={onForceCreate}
         onUseExisting={onUseExisting}
       />
+
+      <Dialog open={showOtherModal} onOpenChange={setShowOtherModal}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Other Property</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <Label className="text-xs">Property Name *</Label>
+            <Input 
+              value={otherPropertyName} 
+              onChange={(e) => setOtherPropertyName(e.target.value)} 
+              placeholder="e.g. ABC PG" 
+              maxLength={100}
+              className="mt-1.5"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setShowOtherModal(false)}>Cancel</Button>
+            <Button size="sm" onClick={() => {
+              const cleanName = otherPropertyName.replace(/\s+/g, " ").trim();
+              if (!cleanName) { toast.error("Property Name is required"); return; }
+              update("propertySelection", { type: "other", propertyName: cleanName });
+              setShowOtherModal(false);
+            }}>Save Property</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
