@@ -346,7 +346,7 @@ export function normalizeLocationText(value: string | null | undefined): string 
 export interface ResolvedLocation {
   area: string;
   propertyName: string | null;
-  source: "hub" | "ops" | "lead" | "fallback";
+  source: "hub" | "ops" | "lead" | "fallback" | "other";
 }
 
 export function resolveLeadLocation(
@@ -424,4 +424,23 @@ export function resolveLeadLocation(
     return { area: fallback.area, propertyName: fallback.name, source: fallback.source };
   }
   return { area: "Location not captured", propertyName: null, source: "fallback" };
+}
+
+export function profileCompletionScore(profile: Record<string, unknown> | undefined | null): number {
+  if (!profile) return 0;
+  const required = [
+    "gender",
+    "roomType",
+    "decisionMaker",
+    "locationFeasible",
+    "companyOrCollege",
+    "budgetStated",
+    "verifiedBudget",
+    "preferredMoveInDate",
+  ];
+  const filled = required.filter((key) => {
+    const value = profile[key];
+    return value !== undefined && value !== null && value !== "";
+  }).length;
+  return Math.min(100, Math.round((filled / required.length) * 100));
 }
