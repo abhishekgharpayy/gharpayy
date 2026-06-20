@@ -192,6 +192,11 @@ export interface ParsedLeadDraft {
   };
   /** Suggested lead quality computed heuristically during parsing. */
   quality?: "hot" | "good" | "bad" | null;
+  propertySelection?: {
+    type: "hub" | "other";
+    propertyId?: string;
+    propertyName?: string;
+  };
 }
 
 export interface LeadGeoIntel {
