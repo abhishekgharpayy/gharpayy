@@ -7,7 +7,7 @@ export type CatalogProperty = {
   id: string;
   name: string;
   area: string;
-  source: "hub" | "ops";
+  source: "hub" | "ops" | "other";
   pricePerBed: number;
   vacantBeds?: number;
   totalBeds?: number;
@@ -50,6 +50,15 @@ export function resolvePropertyById(
   opsProperties: Property[],
 ): CatalogProperty | undefined {
   if (!id?.trim()) return undefined;
+  if (id.startsWith("other:")) {
+    return {
+      id,
+      name: id.replace("other:", ""),
+      area: "Other",
+      source: "other",
+      pricePerBed: 0,
+    };
+  }
   const pg = PGS.find((p) => p.id === id);
   if (pg) return pgToCatalog(pg);
   const ops = opsProperties.find((p) => p.id === id);
@@ -68,6 +77,15 @@ export function resolvePropertyByName(
   if (pg) return pgToCatalog(pg);
   const ops = opsProperties.find((p) => p.name.toLowerCase() === lower);
   if (ops) return opsToCatalog(ops);
+  if (name.startsWith("other:")) {
+    return {
+      id: name,
+      name: name.replace("other:", ""),
+      area: "Other",
+      source: "other",
+      pricePerBed: 0,
+    };
+  }
   return undefined;
 }
 
