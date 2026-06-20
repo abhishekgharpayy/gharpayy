@@ -66,6 +66,11 @@ export const CreateLeadCmd = Base.extend({
   }).extend({
     intent: Intent.optional(),
     tags: z.array(z.string()).max(10).optional(),
+    propertySelection: z.object({
+      type: z.enum(["hub", "other"]),
+      propertyId: z.string().optional(),
+      propertyName: z.string().optional()
+    }).optional(),
     // Extended Quick-Add fields - all optional, server fills defaults.
     email: z.string().max(160).optional(),
     areas: z.array(z.string().max(80)).max(20).optional(),

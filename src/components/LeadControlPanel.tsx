@@ -21,6 +21,13 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -77,6 +84,9 @@ import {
   Search,
   Star,
   Sparkles,
+  Clock,
+  Home,
+  ExternalLink,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { cn, formatTime12h, localDateISO, tourTimeSlotsForDate } from "@/lib/utils";
@@ -86,6 +96,7 @@ import {
   normalizeLeadName,
   pickRelevantActiveTour,
   resolveBestLeadName,
+  profileCompletionScore,
   resolveLeadLocation,
 } from "@/lib/lead-helpers";
 import type { Lead, LeadStage, FollowUpPriority, SequenceKind } from "@/lib/types";
@@ -2043,24 +2054,6 @@ function getPreVisitActiveStep(state: {
   return "visit-ready";
 }
 
-function profileCompletionScore(profile: Record<string, unknown> | undefined | null): number {
-  if (!profile) return 0;
-  const required = [
-    "gender",
-    "roomType",
-    "decisionMaker",
-    "locationFeasible",
-    "companyOrCollege",
-    "budgetStated",
-    "verifiedBudget",
-    "preferredMoveInDate",
-  ];
-  const filled = required.filter((key) => {
-    const value = profile[key];
-    return value !== undefined && value !== null && value !== "";
-  }).length;
-  return Math.min(100, Math.round((filled / required.length) * 100));
-}
 
 function PreVisitProgress({
   activeStep,
@@ -2672,6 +2665,11 @@ function PropertyShortlistStep({
   const areas = preferenceAreasForLead(lead);
   const [query, setQuery] = useState("");
   const [activePg, setActivePg] = useState<PG | null>(null);
+  const [showOtherModal, setShowOtherModal] = useState(false);
+  const [otherPropertyName, setOtherPropertyName] = useState("");
+  const [editingOtherId, setEditingOtherId] = useState<string | null>(null);
+  const [createdOthers, setCreatedOthers] = useState<string[]>([]);
+
   const list = useMemo(() => {
     const base = query.trim()
       ? searchPropertyCatalog(query, properties, { preferredArea: lead.preferredArea, limit: 12 })
@@ -2679,14 +2677,27 @@ function PropertyShortlistStep({
           searchPropertyCatalog(area, properties, { preferredArea: area, limit: 5 }),
         );
     const seen = new Set<string>();
-    return base
+    const filtered = base
       .filter((property) => {
         if (seen.has(property.id)) return false;
         seen.add(property.id);
         return true;
       })
       .slice(0, 12);
-  }, [areas, lead.preferredArea, properties, query]);
+      
+    const allOtherIds = new Set([...interests.filter((id) => id.startsWith("other:")), ...createdOthers]);
+    const otherInterests = Array.from(allOtherIds)
+      .map((id) => resolvePropertyById(id, properties))
+      .filter((p): p is NonNullable<typeof p> => Boolean(p));
+
+    for (const p of otherInterests) {
+      if (!seen.has(p.id)) {
+        filtered.unshift(p);
+        seen.add(p.id);
+      }
+    }
+    return filtered;
+  }, [areas, lead.preferredArea, properties, query, interests]);
 
   return (
     <div className="space-y-3">
@@ -2699,60 +2710,80 @@ function PropertyShortlistStep({
           onChange={(event) => setQuery(event.target.value)}
         />
       </div>
-      <div className="max-h-72 overflow-y-auto rounded-md border border-border p-1.5 space-y-1.5">
-        {list.map((property) => {
-          const selected = interests.includes(property.id);
-          return (
-            <div
-              key={property.id}
-              className={cn(
-                "flex items-center gap-2 rounded-md border px-2.5 py-2 text-xs transition-colors",
-                selected ? "border-accent bg-accent/10" : "border-border bg-card hover:bg-muted/40",
-              )}
-            >
-              <button
-                type="button"
-                onClick={() => toggleInterest({ leadId: lead.id, propertyId: property.id })}
-                className="flex min-w-0 flex-1 items-center gap-2 text-left"
-              >
-                {selected ? (
-                  <Star className="h-3.5 w-3.5 text-accent" />
-                ) : (
-                  <Circle className="h-3.5 w-3.5 text-muted-foreground" />
+      <div className="max-h-72 overflow-y-auto rounded-md border border-border p-1.5 space-y-1.5 flex flex-col">
+        <div className="flex-1 space-y-1.5 overflow-y-auto">
+          {list.map((property) => {
+            const selected = interests.includes(property.id);
+            return (
+              <div
+                key={property.id}
+                className={cn(
+                  "flex items-center gap-2 rounded-md border px-2.5 py-2 text-xs transition-colors",
+                  selected ? "border-primary bg-primary/5" : "border-border bg-card hover:bg-muted/40",
                 )}
-                <div className="min-w-0 flex-1">
-                  <div className="truncate font-semibold">{property.name}</div>
-                  <div className="truncate text-[10px] text-muted-foreground">
-                    {property.area} · {formatBudget(property.pricePerBed)}
-                    {property.vacantBeds !== undefined ? ` · ${property.vacantBeds} vacant` : ""}
-                  </div>
-                </div>
-              </button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="h-7 shrink-0 px-2 text-[10px]"
-                onClick={() => {
-                  if (property.pg) {
-                    setActivePg(property.pg);
-                    return;
-                  }
-                  toast.info(
-                    `${property.name} is from ops inventory. Open Property Hub for full dossier.`,
-                  );
-                }}
               >
-                View
-              </Button>
+                <button
+                  type="button"
+                  onClick={() => toggleInterest({ leadId: lead.id, propertyId: property.id })}
+                  className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                >
+                  {selected ? (
+                    <CheckCircle2 className="h-4 w-4 text-primary fill-primary/20" />
+                  ) : (
+                    <Circle className="h-4 w-4 text-muted-foreground" />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate font-semibold">{property.name}</div>
+                    <div className="truncate text-[10px] text-muted-foreground">
+                      {property.area}
+                      {property.source !== "other" && ` · ${formatBudget(property.pricePerBed)}`}
+                      {property.vacantBeds !== undefined ? ` · ${property.vacantBeds} vacant` : ""}
+                    </div>
+                  </div>
+                </button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-7 shrink-0 px-2 text-[10px]"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (property.source === "other") {
+                      setEditingOtherId(property.id);
+                      setOtherPropertyName(property.name);
+                      setShowOtherModal(true);
+                      return;
+                    }
+                    if (property.pg) {
+                      setActivePg(property.pg);
+                      return;
+                    }
+                    toast.info(
+                      `${property.name} is from ops inventory. Open Property Hub for full dossier.`,
+                    );
+                  }}
+                >
+                  {property.source === "other" ? "Change" : "View"}
+                </Button>
+              </div>
+            );
+          })}
+          {list.length === 0 && (
+            <div className="py-5 text-center text-xs text-muted-foreground">
+              No matching properties.
             </div>
-          );
-        })}
-        {list.length === 0 && (
-          <div className="py-5 text-center text-xs text-muted-foreground">
-            No matching properties.
-          </div>
-        )}
+          )}
+        </div>
+        <div className="p-1 border-t border-border mt-1 shrink-0">
+          <Button variant="secondary" size="sm" className="w-full text-xs" onClick={(e) => {
+            e.preventDefault();
+            setEditingOtherId(null);
+            setOtherPropertyName("");
+            setShowOtherModal(true);
+          }}>
+            Other Property
+          </Button>
+        </div>
       </div>
       <div className="rounded-md bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
         Selected: <span className="font-semibold text-foreground">{interests.length}</span> property
@@ -2777,6 +2808,53 @@ function PropertyShortlistStep({
         {buttonLabel}
       </Button>
       <PGDetail pg={activePg} onClose={() => setActivePg(null)} />
+      
+      <Dialog open={showOtherModal} onOpenChange={setShowOtherModal}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Other Property</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <Label className="text-xs">Property Name *</Label>
+            <Input 
+              value={otherPropertyName} 
+              onChange={(e) => setOtherPropertyName(e.target.value)} 
+              placeholder="e.g. ABC PG" 
+              maxLength={100}
+              className="mt-1.5"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setShowOtherModal(false)}>Cancel</Button>
+            <Button size="sm" onClick={(e) => {
+              e.preventDefault();
+              const cleanName = otherPropertyName.replace(/\s+/g, " ").trim();
+              if (!cleanName) { toast.error("Property Name is required"); return; }
+              const newId = `other:${cleanName}`;
+              
+              if (editingOtherId && editingOtherId !== newId) {
+                if (interests.includes(editingOtherId)) {
+                  toggleInterest({ leadId: lead.id, propertyId: editingOtherId });
+                }
+              }
+
+              if (!interests.includes(newId)) {
+                toggleInterest({ leadId: lead.id, propertyId: newId });
+              }
+              
+              setCreatedOthers(prev => {
+                const filtered = prev.filter(id => id !== editingOtherId);
+                if (!filtered.includes(newId)) filtered.push(newId);
+                return filtered;
+              });
+
+              setShowOtherModal(false);
+              setOtherPropertyName("");
+              setEditingOtherId(null);
+            }}>Save Property</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

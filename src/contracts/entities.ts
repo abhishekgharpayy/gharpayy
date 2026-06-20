@@ -40,6 +40,11 @@ export const Lead = z.object({
   priorityState: z.enum(["HOT", "WARM", "COLD", "OVERDUE"]).default("COLD"),
   nextBestAction: z.string().nullable().default(null),
   priorityReason: z.string().nullable().default(null),
+  propertySelection: z.object({
+    type: z.enum(["hub", "other"]),
+    propertyId: z.string().optional(),
+    propertyName: z.string().optional()
+  }).optional(),
   // ---- Extended Quick-Add fields (additive, all optional with defaults) ----
   email: z.string().max(160).default(""),
   areas: z.array(z.string().max(80)).max(20).default([]),

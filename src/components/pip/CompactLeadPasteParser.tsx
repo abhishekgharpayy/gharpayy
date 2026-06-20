@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { CheckCircle2, FileWarning, Zap, Plus, ArrowLeft, X, Wand2 } from "lucide-react";
+import { CheckCircle2, FileWarning, Zap, Plus, ArrowLeft, X, Wand2, AlertCircle } from "lucide-react";
 import { parseLead, detectZone } from "@/lib/lead-identity/parser";
 import { useIdentityStore } from "@/lib/lead-identity/store";
 import { useOrgMembers, useOrgZones, useActiveTcMs, resolveMemberPrimaryZone } from "@/hooks/useOrgDirectory";
