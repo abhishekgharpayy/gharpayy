@@ -8,7 +8,7 @@ let socket: Socket | null = null;
 
 export function getSocket() {
   if (!socket) {
-    socket = io(import.meta.env.VITE_WS_URL || "http://localhost:4000", {
+    socket = io((import.meta.env.VITE_WS_URL as string) || "", {
       autoConnect: false,
       reconnection: true,
     });

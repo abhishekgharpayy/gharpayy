@@ -240,7 +240,8 @@ export const api = {
     parseLead: async (text: string) => {
       if (isLocalMode()) {
         const t = tokenStore.get();
-        const res = await fetch("http://localhost:4000/api/leads/parse", {
+        const baseUrl = (import.meta.env.VITE_API_URL as string) || "";
+        const res = await fetch(`${baseUrl}/api/leads/parse`, {
           method: "POST",
           headers: { 
             "Content-Type": "application/json",
