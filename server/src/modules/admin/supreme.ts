@@ -20,13 +20,14 @@ export function registerAdminSupremeRoutes(app: FastifyInstance) {
 
     const tenantId = req.user!.tenantId;
 
-    const [leads, tours, tcms, bookings, followUps, activities] = await Promise.all([
+    const [leads, tours, tcms, bookings, followUps, activities, properties] = await Promise.all([
       col<Lead>("leads").find({ tenantId }).toArray(),
       col<Tour>("tours").find({ tenantId }).toArray(),
       col<UserDoc>("users").find({ tenantId, role: { $in: ["tcm", "member"] } }).toArray(),
       col<BookingEntity>("bookings").find({ tenantId }).toArray(),
       col<FollowUpDoc>("follow_ups").find({ tenantId }).toArray(),
       col("activities").find({ tenantId }).toArray(),
+      col("properties").find({ tenantId }).toArray(),
     ]);
 
     const mappedTcms = tcms.map(u => ({
@@ -38,7 +39,7 @@ export function registerAdminSupremeRoutes(app: FastifyInstance) {
       email: u.email,
     }));
 
-    return reply.send({ leads, tours, tcms: mappedTcms, bookings, followUps, activities });
+    return reply.send({ leads, tours, tcms: mappedTcms, bookings, followUps, activities, properties });
   });
 
   // ── Coaching Notes ────────────────────────────────────────────────────────
@@ -73,6 +74,49 @@ export function registerAdminSupremeRoutes(app: FastifyInstance) {
       .find({ tenantId: req.user!.tenantId, tcmId: req.user!.sub, kind: "coaching_note" })
       .toArray();
     return reply.send({ notes });
+  });
+
+  // ── Command Terminal ────────────────────────────────────────────────────────
+  app.post("/api/v1/admin/command", { preHandler: [requireAuth] }, async (req, reply) => {
+    const role = req.user!.role;
+    if (!STAFF_ROLES.includes(role as (typeof STAFF_ROLES)[number])) {
+      return reply.code(403).send({ code: "FORBIDDEN", message: "Forbidden" });
+    }
+
+    const { command, args } = req.body as { command: string; args: string };
+    const now = new Date().toISOString();
+
+    if (command === "broadcast") {
+      await col("entity_events").insertOne({
+        _id: "evt_" + Date.now(),
+        tenantId: req.user!.tenantId,
+        type: "admin.broadcast",
+        action: "admin.broadcast",
+        summary: `Admin Broadcast: ${args}`,
+        actor: req.user!.sub,
+        actorName: req.user!.fullName,
+        ts: Date.now(),
+        occurredAt: now,
+      });
+      return reply.send({ success: true, message: `Broadcasted to entire team: ${args}` });
+    }
+
+    if (command === "kill-switch") {
+      await col("entity_events").insertOne({
+        _id: "evt_" + Date.now(),
+        tenantId: req.user!.tenantId,
+        type: "admin.kill_switch",
+        action: "admin.kill_switch",
+        summary: `Admin activated KILL-SWITCH: ${args}`,
+        actor: req.user!.sub,
+        actorName: req.user!.fullName,
+        ts: Date.now(),
+        occurredAt: now,
+      });
+      return reply.send({ success: true, message: `System Kill-Switch activated for ${args}` });
+    }
+
+    return reply.code(400).send({ code: "BAD_COMMAND", message: `Unknown command: ${command}` });
   });
 
   // ── Server-Side Audit Log ─────────────────────────────────────────────────

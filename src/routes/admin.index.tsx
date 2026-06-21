@@ -11,6 +11,10 @@ import type { AdminLeadRow } from "@/admin/lib/selectors";
 import { LeadSparkline } from "@/admin/components/LeadSparkline";
 import { computeTcmHealth } from "@/admin/lib/supreme-metrics";
 import { Button } from "@/components/ui/button";
+import { Terminal } from "lucide-react";
+import { useMutation } from "@tanstack/react-query";
+import { authedFetch } from "@/lib/api/client";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin/")(
   {
@@ -43,7 +47,7 @@ type DrawerContent =
   | null;
 
 function AdminCockpit() {
-  const { rows, isLoading, isError } = useLiveSupremeMetrics();
+  const { rows, properties, rawData, isLoading, isError } = useLiveSupremeMetrics();
   // Using useAuditLog for now until we migrate admin.audit.tsx
   const audit = useAuditLog((s) => s.entries)
     .filter((e) => e.action.startsWith("admin."))
@@ -84,6 +88,12 @@ function AdminCockpit() {
   const hot = open.filter((r) => r.probability >= 70);
   const booked = rows.filter((r) => r.booked);
   const lost = rows.filter((r) => r.status === "lost");
+  
+  // Forecasting Math
+  const pipelineValue = open.reduce((s, r) => s + (r.lead.budget * 12), 0);
+  const winRate = booked.length > 0 ? (booked.length / (booked.length + lost.length)) : 0;
+  const expectedRevenue = pipelineValue * winRate;
+  
   const walking = lost.reduce((s, r) => s + r.lead.budget * 12, 0);
   const revenue = booked.reduce((s, r) => s + (r.bookings[0]?.amount ?? r.lead.budget) * 12, 0);
 
@@ -241,6 +251,37 @@ function AdminCockpit() {
       .slice(0, 8);
   }, [rows, tcmFilter]);
 
+  const leaderboard = useMemo(() => {
+    const map = new Map<string, { tcm: string; xp: number; closed: number; tours: number }>();
+    tcms.forEach(t => map.set(t.id, { tcm: t.name, xp: 0, closed: 0, tours: 0 }));
+
+    rows.forEach(r => {
+      const tcmId = r.lead.assignedTcmId;
+      if (!tcmId || !map.has(tcmId)) return;
+      const stats = map.get(tcmId)!;
+      
+      r.tours.forEach(t => {
+        if (t.status === "completed") {
+          stats.xp += 20;
+          stats.tours += 1;
+        }
+        if (t.postTour?.decision) stats.xp += 25;
+      });
+      if (r.booked) {
+        stats.xp += 100;
+        stats.closed += 1;
+      }
+      
+      const callsForLead = (rawData as any)?.activities?.filter((a: any) => a.kind === "call" && a.leadId === r.lead.id) || [];
+      stats.xp += (callsForLead.length * 5);
+    });
+
+    return Array.from(map.values())
+      .filter(s => s.xp > 0)
+      .sort((a, b) => b.xp - a.xp)
+      .slice(0, 5);
+  }, [tcms, rows, rawData]);
+
   const livePulse = useMemo(() => {
     return rows.flatMap((row) => {
         return row.visits.flatMap((v) => {
@@ -276,13 +317,45 @@ function AdminCockpit() {
       .slice(0, 20);
   }, [rows, now]);
 
+  const supplyWarnings = useMemo(() => {
+    if (!properties || properties.length === 0) return [];
+    
+    // Group dropped leads by preferredArea
+    const droppedByArea = new Map<string, number>();
+    const lostLeads = rows.filter(r => r.status === "lost" || r.status === "dormant");
+    lostLeads.forEach(r => {
+      const area = r.lead.preferredArea;
+      if (area && area !== "none" && area !== "") {
+        droppedByArea.set(area, (droppedByArea.get(area) || 0) + 1);
+      }
+    });
+
+    const warnings: { area: string; dropped: number; available: number }[] = [];
+    droppedByArea.forEach((droppedCount, area) => {
+      if (droppedCount >= 2) { // 2 or more dropped leads in this area
+        const availableInArea = properties.filter(p => 
+          (p.address?.toLowerCase().includes(area.toLowerCase()) || 
+           p.name?.toLowerCase().includes(area.toLowerCase())) &&
+          p.status === "vacant"
+        ).length;
+        
+        if (availableInArea < 2) {
+          warnings.push({ area, dropped: droppedCount, available: availableInArea });
+        }
+      }
+    });
+    
+    return warnings.sort((a, b) => b.dropped - a.dropped).slice(0, 3);
+  }, [rows, properties]);
+
   return (
     <>
     <AdminShell title="Cockpit" sub="Single screen — every signal, every action.">
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
           {[
             { label: "Pipeline open", value: open.length, accent: "text-info" },
-            { label: "Hot ≥70%", value: hot.length, accent: "text-accent" },
+            { label: "Win Rate", value: `${Math.round(winRate * 100)}%`, accent: "text-info" },
+            { label: "Expected Rev", value: expectedRevenue > 0 ? `₹${(expectedRevenue / 100000).toFixed(1)}L` : "₹0", accent: "text-accent" },
             { label: "Booked", value: booked.length, accent: "text-success" },
             { label: "₹ Booked", value: revenue > 0 ? `₹${(revenue / 100000).toFixed(1)}L` : "₹0", accent: "text-success" },
             { label: "₹ Walking", value: walking > 0 ? `₹${(walking / 100000).toFixed(1)}L` : "₹0", accent: "text-destructive" },
@@ -328,8 +401,52 @@ function AdminCockpit() {
           />
         </div>
 
-        <div className="grid md:grid-cols-2 gap-3 mt-3">
-          <div className="rounded-xl border border-border bg-card p-3">
+        <div className="grid md:grid-cols-4 gap-3 mt-3">
+          <div className="rounded-xl border border-border bg-card p-3 col-span-1 md:col-span-1">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">TCM Leaderboard</span>
+              <span className="text-[10px] bg-accent/10 text-accent px-1.5 py-0.5 rounded-sm font-semibold">LIVE</span>
+            </div>
+            <ul className="space-y-3 text-sm">
+              {leaderboard.map((t, idx) => (
+                <li key={t.tcm} className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${idx === 0 ? "bg-amber-100 text-amber-700" : idx === 1 ? "bg-slate-100 text-slate-600" : idx === 2 ? "bg-orange-50 text-orange-700" : "bg-muted text-muted-foreground"}`}>
+                      {idx + 1}
+                    </div>
+                    <span className="font-medium truncate max-w-[100px]">{t.tcm}</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground text-right">
+                    <span>{t.closed} <span className="text-[10px]">won</span></span>
+                    <span className="font-mono text-accent font-semibold">{t.xp} XP</span>
+                  </div>
+                </li>
+              ))}
+              {!leaderboard.length && <li className="text-muted-foreground text-xs">No XP earned yet.</li>}
+            </ul>
+          </div>
+          
+          <div className="rounded-xl border border-border bg-card p-3 col-span-1 md:col-span-1">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Supply Bottlenecks</span>
+              <span className="text-[10px] bg-destructive/10 text-destructive px-1.5 py-0.5 rounded-sm font-semibold">ALERT</span>
+            </div>
+            <div className="space-y-3">
+              {supplyWarnings.map((w) => (
+                <div key={w.area} className="p-2 bg-destructive/5 rounded-lg border border-destructive/20">
+                  <div className="text-xs font-semibold text-destructive mb-1">{w.area}</div>
+                  <div className="text-[11px] text-muted-foreground leading-tight">
+                    <span className="font-medium text-foreground">{w.dropped} leads dropped</span> recently due to lack of inventory. Only <span className="font-bold">{w.available} vacant properties</span> remaining.
+                  </div>
+                </div>
+              ))}
+              {!supplyWarnings.length && (
+                <div className="text-xs text-muted-foreground">Inventory levels are healthy across all requested areas.</div>
+              )}
+            </div>
+          </div>
+          
+          <div className="rounded-xl border border-border bg-card p-3 col-span-1 md:col-span-1">
             <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Live pulse — visit alerts</div>
             <ul className="space-y-1 text-xs max-h-72 overflow-auto">
               {livePulse.map((a) => (
@@ -345,7 +462,8 @@ function AdminCockpit() {
               {!livePulse.length && <li className="text-muted-foreground">No alerts.</li>}
             </ul>
           </div>
-          <div className="rounded-xl border border-border bg-card p-3">
+          
+          <div className="rounded-xl border border-border bg-card p-3 col-span-1 md:col-span-1">
             <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Audit feed</div>
             <ul className="space-y-1 text-xs max-h-72 overflow-auto">
               {audit.map((e) => (
@@ -360,6 +478,9 @@ function AdminCockpit() {
             </ul>
           </div>
         </div>
+
+        {/* Live Command Terminal */}
+        <CommandTerminal />
       </AdminShell>
 
       <Sheet open={!!drawer} onOpenChange={(o) => { if (!o) setDrawer(null); }}>
@@ -379,6 +500,54 @@ function AdminCockpit() {
         </SheetContent>
       </Sheet>
     </>
+  );
+}
+
+/* ============== COMMAND TERMINAL ============== */
+function CommandTerminal() {
+  const [input, setInput] = useState("");
+  
+  const execCmd = useMutation({
+    mutationFn: async (text: string) => {
+      const parts = text.trim().split(" ");
+      const cmd = parts[0].replace("/", "");
+      const args = parts.slice(1).join(" ");
+      return authedFetch("/api/v1/admin/command", {
+        method: "POST",
+        body: JSON.stringify({ command: cmd, args }),
+      });
+    },
+    onSuccess: (data: any) => {
+      toast.success(data.message || "Command executed successfully");
+      setInput("");
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Unknown command");
+    }
+  });
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && input.startsWith("/")) {
+      execCmd.mutate(input);
+    }
+  };
+
+  return (
+    <div className="mt-4 flex items-center gap-2 rounded-xl border border-green-900/30 bg-[#0a0a0a] p-3 text-green-500 shadow-inner">
+      <Terminal className="h-4 w-4" />
+      <span className="font-mono text-sm opacity-70">admin@cockpit:~$</span>
+      <input
+        type="text"
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        onKeyDown={handleKeyDown}
+        placeholder="Type a command (e.g. /broadcast push hard team!)..."
+        className="flex-1 bg-transparent border-none outline-none font-mono text-sm placeholder:text-green-900/50 text-green-400"
+        disabled={execCmd.isPending}
+        autoComplete="off"
+      />
+      {execCmd.isPending && <span className="animate-pulse text-xs font-mono">executing...</span>}
+    </div>
   );
 }
 

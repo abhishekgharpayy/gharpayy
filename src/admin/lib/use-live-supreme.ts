@@ -26,7 +26,7 @@ async function authedFetch(path: string, opts?: RequestInit) {
 export function useLiveSupremeMetrics() {
   const query = useQuery({
     queryKey: ["admin", "supreme", "metrics"],
-    queryFn: () => authedFetch("/api/v1/admin/supreme/metrics") as Promise<Partial<JoinSources>>,
+    queryFn: () => authedFetch("/api/v1/admin/supreme/metrics") as Promise<Partial<JoinSources> & { properties?: any[] }>,
     refetchInterval: 60_000,
   });
 
@@ -49,6 +49,7 @@ export function useLiveSupremeMetrics() {
 
   return {
     rows,
+    properties: query.data?.properties || [],
     rawData: query.data,
     isLoading: query.isLoading,
     isError: query.isError,
