@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { joinAdmin, type AdminLeadRow, type JoinSources } from "./selectors";
 import { API_URL } from "@/lib/api/client";
 
-async function authedFetch(path: string, opts?: RequestInit) {
+export async function authedFetch(path: string, opts?: RequestInit) {
   const token =
     localStorage.getItem("gharpayy.access_token") ||
     localStorage.getItem("auth_token") ||

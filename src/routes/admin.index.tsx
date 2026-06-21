@@ -10,10 +10,10 @@ import {
 import type { AdminLeadRow } from "@/admin/lib/selectors";
 import { LeadSparkline } from "@/admin/components/LeadSparkline";
 import { computeTcmHealth } from "@/admin/lib/supreme-metrics";
+import { authedFetch } from "@/admin/lib/use-live-supreme";
 import { Button } from "@/components/ui/button";
 import { Terminal } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
-import { authedFetch } from "@/lib/api/client";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin/")(
