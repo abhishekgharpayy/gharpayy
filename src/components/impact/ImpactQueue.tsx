@@ -781,7 +781,15 @@ export function ImpactQueue() {
       if (queueFilters.status !== "dropped" && e.lead.stage === "dropped") return false;
 
       // 3. ASSIGNMENT
-      if (queueFilters.assignment !== "all" && e.lead.assignedTcmId !== queueFilters.assignment) return false;
+      if (queueFilters.assignment !== "all") {
+        if (queueFilters.assignment === "my-leads") {
+          if (e.lead.assignedTcmId !== selfScopeId) return false;
+        } else if (queueFilters.assignment === "unassigned") {
+          if (e.lead.assignedTcmId) return false;
+        } else {
+          if (e.lead.assignedTcmId !== queueFilters.assignment) return false;
+        }
+      }
 
       // 4. QUICK FILTERS
       if (queueFilters.quickFilters.length > 0) {
