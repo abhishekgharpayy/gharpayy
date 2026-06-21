@@ -62,7 +62,7 @@ export type QueueFilters = {
 };
 
 export const defaultQueueFilters: QueueFilters = {
-  dateRange: "today",
+  dateRange: "all",
   assignment: "all",
   status: "all",
   quickFilters: [],
@@ -479,5 +479,49 @@ export function ImpactQueueMetaBar({
         {leadCount} lead{leadCount !== 1 ? "s" : ""} in queue
       </span>
     </div>
+  );
+}
+
+export function ImpactTeamCombobox({
+  assignment,
+  tcms,
+  onChange,
+}: {
+  assignment: string;
+  tcms: Array<{id: string; name?: string}>;
+  onChange: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  if (!tcms || tcms.length === 0) return null;
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="outline" role="combobox" aria-expanded={open} className="h-8 w-48 justify-between text-[11px] bg-background">
+          {assignment === "all" ? "All Members" : tcms.find((t) => t.id === assignment)?.name}
+          <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[18rem] p-0 shadow-lg">
+        <Command>
+          <CommandInput placeholder="Search member..." className="h-9 text-[11px]" />
+          <CommandEmpty className="text-[11px] py-3 text-center text-muted-foreground">No member found.</CommandEmpty>
+          <CommandList className="max-h-48">
+            <CommandGroup>
+              <CommandItem value="all" onSelect={() => { onChange("all"); setOpen(false); }} className="text-[11px]">
+                <Check className={cn("mr-2 h-3.5 w-3.5", assignment === "all" ? "opacity-100" : "opacity-0")} />
+                All Members
+              </CommandItem>
+              {tcms.map((t) => (
+                <CommandItem key={t.id} value={t.name || t.id} onSelect={() => { onChange(t.id); setOpen(false); }} className="text-[11px]">
+                  <Check className={cn("mr-2 h-3.5 w-3.5", assignment === t.id ? "opacity-100" : "opacity-0")} />
+                  {t.name}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 }

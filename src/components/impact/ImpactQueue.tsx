@@ -9,6 +9,7 @@ import { ImpactManagerEscalations } from "@/components/impact/ImpactManagerEscal
 import { ImpactStageMoveDialog } from "@/components/impact/ImpactStageMoveDialog";
 import {
   ImpactFiltersPopover,
+  ImpactTeamCombobox,
   ImpactFocusPopover,
   ImpactQueueMetaBar,
   type QueueFilters,
@@ -533,9 +534,12 @@ export function ImpactQueue() {
   const allCalls = useCRM10x((s) => s.calls);
   const allObjections = useCRM10x((s) => s.objections);
   const allFollowUps = useApp((s) => s.followUps);
-  const [tcmFilter, setTcmFilter] = useState<string>(role === "tcm" ? currentTcmId : "all");
   const [query, setQuery] = useState("");
-  const [queueFilters, setQueueFilters] = useState<QueueFilters>(defaultQueueFilters);
+  const [queueFilters, setQueueFilters] = useState<QueueFilters>(() => ({
+    ...defaultQueueFilters,
+    assignment: role === "tcm" ? currentTcmId : "all"
+  }));
+  const tcmFilter = queueFilters.assignment;
   const [view, setView] = useState<ViewMode>(readStoredView);
   const [stageFilter, setStageFilter] = useState<string>("all");
   const [focusLeadId, setFocusLeadId] = useState<string | null>(null);
@@ -554,18 +558,18 @@ export function ImpactQueue() {
   useImpactMorningDigest(() => setDigestOpen(true));
 
   useEffect(() => {
-    if (!canSelectTcmScope && selfScopeId && tcmFilter !== selfScopeId) {
-      setTcmFilter(selfScopeId);
+    if (!canSelectTcmScope && selfScopeId && queueFilters.assignment !== selfScopeId) {
+      setQueueFilters(prev => ({...prev, assignment: selfScopeId}));
     }
-  }, [canSelectTcmScope, selfScopeId, tcmFilter]);
+  }, [canSelectTcmScope, selfScopeId, queueFilters.assignment]);
 
   useEffect(() => {
     if (!canSelectTcmScope) return;
-    if (tcmFilter === "all") return;
-    if (!memberScopeOptions.some((m) => m.id === tcmFilter)) {
-      setTcmFilter("all");
+    if (queueFilters.assignment === "all") return;
+    if (!memberScopeOptions.some((m) => m.id === queueFilters.assignment)) {
+      setQueueFilters(prev => ({...prev, assignment: "all"}));
     }
-  }, [canSelectTcmScope, memberScopeOptions, tcmFilter]);
+  }, [canSelectTcmScope, memberScopeOptions, queueFilters.assignment]);
 
   const [fixing, setFixing] = useState(false);
   const handleFixProperties = async () => {
@@ -1048,21 +1052,11 @@ export function ImpactQueue() {
                 })()}
               </div>
             ) : (
-              <Select value={tcmFilter} onValueChange={setTcmFilter}>
-                <SelectTrigger className="h-8 text-[11px] w-40 bg-background">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all" className="text-[11px]">
-                    All Members
-                  </SelectItem>
-                  {memberScopeOptions.map((m) => (
-                    <SelectItem key={m.id} value={m.id} className="text-[11px]">
-                      {memberOptionLabel(m)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <ImpactTeamCombobox
+                assignment={queueFilters.assignment}
+                tcms={memberScopeOptions.map(m => ({ id: m.id, name: memberOptionLabel(m) }))}
+                onChange={(val) => setQueueFilters(prev => ({...prev, assignment: val}))}
+              />
             )}
             <div className="flex bg-muted/50 p-1 rounded-lg border border-border/50 shadow-inner">
               <button
