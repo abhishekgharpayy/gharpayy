@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -22,151 +22,134 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  CHIP_LABELS,
-  type QueueChipFilter,
-  type ViewMode,
-} from "@/lib/crm10x/impact-queue-prefs";
+  Command,
+  CommandInput,
+  CommandList,
+  CommandEmpty,
+  CommandGroup,
+  CommandItem,
+} from "@/components/ui/command";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import {
   Beaker,
-  Flame,
   MoreHorizontal,
   Pin,
   SlidersHorizontal,
-  Clock,
-  PhoneOff,
-  AlertTriangle,
-  Target,
-  Home,
+  Check,
+  ChevronsUpDown,
+  ChevronDown
 } from "lucide-react";
 import { ImpactFocusInventoryPanel } from "@/components/impact/ImpactFocusInventoryPanel";
 import { useCRM10x } from "@/lib/crm10x/store";
 
 export type QueueFilters = {
-  chip: QueueChipFilter;
+  dateRange: string;
+  assignment: string;
+  status: string;
+  quickFilters: string[];
   area: string;
-  type: string;
-  room: string;
-  need: string;
-  actionRequired: string[];
-  qualification: string[];
-  moveIn: string[];
-  propertyStatus: string[];
-  objections: string[];
-  assignment: string[];
+  advanced: {
+    type: string;
+    room: string;
+    need: string;
+    objections: string[];
+    qualification: string[];
+  };
 };
 
-const HEAT_OPTIONS: Array<{ key: QueueChipFilter; label: string }> = [
-  { key: "all", label: "All" },
-  { key: "hot", label: "Hot" },
-  { key: "warm", label: "Warm" },
-  { key: "cold", label: "Cold" },
-  { key: "overdue", label: "Overdue only" },
-];
-
-function filtersActive(filters: QueueFilters): boolean {
-  return (
-    filters.chip !== "all" ||
-    filters.area !== "all" ||
-    filters.type !== "all" ||
-    filters.room !== "all" ||
-    filters.need !== "all" ||
-    filters.actionRequired.length > 0 ||
-    filters.qualification.length > 0 ||
-    filters.moveIn.length > 0 ||
-    filters.propertyStatus.length > 0 ||
-    filters.objections.length > 0 ||
-    filters.assignment.length > 0
-  );
-}
+export const defaultQueueFilters: QueueFilters = {
+  dateRange: "today",
+  assignment: "all",
+  status: "all",
+  quickFilters: [],
+  area: "all",
+  advanced: {
+    type: "all",
+    room: "all",
+    need: "all",
+    objections: [],
+    qualification: [],
+  }
+};
 
 export function ImpactFiltersPopover({
   filters,
   uniqueAreas,
   onApply,
   onOpenMessageLab,
+  tcms
 }: {
   filters: QueueFilters;
   uniqueAreas: string[];
   onApply: (next: QueueFilters) => void;
   onOpenMessageLab: () => void;
+  tcms?: Array<{id: string; name?: string}>;
 }) {
   const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState<QueueFilters>(filters);
   const allObjections = useCRM10x((s) => s.objections);
 
-  useEffect(() => {
-    if (open) setDraft(filters);
-  }, [open, filters]);
-
-  const apply = () => {
-    onApply(draft);
-    setOpen(false);
+  // Directly call onApply whenever we want to instantly filter.
+  // We can just use the provided `filters` as source of truth.
+  
+  const updateFilter = (updater: (prev: QueueFilters) => QueueFilters) => {
+    onApply(updater(filters));
   };
 
   const reset = () => {
-    const cleared: QueueFilters = {
-      chip: "all",
-      area: "all",
-      type: "all",
-      room: "all",
-      need: "all",
-      actionRequired: [],
-      qualification: [],
-      moveIn: [],
-      propertyStatus: [],
-      objections: [],
-      assignment: [],
-    };
-    setDraft(cleared);
-    onApply(cleared);
-    setOpen(false);
+    onApply(defaultQueueFilters);
   };
 
-  const toggleArrayItem = (key: keyof QueueFilters, item: string) => {
-    setDraft((prev) => {
-      const arr = prev[key] as string[];
+  const toggleQuickFilter = (item: string) => {
+    updateFilter((prev) => {
+      const arr = prev.quickFilters;
       if (arr.includes(item)) {
-        return { ...prev, [key]: arr.filter((x) => x !== item) };
-      } else {
-        return { ...prev, [key]: [...arr, item] };
+        return { ...prev, quickFilters: arr.filter((x) => x !== item) };
       }
+      return { ...prev, quickFilters: [...arr, item] };
     });
   };
 
-  const setArray = (key: keyof QueueFilters, arr: string[]) => {
-    setDraft((prev) => ({ ...prev, [key]: arr }));
+  const toggleAdvancedArray = (key: 'objections' | 'qualification', item: string) => {
+    updateFilter((prev) => {
+      const arr = prev.advanced[key];
+      const newArr = arr.includes(item) ? arr.filter((x) => x !== item) : [...arr, item];
+      return { ...prev, advanced: { ...prev.advanced, [key]: newArr } };
+    });
   };
 
-  // Quick Filters logic
-  const isQuickHot = draft.chip === "hot";
-  const isQuickNoAction = draft.actionRequired.includes("no-next-action");
-  const isQuickNeverCalled = draft.actionRequired.includes("never-called");
-  const isQuickNoActivity24 = draft.actionRequired.includes("no-activity-24h");
-  const isQuickMoveIn7 = draft.moveIn.includes("movein-0-7");
-  const isQuickNoProperty = draft.propertyStatus.includes("property-not-selected");
-
-  const quickFilterClass = (active: boolean) => 
-    cn(
-      "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-colors shadow-sm", 
-      active ? "border-orange-500 bg-orange-500 text-white" : "border-border bg-muted/30 text-muted-foreground hover:bg-muted"
-    );
-
-  // Compute objection counts
-  const objectionCounts = {
-    "food-not-available": 0,
-    "price-too-high": 0,
-    "location-not-suitable": 0,
-    "room-too-small": 0,
-    "needs-family-approval": 0,
-    "other": 0
-  };
-  for (const obj of allObjections) {
-    if (obj.code in objectionCounts) {
-       objectionCounts[obj.code as keyof typeof objectionCounts]++;
-    } else {
-       objectionCounts.other++;
+  // Compute active filters summary string
+  const activeSummary = useMemo(() => {
+    const parts = [];
+    if (filters.dateRange === "today") parts.push("Today");
+    if (filters.dateRange === "yesterday") parts.push("Yesterday");
+    if (filters.dateRange === "last7") parts.push("Last 7 Days");
+    if (filters.dateRange === "last30") parts.push("Last 30 Days");
+    
+    if (filters.assignment !== "all") {
+       const tcm = tcms?.find(t => t.id === filters.assignment);
+       if (tcm?.name) parts.push(tcm.name.split(" ")[0]);
+       else parts.push("Assigned");
     }
-  }
+    
+    if (filters.status !== "all") {
+       if (filters.status === "my-leads") parts.push("My Leads");
+       if (filters.status === "needs-action") parts.push("Needs Action");
+       if (filters.status === "at-risk") parts.push("At Risk");
+       if (filters.status === "unassigned") parts.push("Unassigned");
+       if (filters.status === "booked") parts.push("Booked");
+       if (filters.status === "dropped") parts.push("Dropped");
+    }
+    
+    if (filters.quickFilters.length > 0) parts.push(\`\${filters.quickFilters.length} Quick\`);
+    
+    return parts.length > 0 ? parts.join(" • ") : "Filters";
+  }, [filters, tcms]);
+
+  const [memberOpen, setMemberOpen] = useState(false);
 
   return (
     <div className="flex min-w-0 items-center gap-1.5">
@@ -175,147 +158,193 @@ export function ImpactFiltersPopover({
           <button
             type="button"
             className={cn(
-              "h-8 shrink-0 rounded-md border px-2.5 text-[11px] font-medium flex items-center gap-1.5 transition-colors",
-              filtersActive(filters)
-                ? "border-accent bg-accent/10 text-foreground"
+              "h-8 shrink-0 rounded-md border px-3 text-[11px] font-semibold flex items-center gap-1.5 transition-colors",
+              activeSummary !== "Filters"
+                ? "border-accent bg-accent/10 text-accent-foreground"
                 : "border-border bg-background text-muted-foreground hover:text-foreground hover:bg-accent/5",
             )}
           >
             <SlidersHorizontal className="h-3.5 w-3.5" />
-            Filters
+            {activeSummary}
           </button>
         </PopoverTrigger>
-        <PopoverContent align="end" className="w-[min(92vw,50rem)] p-0 flex flex-col max-h-[85vh]">
-          
-          <div className="flex flex-1 overflow-hidden">
-            {/* LEFT PANEL */}
-            <div className="w-1/3 min-w-[14rem] border-r border-border bg-muted/10 p-5 overflow-y-auto space-y-6">
-              <div>
-                <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                  Heat
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {HEAT_OPTIONS.map((item) => {
-                    const active = draft.chip === item.key;
-                    return (
-                      <button
-                        key={item.key}
-                        onClick={() => setDraft((prev) => ({ ...prev, chip: item.key }))}
-                        className={cn("rounded-full border px-3 py-1 text-[11px] font-medium transition-colors flex items-center gap-1", active ? "bg-primary text-primary-foreground border-primary shadow-sm" : "bg-background text-muted-foreground border-border hover:bg-muted")}
-                      >
-                        {item.key === "hot" && <Flame className={cn("h-3 w-3", active ? "text-primary-foreground" : "text-danger")} />}
-                        {item.label}
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Location</p>
-                  <Select value={draft.area} onValueChange={(area) => setDraft((prev) => ({ ...prev, area }))}>
-                    <SelectTrigger className="h-8 text-[11px] bg-background"><SelectValue placeholder="All areas" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all" className="text-[11px]">All areas</SelectItem>
-                      {uniqueAreas.map((area) => (
-                        <SelectItem key={area} value={area} className="text-[11px]">{area}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Room</p>
-                  <Select value={draft.room} onValueChange={(room) => setDraft((prev) => ({ ...prev, room }))}>
-                    <SelectTrigger className="h-8 text-[11px] bg-background"><SelectValue placeholder="All rooms" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all" className="text-[11px]">All rooms</SelectItem>
-                      <SelectItem value="Private" className="text-[11px]">Private</SelectItem>
-                      <SelectItem value="Shared" className="text-[11px]">Shared</SelectItem>
-                      <SelectItem value="Both" className="text-[11px]">Both</SelectItem>
-                      <SelectItem value="Studio" className="text-[11px]">Studio</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Type</p>
-                  <Select value={draft.type} onValueChange={(type) => setDraft((prev) => ({ ...prev, type }))}>
-                    <SelectTrigger className="h-8 text-[11px] bg-background"><SelectValue placeholder="All types" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all" className="text-[11px]">All types</SelectItem>
-                      <SelectItem value="Student" className="text-[11px]">Student</SelectItem>
-                      <SelectItem value="Working" className="text-[11px]">Working</SelectItem>
-                      <SelectItem value="Intern" className="text-[11px]">Intern</SelectItem>
-                      <SelectItem value="Family" className="text-[11px]">Family</SelectItem>
-                      <SelectItem value="Other" className="text-[11px]">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Needs</p>
-                  <Select value={draft.need} onValueChange={(need) => setDraft((prev) => ({ ...prev, need }))}>
-                    <SelectTrigger className="h-8 text-[11px] bg-background"><SelectValue placeholder="All needs" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all" className="text-[11px]">All needs</SelectItem>
-                      <SelectItem value="Boys" className="text-[11px]">Boys</SelectItem>
-                      <SelectItem value="Girls" className="text-[11px]">Girls</SelectItem>
-                      <SelectItem value="Coed" className="text-[11px]">Coed</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+        <PopoverContent align="start" className="w-[min(95vw,32rem)] p-0 flex flex-col max-h-[85vh] shadow-xl">
+          <div className="p-4 overflow-y-auto space-y-6">
+            
+            {/* SECTION 1: DATE RANGE */}
+            <div>
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Date Range</p>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { k: "today", l: "Today" },
+                  { k: "yesterday", l: "Yesterday" },
+                  { k: "last7", l: "Last 7 Days" },
+                  { k: "last30", l: "Last 30 Days" },
+                  { k: "all", l: "All Time" }
+                ].map((item) => (
+                  <button
+                    key={item.k}
+                    onClick={() => updateFilter(p => ({ ...p, dateRange: item.k }))}
+                    className={cn("rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-colors", filters.dateRange === item.k ? "bg-primary text-primary-foreground border-primary shadow-sm" : "bg-background text-slate-600 border-border hover:bg-muted")}
+                  >
+                    {item.l}
+                  </button>
+                ))}
               </div>
             </div>
 
-            {/* RIGHT PANEL */}
-            <div className="w-2/3 p-5 overflow-y-auto space-y-7">
-              
-              {/* Quick Filters */}
+            {/* SECTION 2: TEAM FILTER */}
+            {tcms && tcms.length > 0 && (
               <div>
-                <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground border-b border-border pb-1">Quick Filters (Most Used)</p>
-                <div className="flex flex-wrap gap-2.5 mt-2">
-                  <button 
-                    onClick={() => setDraft(prev => ({ ...prev, chip: isQuickHot ? "all" : "hot" }))}
-                    className={quickFilterClass(isQuickHot)}
-                  >
-                    <Flame className="h-3.5 w-3.5" /> Hot
-                  </button>
-                  <button 
-                    onClick={() => toggleArrayItem("actionRequired", "no-next-action")}
-                    className={quickFilterClass(isQuickNoAction)}
-                  >
-                    <AlertTriangle className="h-3.5 w-3.5" /> No Next Action
-                  </button>
-                  <button 
-                    onClick={() => toggleArrayItem("actionRequired", "never-called")}
-                    className={quickFilterClass(isQuickNeverCalled)}
-                  >
-                    <PhoneOff className="h-3.5 w-3.5" /> Never Called
-                  </button>
-                  <button 
-                    onClick={() => toggleArrayItem("actionRequired", "no-activity-24h")}
-                    className={quickFilterClass(isQuickNoActivity24)}
-                  >
-                    <Clock className="h-3.5 w-3.5" /> No Activity 24h+
-                  </button>
-                  <button 
-                    onClick={() => toggleArrayItem("moveIn", "movein-0-7")}
-                    className={quickFilterClass(isQuickMoveIn7)}
-                  >
-                    <Target className="h-3.5 w-3.5" /> Move-in &lt; 7 Days
-                  </button>
-                  <button 
-                    onClick={() => toggleArrayItem("propertyStatus", "property-not-selected")}
-                    className={quickFilterClass(isQuickNoProperty)}
-                  >
-                    <Home className="h-3.5 w-3.5" /> Property Not Selected
-                  </button>
-                </div>
+                <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Team Member</p>
+                <Popover open={memberOpen} onOpenChange={setMemberOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" role="combobox" aria-expanded={memberOpen} className="h-9 w-full justify-between text-xs bg-background">
+                      {filters.assignment === "all" ? "All Members" : tcms.find((t) => t.id === filters.assignment)?.name}
+                      <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[28rem] p-0 shadow-lg">
+                    <Command>
+                      <CommandInput placeholder="Search member..." className="h-9 text-xs" />
+                      <CommandEmpty className="text-xs py-3 text-center text-muted-foreground">No member found.</CommandEmpty>
+                      <CommandList className="max-h-48">
+                        <CommandGroup>
+                          <CommandItem value="all" onSelect={() => { updateFilter(p => ({ ...p, assignment: "all" })); setMemberOpen(false); }} className="text-xs">
+                            <Check className={cn("mr-2 h-3.5 w-3.5", filters.assignment === "all" ? "opacity-100" : "opacity-0")} />
+                            All Members
+                          </CommandItem>
+                          {tcms.map((t) => (
+                            <CommandItem key={t.id} value={t.name || t.id} onSelect={() => { updateFilter(p => ({ ...p, assignment: t.id })); setMemberOpen(false); }} className="text-xs">
+                              <Check className={cn("mr-2 h-3.5 w-3.5", filters.assignment === t.id ? "opacity-100" : "opacity-0")} />
+                              {t.name}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
+            )}
 
-              {/* Grid sections */}
-              <div className="grid grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* SECTION 3: STATUS FILTER */}
+            <div>
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Status</p>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { k: "all", l: "All Leads" },
+                  { k: "my-leads", l: "My Leads" },
+                  { k: "needs-action", l: "Needs Action" },
+                  { k: "at-risk", l: "At Risk" },
+                  { k: "unassigned", l: "Unassigned" },
+                  { k: "booked", l: "Booked" },
+                  { k: "dropped", l: "Dropped" }
+                ].map((item) => (
+                  <button
+                    key={item.k}
+                    onClick={() => updateFilter(p => ({ ...p, status: item.k }))}
+                    className={cn("rounded-md border px-3 py-1.5 text-[11px] font-semibold transition-colors shadow-sm", filters.status === item.k ? "bg-slate-800 text-white border-slate-800 dark:bg-foreground dark:text-background" : "bg-card text-slate-700 border-border hover:bg-muted/50")}
+                  >
+                    {item.l}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* SECTION 4: QUICK FILTERS */}
+            <div>
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Quick Interventions</p>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { k: "tour-today", l: "Tour Today" },
+                  { k: "feedback-missing", l: "Feedback Missing" },
+                  { k: "quote-pending", l: "Quote Pending" },
+                  { k: "movein-0-7", l: "Move-In < 7 Days" },
+                  { k: "no-activity-48h", l: "No Activity > 48h" },
+                  { k: "property-not-selected", l: "Property Not Selected" }
+                ].map((item) => {
+                  const active = filters.quickFilters.includes(item.k);
+                  return (
+                    <button
+                      key={item.k}
+                      onClick={() => toggleQuickFilter(item.k)}
+                      className={cn("rounded-md border px-3 py-1.5 text-[11px] font-semibold transition-colors", active ? "bg-warning/20 text-warning-foreground border-warning/40 shadow-sm" : "bg-card text-slate-600 border-border hover:bg-muted")}
+                    >
+                      {item.l}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* SECTION 5: AREA */}
+            <div>
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Area</p>
+              <Select value={filters.area} onValueChange={(area) => updateFilter((prev) => ({ ...prev, area }))}>
+                <SelectTrigger className="h-9 text-[11px] bg-background"><SelectValue placeholder="All areas" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all" className="text-[11px]">All areas</SelectItem>
+                  {uniqueAreas.map((area) => (
+                    <SelectItem key={area} value={area} className="text-[11px]">{area}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* ADVANCED FILTERS */}
+            <Collapsible>
+              <CollapsibleTrigger asChild>
+                <button className="flex w-full items-center justify-between rounded-md border border-border bg-muted/30 px-3 py-2 text-xs font-bold text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors">
+                  Advanced Filters
+                  <ChevronDown className="h-4 w-4" />
+                </button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="pt-4 space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Room</p>
+                    <Select value={filters.advanced.room} onValueChange={(val) => updateFilter(p => ({ ...p, advanced: { ...p.advanced, room: val }}))}>
+                      <SelectTrigger className="h-8 text-[11px] bg-background"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all" className="text-[11px]">All rooms</SelectItem>
+                        <SelectItem value="Private" className="text-[11px]">Private</SelectItem>
+                        <SelectItem value="Shared" className="text-[11px]">Shared</SelectItem>
+                        <SelectItem value="Both" className="text-[11px]">Both</SelectItem>
+                        <SelectItem value="Studio" className="text-[11px]">Studio</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Type</p>
+                    <Select value={filters.advanced.type} onValueChange={(val) => updateFilter(p => ({ ...p, advanced: { ...p.advanced, type: val }}))}>
+                      <SelectTrigger className="h-8 text-[11px] bg-background"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all" className="text-[11px]">All types</SelectItem>
+                        <SelectItem value="Student" className="text-[11px]">Student</SelectItem>
+                        <SelectItem value="Working" className="text-[11px]">Working</SelectItem>
+                        <SelectItem value="Intern" className="text-[11px]">Intern</SelectItem>
+                        <SelectItem value="Family" className="text-[11px]">Family</SelectItem>
+                        <SelectItem value="Other" className="text-[11px]">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Needs</p>
+                    <Select value={filters.advanced.need} onValueChange={(val) => updateFilter(p => ({ ...p, advanced: { ...p.advanced, need: val }}))}>
+                      <SelectTrigger className="h-8 text-[11px] bg-background"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all" className="text-[11px]">All needs</SelectItem>
+                        <SelectItem value="Boys" className="text-[11px]">Boys</SelectItem>
+                        <SelectItem value="Girls" className="text-[11px]">Girls</SelectItem>
+                        <SelectItem value="Coed" className="text-[11px]">Coed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
                 <div>
-                  <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground border-b border-border pb-1">Funnel Health</p>
+                  <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Deep Profile & Qualification</p>
                   <div className="space-y-2">
                     {[
                       { k: "profile-complete", l: "Deep Profile Complete" },
@@ -324,7 +353,7 @@ export function ImpactFiltersPopover({
                       { k: "budget-unverified", l: "Budget Unverified" }
                     ].map(opt => (
                       <label key={opt.k} className="flex cursor-pointer items-start gap-2 text-[11px] font-medium leading-tight">
-                        <Checkbox checked={draft.qualification.includes(opt.k)} onCheckedChange={() => toggleArrayItem("qualification", opt.k)} />
+                        <Checkbox checked={filters.advanced.qualification.includes(opt.k)} onCheckedChange={() => toggleAdvancedArray("qualification", opt.k)} />
                         {opt.l}
                       </label>
                     ))}
@@ -332,132 +361,36 @@ export function ImpactFiltersPopover({
                 </div>
                 
                 <div>
-                  <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground border-b border-border pb-1">Lead Activity</p>
-                  <div className="space-y-2">
-                    <label className="flex cursor-pointer items-start gap-2 text-[11px] font-medium leading-tight">
-                      <Checkbox checked={draft.actionRequired.includes("no-activity-48h")} onCheckedChange={() => toggleArrayItem("actionRequired", "no-activity-48h")} />
-                      🚨 No Activity 48h+
-                    </label>
-                    <label className="flex cursor-pointer items-start gap-2 text-[11px] font-medium leading-tight">
-                      <Checkbox checked={draft.actionRequired.includes("no-activity-24h")} onCheckedChange={() => toggleArrayItem("actionRequired", "no-activity-24h")} />
-                      ⚠ No Activity 24h+
-                    </label>
-                    <label className="flex cursor-pointer items-start gap-2 text-[11px] font-medium leading-tight">
-                      <Checkbox checked={draft.actionRequired.includes("never-called")} onCheckedChange={() => toggleArrayItem("actionRequired", "never-called")} />
-                      📞 Never Called
-                    </label>
-                    <label className="flex cursor-pointer items-start gap-2 text-[11px] font-medium leading-tight">
-                      <Checkbox checked={draft.chip === "tour-today"} onCheckedChange={(c) => setDraft(p => ({ ...p, chip: c ? "tour-today" : "all" }))} />
-                      📅 Tour Today
-                    </label>
-                    <label className="flex cursor-pointer items-start gap-2 text-[11px] font-medium leading-tight">
-                      <Checkbox checked={draft.chip === "quote-pending"} onCheckedChange={(c) => setDraft(p => ({ ...p, chip: c ? "quote-pending" : "all" }))} />
-                      💰 Quote Pending
-                    </label>
-                    <label className="flex cursor-pointer items-start gap-2 text-[11px] font-medium leading-tight">
-                      <Checkbox checked={draft.assignment.includes("assigned-to-me")} onCheckedChange={() => toggleArrayItem("assignment", "assigned-to-me")} />
-                      👤 Assigned To Me
-                    </label>
+                  <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Objections</p>
+                  <div className="flex flex-wrap gap-2.5">
+                    {[
+                      { k: "food-not-available", l: "Food" },
+                      { k: "price-too-high", l: "Budget" },
+                      { k: "location-not-suitable", l: "Distance" },
+                      { k: "room-too-small", l: "Room" },
+                      { k: "needs-family-approval", l: "Parent" },
+                      { k: "other", l: "Other" }
+                    ].map(opt => {
+                      const active = filters.advanced.objections.includes(opt.k);
+                      return (
+                        <button 
+                          key={opt.k}
+                          onClick={() => toggleAdvancedArray("objections", opt.k)}
+                          className={cn("rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-colors", active ? "border-primary bg-primary text-primary-foreground shadow-sm" : "border-border bg-background text-muted-foreground hover:bg-muted")}
+                        >
+                          {opt.l}
+                        </button>
+                      )
+                    })}
                   </div>
                 </div>
 
-                <div>
-                  <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground border-b border-border pb-1">Conversion Risk</p>
-                  <div className="space-y-2">
-                    <label className="flex cursor-pointer items-start gap-2 text-[11px] font-medium leading-tight">
-                      <Checkbox checked={draft.qualification.includes("budget-unverified")} onCheckedChange={() => toggleArrayItem("qualification", "budget-unverified")} />
-                      Budget Not Verified
-                    </label>
-                    <label className="flex cursor-pointer items-start gap-2 text-[11px] font-medium leading-tight">
-                      <Checkbox checked={draft.propertyStatus.includes("property-not-selected")} onCheckedChange={() => toggleArrayItem("propertyStatus", "property-not-selected")} />
-                      Property Not Selected
-                    </label>
-                    <label className="flex cursor-pointer items-start gap-2 text-[11px] font-medium leading-tight">
-                      <Checkbox checked={draft.qualification.includes("profile-incomplete")} onCheckedChange={() => toggleArrayItem("qualification", "profile-incomplete")} />
-                      Deep Profile Incomplete
-                    </label>
-                    <label className="flex cursor-pointer items-start gap-2 text-[11px] font-medium leading-tight">
-                      <Checkbox checked={draft.actionRequired.includes("no-activity-24h")} onCheckedChange={() => toggleArrayItem("actionRequired", "no-activity-24h")} />
-                      No Activity 24h+
-                    </label>
-                    <label className="flex cursor-pointer items-start gap-2 text-[11px] font-medium leading-tight">
-                      <Checkbox checked={draft.actionRequired.includes("never-called")} onCheckedChange={() => toggleArrayItem("actionRequired", "never-called")} />
-                      Never Called
-                    </label>
-                  </div>
-                </div>
-              </div>
+              </CollapsibleContent>
+            </Collapsible>
 
-              <div>
-                <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground border-b border-border pb-1">Move-In Urgency</p>
-                <div className="flex gap-1 bg-muted/50 p-1 rounded-md border border-border w-max">
-                  {[
-                    { k: "movein-0-7", l: "0-7 Days" },
-                    { k: "movein-8-15", l: "8-15 Days" },
-                    { k: "movein-16-30", l: "16-30 Days" }
-                  ].map(opt => {
-                    const active = draft.moveIn.includes(opt.k);
-                    return (
-                      <button 
-                        key={opt.k}
-                        onClick={() => setArray("moveIn", active ? [] : [opt.k])}
-                        className={cn("px-4 py-1.5 rounded-sm text-[11px] font-semibold transition-all", active ? "bg-background text-foreground shadow-sm ring-1 ring-border" : "text-muted-foreground hover:bg-background/50 hover:text-foreground")}
-                      >
-                        {opt.l}
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-
-              <div>
-                <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground border-b border-border pb-1">Property Status</p>
-                <div className="flex flex-wrap gap-4">
-                  {[
-                    { k: "property-selected", l: "Property Selected" },
-                    { k: "property-not-selected", l: "Property Not Selected" },
-                    { k: "other-property", l: "Other Property" }
-                  ].map(opt => (
-                    <label key={opt.k} className="flex cursor-pointer items-center gap-2 text-[11px] font-medium">
-                      <div className={cn("h-4 w-4 rounded-full border border-primary flex items-center justify-center p-[3px] transition-colors", draft.propertyStatus.includes(opt.k) ? "bg-primary text-primary-foreground" : "bg-transparent")} onClick={() => setArray("propertyStatus", draft.propertyStatus.includes(opt.k) ? [] : [opt.k])}>
-                        {draft.propertyStatus.includes(opt.k) && <div className="h-full w-full rounded-full bg-primary-foreground" />}
-                      </div>
-                      {opt.l}
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground border-b border-border pb-1">Objections</p>
-                <div className="flex flex-wrap gap-2.5">
-                  {[
-                    { k: "food-not-available", l: "Food" },
-                    { k: "price-too-high", l: "Budget" },
-                    { k: "location-not-suitable", l: "Distance" },
-                    { k: "room-too-small", l: "Room" },
-                    { k: "needs-family-approval", l: "Parent" },
-                    { k: "other", l: "Other" }
-                  ].map(opt => {
-                    const active = draft.objections.includes(opt.k);
-                    const count = objectionCounts[opt.k as keyof typeof objectionCounts] || 0;
-                    return (
-                      <button 
-                        key={opt.k}
-                        onClick={() => toggleArrayItem("objections", opt.k)}
-                        className={cn("rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-colors flex items-center gap-1.5", active ? "border-primary bg-primary text-primary-foreground shadow-sm" : "border-border bg-background text-muted-foreground hover:bg-muted")}
-                      >
-                        {opt.l} <span className={cn("text-[10px]", active ? "text-primary-foreground/80" : "text-muted-foreground/70")}>({count})</span>
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-
-            </div>
           </div>
 
-          <div className="flex items-center justify-between gap-2 border-t border-border px-5 py-3 bg-muted/20">
+          <div className="flex items-center justify-between gap-2 border-t border-border px-4 py-3 bg-muted/20">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
@@ -485,14 +418,10 @@ export function ImpactFiltersPopover({
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <div className="flex items-center gap-2">
-              <Button size="sm" variant="outline" className="h-8 px-4 text-xs font-semibold" onClick={reset}>
-                Reset All
-              </Button>
-              <Button size="sm" className="h-8 px-6 text-xs font-semibold" onClick={apply}>
-                Apply Filters
-              </Button>
-            </div>
+            
+            <Button size="sm" variant="ghost" className="h-8 px-4 text-xs font-semibold text-muted-foreground hover:text-foreground" onClick={reset}>
+              Clear All
+            </Button>
           </div>
         </PopoverContent>
       </Popover>
@@ -542,7 +471,7 @@ export function ImpactQueueMetaBar({
   view,
 }: {
   leadCount: number;
-  view: ViewMode;
+  view: string;
 }) {
   return (
     <div className="flex items-center gap-2 border-t border-border/70 bg-background px-3 py-1 text-[10px] text-muted-foreground">

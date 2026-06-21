@@ -11,6 +11,8 @@ import {
   ImpactFiltersPopover,
   ImpactFocusPopover,
   ImpactQueueMetaBar,
+  type QueueFilters,
+  defaultQueueFilters,
 } from "@/components/impact/ImpactQueueHeaderControls";
 import {
   COLUMNS,
@@ -533,17 +535,7 @@ export function ImpactQueue() {
   const allFollowUps = useApp((s) => s.followUps);
   const [tcmFilter, setTcmFilter] = useState<string>(role === "tcm" ? currentTcmId : "all");
   const [query, setQuery] = useState("");
-  const [chipFilter, setChipFilter] = useState<QueueChipFilter>(() => initialChipFilter(role));
-  const [areaFilter, setAreaFilter] = useState<string>("all");
-  const [typeFilter, setTypeFilter] = useState<string>("all");
-  const [roomFilter, setRoomFilter] = useState<string>("all");
-  const [needFilter, setNeedFilter] = useState<string>("all");
-  const [actionRequiredFilter, setActionRequiredFilter] = useState<string[]>([]);
-  const [qualificationFilter, setQualificationFilter] = useState<string[]>([]);
-  const [moveInFilter, setMoveInFilter] = useState<string[]>([]);
-  const [propertyStatusFilter, setPropertyStatusFilter] = useState<string[]>([]);
-  const [objectionsFilter, setObjectionsFilter] = useState<string[]>([]);
-  const [assignmentFilter, setAssignmentFilter] = useState<string[]>([]);
+  const [queueFilters, setQueueFilters] = useState<QueueFilters>(defaultQueueFilters);
   const [view, setView] = useState<ViewMode>(readStoredView);
   const [stageFilter, setStageFilter] = useState<string>("all");
   const [focusLeadId, setFocusLeadId] = useState<string | null>(null);
@@ -721,97 +713,126 @@ export function ImpactQueue() {
 
   const filtered = useMemo(() => {
     const at = Date.now();
-    return enriched.filter((e) => {
-      if (chipFilter === "hot" && e.lead.intent !== "hot") return false;
-      if (chipFilter === "warm" && e.lead.intent !== "warm") return false;
-      if (chipFilter === "cold" && e.lead.intent !== "cold") return false;
-      if (chipFilter === "overdue" && e.nba.pressure !== "escalate") return false;
-      if (chipFilter === "tour-today" && !(e.openTour && isToday(e.openTour.scheduledAt)))
-        return false;
-      if (chipFilter === "quote-pending" && e.lastQuote?.status !== "sent") return false;
-      if (e.lead.stage === "dropped") return false;
+  const filtered = useMemo(() => {
+    const at = Date.now();
+    
+    let dateRangeStart = 0;
+    if (queueFilters.dateRange === "today") dateRangeStart = at - 24 * 60 * 60 * 1000;
+    else if (queueFilters.dateRange === "yesterday") dateRangeStart = at - 48 * 60 * 60 * 1000;
+    else if (queueFilters.dateRange === "last7") dateRangeStart = at - 7 * 24 * 60 * 60 * 1000;
+    else if (queueFilters.dateRange === "last30") dateRangeStart = at - 30 * 24 * 60 * 60 * 1000;
 
+    return enriched.filter((e) => {
+      // 1. DATE RANGE (Activity-based)
+      if (queueFilters.dateRange !== "all") {
+        let hadActivity = false;
+        const checkDates = [
+          e.lead.createdAt,
+          e.lead.updatedAt,
+          e.lead.stageEnteredAt,
+          e.lead.lastContactAt,
+          e.openTour?.scheduledAt,
+          e.openTour?.updatedAt,
+          e.lastQuote?.sentAt,
+          e.lastQuote?.updatedAt
+        ];
+        const leadCalls = allCalls.filter(c => c.leadId === e.lead.id);
+        leadCalls.forEach(c => checkDates.push(c.createdAt));
+        
+        for (const dStr of checkDates) {
+          if (dStr) {
+            const ms = new Date(dStr).getTime();
+            if (ms >= dateRangeStart) {
+               if (queueFilters.dateRange === "yesterday" && ms > (at - 24 * 60 * 60 * 1000)) {
+                 // skip if strictly yesterday
+               } else {
+                 hadActivity = true;
+                 break;
+               }
+            }
+          }
+        }
+        if (!hadActivity) return false;
+      }
+
+      // 2. STATUS
+      if (queueFilters.status !== "all") {
+        const s = queueFilters.status;
+        if (s === "my-leads" && e.lead.assignedTcmId !== selfScopeId) return false;
+        if (s === "needs-action") {
+           const pending = e.workflow?.pendingItem;
+           if (pending !== "tour-feedback-missing" && pending !== "quote-missing" && pending !== "tour-not-scheduled") return false;
+        }
+        if (s === "at-risk") {
+           const noAct = (at - (e.lead.lastContactAt ? new Date(e.lead.lastContactAt).getTime() : 0)) > 48 * 3600000;
+           const moveInDays = e.lead.moveInDate ? (new Date(e.lead.moveInDate).getTime() - at) / 86400000 : Infinity;
+           const moveInRisk = moveInDays >= 0 && moveInDays <= 7;
+           const isFeedback = e.workflow?.pendingItem === "tour-feedback-missing";
+           const isQuote = e.workflow?.pendingItem === "quote-missing";
+           if (!noAct && !moveInRisk && !isFeedback && !isQuote && e.lead.assignedTcmId) return false;
+        }
+        if (s === "unassigned" && e.lead.assignedTcmId) return false;
+        if (s === "booked" && e.lead.stage !== "booked") return false;
+        if (s === "dropped" && e.lead.stage !== "dropped") return false;
+      }
+
+      if (queueFilters.status !== "dropped" && e.lead.stage === "dropped") return false;
+
+      // 3. ASSIGNMENT
+      if (queueFilters.assignment !== "all" && e.lead.assignedTcmId !== queueFilters.assignment) return false;
+
+      // 4. QUICK FILTERS
+      if (queueFilters.quickFilters.length > 0) {
+        let qPass = false;
+        for (const qf of queueFilters.quickFilters) {
+          if (qf === "tour-today" && e.openTour && isToday(e.openTour.scheduledAt)) qPass = true;
+          if (qf === "feedback-missing" && e.workflow?.pendingItem === "tour-feedback-missing") qPass = true;
+          if (qf === "quote-pending" && e.workflow?.pendingItem === "quote-missing") qPass = true;
+          if (qf === "movein-0-7") {
+             const days = e.lead.moveInDate ? (new Date(e.lead.moveInDate).getTime() - at) / 86400000 : -1;
+             if (days >= 0 && days <= 7) qPass = true;
+          }
+          if (qf === "no-activity-48h") {
+             const ms = e.lead.lastContactAt ? new Date(e.lead.lastContactAt).getTime() : 0;
+             if (at - ms > 48 * 3600000) qPass = true;
+          }
+          if (qf === "property-not-selected") {
+             const selType = (e.lead as any).qualification?.propertySelection?.type || (e.lead as any).propertySelection?.type;
+             if (!selType) qPass = true;
+          }
+        }
+        if (!qPass) return false;
+      }
+
+      // 5. AREA
+      const areaFilter = queueFilters.area;
       if (
         areaFilter !== "all" &&
         e.lead.preferredArea?.toLowerCase() !== areaFilter.toLowerCase() &&
         !e.lead.areas?.map((a) => a.toLowerCase()).includes(areaFilter.toLowerCase())
-      )
-        return false;
-      if (typeFilter !== "all" && e.lead.type?.toLowerCase() !== typeFilter.toLowerCase())
-        return false;
-      if (roomFilter !== "all" && e.lead.room?.toLowerCase() !== roomFilter.toLowerCase())
-        return false;
-      if (needFilter !== "all" && e.lead.need?.toLowerCase() !== needFilter.toLowerCase())
-        return false;
+      ) return false;
 
-      if (assignmentFilter.length > 0) {
-        if (assignmentFilter.includes("assigned-to-me")) {
-          const assignedTo = (e.lead.assignedTcmId || e.lead.assigneeId || "").trim();
-          if (assignedTo !== selfScopeId) return false;
-        }
-      }
+      // 6. ADVANCED
+      const adv = queueFilters.advanced;
+      if (adv.type !== "all" && e.lead.type?.toLowerCase() !== adv.type.toLowerCase()) return false;
+      if (adv.room !== "all" && e.lead.room?.toLowerCase() !== adv.room.toLowerCase()) return false;
+      if (adv.need !== "all" && e.lead.need?.toLowerCase() !== adv.need.toLowerCase()) return false;
 
-      if (actionRequiredFilter.length > 0) {
-        let pass = false;
-        if (actionRequiredFilter.includes("no-next-action")) {
-          const hasTour = e.openTour && (e.openTour.status === "scheduled" || e.openTour.status === "confirmed");
-          const hasQuote = e.lastQuote && e.lastQuote.status === "sent";
-          const hasFollowup = e.lead.nextFollowUpAt && new Date(e.lead.nextFollowUpAt).getTime() > at;
-          if (!hasTour && !hasQuote && !hasFollowup && e.lead.stage !== "booked") pass = true;
-        }
-        if (actionRequiredFilter.includes("no-activity-24h")) {
-          const lastActivityMs = e.lead.lastContactAt ? new Date(e.lead.lastContactAt).getTime() : 0;
-          if (at - lastActivityMs > 24 * 60 * 60 * 1000) pass = true;
-        }
-        if (actionRequiredFilter.includes("no-activity-48h")) {
-          const lastActivityMs = e.lead.lastContactAt ? new Date(e.lead.lastContactAt).getTime() : 0;
-          if (at - lastActivityMs > 48 * 60 * 60 * 1000) pass = true;
-        }
-        if (actionRequiredFilter.includes("never-called")) {
-          const called = allCalls.some(c => c.leadId === e.lead.id);
-          if (!called) pass = true;
-        }
-        if (!pass) return false;
-      }
-
-      if (qualificationFilter.length > 0) {
+      if (adv.qualification.length > 0) {
         let pass = false;
         const p = profiles[e.lead.id];
         const score = profileCompletionScore(p as any);
-        if (qualificationFilter.includes("profile-complete") && score >= 80) pass = true;
-        if (qualificationFilter.includes("profile-incomplete") && score < 80) pass = true;
-        if (qualificationFilter.includes("budget-verified") && p?.verifiedBudget) pass = true;
-        if (qualificationFilter.includes("budget-unverified") && !p?.verifiedBudget) pass = true;
+        if (adv.qualification.includes("profile-complete") && score >= 80) pass = true;
+        if (adv.qualification.includes("profile-incomplete") && score < 80) pass = true;
+        if (adv.qualification.includes("budget-verified") && p?.verifiedBudget) pass = true;
+        if (adv.qualification.includes("budget-unverified") && !p?.verifiedBudget) pass = true;
         if (!pass) return false;
       }
 
-      if (moveInFilter.length > 0) {
-        let pass = false;
-        if (e.lead.moveInDate) {
-           const d = new Date(e.lead.moveInDate).getTime();
-           if (!Number.isNaN(d)) {
-             const days = (d - at) / (1000 * 60 * 60 * 24);
-             if (moveInFilter.includes("movein-0-7") && days >= 0 && days <= 7) pass = true;
-             if (moveInFilter.includes("movein-8-15") && days > 7 && days <= 15) pass = true;
-             if (moveInFilter.includes("movein-16-30") && days > 15 && days <= 30) pass = true;
-           }
-        }
-        if (!pass) return false;
-      }
-
-      if (propertyStatusFilter.length > 0) {
-         let pass = false;
-         const selType = (e.lead as any).qualification?.propertySelection?.type || (e.lead as any).propertySelection?.type;
-         if (propertyStatusFilter.includes("property-selected") && selType === "hub") pass = true;
-         if (propertyStatusFilter.includes("property-not-selected") && !selType) pass = true;
-         if (propertyStatusFilter.includes("other-property") && selType === "other") pass = true;
-         if (!pass) return false;
-      }
-
-      if (objectionsFilter.length > 0) {
+      if (adv.objections.length > 0) {
          let pass = false;
          const leadObjections = allObjections.filter(o => o.leadId === e.lead.id);
-         for (const reqCode of objectionsFilter) {
+         for (const reqCode of adv.objections) {
            if (reqCode === "other") {
              if (leadObjections.some(o => !["food-not-available", "price-too-high", "location-not-suitable", "room-too-small", "needs-family-approval"].includes(o.code))) pass = true;
            } else {
@@ -823,7 +844,7 @@ export function ImpactQueue() {
 
       return true;
     });
-  }, [enriched, chipFilter, areaFilter, typeFilter, roomFilter, needFilter, actionRequiredFilter, qualificationFilter, moveInFilter, propertyStatusFilter, objectionsFilter, assignmentFilter, allCalls, profiles, allObjections, selfScopeId]);
+  }, [enriched, queueFilters, allCalls, profiles, allObjections, selfScopeId]);
 
   const stackSorted = useMemo(() => {
     const sorted = [...filtered].sort((a, b) => b.score - a.score);
@@ -1000,33 +1021,10 @@ export function ImpactQueue() {
               )}
             </div>
             <ImpactFiltersPopover
-              filters={{
-                chip: chipFilter,
-                area: areaFilter,
-                type: typeFilter,
-                room: roomFilter,
-                need: needFilter,
-                actionRequired: actionRequiredFilter,
-                qualification: qualificationFilter,
-                moveIn: moveInFilter,
-                propertyStatus: propertyStatusFilter,
-                objections: objectionsFilter,
-                assignment: assignmentFilter,
-              }}
+              filters={queueFilters}
               uniqueAreas={uniqueAreas}
-              onApply={(next) => {
-                setChipFilter(next.chip);
-                setAreaFilter(next.area);
-                setTypeFilter(next.type);
-                setRoomFilter(next.room);
-                setNeedFilter(next.need);
-                setActionRequiredFilter(next.actionRequired);
-                setQualificationFilter(next.qualification);
-                setMoveInFilter(next.moveIn);
-                setPropertyStatusFilter(next.propertyStatus);
-                setObjectionsFilter(next.objections);
-                setAssignmentFilter(next.assignment);
-              }}
+              tcms={tcmOptions.map(t => ({ id: t.id, name: t.name || t.fullName }))}
+              onApply={setQueueFilters}
               onOpenMessageLab={() => setMessageLabOpen(true)}
             />
             <ImpactFocusPopover
