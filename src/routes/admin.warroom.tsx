@@ -58,9 +58,9 @@ function toLegacyLead(w: WireLead, fallbackTcmId = ""): LegacyLead {
 }
 
 function inrL(n: number) {
-  if (n >= 10_000_000) return `?${(n / 10_000_000).toFixed(2)}Cr`;
-  if (n >= 100_000) return `?${(n / 100_000).toFixed(1)}L`;
-  return `?${Math.round(n).toLocaleString("en-IN")}`;
+  if (n >= 10_000_000) return `₹${(n / 10_000_000).toFixed(2)}Cr`;
+  if (n >= 100_000) return `₹${(n / 100_000).toFixed(1)}L`;
+  return `₹${Math.round(n).toLocaleString("en-IN")}`;
 }
 
 function WarRoomTV() {
