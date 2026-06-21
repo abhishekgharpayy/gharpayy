@@ -1,6 +1,7 @@
 import { createFileRoute, redirect, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { AdminShell } from "@/admin/components/AdminShell";
 import { useAdminRows } from "@/admin/lib/use-admin-rows";
 import { computeMoneyMap, computeSlaBreaches } from "@/admin/lib/supreme-metrics";
 import { useVisitWar } from "@/lib/visits/war-store";
@@ -141,36 +142,32 @@ function WarRoomTV() {
 
   return (
     <div className="fixed inset-0 bg-slate-950 text-slate-50 overflow-auto p-6 font-display">
-      <style>{`
-        @keyframes warFade{from{opacity:.45;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
-        @keyframes ticker{from{transform:translateX(0)}to{transform:translateX(-50%)}}
-        .neon-border { box-shadow: 0 0 10px rgba(59, 130, 246, 0.2), inset 0 0 10px rgba(59, 130, 246, 0.1); }
-        .neon-border-success { box-shadow: 0 0 15px rgba(16, 185, 129, 0.2), inset 0 0 10px rgba(16, 185, 129, 0.1); }
-        .neon-border-danger { box-shadow: 0 0 15px rgba(239, 68, 68, 0.2), inset 0 0 10px rgba(239, 68, 68, 0.1); }
-        .neon-border-warn { box-shadow: 0 0 15px rgba(245, 158, 11, 0.2), inset 0 0 10px rgba(245, 158, 11, 0.1); }
-        .neon-text-glow { text-shadow: 0 0 10px currentColor; }
-      `}</style>
-      <header className="flex items-center justify-between mb-6 border-b border-blue-900/30 pb-4">
-        <div>
-          <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.2em] text-blue-400 font-bold mb-1">
-            <span className="relative flex h-2.5 w-2.5">
-              <span className={`absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75 ${pingPulse ? 'animate-ping' : ''}`} />
-              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-blue-500" />
-            </span>
-            <span className="neon-text-glow">COMMAND CENTER · LIVE</span>
-          </div>
-          <h1 className="text-4xl font-black tracking-tight text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]">Gharpayy War Room</h1>
+    <AdminShell title="War Room TV" sub="Live Command Center & Activity Feed" className="bg-slate-950 p-4 rounded-xl text-slate-50 font-mono relative overflow-hidden">
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-900/20 via-slate-950/80 to-slate-950 pointer-events-none" />
+      
+      <div className="absolute top-6 right-6 flex items-center gap-3 z-20">
+        <div className="text-xs uppercase tracking-[0.2em] text-slate-500 font-bold">
+          Live System Radar
         </div>
-        <div className="text-right">
-          <div className="text-4xl font-mono font-bold tabular-nums text-blue-100 neon-text-glow drop-shadow-[0_0_10px_rgba(219,234,254,0.5)]">
-            {new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-          </div>
-          <div className="text-[11px] text-blue-500/60 font-mono mt-1">SYS_TICK #{tick} // DATA_SYNC #{dataTick}</div>
-          <Link to="/admin" className="text-[11px] text-blue-400 hover:text-blue-300 transition-colors uppercase tracking-widest mt-1 inline-block">TERMINATE SESSIONS</Link>
+        <div className="relative flex h-3 w-3">
+          <span className={`animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 ${pingPulse ? 'animate-ping' : ''}`} />
+          <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500" />
         </div>
-      </header>
+      </div>
 
-      <main key={dataTick} style={{ animation: "warFade 600ms cubic-bezier(0.16, 1, 0.3, 1)" }} className="space-y-6">
+      <div className="relative z-10 flex flex-col h-full gap-6">
+        <style>{`
+          @keyframes warFade{from{opacity:.45;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+          @keyframes ticker{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+          .neon-border { box-shadow: 0 0 10px rgba(59, 130, 246, 0.2), inset 0 0 10px rgba(59, 130, 246, 0.1); }
+          .neon-border-success { box-shadow: 0 0 15px rgba(16, 185, 129, 0.2), inset 0 0 10px rgba(16, 185, 129, 0.1); }
+          .neon-border-danger { box-shadow: 0 0 15px rgba(239, 68, 68, 0.2), inset 0 0 10px rgba(239, 68, 68, 0.1); }
+          .neon-border-warn { box-shadow: 0 0 15px rgba(245, 158, 11, 0.2), inset 0 0 10px rgba(245, 158, 11, 0.1); }
+          .neon-text-glow { text-shadow: 0 0 10px currentColor; }
+        `}</style>
+        
+        <div className="text-[11px] text-blue-500/60 font-mono mt-1">SYS_TICK #{tick} // DATA_SYNC #{dataTick}</div>
+
         <section className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <BigTile label="BOOKED 12M" value={inrL(money.bookedRevenue)} tone="success" />
           <BigTile label="WEIGHTED PIPELINE" value={inrL(money.pipelineRevenue)} tone="info" />
@@ -246,9 +243,8 @@ function WarRoomTV() {
             </div>
           </div>
         </section>
-      </main>
+      </div>
 
-      {/* BIG WIN TAKEOVER OVERLAY */}
       {bigWin && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/95 backdrop-blur-xl animate-in fade-in duration-500">
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-green-900/40 via-slate-950/90 to-slate-950/100 pointer-events-none" />
@@ -266,7 +262,7 @@ function WarRoomTV() {
           </div>
         </div>
       )}
-    </div>
+    </AdminShell>
   );
 }
 

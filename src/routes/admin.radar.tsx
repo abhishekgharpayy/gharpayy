@@ -86,6 +86,26 @@ function RadarPage() {
       .slice(0, 15);
   }, [rows]);
 
+  const sourceQuality = useMemo(() => {
+    if (!rows) return [];
+    const map = new Map<string, { total: number, churned: number, value: number, won: number }>();
+    rows.forEach(r => {
+      const source = r.lead.source || "organic";
+      if (!map.has(source)) map.set(source, { total: 0, churned: 0, value: 0, won: 0 });
+      const stats = map.get(source)!;
+      stats.total++;
+      if (r.status === "lost") stats.churned++;
+      if (r.status === "won" || r.booked) stats.won++;
+      stats.value += r.expectedValue;
+    });
+    
+    return Array.from(map.entries()).map(([source, stats]) => {
+      const churnRate = stats.total > 0 ? (stats.churned / stats.total) * 100 : 0;
+      const winRate = stats.total > 0 ? (stats.won / stats.total) * 100 : 0;
+      return { source, ...stats, churnRate, winRate };
+    }).sort((a, b) => b.value - a.value);
+  }, [rows]);
+
   if (isLoading) {
     return (
       <AdminShell title="AI Radar" sub="Loading predictive models...">
@@ -197,8 +217,46 @@ function RadarPage() {
             {!churnRadar.length && <div className="text-sm text-muted-foreground">No high-risk leads detected! Your pipeline is healthy.</div>}
           </div>
         </div>
-
       </div>
+
+      {/* Lead Source Intelligence Panel */}
+      <div className="mt-4 rounded-xl border border-blue-500/20 bg-card p-4">
+        <div className="flex justify-between items-end mb-4">
+          <div>
+            <div className="text-sm font-semibold text-blue-400">Lead Source Quality & Conversion</div>
+            <div className="text-[10px] text-muted-foreground">Which marketing channels are actually converting into revenue</div>
+          </div>
+          <div className="text-[10px] uppercase text-blue-400 font-semibold tracking-wider">Channel ROI</div>
+        </div>
+        
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {sourceQuality.map(s => (
+            <div key={s.source} className="p-3 bg-slate-900/50 rounded-lg border border-slate-800">
+              <div className="flex justify-between mb-2">
+                <span className="font-semibold text-sm capitalize">{s.source}</span>
+                <span className="text-xs text-muted-foreground">{s.total} leads</span>
+              </div>
+              
+              <div className="flex justify-between items-end mt-4">
+                <div>
+                  <div className="text-[10px] text-muted-foreground uppercase">Expected Value</div>
+                  <div className="font-mono text-sm text-emerald-400">₹{Math.round(s.value).toLocaleString("en-IN")}</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-[10px] text-muted-foreground uppercase">Win/Loss</div>
+                  <div className="text-xs font-semibold">
+                    <span className="text-emerald-500">{Math.round(s.winRate)}%</span>
+                    <span className="text-muted-foreground mx-1">/</span>
+                    <span className="text-destructive">{Math.round(s.churnRate)}%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+          {!sourceQuality.length && <div className="text-sm text-muted-foreground">No source data.</div>}
+        </div>
+      </div>
+
     </AdminShell>
   );
 }
