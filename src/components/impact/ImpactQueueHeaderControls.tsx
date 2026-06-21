@@ -52,6 +52,7 @@ export type QueueFilters = {
   status: string;
   quickFilters: string[];
   area: string;
+  customDateRange?: { start: string; end: string };
   advanced: {
     type: string;
     room: string;
@@ -90,13 +91,18 @@ export function ImpactFiltersPopover({
   tcms?: Array<{id: string; name?: string}>;
 }) {
   const [open, setOpen] = useState(false);
+  const [localFilters, setLocalFilters] = useState<QueueFilters>(filters);
+
+  useEffect(() => {
+    if (open) setLocalFilters(filters);
+  }, [open, filters]);
   const allObjections = useCRM10x((s) => s.objections);
 
   // Directly call onApply whenever we want to instantly filter.
   // We can just use the provided `filters` as source of truth.
   
   const updateFilter = (updater: (prev: QueueFilters) => QueueFilters) => {
-    onApply(updater(filters));
+    setLocalFilters(updater(localFilters!));
   };
 
   const reset = () => {
@@ -124,27 +130,38 @@ export function ImpactFiltersPopover({
   // Compute active filters summary string
   const activeSummary = useMemo(() => {
     const parts = [];
-    if (filters.dateRange === "today") parts.push("Today");
-    if (filters.dateRange === "yesterday") parts.push("Yesterday");
-    if (filters.dateRange === "last7") parts.push("Last 7 Days");
-    if (filters.dateRange === "last30") parts.push("Last 30 Days");
+    if (localFilters.dateRange === "today") parts.push("Today");
+    if (localFilters.dateRange === "yesterday") parts.push("Yesterday");
+    if (localFilters.dateRange === "last7") parts.push("Last 7 Days");
+    if (localFilters.dateRange === "last30") parts.push("Last 30 Days");
     
-    if (filters.assignment !== "all") {
-       const tcm = tcms?.find(t => t.id === filters.assignment);
+    if (localFilters.assignment !== "all") {
+       const tcm = tcms?.find(t => t.id === localFilters.assignment);
        if (tcm?.name) parts.push(tcm.name.split(" ")[0]);
        else parts.push("Assigned");
     }
     
-    if (filters.status !== "all") {
-       if (filters.status === "my-leads") parts.push("My Leads");
-       if (filters.status === "needs-action") parts.push("Needs Action");
-       if (filters.status === "at-risk") parts.push("At Risk");
-       if (filters.status === "unassigned") parts.push("Unassigned");
-       if (filters.status === "booked") parts.push("Booked");
-       if (filters.status === "dropped") parts.push("Dropped");
+    if (localFilters.status !== "all") {
+       if (localFilters.status === "my-leads") parts.push("My Leads");
+       if (localFilters.status === "needs-action") parts.push("Needs Action");
+       if (localFilters.status === "at-risk") parts.push("At Risk");
+       if (localFilters.status === "unassigned") parts.push("Unassigned");
+       if (localFilters.status === "booked") parts.push("Booked");
+       if (localFilters.status === "dropped") parts.push("Dropped");
     }
     
-    if (filters.quickFilters.length > 0) parts.push(`\${filters.quickFilters.length} Quick`);
+    if (localFilters.quickFilters.length > 0) {
+       const labelMap: Record<string, string> = {
+         "tour-today": "Tour Today",
+         "feedback-missing": "Feedback Missing",
+         "quote-pending": "Quote Pending",
+         "movein-0-7": "Move-In < 7 Days",
+         "no-activity-48h": "No Activity > 48h",
+         "property-not-selected": "Property Not Selected",
+       };
+       if (localFilters.quickFilters.length === 1) parts.push(labelMap[localFilters.quickFilters[0]] || "1 Filter");
+       else parts.push(`${localFilters.quickFilters.length} Filters`);
+    }
     
     return parts.length > 0 ? parts.join(" • ") : "Filters";
   }, [filters, tcms]);
@@ -180,53 +197,32 @@ export function ImpactFiltersPopover({
                   { k: "yesterday", l: "Yesterday" },
                   { k: "last7", l: "Last 7 Days" },
                   { k: "last30", l: "Last 30 Days" },
-                  { k: "all", l: "All Time" }
+                  { k: "all", l: "All Time" },
+                  { k: "custom", l: "Custom Range" }
                 ].map((item) => (
                   <button
                     key={item.k}
                     onClick={() => updateFilter(p => ({ ...p, dateRange: item.k }))}
-                    className={cn("rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-colors", filters.dateRange === item.k ? "bg-primary text-primary-foreground border-primary shadow-sm" : "bg-background text-slate-600 border-border hover:bg-muted")}
+                    className={cn("rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-colors", localFilters.dateRange === item.k ? "bg-primary text-primary-foreground border-primary shadow-sm" : "bg-background text-slate-600 border-border hover:bg-muted")}
                   >
                     {item.l}
                   </button>
                 ))}
+                {localFilters.dateRange === "custom" && (
+                  <div className="w-full mt-2 flex items-center gap-2">
+                    <input type="date" className="flex h-8 w-full rounded-md border border-input bg-background px-3 py-1 text-xs shadow-sm"
+                       value={localFilters.customDateRange?.start || ""}
+                       onChange={(e) => updateFilter(p => ({ ...p, customDateRange: { start: e.target.value, end: p.customDateRange?.end || "" } }))}
+                    />
+                    <span className="text-muted-foreground text-[10px]">to</span>
+                    <input type="date" className="flex h-8 w-full rounded-md border border-input bg-background px-3 py-1 text-xs shadow-sm"
+                       value={localFilters.customDateRange?.end || ""}
+                       onChange={(e) => updateFilter(p => ({ ...p, customDateRange: { start: p.customDateRange?.start || "", end: e.target.value } }))}
+                    />
+                  </div>
+                )}
               </div>
             </div>
-
-            {/* SECTION 2: TEAM FILTER */}
-            {tcms && tcms.length > 0 && (
-              <div>
-                <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Team Member</p>
-                <Popover open={memberOpen} onOpenChange={setMemberOpen}>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" role="combobox" aria-expanded={memberOpen} className="h-9 w-full justify-between text-xs bg-background">
-                      {filters.assignment === "all" ? "All Members" : tcms.find((t) => t.id === filters.assignment)?.name}
-                      <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[28rem] p-0 shadow-lg">
-                    <Command>
-                      <CommandInput placeholder="Search member..." className="h-9 text-xs" />
-                      <CommandEmpty className="text-xs py-3 text-center text-muted-foreground">No member found.</CommandEmpty>
-                      <CommandList className="max-h-48">
-                        <CommandGroup>
-                          <CommandItem value="all" onSelect={() => { updateFilter(p => ({ ...p, assignment: "all" })); setMemberOpen(false); }} className="text-xs">
-                            <Check className={cn("mr-2 h-3.5 w-3.5", filters.assignment === "all" ? "opacity-100" : "opacity-0")} />
-                            All Members
-                          </CommandItem>
-                          {tcms.map((t) => (
-                            <CommandItem key={t.id} value={t.name || t.id} onSelect={() => { updateFilter(p => ({ ...p, assignment: t.id })); setMemberOpen(false); }} className="text-xs">
-                              <Check className={cn("mr-2 h-3.5 w-3.5", filters.assignment === t.id ? "opacity-100" : "opacity-0")} />
-                              {t.name}
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-              </div>
-            )}
 
             {/* SECTION 3: STATUS FILTER */}
             <div>
@@ -234,17 +230,15 @@ export function ImpactFiltersPopover({
               <div className="flex flex-wrap gap-2">
                 {[
                   { k: "all", l: "All Leads" },
-                  { k: "my-leads", l: "My Leads" },
                   { k: "needs-action", l: "Needs Action" },
                   { k: "at-risk", l: "At Risk" },
-                  { k: "unassigned", l: "Unassigned" },
                   { k: "booked", l: "Booked" },
                   { k: "dropped", l: "Dropped" }
                 ].map((item) => (
                   <button
                     key={item.k}
                     onClick={() => updateFilter(p => ({ ...p, status: item.k }))}
-                    className={cn("rounded-md border px-3 py-1.5 text-[11px] font-semibold transition-colors shadow-sm", filters.status === item.k ? "bg-slate-800 text-white border-slate-800 dark:bg-foreground dark:text-background" : "bg-card text-slate-700 border-border hover:bg-muted/50")}
+                    className={cn("rounded-md border px-3 py-1.5 text-[11px] font-semibold transition-colors shadow-sm", localFilters.status === item.k ? "bg-slate-800 text-white border-slate-800 dark:bg-foreground dark:text-background" : "bg-card text-slate-700 border-border hover:bg-muted/50")}
                   >
                     {item.l}
                   </button>
@@ -264,7 +258,7 @@ export function ImpactFiltersPopover({
                   { k: "no-activity-48h", l: "No Activity > 48h" },
                   { k: "property-not-selected", l: "Property Not Selected" }
                 ].map((item) => {
-                  const active = filters.quickFilters.includes(item.k);
+                  const active = localFilters.quickFilters.includes(item.k);
                   return (
                     <button
                       key={item.k}
@@ -281,7 +275,7 @@ export function ImpactFiltersPopover({
             {/* SECTION 5: AREA */}
             <div>
               <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Area</p>
-              <Select value={filters.area} onValueChange={(area) => updateFilter((prev) => ({ ...prev, area }))}>
+              <Select value={localFilters.area} onValueChange={(area) => updateFilter((prev) => ({ ...prev, area }))}>
                 <SelectTrigger className="h-9 text-[11px] bg-background"><SelectValue placeholder="All areas" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all" className="text-[11px]">All areas</SelectItem>
@@ -296,7 +290,7 @@ export function ImpactFiltersPopover({
             <Collapsible>
               <CollapsibleTrigger asChild>
                 <button className="flex w-full items-center justify-between rounded-md border border-border bg-muted/30 px-3 py-2 text-xs font-bold text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors">
-                  Advanced Filters
+                  More Filters
                   <ChevronDown className="h-4 w-4" />
                 </button>
               </CollapsibleTrigger>
@@ -304,7 +298,7 @@ export function ImpactFiltersPopover({
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Room</p>
-                    <Select value={filters.advanced.room} onValueChange={(val) => updateFilter(p => ({ ...p, advanced: { ...p.advanced, room: val }}))}>
+                    <Select value={localFilters.advanced.room} onValueChange={(val) => updateFilter(p => ({ ...p, advanced: { ...p.advanced, room: val }}))}>
                       <SelectTrigger className="h-8 text-[11px] bg-background"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all" className="text-[11px]">All rooms</SelectItem>
@@ -317,7 +311,7 @@ export function ImpactFiltersPopover({
                   </div>
                   <div>
                     <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Type</p>
-                    <Select value={filters.advanced.type} onValueChange={(val) => updateFilter(p => ({ ...p, advanced: { ...p.advanced, type: val }}))}>
+                    <Select value={localFilters.advanced.type} onValueChange={(val) => updateFilter(p => ({ ...p, advanced: { ...p.advanced, type: val }}))}>
                       <SelectTrigger className="h-8 text-[11px] bg-background"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all" className="text-[11px]">All types</SelectItem>
@@ -331,7 +325,7 @@ export function ImpactFiltersPopover({
                   </div>
                   <div>
                     <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Needs</p>
-                    <Select value={filters.advanced.need} onValueChange={(val) => updateFilter(p => ({ ...p, advanced: { ...p.advanced, need: val }}))}>
+                    <Select value={localFilters.advanced.need} onValueChange={(val) => updateFilter(p => ({ ...p, advanced: { ...p.advanced, need: val }}))}>
                       <SelectTrigger className="h-8 text-[11px] bg-background"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all" className="text-[11px]">All needs</SelectItem>
@@ -353,7 +347,7 @@ export function ImpactFiltersPopover({
                       { k: "budget-unverified", l: "Budget Unverified" }
                     ].map(opt => (
                       <label key={opt.k} className="flex cursor-pointer items-start gap-2 text-[11px] font-medium leading-tight">
-                        <Checkbox checked={filters.advanced.qualification.includes(opt.k)} onCheckedChange={() => toggleAdvancedArray("qualification", opt.k)} />
+                        <Checkbox checked={localFilters.advanced.qualification.includes(opt.k)} onCheckedChange={() => toggleAdvancedArray("qualification", opt.k)} />
                         {opt.l}
                       </label>
                     ))}
@@ -371,7 +365,7 @@ export function ImpactFiltersPopover({
                       { k: "needs-family-approval", l: "Parent" },
                       { k: "other", l: "Other" }
                     ].map(opt => {
-                      const active = filters.advanced.objections.includes(opt.k);
+                      const active = localFilters.advanced.objections.includes(opt.k);
                       return (
                         <button 
                           key={opt.k}
@@ -494,34 +488,51 @@ export function ImpactTeamCombobox({
   const [open, setOpen] = useState(false);
   if (!tcms || tcms.length === 0) return null;
 
+  const isSpecific = assignment !== "all" && assignment !== "my-leads" && assignment !== "unassigned";
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button variant="outline" role="combobox" aria-expanded={open} className="h-8 w-48 justify-between text-[11px] bg-background">
-          {assignment === "all" ? "All Members" : tcms.find((t) => t.id === assignment)?.name}
-          <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-[18rem] p-0 shadow-lg">
-        <Command>
-          <CommandInput placeholder="Search member..." className="h-9 text-[11px]" />
-          <CommandEmpty className="text-[11px] py-3 text-center text-muted-foreground">No member found.</CommandEmpty>
-          <CommandList className="max-h-48">
-            <CommandGroup>
-              <CommandItem value="all" onSelect={() => { onChange("all"); setOpen(false); }} className="text-[11px]">
-                <Check className={cn("mr-2 h-3.5 w-3.5", assignment === "all" ? "opacity-100" : "opacity-0")} />
-                All Members
-              </CommandItem>
-              {tcms.map((t) => (
-                <CommandItem key={t.id} value={t.name || t.id} onSelect={() => { onChange(t.id); setOpen(false); }} className="text-[11px]">
-                  <Check className={cn("mr-2 h-3.5 w-3.5", assignment === t.id ? "opacity-100" : "opacity-0")} />
-                  {t.name}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
+    <div className="flex items-center gap-1">
+      <Select value={isSpecific ? "specific" : assignment} onValueChange={(val) => {
+        if (val === "specific") setOpen(true);
+        else onChange(val);
+      }}>
+        <SelectTrigger className="h-8 w-40 text-[11px] bg-background">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all" className="text-[11px]">All Owners</SelectItem>
+          <SelectItem value="my-leads" className="text-[11px]">My Leads</SelectItem>
+          <SelectItem value="unassigned" className="text-[11px]">Unassigned</SelectItem>
+          {isSpecific && (
+            <SelectItem value="specific" className="text-[11px]">
+               {tcms?.find((t) => t.id === assignment)?.name || "Specific Owner"}
+            </SelectItem>
+          )}
+          {!isSpecific && <SelectItem value="specific" className="text-[11px]">Specific Owner...</SelectItem>}
+        </SelectContent>
+      </Select>
+
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <div className="w-0 h-0 overflow-hidden" />
+        </PopoverTrigger>
+        <PopoverContent className="w-[18rem] p-0 shadow-lg" align="start">
+          <Command>
+            <CommandInput placeholder="Search owner..." className="h-9 text-[11px]" />
+            <CommandEmpty className="text-[11px] py-3 text-center text-muted-foreground">No owner found.</CommandEmpty>
+            <CommandList className="max-h-48">
+              <CommandGroup>
+                {tcms.map((t) => (
+                  <CommandItem key={t.id} value={t.name || t.id} onSelect={() => { onChange(t.id); setOpen(false); }} className="text-[11px]">
+                    <Check className={cn("mr-2 h-3.5 w-3.5", assignment === t.id ? "opacity-100" : "opacity-0")} />
+                    {t.name}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+    </div>
   );
 }
