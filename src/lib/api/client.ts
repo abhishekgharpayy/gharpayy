@@ -342,12 +342,12 @@ export const api = {
     list: () => request<ManagedUser[]>("/api/owners"),
   },
   zones: {
-    list: () => request<Zone[]>("/api/zones"),
+    list: () => request<Zone[]>("/api/myt/zones"),
     create: (input: ZoneInput) =>
-      request<Zone>("/api/zones", { method: "POST", body: JSON.stringify(input) }),
+      request<Zone>("/api/myt/zones", { method: "POST", body: JSON.stringify(input) }),
     update: (id: string, input: ZoneInput) =>
-      request<Zone>(`/api/zones/${id}`, { method: "PUT", body: JSON.stringify(input) }),
-    remove: (id: string) => request<{ ok: true }>(`/api/zones/${id}`, { method: "DELETE" }),
+      request<Zone>(`/api/myt/zones/${id}`, { method: "PUT", body: JSON.stringify(input) }),
+    remove: (id: string) => request<{ ok: true }>(`/api/myt/zones/${id}`, { method: "DELETE" }),
   },
   properties: {
     list: () => request<import("@/lib/types").Property[]>("/api/properties"),
