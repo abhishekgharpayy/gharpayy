@@ -6,8 +6,5 @@
     "nodejs_compat"
   ],
   "main": "dist/server/server.js",
-  "pages_build_output_dir": "dist",
-  "build": {
-    "command": "npm install && npm run build"
-  }
+  "pages_build_output_dir": "dist"
 }
