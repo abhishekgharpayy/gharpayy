@@ -175,12 +175,12 @@ async function generateReport() {
         total: reportData.kpi.overdue,
         mostOverdueTcm: topOverdueTcm.name,
         mostOverdueType: topOverdueType.type.replace(/_/g, " "),
-        oldestTask: oldestOverdue.name ? \`\${oldestOverdue.name} (\${oldestOverdue.days} days)\` : "None"
+        oldestTask: oldestOverdue.name ? `${oldestOverdue.name} (${oldestOverdue.days} days)` : "None"
     };
 
     console.log("Generating HTML...");
 
-    const html = \`
+    const html = `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -250,7 +250,7 @@ async function generateReport() {
     <div class="nav">
         <div>
             <h1>Impact Queue Audit Report</h1>
-            <div class="timestamp">Generated at \${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })} IST</div>
+            <div class="timestamp">Generated at ${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })} IST</div>
         </div>
         <div class="nav-links">
             <a href="#summary">Summary</a>
@@ -267,35 +267,35 @@ async function generateReport() {
         <div class="grid-kpi">
             <div class="kpi-card">
                 <div class="kpi-label">Total Tasks</div>
-                <div class="kpi-value">\${reportData.kpi.total}</div>
+                <div class="kpi-value">${reportData.kpi.total}</div>
             </div>
             <div class="kpi-card">
                 <div class="kpi-label">Completed</div>
-                <div class="kpi-value text-success">\${reportData.kpi.completed}</div>
+                <div class="kpi-value text-success">${reportData.kpi.completed}</div>
             </div>
             <div class="kpi-card">
                 <div class="kpi-label">Pending</div>
-                <div class="kpi-value text-warning">\${reportData.kpi.pending}</div>
+                <div class="kpi-value text-warning">${reportData.kpi.pending}</div>
             </div>
             <div class="kpi-card">
                 <div class="kpi-label">Overdue</div>
-                <div class="kpi-value text-danger">\${reportData.kpi.overdue}</div>
+                <div class="kpi-value text-danger">${reportData.kpi.overdue}</div>
             </div>
             <div class="kpi-card">
                 <div class="kpi-label">Completion Rate</div>
-                <div class="kpi-value">\${reportData.kpi.completionRate}%</div>
+                <div class="kpi-value">${reportData.kpi.completionRate}%</div>
             </div>
             <div class="kpi-card">
                 <div class="kpi-label">Avg Completion Time</div>
-                <div class="kpi-value">\${reportData.kpi.avgTime}h</div>
+                <div class="kpi-value">${reportData.kpi.avgTime}h</div>
             </div>
         </div>
 
         <div class="grid-kpi" style="grid-template-columns: 1fr; margin-bottom: 2rem;">
             <div class="kpi-card" style="display: flex; gap: 2rem; align-items: center; justify-content: space-between;">
-                <div><div class="kpi-label">Most Overdue TCM</div><div style="font-weight: 600;">\${reportData.overdueAnalysis.mostOverdueTcm}</div></div>
-                <div><div class="kpi-label">Most Overdue Type</div><div style="font-weight: 600;">\${reportData.overdueAnalysis.mostOverdueType}</div></div>
-                <div><div class="kpi-label">Oldest Overdue Task</div><div style="font-weight: 600;" class="text-danger">\${reportData.overdueAnalysis.oldestTask}</div></div>
+                <div><div class="kpi-label">Most Overdue TCM</div><div style="font-weight: 600;">${reportData.overdueAnalysis.mostOverdueTcm}</div></div>
+                <div><div class="kpi-label">Most Overdue Type</div><div style="font-weight: 600;">${reportData.overdueAnalysis.mostOverdueType}</div></div>
+                <div><div class="kpi-label">Oldest Overdue Task</div><div style="font-weight: 600;" class="text-danger">${reportData.overdueAnalysis.oldestTask}</div></div>
             </div>
         </div>
 
@@ -376,7 +376,7 @@ async function generateReport() {
     </div>
 
     <script>
-        const REPORT_DATA = \${JSON.stringify(reportData)};
+        const REPORT_DATA = ${JSON.stringify(reportData)};
         
         // Setup Chart.js defaults
         Chart.defaults.color = '#94a3b8';
@@ -570,7 +570,7 @@ async function generateReport() {
         });
     </script>
 </body>
-</html>\`;
+</html>`;
 
     fs.writeFileSync(path.join(process.cwd(), "impact_queue_report.html"), html);
     console.log("SUCCESS! Report saved to impact_queue_report.html");
