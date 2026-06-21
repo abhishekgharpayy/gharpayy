@@ -7,6 +7,11 @@ export default defineConfig({
     server: {
       port: 3001,
       allowedHosts: [".trycloudflare.com"],
+      hmr: {
+        clientPort: 3001,
+        host: "localhost",
+        protocol: "ws",
+      },
     },
     plugins: [
       nitro({ preset: "node-server" })

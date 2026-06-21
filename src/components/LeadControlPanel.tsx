@@ -231,6 +231,7 @@ export function LeadControlPanel() {
   const {
     selectedLeadId,
     selectedLeadTab,
+    selectedLeadField,
     selectedLeadAction,
     selectLead,
     consumeSelectedLeadAction,
@@ -266,6 +267,27 @@ export function LeadControlPanel() {
       reminderTimersRef.current.clear();
     };
   }, []);
+
+  useEffect(() => {
+    if (selectedLeadField && selectedLeadField !== "none" && selectedLeadField !== "default") {
+      const elId = `field-${selectedLeadField}`;
+      const scrollToAndHighlight = () => {
+        const el = document.getElementById(elId);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+          el.focus();
+          el.classList.add("ring-2", "ring-primary", "ring-offset-2", "transition-all", "duration-500");
+          setTimeout(() => {
+            el.classList.remove("ring-2", "ring-primary", "ring-offset-2");
+          }, 5000);
+        }
+      };
+      
+      // Allow drawer/tabs/sections to render before trying to scroll
+      setTimeout(scrollToAndHighlight, 300);
+      setTimeout(scrollToAndHighlight, 600);
+    }
+  }, [selectedLeadField]);
 
   const scheduleLocalReminderAlert = (
     key: string,
@@ -3508,6 +3530,7 @@ function InlineScheduleTour({
             return (
               <div className="grid sm:grid-cols-2 gap-2">
                 <Input
+                  id="field-tour-date"
                   type="date"
                   value={datePart}
                   onChange={(e) => {
@@ -3753,7 +3776,7 @@ function PostTourOutcomeActions({
 
   return (
     <Section title="Outcome">
-      <div className="grid grid-cols-2 gap-2">
+      <div id="field-tour-feedback" className="grid grid-cols-2 gap-2 scroll-mt-6">
         {options.map((opt) => {
           const selected = pt.outcome === opt.o;
           return (

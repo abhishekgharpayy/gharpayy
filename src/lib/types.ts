@@ -95,6 +95,7 @@ export interface Lead {
   notes?: string;
   zoneCategory?: string;
   stageLabel?: string;
+  stageEnteredAt?: string;
 }
 
 export interface PostTourUpdate {

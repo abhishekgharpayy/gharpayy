@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useCRM10x } from "@/lib/crm10x/store";
+import { useApp } from "@/lib/store";
 import type {
   DecisionAuthority, Gender, RoomTypePref,
 } from "@/lib/crm10x/types";
@@ -40,7 +41,14 @@ export function LeadDeepProfile({
 
   const f = profile ?? { leadId: lead.id, updatedAt: new Date().toISOString() };
 
-  const completion = profileCompletion(f as unknown as Record<string, unknown>);
+  const completion = profileCompletion(f as unknown as Record<string, unknown>) || 0;
+  const selectedLeadSection = useApp((s) => s.selectedLeadSection);
+
+  useEffect(() => {
+    if (selectedLeadSection === "deep-profile" || selectedLeadSection === "budget") {
+      setOpen(true);
+    }
+  }, [selectedLeadSection]);
 
   useEffect(() => {
     const patch: Record<string, unknown> = { leadId: lead.id };
@@ -140,6 +148,15 @@ export function LeadDeepProfile({
                   onChange={(v) => upsert({ leadId: lead.id, locationFeasible: v === "yes" })}
                 />
               </Field>
+              <Field label="Preferred Area">
+                <Input
+                  id="field-preferred-area"
+                  className="h-8 text-xs"
+                  value={lead.preferredArea ?? ""}
+                  readOnly
+                  onClick={() => toast.info("To edit Preferred Area, go to edit lead screen")}
+                />
+              </Field>
               <Field label="Company / college">
                 <Input
                   className="h-8 text-xs"
@@ -160,6 +177,7 @@ export function LeadDeepProfile({
           <div className="grid grid-cols-[1.25fr_0.75fr] gap-2 rounded-lg border border-border/80 bg-muted/10 p-2.5">
             <Field label="Move-in date">
               <Input
+                id="field-move-in-date"
                 type="date"
                 className="h-8 text-xs"
                 min={new Date().toISOString().slice(0, 10)}
@@ -195,6 +213,7 @@ export function LeadDeepProfile({
             <div className="grid grid-cols-2 gap-2">
               <Field label="Stated budget (₹)">
                 <Input
+                  id="field-budget-stated"
                   type="number" className="h-8 text-xs"
                   value={f.budgetStated ?? ""}
                   onChange={(e) => upsert({ leadId: lead.id, budgetStated: Number(e.target.value) })}

@@ -113,7 +113,7 @@ export function SupplyMatchPanel({ lead, limit, onNavigateAway }: Props) {
   }
 
   return (
-    <div className="space-y-2.5">
+    <div id="field-property-search" className="space-y-2.5 scroll-mt-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-1.5">
           <Sparkles className="h-3.5 w-3.5 text-accent" />

@@ -269,6 +269,7 @@ async function applyCommand(cmd: Command, user: JwtClaims): Promise<LedgerDoc["r
         stageLabel: p.stageLabel ?? "",
         createdAt: now,
         updatedAt: now,
+        stageEnteredAt: now,
         createdBy: user.sub,
         tenantId: user.tenantId,
       });
@@ -417,7 +418,7 @@ async function applyCommand(cmd: Command, user: JwtClaims): Promise<LedgerDoc["r
       // changes can't lose the "from" value.
       const before = await col<{ stage: string; __v?: number }>(LEADS).findOneAndUpdate(
         { _id: p.leadId, tenantId: user.tenantId },
-        { $set: { stage: p.to, updatedAt: now }, $inc: { __v: 1 } },
+        { $set: { stage: p.to, updatedAt: now, stageEnteredAt: now }, $inc: { __v: 1 } },
         { returnDocument: "before" },
       );
       if (!before) throw Object.assign(new Error("Lead not found"), { code: "NOT_FOUND" });

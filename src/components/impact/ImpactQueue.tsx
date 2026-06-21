@@ -18,6 +18,7 @@ import {
   COLUMN_STAGE_TARGET,
   type ImpactEnriched,
 } from "@/components/impact/impact-queue-types";
+import { ImpactPerformanceView } from "./ImpactPerformanceView";
 import {
   type QueueChipFilter,
   type ViewMode,
@@ -58,6 +59,7 @@ import {
   type Quotation,
 } from "@/lib/crm10x/quotations";
 import { useTcmContacts } from "@/lib/crm10x/tcm-contacts";
+import { deriveWorkflowState, formatWorkflowLabel } from "@/lib/crm10x/workflow-navigation";
 import { useLeadInterests, useToggleInterest } from "@/lib/crm10x/lead-interests";
 import { useCRM10x } from "@/lib/crm10x/store";
 import {
@@ -102,6 +104,12 @@ import {
 } from "@/lib/crm10x/impact-scoring";
 import { QuotationBuilder } from "@/components/crm10x/QuotationBuilder";
 import { SmartDossier } from "@/components/crm10x/SmartDossier";
+import {
+  calculateLastActivityAt,
+  deriveImpactStage,
+  derivePriorityScore,
+  deriveNextAction,
+} from "@/lib/crm10x/impact-stage-derivation";
 import { CheckInPanel } from "@/components/checkins/CheckInPanel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -176,6 +184,8 @@ import {
   MessageSquareCode,
   ArchiveX,
   UserRound,
+  ArrowRight,
+  BarChart3,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useMountedNow } from "@/hooks/use-now";
@@ -220,19 +230,23 @@ function phonesMatch(a: string, b: string): boolean {
 }
 
 const COLUMN_HELP: Record<ColumnKey, string> = {
-  inbox: "New/contacted leads without an active tour or quote appear here.",
-  scheduled: "Tours that are scheduled and need confirmation or preparation.",
-  onTour: "Tours happening today or currently in progress.",
-  quoted: "Leads where a quote has been sent and payment/follow-up is pending.",
-  booked: "Leads converted to booking.",
+  superHot: "New leads, fresh responses, urgent callbacks, high-intent prospects.",
+  followUp: "Active conversations, leads requiring next touchpoint.",
+  tourScheduled: "Tours booked, upcoming visits.",
+  stuck: "No activity for configurable period, blocked or delayed progression.",
+  decisionPending: "Tour completed, quote shared, awaiting customer decision.",
+  booked: "Successfully converted customers.",
+  notNeeded: "Lost leads, invalid leads, duplicate leads, not interested.",
 };
 
 const COLUMN_HEADER_TONE: Record<ColumnKey, string> = {
-  inbox: "border-info/35 bg-info/5 text-info",
-  scheduled: "border-accent/35 bg-accent/5 text-accent",
-  onTour: "border-warning/40 bg-warning/5 text-warning",
-  quoted: "border-primary/35 bg-primary/5 text-primary",
-  booked: "border-success/40 bg-success/5 text-success",
+  superHot: "border-rose-500/40 bg-rose-500/10 text-rose-600",
+  followUp: "border-blue-500/40 bg-blue-500/10 text-blue-600",
+  tourScheduled: "border-indigo-500/40 bg-indigo-500/10 text-indigo-600",
+  stuck: "border-orange-500/40 bg-orange-500/10 text-orange-600",
+  decisionPending: "border-purple-500/40 bg-purple-500/10 text-purple-600",
+  booked: "border-emerald-500/40 bg-emerald-500/10 text-emerald-600",
+  notNeeded: "border-slate-400/40 bg-slate-400/10 text-slate-600",
 };
 function isToday(iso: string) {
   return isTodayIST(iso);
@@ -320,12 +334,13 @@ function normalizeQueueLead(lead: Lead): Lead {
 }
 
 function shouldShowInImpactQueue(lead: Lead, tours: Tour[], quotes: Quotation[]): boolean {
-  if (lead.stage === "dropped") return false;
   if (!hasCapturedLeadName(lead)) return false;
 
   const leadTours = tours.filter((tour) => tour.leadId === lead.id);
   return true;
 }
+
+// Removed computeColumn as it's replaced by deriveImpactStage
 
 export function drawerTabForLeadFocusAction(action?: LeadFocusAction | null) {
   if (action === "quote") return "quote";
@@ -339,6 +354,8 @@ export function useImpactStateForLead(leadInput?: Lead | null) {
   const tours = useApp((s) => s.tours);
   const opsProperties = useApp((s) => s.properties);
   const fallbackTcms = useApp((s) => s.tcms);
+  const allCalls = useCRM10x((s) => s.calls);
+  const allFollowUps = useApp((s) => s.followUps);
   const { tcms: activeTcms } = useActiveTcMs();
   const tcmOptions = activeTcms.length > 0 ? activeTcms : fallbackTcms;
   const { data: leadQuotes = [] } = useQuotationsQuery(leadInput?.id);
@@ -354,22 +371,15 @@ export function useImpactStateForLead(leadInput?: Lead | null) {
       .filter((q) => q.leadId === lead.id)
       .sort((a, b) => +new Date(b.sentAt) - +new Date(a.sentAt))[0];
 
-    let column: ColumnKey = "inbox";
-    if (lead.stage === "booked") column = "booked";
-    else if (lead.stage === "quote-sent" || lead.stage === "negotiation") column = "quoted";
-    else if (lastQuote && (lastQuote.status === "sent" || lastQuote.status === "paid"))
-      column = "quoted";
-    else if (openTour && isToday(openTour.scheduledAt)) column = "onTour";
-    else if (
-      openTour ||
-      lead.stage === "tour-scheduled" ||
-      lead.stage === "on-tour" ||
-      lead.stage === "tour-done"
-    )
-      column = "scheduled";
-
+    const lastActivityAt = calculateLastActivityAt(lead, allCalls, allFollowUps, tours);
     const nba = computeNBA(lead, openTour, lastQuote);
-    const { score } = scoreLead(lead, openTour, lastQuote);
+    const derivedStage = deriveImpactStage(lead, lastActivityAt, openTour, lastQuote);
+    const column = derivedStage.stage;
+    const stageDebugReason = derivedStage.reason;
+    const score = derivePriorityScore(lead, lastActivityAt, openTour, lastQuote);
+    const derivedNextAction = deriveNextAction(lead, lastActivityAt, openTour, lastQuote);
+    const nextActionReason = derivedNextAction.reason;
+    
     const catalogProperty = openTour
       ? resolvePropertyById(openTour.propertyId, opsProperties)
       : undefined;
@@ -520,6 +530,7 @@ export function ImpactQueue() {
   const profiles = useCRM10x((s) => s.profiles);
   const allCalls = useCRM10x((s) => s.calls);
   const allObjections = useCRM10x((s) => s.objections);
+  const allFollowUps = useApp((s) => s.followUps);
   const [tcmFilter, setTcmFilter] = useState<string>(role === "tcm" ? currentTcmId : "all");
   const [query, setQuery] = useState("");
   const [chipFilter, setChipFilter] = useState<QueueChipFilter>(() => initialChipFilter(role));
@@ -625,6 +636,8 @@ export function ImpactQueue() {
     column: ColumnKey;
     tourBand?: TourQueueBand;
     tourTimeHint?: string;
+    stageDebugReason?: string;
+    nextActionReason?: string;
   };
 
   const enriched: Enriched[] = useMemo(() => {
@@ -654,33 +667,25 @@ export function ImpactQueue() {
           .filter((q) => q.leadId === lead.id)
           .sort((a, b) => +new Date(b.sentAt) - +new Date(a.sentAt))[0];
 
-        let column: ColumnKey = "inbox";
-        if (lead.stage === "booked") column = "booked";
-        else if (lead.stage === "quote-sent" || lead.stage === "negotiation") column = "quoted";
-        else if (lastQuote && (lastQuote.status === "sent" || lastQuote.status === "paid"))
-          column = "quoted";
-        else if (openTour && isToday(openTour.scheduledAt)) column = "onTour";
-        else if (
-          openTour ||
-          lead.stage === "tour-scheduled" ||
-          lead.stage === "on-tour" ||
-          lead.stage === "tour-done"
-        )
-          column = "scheduled";
-
+        const lastActivityAt = calculateLastActivityAt(lead, allCalls, useApp.getState().followUps, tours);
         const nba = computeNBA(lead, openTour, lastQuote);
-        const { score } = scoreLead(lead, openTour, lastQuote);
+        const derivedStage = deriveImpactStage(lead, lastActivityAt, openTour, lastQuote);
+        const column = derivedStage.stage;
+        
+        const workflow = deriveWorkflowState(lead, openTour, !!lastQuote, false, lastActivityAt);
+        const score = workflow.sortingScore;
+        
         const tourBand =
-          column === "scheduled" || column === "onTour"
+          column === "tourScheduled"
             ? classifyTourBand(column, openTour, lead, nba, at)
             : undefined;
         const tourTimeHint =
-          openTour && (column === "scheduled" || column === "onTour")
+          openTour && column === "tourScheduled"
             ? (buildTourTimeHint(openTour, at) ?? undefined)
             : undefined;
         return { lead, openTour, lastQuote, nba, score, column, tourBand, tourTimeHint };
       });
-  }, [leads, tours, quotes, tcmFilter, query, tick, canSelectTcmScope]);
+  }, [leads, tours, quotes, tcmFilter, query, tick, canSelectTcmScope, allCalls]);
 
   /* Auto-promote tour-scheduled → on-tour when tour day is today (IST). */
   const autoPromotedRef = useRef(new Set<string>());
@@ -828,27 +833,17 @@ export function ImpactQueue() {
 
   const boardBuckets = useMemo(() => {
     const b: Record<ColumnKey, ImpactEnriched[]> = {
-      inbox: [],
-      scheduled: [],
-      onTour: [],
-      quoted: [],
+      superHot: [],
+      followUp: [],
+      tourScheduled: [],
+      stuck: [],
+      decisionPending: [],
       booked: [],
+      notNeeded: [],
     };
     filtered.forEach((e) => b[e.column].push(e));
     const at = Date.now();
-    (["scheduled", "onTour"] as const).forEach((key) => {
-      b[key].sort((a, bb) => {
-        const bandA = a.tourBand ?? classifyTourBand(key, a.openTour, a.lead, a.nba, at);
-        const bandB = bb.tourBand ?? classifyTourBand(key, bb.openTour, bb.lead, bb.nba, at);
-        const orderA = TOUR_BAND_ORDER.indexOf(bandA);
-        const orderB = TOUR_BAND_ORDER.indexOf(bandB);
-        if (orderA !== orderB) return orderA - orderB;
-        const ta = a.openTour ? +new Date(a.openTour.scheduledAt) : Infinity;
-        const tb = bb.openTour ? +new Date(bb.openTour.scheduledAt) : Infinity;
-        return ta - tb;
-      });
-    });
-    (["inbox", "quoted", "booked"] as ColumnKey[]).forEach((key) => {
+    (Object.keys(b) as ColumnKey[]).forEach((key) => {
       b[key].sort((a, bb) => bb.score - a.score);
     });
     return b;
@@ -1076,15 +1071,21 @@ export function ImpactQueue() {
             <div className="flex rounded-md border border-border overflow-hidden bg-background">
               <button
                 className={`h-8 px-2 text-[9px] uppercase tracking-wider font-semibold flex items-center gap-1 ${view === "stack" ? "bg-accent text-accent-foreground" : "text-muted-foreground"}`}
-                onClick={() => setView("stack")}
+                onClick={() => { setView("stack"); writeStoredView("stack"); }}
               >
                 <ListOrdered className="h-3 w-3" /> Stack
               </button>
               <button
                 className={`h-8 px-2 text-[9px] uppercase tracking-wider font-semibold flex items-center gap-1 ${view === "board" ? "bg-accent text-accent-foreground" : "text-muted-foreground"}`}
-                onClick={() => setView("board")}
+                onClick={() => { setView("board"); writeStoredView("board"); }}
               >
                 <LayoutGrid className="h-3 w-3" /> Board
+              </button>
+              <button
+                className={`h-8 px-2 text-[9px] uppercase tracking-wider font-semibold flex items-center gap-1 ${view === "performance" ? "bg-accent text-accent-foreground" : "text-muted-foreground"}`}
+                onClick={() => { setView("performance"); writeStoredView("performance"); }}
+              >
+                <BarChart3 className="h-3 w-3" /> Performance
               </button>
             </div>
           </div>
@@ -1193,7 +1194,17 @@ export function ImpactQueue() {
 
       {/* ---------------- View ---------------- */}
       {!booting || leads.length > 0 ? (
-        view === "stack" ? (
+        view === "performance" ? (
+          <ImpactPerformanceView 
+            leads={leads} 
+            tours={tours} 
+            quotes={quotes} 
+            activities={allCalls as any} 
+            followUps={allFollowUps as any} 
+            tcms={tcms}
+            tcmOptions={tcmOptions}
+          />
+        ) : view === "stack" ? (
           <div className="space-y-2">
             {/* Stage filter bar — stack view only */}
             <div className="flex flex-wrap items-center gap-1.5">
@@ -1203,11 +1214,7 @@ export function ImpactQueue() {
               {(
                 [
                   { key: "all", label: "All stages" },
-                  { key: "inbox", label: "Inbox" },
-                  { key: "scheduled", label: "Tour scheduled" },
-                  { key: "onTour", label: "On tour" },
-                  { key: "quoted", label: "Quote sent" },
-                  { key: "booked", label: "Booked" },
+                  ...COLUMNS.map(c => ({ key: c.key, label: c.label }))
                 ] as const
               ).map((s) => (
                 <button
@@ -1284,16 +1291,27 @@ export function ImpactQueue() {
             ))}
           </div>
         ) : (
-          <div className="w-full min-w-0 overflow-x-auto pb-1">
-            <div className="grid grid-cols-5 gap-2 h-[calc(100vh-270px)] min-h-[430px] min-w-[720px]">
+          <div className="w-full min-w-0 overflow-x-auto pb-1 relative">
+            <div className="flex gap-2 h-[calc(100vh-270px)] min-h-[430px] w-max items-stretch">
               {COLUMNS.map((c) => (
                 <div
                   key={c.key}
-                  className={`min-w-0 h-full overflow-hidden rounded-xl border-l-2 ${c.tint} border-t border-r border-b border-border bg-background shadow-sm`}
+                  className={`w-[320px] shrink-0 h-full flex flex-col overflow-hidden rounded-xl border-l-2 ${c.tint} border-t border-r border-b border-border bg-background shadow-sm`}
+                  onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; }}
+                  onDrop={(e) => {
+                     e.preventDefault();
+                     const leadId = e.dataTransfer.getData("text/plain");
+                     if (leadId) {
+                       const targetStage = COLUMN_STAGE_TARGET[c.key as ColumnKey];
+                       if (targetStage) {
+                          void setLeadStage(leadId, targetStage);
+                       }
+                     }
+                  }}
                 >
                   <div
                     className={cn(
-                      "flex h-11 shrink-0 items-center justify-between gap-2 border-b px-3",
+                      "flex h-11 shrink-0 items-center justify-between gap-2 border-b px-3 sticky top-0 z-10",
                       COLUMN_HEADER_TONE[c.key],
                     )}
                     title={COLUMN_HELP[c.key]}
@@ -1306,18 +1324,27 @@ export function ImpactQueue() {
                         <div className="truncate text-[12px] font-semibold text-foreground">
                           {c.label}
                         </div>
-                        <div className="truncate text-[9px] text-muted-foreground">
+                        <div className="truncate text-[9px] text-muted-foreground opacity-80">
                           {COLUMN_HELP[c.key]}
                         </div>
                       </div>
                     </div>
-                    <span className="shrink-0 rounded-full border border-border bg-background px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
-                      {boardBuckets[c.key].length}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      {(() => {
+                        const overdueCount = boardBuckets[c.key].filter(e => e.nba.pressure === "escalate" || (e.nextActionReason && e.nextActionReason.toLowerCase().includes("overdue"))).length;
+                        if (overdueCount > 0) {
+                          return <span className="text-[10px] text-danger font-semibold">{overdueCount} overdue</span>;
+                        }
+                        return null;
+                      })()}
+                      <span className="shrink-0 rounded-full border border-border bg-background px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                        {boardBuckets[c.key].length}
+                      </span>
+                    </div>
                   </div>
                   <div className="h-[calc(100%-2.75rem)] overflow-y-auto overflow-x-hidden bg-muted/15 p-2">
-                    {c.key === "inbox" &&
-                      boardBuckets.inbox.length === 0 &&
+                    {c.key === "superHot" &&
+                      boardBuckets.superHot.length === 0 &&
                       chipFilter === "all" &&
                       query.trim() === "" && (
                         <div
@@ -1555,10 +1582,10 @@ function BoardColumnBody({
   focusAction: LeadFocusAction | null;
   onFocusConsumed: () => void;
 }) {
-  const useBands = columnKey === "scheduled" || columnKey === "onTour";
+  const useBands = columnKey === "tourScheduled";
   const [postTourOpen, setPostTourOpen] = useState(true);
   const postTourItems =
-    columnKey === "scheduled" ? items.filter((item) => item.lead.stage === "tour-done") : [];
+    columnKey === "tourScheduled" ? items.filter((item) => item.lead.stage === "tour-done") : [];
   const activeItems = postTourItems.length
     ? items.filter((item) => item.lead.stage !== "tour-done")
     : items;
@@ -1575,7 +1602,7 @@ function BoardColumnBody({
     for (const e of activeItems) {
       const band =
         e.tourBand ??
-        classifyTourBand(columnKey as "scheduled" | "onTour", e.openTour, e.lead, e.nba, at);
+        classifyTourBand(columnKey as "tourScheduled", e.openTour, e.lead, e.nba, at);
       map[band].push(e);
     }
     for (const band of TOUR_BAND_ORDER) {
@@ -1716,6 +1743,8 @@ type EnrichedLite = {
   column: ColumnKey;
   tourBand?: TourQueueBand;
   tourTimeHint?: string;
+  stageDebugReason?: string;
+  nextActionReason?: string;
 };
 
 function LeadRow({
@@ -1786,102 +1815,90 @@ function LeadRow({
     [allObjections, lead.id],
   );
 
+  const hasProperty = interestedPropertyIds.length > 0;
+  // TODO: we need `lastActivityAt`. For now we approximate it with `updatedAt` locally.
+  const approximatedLastActivityAt = lead.updatedAt || lead.createdAt;
+  const workflowState = deriveWorkflowState(lead, openTour, !!lastQuote, hasProperty, approximatedLastActivityAt);
+
   useEffect(() => {
     if (autoOpen) {
-      selectLead(lead.id, drawerTabForLeadFocusAction(focusAction), focusAction);
+      selectLead(lead.id, workflowState.destinationTab, workflowState.destinationSection, workflowState.destinationField, focusAction);
       onAutoOpenConsumed?.();
     }
-  }, [autoOpen, focusAction, lead.id, onAutoOpenConsumed, selectLead]);
-
-  const staleQuote = isQuoteStale(lastQuote);
+  }, [autoOpen, focusAction, lead.id, onAutoOpenConsumed, selectLead, workflowState.destinationTab, workflowState.destinationSection, workflowState.destinationField]);
 
   return (
     <>
       <div
         role="button"
         tabIndex={0}
-        onClick={() => selectLead(lead.id)}
+        draggable={true}
+        onDragStart={(e) => {
+          e.dataTransfer.setData("text/plain", lead.id);
+          e.dataTransfer.effectAllowed = "move";
+        }}
+        onClick={() => selectLead(lead.id, workflowState.destinationTab, workflowState.destinationSection, workflowState.destinationField)}
         onKeyDown={(ev) => {
           if (ev.key === "Enter" || ev.key === " ") {
             ev.preventDefault();
-            selectLead(lead.id);
+            selectLead(lead.id, workflowState.destinationTab, workflowState.destinationSection, workflowState.destinationField);
           }
         }}
         className={cn(
-          "relative w-full cursor-pointer text-left rounded-md border bg-card hover:border-accent/60 hover:bg-muted/30 transition-colors px-3 py-2 pr-12 group",
+          "relative w-full cursor-pointer text-left rounded-md border bg-card hover:border-accent/60 hover:bg-muted/30 transition-colors p-3 flex flex-col gap-3 group shadow-sm",
           keyboardHighlight && "ring-2 ring-accent border-accent",
-          staleQuote && "border-danger/40",
         )}
       >
-        {rank !== undefined && (
-          <div className="absolute left-3 top-2 w-7 h-7 rounded-md bg-muted text-[11px] font-mono font-semibold flex items-center justify-center group-hover:bg-accent/20">
-            #{rank}
-          </div>
-        )}
-        <div className={cn("min-w-0", rank !== undefined && "pl-9")}>
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span
-              className={`h-2 w-2 rounded-full shrink-0 ${priorityMeta.dot}`}
-              title={priorityMeta.hint}
-            />
-            <span className="text-xs font-semibold truncate">{lead.name}</span>
-          </div>
-          <div className="mt-1 grid gap-1 text-[10px] text-muted-foreground">
-            <span className="inline-flex items-center gap-1 min-w-0">
-              <Phone className="h-2.5 w-2.5 shrink-0" />
-              <span className="truncate">{lead.phone}</span>
-            </span>
-            {areaText && (
-              <span className="inline-flex min-w-0 items-center gap-1">
-                <MapPin className="h-2.5 w-2.5 shrink-0" />
-                <span className="truncate">{areaText}</span>
-              </span>
-            )}
-            <span>{blrText}</span>
-            <span className="inline-flex items-center gap-1">
-              <Calendar className="h-2.5 w-2.5 shrink-0" />
-              Move-in: {fmtDate(lead.moveInDate)}
-            </span>
-            <span className="truncate">
-              Assigned by {assignedByName} → {assignedToName}
-            </span>
-            {openTour && (
-              <span className="text-[10px] font-semibold text-accent flex items-center gap-1">
-                <Calendar className="h-2.5 w-2.5 shrink-0" />
-                Tour: {fmtTourScheduleLabel(openTour.scheduledAt)} ·{" "}
-                {TOUR_TYPE_LABELS[openTourType] ?? openTourType}
-              </span>
-            )}
-          </div>
-          {(pickedProperty || latestObjection) && (
-            <div className="mt-1 flex flex-wrap gap-1">
-              {pickedProperty && (
-                <Badge
-                  variant="outline"
-                  className="text-[9px] bg-success/10 text-success border-success/40"
-                >
-                  {pickedProperty.name}
-                </Badge>
-              )}
-              {latestObjection && (
-                <Badge
-                  variant="outline"
-                  className="text-[9px] bg-warning/10 text-warning border-warning/40"
-                >
-                  Objection:{" "}
-                  {latestObjection.code === "none"
-                    ? "None"
-                    : latestObjection.code.replace(/-/g, " ")}
-                </Badge>
-              )}
+        {/* Row 1: Who */}
+        <div className="flex flex-col gap-0.5">
+          <div className="text-[13px] font-bold text-foreground leading-tight">{lead.name}</div>
+          <div className="text-xs text-muted-foreground font-medium hover:underline">{lead.phone}</div>
+        </div>
+
+        {/* Row 2: Metadata */}
+        <div className="flex flex-col gap-0.5 text-xs text-muted-foreground">
+          {areaText && <div>Area: {areaText}</div>}
+          {lead.moveInDate && <div>Move-In: {fmtDate(lead.moveInDate)}</div>}
+          
+          {(workflowState.currentStep === "Tour" || workflowState.currentStep === "Decision Pending" || workflowState.currentStep === "Booked") && pickedProperty && (
+             <div className="font-medium text-foreground">Property: {pickedProperty.name}</div>
+          )}
+          
+          {workflowState.currentStep === "Tour" && openTour && (
+            <div className="font-medium text-foreground">
+              Tour: {fmtTourScheduleLabel(openTour.scheduledAt)}
             </div>
           )}
-          {staleQuote && (
-            <Badge
+        </div>
+
+        {/* Row 3-6: Workflow Blockers */}
+        <div className="flex flex-col gap-1.5 items-start">
+          <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
+            Current Step: {formatWorkflowLabel(workflowState.currentStep)}
+          </div>
+
+          <Badge variant="outline" className="text-[10px] bg-warning/10 text-warning border-warning/40 uppercase tracking-wider font-bold">
+            {formatWorkflowLabel(workflowState.pendingItem)}
+          </Badge>
+
+          {workflowState.nextAction && (
+             <Button
+              size="sm"
               variant="outline"
-              className="mt-1 text-[9px] border-danger/50 text-danger bg-danger/10"
+              className="h-7 text-[10px] mt-1 shadow-sm border-accent/30 bg-accent/5"
+              onClick={(e) => {
+                e.stopPropagation();
+                selectLead(lead.id, workflowState.destinationTab, workflowState.destinationSection, workflowState.destinationField);
+              }}
             >
-              Quote 24h+ · follow up
+              <ArrowRight className="h-3 w-3 mr-1" />
+              {formatWorkflowLabel(workflowState.nextAction)}
+            </Button>
+          )}
+
+          {latestObjection && (
+            <Badge variant="outline" className="mt-1 text-[10px] bg-danger/10 text-danger border-danger/40 uppercase">
+              Objection: {latestObjection.code === "none" ? "None" : latestObjection.code.replace(/-/g, " ")}
             </Badge>
           )}
         </div>
@@ -2119,6 +2136,8 @@ function LeadDrawer({
     setScheduleOpen(true);
   };
 
+  const workflowState = deriveWorkflowState(lead, openTour, !!lastQuote, false, lead.updatedAt || lead.createdAt);
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
@@ -2184,6 +2203,9 @@ function LeadDrawer({
           </div>
           {/* NBA banner */}
           <div className={`rounded-md border px-3 py-2 ${pressureColor(nba.pressure)}`}>
+            <div className="text-[10px] uppercase font-bold text-muted-foreground/80 tracking-wider">
+              {formatWorkflowLabel(workflowState.currentStep)}
+            </div>
             <div className="text-[10px] uppercase tracking-wider opacity-70">Next best action</div>
             <div className="text-sm font-semibold">{nba.label}</div>
             <div className="text-[10px] opacity-80">{nba.reason}</div>
@@ -2304,6 +2326,8 @@ export function CommandActions({
     if (onScheduleOpenChange) onScheduleOpenChange(v);
     else setLocalScheduleOpen(v);
   };
+
+  const workflowState = deriveWorkflowState(lead, openTour, !!lastQuote, false, lead.updatedAt || lead.createdAt);
 
   const updateIntent = async (intent: Lead["intent"]) => {
     const previous = lead.intent;
@@ -2456,7 +2480,7 @@ export function CommandActions({
 
       {/* Action toolbar — context-aware */}
       <div className="flex flex-wrap gap-1.5 pt-2 border-t border-border">
-        {(column === "inbox" || scheduleDialogOpen) &&
+        {((column === "superHot" || column === "followUp" || column === "stuck") || scheduleDialogOpen) &&
           (dossier.ready ? (
             <ScheduleTourDialog
               lead={lead}
@@ -2466,7 +2490,7 @@ export function CommandActions({
                 if (!v) onSchedulePrefillClear?.();
               }}
               prefillPg={schedulePrefill}
-              showTrigger={column === "inbox"}
+              showTrigger={column === "superHot" || column === "followUp" || column === "stuck"}
               tcmOptions={tcmOptions}
             />
           ) : (
@@ -2480,7 +2504,7 @@ export function CommandActions({
             </Button>
           ))}
 
-        {column === "scheduled" && openTour && (
+        {column === "tourScheduled" && openTour && (
           <>
             <ConfirmTourButton lead={lead} tour={openTour} />
             {isTodayIST(openTour.scheduledAt) &&
@@ -2526,7 +2550,10 @@ export function CommandActions({
                       );
                   }}
                 >
-                  <AlertTriangle className="h-3 w-3" /> No-show
+                  <div className="flex items-start gap-1">
+                    <AlertTriangle className="h-3 w-3 shrink-0 mt-[2px]" />
+                    <span className="leading-tight">{formatWorkflowLabel(workflowState.pendingItem)}</span>
+                  </div>
                 </Button>
               </>
             )}
@@ -2538,40 +2565,9 @@ export function CommandActions({
           </>
         )}
 
-        {column === "onTour" && openTour && (
-          <>
-            <Button
-              size="sm"
-              variant="outline"
-              className={`h-7 text-[10px] gap-1 ${actionButtonClass}`}
-              onClick={() => {
-                void completeTour(openTour.id)
-                  .then(() => toast.success("Tour completed"))
-                  .catch((err) =>
-                    toast.error(err instanceof Error ? err.message : "Failed to complete tour"),
-                  );
-              }}
-            >
-              <CheckCircle2 className="h-3 w-3" /> Tour done
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              className={`h-7 text-[10px] gap-1 text-destructive hover:text-destructive ${actionButtonClass}`}
-              onClick={() => {
-                void updateTourDetails(openTour.id, { status: "no-show", showUp: false })
-                  .then(() => toast("Marked no-show · lead returned for follow-up"))
-                  .catch((err) =>
-                    toast.error(err instanceof Error ? err.message : "Failed to mark no-show"),
-                  );
-              }}
-            >
-              <AlertTriangle className="h-3 w-3" /> No-show
-            </Button>
-          </>
-        )}
 
-        {column === "quoted" && lastQuote && (
+
+        {column === "decisionPending" && lastQuote && (
           <>
             {lastQuote.status === "sent" && (
               <>
@@ -2622,7 +2618,7 @@ export function CommandActions({
           </div>
         )}
 
-        {column === "quoted" && (
+        {column === "decisionPending" && (
           <>
             <NegotiationPlaybook
               lead={lead}
@@ -2639,7 +2635,7 @@ export function CommandActions({
             />
           </>
         )}
-        {(column === "inbox" || column === "quoted") && (
+        {(column === "superHot" || column === "followUp" || column === "stuck" || column === "decisionPending") && (
           <Button
             size="sm"
             variant="ghost"
@@ -2663,7 +2659,7 @@ export function CommandActions({
             onOpenChange={setCheckinOpen}
           />
         )}
-        {lastQuote && column !== "quoted" && (
+        {lastQuote && column !== "decisionPending" && (
           <BookingDialog
             lead={lead}
             quote={lastQuote}
