@@ -5,7 +5,7 @@
   "compatibility_flags": [
     "nodejs_compat"
   ],
-  "main": "@tanstack/react-start/server-entry",
+  "main": "dist/server/server.js",
   "pages_build_output_dir": "dist",
   "build": {
     "command": "npm install && npm run build"
