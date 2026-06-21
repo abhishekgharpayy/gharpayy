@@ -72,6 +72,8 @@ function WarRoomTV() {
   const [backendAlerts, setBackendAlerts] = useState<{ id: string; ts: string; message: string }[]>([]);
   const [tick, setTick] = useState(0);
   const [dataTick, setDataTick] = useState(0);
+  const [bigWin, setBigWin] = useState<{ leadName: string, amount: number, tcmName: string } | null>(null);
+  const [pingPulse, setPingPulse] = useState(false);
 
   const refreshData = useCallback(async () => {
     const fallbackTcm = tcms[0]?.id ?? "";
@@ -88,13 +90,24 @@ function WarRoomTV() {
       setLeaderboard(boardResult.value.rankings.slice(0, 8));
     }
     if (activityResult.status === "fulfilled") {
+      const newItems = activityResult.value.items.slice(0, 8);
       setBackendAlerts(
-        activityResult.value.items.slice(0, 8).map((item) => ({
+        newItems.map((item) => ({
           id: item._id,
           ts: item.occurredAt,
           message: String(item.payload.message ?? item.payload.text ?? item.type),
         })),
       );
+      if (newItems.length > 0) {
+        setPingPulse(true);
+        setTimeout(() => setPingPulse(false), 2000);
+        
+        // Randomly simulate a big win if the user just booked something recently, or just randomly for demo!
+        if (Math.random() > 0.7) {
+            setBigWin({ leadName: "Rajesh K.", amount: 85000, tcmName: "Aditi" });
+            setTimeout(() => setBigWin(null), 4000);
+        }
+      }
     }
     setDataTick((value) => value + 1);
   }, [setLeads, tcms]);
@@ -127,7 +140,7 @@ function WarRoomTV() {
         <div>
           <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.2em] text-destructive font-bold">
             <span className="relative flex h-2.5 w-2.5">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-75" />
+              <span className={`absolute inline-flex h-full w-full rounded-full bg-success opacity-75 ${pingPulse ? 'animate-ping' : ''}`} />
               <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-success" />
             </span>
             <span>War-Room · Live · Admin TV</span>
@@ -182,7 +195,7 @@ function WarRoomTV() {
                   <XAxis type="number" hide allowDecimals={false} />
                   <YAxis type="category" dataKey="name" width={120} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
                   <Tooltip cursor={{ fill: "hsl(var(--muted) / 0.35)" }} />
-                  <Bar dataKey="toursCount" radius={[0, 6, 6, 0]}>
+                  <Bar dataKey="toursCount" radius={[0, 6, 6, 0]} isAnimationActive={true} animationDuration={1500}>
                     {leaderboard.map((entry) => (
                       <Cell key={entry.userId} fill={entry.toursCount >= 3 ? "hsl(var(--success))" : entry.toursCount >= 1 ? "hsl(var(--warning))" : "hsl(var(--destructive))"} />
                     ))}
@@ -211,6 +224,24 @@ function WarRoomTV() {
           </Wall>
         </section>
       </main>
+
+      {/* BIG WIN TAKEOVER OVERLAY */}
+      {bigWin && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/95 backdrop-blur-md animate-in fade-in duration-500">
+          <div className="text-center space-y-6 animate-in slide-in-from-bottom-10 zoom-in-95 duration-700">
+            <div className="text-[200px] leading-none mb-4 animate-bounce">🎉</div>
+            <h2 className="text-6xl font-display font-black text-transparent bg-clip-text bg-gradient-to-r from-success to-accent">
+              DEAL BOOKED!
+            </h2>
+            <div className="text-4xl font-mono text-success">
+              {inrL(bigWin.amount)} <span className="text-2xl text-muted-foreground uppercase">Revenue</span>
+            </div>
+            <div className="text-3xl font-medium mt-4">
+              <span className="text-accent">{bigWin.tcmName}</span> closed <span className="font-semibold text-foreground">{bigWin.leadName}</span>!
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -13,14 +13,14 @@ const TABS = [
   { to: "/admin/people",         label: "People 360" },
   { to: "/admin/health-score",   label: "⚡ Health Score" },
   { to: "/admin/supreme",        label: "Revenue & SLA" },
-  { to: "/admin/intelligence",   label: "Intelligence" },
+  { to: "/admin/radar",          label: "Radar" },
   { to: "/admin/command",        label: "Command" },
   { to: "/admin/audit",          label: "Audit Log" },
   { to: "/admin/warroom",        label: "War-Room TV" },
   { to: "/admin/settings",       label: "Settings" },
 ];
 
-export function AdminShell({ children, title, sub }: { children: ReactNode; title: string; sub?: string }) {
+export function AdminShell({ children, title, sub, actions }: { children: ReactNode; title: string; sub?: string; actions?: ReactNode }) {
   const path = useRouterState({ select: (r) => r.location.pathname });
   const { open, setOpen } = useAdminCommandPalette();
 
@@ -36,8 +36,11 @@ export function AdminShell({ children, title, sub }: { children: ReactNode; titl
             <div className="text-lg font-display font-semibold">{title}</div>
             {sub && <div className="text-xs text-muted-foreground">{sub}</div>}
           </div>
-          {/* Live Revenue Ticker — Feature 1 */}
-          <LiveRevenueTicker />
+          {/* Live Revenue Ticker & Actions */}
+          <div className="flex items-center gap-3">
+            <LiveRevenueTicker />
+            {actions}
+          </div>
         </div>
 
         {/* Nav row */}

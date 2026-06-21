@@ -8,6 +8,7 @@ export interface MoneyMap {
   walkingRevenue: number;
   atRiskRevenue: number;
   hotRevenue: number;
+  projectedEomRevenue: number;
 }
 
 export function computeMoneyMap(rows: AdminLeadRow[]): MoneyMap {
@@ -25,7 +26,8 @@ export function computeMoneyMap(rows: AdminLeadRow[]): MoneyMap {
       if (stale) atRisk += r.expectedValue;
     }
   }
-  return { bookedRevenue: booked, pipelineRevenue: pipeline, walkingRevenue: walking, atRiskRevenue: atRisk, hotRevenue: hot };
+  const projectedEomRevenue = booked + (pipeline * 0.20); // Forecast using 20% aggregate CVR on pipeline
+  return { bookedRevenue: booked, pipelineRevenue: pipeline, walkingRevenue: walking, atRiskRevenue: atRisk, hotRevenue: hot, projectedEomRevenue };
 }
 
 export interface TcmHealth {

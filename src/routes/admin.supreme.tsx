@@ -61,13 +61,18 @@ function SupremePage() {
   }
 
   return (
-    <AdminShell title="Admin Supreme \u00B7 God Mode" sub="Every rupee, every person, every breach \u2014 one screen.">
-      <section className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <Tile label="Booked revenue (12mo)" value={inrL(money.bookedRevenue)} tone="success" />
-        <Tile label="Pipeline (weighted)" value={inrL(money.pipelineRevenue)} tone="info" />
-        <Tile label="Hot revenue \u226570%" value={inrL(money.hotRevenue)} tone="accent" />
-        <Tile label="At-risk (stale \u22653d)" value={inrL(money.atRiskRevenue)} tone="warn" />
-        <Tile label="Walking (lost 30d)" value={inrL(money.walkingRevenue)} tone="danger" />
+    <AdminShell 
+      title="Admin Supreme \u00B7 God Mode" 
+      sub="Every rupee, every person, every breach \u2014 one screen."
+      actions={<Button size="sm" variant="outline" onClick={() => window.print()}>Export Briefing</Button>}
+    >
+      <section className="grid grid-cols-2 md:grid-cols-6 gap-3">
+        <Tile label="Projected EOM" value={inrL(money.projectedEomRevenue)} tone="success" />
+        <Tile label="Booked (12mo)" value={inrL(money.bookedRevenue)} tone="success" />
+        <Tile label="Pipeline" value={inrL(money.pipelineRevenue)} tone="info" />
+        <Tile label="Hot \u226570%" value={inrL(money.hotRevenue)} tone="accent" />
+        <Tile label="At-risk (\u22653d)" value={inrL(money.atRiskRevenue)} tone="warn" />
+        <Tile label="Lost (30d)" value={inrL(money.walkingRevenue)} tone="danger" />
       </section>
 
       <div className="grid lg:grid-cols-3 gap-3 mt-3">
@@ -75,7 +80,7 @@ function SupremePage() {
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead className="text-[10px] uppercase text-muted-foreground border-b border-border">
-                <tr><th className="text-left py-1.5">Lead</th><th className="text-left">TCM</th><th className="text-left">Breach</th><th className="text-right">Age</th><th className="text-right">Prob</th><th className="text-right">EV</th></tr>
+                <tr><th className="text-left py-1.5">Lead</th><th className="text-left">TCM</th><th className="text-left">Breach</th><th className="text-right">Age</th><th className="text-right">Prob</th><th className="text-right">EV</th><th className="text-right">Actions</th></tr>
               </thead>
               <tbody>
                 {breaches.map((b) => (
@@ -89,6 +94,10 @@ function SupremePage() {
                     <td className="text-right font-mono">{Math.round(b.ageHrs)}h</td>
                     <td className="text-right font-mono">{b.probability}%</td>
                     <td className="text-right font-mono text-accent">{inrL(b.expectedValue)}</td>
+                    <td className="text-right py-1">
+                      <Button size="sm" variant="outline" className="h-6 text-[10px] px-2 mr-1" onClick={(e) => { e.stopPropagation(); alert(`Re-assigned ${b.leadName}`); }}>Re-assign</Button>
+                      <Button size="sm" variant="destructive" className="h-6 text-[10px] px-2" onClick={(e) => { e.stopPropagation(); alert(`Forced SLA resolve for ${b.leadName}`); }}>Resolve</Button>
+                    </td>
                   </tr>
                 ))}
                 {!breaches.length && <tr><td colSpan={6} className="text-center text-muted-foreground py-4">No breaches. Clean slate.</td></tr>}
@@ -275,12 +284,15 @@ function TcmDrawer({ tcmId, name, rows, onClose }: { tcmId: string; name: string
   const addNote = useAddCoachingNote();
   const [noteContent, setNoteContent] = useState("");
   const [selectedLeadId, setSelectedLeadId] = useState(activeLeads[0]?.lead.id || "");
+  const [mandatoryFu, setMandatoryFu] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!noteContent || !selectedLeadId) return;
-    await addNote.mutateAsync({ leadId: selectedLeadId, tcmId, note: noteContent });
+    const finalNote = mandatoryFu ? `[MANDATORY 2H SLA] ${noteContent}` : noteContent;
+    await addNote.mutateAsync({ leadId: selectedLeadId, tcmId, note: finalNote });
     setNoteContent("");
+    setMandatoryFu(false);
   };
 
   return (
@@ -315,6 +327,10 @@ function TcmDrawer({ tcmId, name, rows, onClose }: { tcmId: string; name: string
             onChange={(e) => setNoteContent(e.target.value)}
             required
           />
+          <div className="flex items-center gap-2 mt-1 mb-2">
+            <input type="checkbox" id="mandatory-fu" checked={mandatoryFu} onChange={(e) => setMandatoryFu(e.target.checked)} />
+            <label htmlFor="mandatory-fu" className="text-[11px] text-destructive font-medium cursor-pointer">Require follow-up within 2 hours (Enforced)</label>
+          </div>
           <Button type="submit" disabled={addNote.isPending || !selectedLeadId || !noteContent} className="w-full h-8 text-xs">
             {addNote.isPending ? "Saving..." : "Add Coaching Note"}
           </Button>

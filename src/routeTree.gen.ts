@@ -85,6 +85,7 @@ import { Route as AdminTenantsRouteImport } from './routes/admin.tenants'
 import { Route as AdminSupremeRouteImport } from './routes/admin.supreme'
 import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
 import { Route as AdminRevenueRouteImport } from './routes/admin.revenue'
+import { Route as AdminRadarRouteImport } from './routes/admin.radar'
 import { Route as AdminPropertyRouteImport } from './routes/admin.property'
 import { Route as AdminPeopleRouteImport } from './routes/admin.people'
 import { Route as AdminOwnersRouteImport } from './routes/admin.owners'
@@ -491,6 +492,11 @@ const AdminRevenueRoute = AdminRevenueRouteImport.update({
   path: '/revenue',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminRadarRoute = AdminRadarRouteImport.update({
+  id: '/radar',
+  path: '/radar',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminPropertyRoute = AdminPropertyRouteImport.update({
   id: '/property',
   path: '/property',
@@ -665,6 +671,7 @@ export interface FileRoutesByFullPath {
   '/admin/owners': typeof AdminOwnersRoute
   '/admin/people': typeof AdminPeopleRoute
   '/admin/property': typeof AdminPropertyRoute
+  '/admin/radar': typeof AdminRadarRoute
   '/admin/revenue': typeof AdminRevenueRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/supreme': typeof AdminSupremeRoute
@@ -766,6 +773,7 @@ export interface FileRoutesByTo {
   '/admin/owners': typeof AdminOwnersRoute
   '/admin/people': typeof AdminPeopleRoute
   '/admin/property': typeof AdminPropertyRoute
+  '/admin/radar': typeof AdminRadarRoute
   '/admin/revenue': typeof AdminRevenueRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/supreme': typeof AdminSupremeRoute
@@ -869,6 +877,7 @@ export interface FileRoutesById {
   '/admin/owners': typeof AdminOwnersRoute
   '/admin/people': typeof AdminPeopleRoute
   '/admin/property': typeof AdminPropertyRoute
+  '/admin/radar': typeof AdminRadarRoute
   '/admin/revenue': typeof AdminRevenueRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/supreme': typeof AdminSupremeRoute
@@ -973,6 +982,7 @@ export interface FileRouteTypes {
     | '/admin/owners'
     | '/admin/people'
     | '/admin/property'
+    | '/admin/radar'
     | '/admin/revenue'
     | '/admin/settings'
     | '/admin/supreme'
@@ -1074,6 +1084,7 @@ export interface FileRouteTypes {
     | '/admin/owners'
     | '/admin/people'
     | '/admin/property'
+    | '/admin/radar'
     | '/admin/revenue'
     | '/admin/settings'
     | '/admin/supreme'
@@ -1176,6 +1187,7 @@ export interface FileRouteTypes {
     | '/admin/owners'
     | '/admin/people'
     | '/admin/property'
+    | '/admin/radar'
     | '/admin/revenue'
     | '/admin/settings'
     | '/admin/supreme'
@@ -1827,6 +1839,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminRevenueRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/radar': {
+      id: '/admin/radar'
+      path: '/radar'
+      fullPath: '/admin/radar'
+      preLoaderRoute: typeof AdminRadarRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/property': {
       id: '/admin/property'
       path: '/property'
@@ -2026,6 +2045,7 @@ interface AdminRouteChildren {
   AdminOwnersRoute: typeof AdminOwnersRoute
   AdminPeopleRoute: typeof AdminPeopleRoute
   AdminPropertyRoute: typeof AdminPropertyRoute
+  AdminRadarRoute: typeof AdminRadarRoute
   AdminRevenueRoute: typeof AdminRevenueRoute
   AdminSettingsRoute: typeof AdminSettingsRoute
   AdminSupremeRoute: typeof AdminSupremeRoute
@@ -2051,6 +2071,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminOwnersRoute: AdminOwnersRoute,
   AdminPeopleRoute: AdminPeopleRoute,
   AdminPropertyRoute: AdminPropertyRoute,
+  AdminRadarRoute: AdminRadarRoute,
   AdminRevenueRoute: AdminRevenueRoute,
   AdminSettingsRoute: AdminSettingsRoute,
   AdminSupremeRoute: AdminSupremeRoute,

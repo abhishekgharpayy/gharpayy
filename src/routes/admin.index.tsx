@@ -9,6 +9,8 @@ import {
 } from "@/components/ui/sheet";
 import type { AdminLeadRow } from "@/admin/lib/selectors";
 import { LeadSparkline } from "@/admin/components/LeadSparkline";
+import { computeTcmHealth } from "@/admin/lib/supreme-metrics";
+import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/admin/")(
   {
@@ -120,6 +122,12 @@ function AdminCockpit() {
       }))
       .sort((a, b) => b.total - a.total);
   }, [open, whyTab]);
+
+  const tcmHealthMap = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof computeTcmHealth>[number]>();
+    computeTcmHealth(rows).forEach(h => map.set(h.name, h));
+    return map;
+  }, [rows]);
 
   const hasRealObjections = useMemo(() => {
     return rows.some((r) =>
@@ -292,6 +300,7 @@ function AdminCockpit() {
             whyTab={whyTab}
             onWhyTabChange={setWhyTab}
             whyByTcm={whyByTcm}
+            tcmHealthMap={tcmHealthMap}
             open={open}
             rows={rows}
             tcms={tcms}
@@ -388,6 +397,7 @@ function WhyPanel({
   whyTab: WhyTab;
   onWhyTabChange: (t: WhyTab) => void;
   whyByTcm: Array<{ tcm: string; entries: Array<[string, AdminLeadRow[]]>; total: number }>;
+  tcmHealthMap: Map<string, ReturnType<typeof computeTcmHealth>[number]>;
   open: AdminLeadRow[];
   rows: AdminLeadRow[];
   tcms: Array<{ id: string; name: string }>;
@@ -478,7 +488,17 @@ function WhyPanel({
                   }}
                   className="w-full flex justify-between items-center p-1.5 rounded hover:bg-muted/50 transition-colors"
                 >
-                  <span className="font-medium truncate">{t.tcm}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium truncate">{t.tcm}</span>
+                    {tcmHealthMap.get(t.tcm) && (
+                      <span className={`text-[9px] px-1.5 py-0.5 rounded ${
+                        tcmHealthMap.get(t.tcm)!.riskFlag === 'burn' ? 'bg-destructive/20 text-destructive' :
+                        tcmHealthMap.get(t.tcm)!.riskFlag === 'watch' ? 'bg-warning/20 text-warning' : 'bg-success/20 text-success'
+                      }`}>
+                        {tcmHealthMap.get(t.tcm)!.loadScore}% Load
+                      </span>
+                    )}
+                  </div>
                   <span className="font-mono text-accent">{t.total}</span>
                 </button>
                 <div className="pl-3 space-y-0.5 text-muted-foreground">
@@ -798,8 +818,8 @@ function LeadDetailPanel({ row }: { row: AdminLeadRow }) {
             <ul className="space-y-1 text-xs">
               {row.objections.slice(0, 6).map((o) => (
                 <li key={o.id} className="flex justify-between items-center p-1.5 rounded border border-border/50">
-                  <span className="truncate">{o.code.replace(/-/g, " ")}</span>
-                  <span className={`shrink-0 ml-2 ${
+                  <span className="truncate flex-1">{o.code.replace(/-/g, " ")}</span>
+                  <span className={`shrink-0 text-[10px] ml-2 ${
                     o.resolution === "yes" ? "text-success" : o.resolution === "partially" ? "text-warning" : "text-destructive"
                   }`}>
                     {o.resolution}
@@ -809,6 +829,11 @@ function LeadDetailPanel({ row }: { row: AdminLeadRow }) {
             </ul>
           </div>
         )}
+
+        <div className="flex gap-2 mt-4">
+          <Button size="sm" variant="outline" className="flex-1 text-xs h-8" onClick={() => alert("Re-assign prompt opened.")}>Re-assign Lead</Button>
+          <Button size="sm" variant="default" className="flex-1 text-xs h-8 bg-accent text-accent-foreground hover:bg-accent/80" onClick={() => alert("Nudge sent to TCM.")}>Nudge TCM</Button>
+        </div>
 
         {row.calls.length > 0 && (
           <div>
