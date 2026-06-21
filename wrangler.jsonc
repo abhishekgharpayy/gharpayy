@@ -6,5 +6,5 @@
     "nodejs_compat"
   ],
   "main": "dist/server/server.js",
-  "pages_build_output_dir": "dist"
+  "pages_build_output_dir": "dist/client"
 }
