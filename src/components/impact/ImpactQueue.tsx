@@ -630,6 +630,7 @@ export function ImpactQueue() {
     tourTimeHint?: string;
     stageDebugReason?: string;
     nextActionReason?: string;
+    workflow?: import("@/lib/crm10x/workflow-navigation").WorkflowNavigationState;
   };
 
   const enriched: Enriched[] = useMemo(() => {
