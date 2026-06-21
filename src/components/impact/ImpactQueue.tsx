@@ -1124,10 +1124,6 @@ export function ImpactQueue() {
 
       {/* ---------------- 10x Command Bar ---------------- */}
 
-            Reset filters
-          </button>
-        </div>
-      )}
 
       {booting && leads.length === 0 && leadsSyncStatus !== "error" && (
         <div className="rounded-lg border border-border bg-card p-8 text-center space-y-2 animate-pulse">
