@@ -90,11 +90,9 @@ export function buildQueueHealthSnapshot(enriched: EnrichedPerformanceLead[]) {
     metrics: [
       countAndDrill("Total Active Leads", enriched.filter(e => e.lead.stage !== "dropped" && e.lead.stage !== "booked"), { chip: "all" }),
       countAndDrill("Super Hot", superHot, { chip: "hot" }),
-      countAndDrill("Follow-Up", followUp, { chip: "all" }), // can add stage filter if added to QueueFilters
       countAndDrill("Tour Scheduled", tourScheduled, { chip: "all" }),
       countAndDrill("Decision Pending", decisionPending, { chip: "all" }),
-      countAndDrill("Booked This Month", bookedThisMonth, { chip: "all" }),
-      countAndDrill("Dropped This Month", droppedThisMonth, { chip: "all" })
+      countAndDrill("Booked This Month", bookedThisMonth, { chip: "all" })
     ],
     bottlenecks: [
       countAndDrill("Overdue Follow-Ups", overdueFollowUps, { actionRequired: ["no-next-action"] }), // approx
@@ -103,6 +101,38 @@ export function buildQueueHealthSnapshot(enriched: EnrichedPerformanceLead[]) {
       countAndDrill("No Owner Assigned", noOwner, { assignment: ["unassigned"] })
     ]
   };
+}
+
+export function buildConversionOpportunitiesToday(enriched: EnrichedPerformanceLead[]) {
+  const tourFeedback = enriched.filter(e => e.workflow.pendingItem === "tour-feedback-missing");
+  const quotePending = enriched.filter(e => e.workflow.pendingItem === "quote-missing");
+  const negotiationActive = enriched.filter(e => e.lead.stage === "negotiation");
+  const moveIn7 = enriched.filter(e => e.lead.moveInDate && differenceInDays(new Date(e.lead.moveInDate), new Date()) <= 7 && differenceInDays(new Date(e.lead.moveInDate), new Date()) >= 0);
+  const bookingPending = enriched.filter(e => e.workflow.pendingItem === "booking-pending" || e.workflow.pendingItem === "negotiation-pending");
+
+  return [
+    countAndDrill("Tour Feedback Missing", tourFeedback, { actionRequired: [] }),
+    countAndDrill("Quote Pending", quotePending, { chip: "quote-pending" }),
+    countAndDrill("Negotiation Active", negotiationActive, { chip: "all" }),
+    countAndDrill("Move-In < 7 Days", moveIn7, { moveIn: ["movein-0-7"] }),
+    countAndDrill("Booking Pending", bookingPending, { chip: "all" })
+  ];
+}
+
+export function buildBusinessImpact(enriched: EnrichedPerformanceLead[]) {
+  const expectedCheckIns = enriched.filter(e => e.lead.stage === "booked" && e.lead.moveInDate && differenceInDays(new Date(e.lead.moveInDate), new Date()) <= 7 && differenceInDays(new Date(e.lead.moveInDate), new Date()) >= 0);
+  const moveIns7 = enriched.filter(e => e.lead.stage !== "booked" && e.lead.stage !== "dropped" && e.lead.moveInDate && differenceInDays(new Date(e.lead.moveInDate), new Date()) <= 7 && differenceInDays(new Date(e.lead.moveInDate), new Date()) >= 0);
+  const hotNoTour = enriched.filter(e => e.lead.intent === "hot" && (!e.openTour || e.openTour.status === "cancelled" || e.openTour.status === "no-show"));
+  const tourAwaitingFeedback = enriched.filter(e => e.workflow.pendingItem === "tour-feedback-missing");
+  const quotesAwaitingDecision = enriched.filter(e => e.lead.stage === "quote-sent" || e.lead.stage === "negotiation");
+
+  return [
+    countAndDrill("Expected Check-ins", expectedCheckIns, { chip: "all" }),
+    countAndDrill("Move-ins in Next 7 Days", moveIns7, { moveIn: ["movein-0-7"] }),
+    countAndDrill("Hot Leads Without Tour", hotNoTour, { chip: "hot" }),
+    countAndDrill("Tours Awaiting Feedback", tourAwaitingFeedback, { actionRequired: [] }),
+    countAndDrill("Quotes Awaiting Decision", quotesAwaitingDecision, { chip: "quote-pending" })
+  ];
 }
 
 export function buildWorkflowSLA(enriched: EnrichedPerformanceLead[]) {
@@ -223,42 +253,20 @@ export function buildStageAging(enriched: EnrichedPerformanceLead[]) {
   });
 }
 
-export function buildPipelineLeakage(enriched: EnrichedPerformanceLead[]) {
-  const stages = ["new", "contacted", "tour-scheduled", "tour-done", "negotiation", "booked", "dropped"];
-  const now = Date.now();
-  
-  return stages.map(stage => {
-    const stageLeads = enriched.filter(e => e.lead.stage === stage);
-    let avgDaysStuck = 0;
-    if (stageLeads.length > 0) {
-      const totalDays = stageLeads.reduce((acc, e) => acc + Math.max(0, differenceInDays(now, new Date(e.lead.stageEnteredAt || e.lead.createdAt))), 0);
-      avgDaysStuck = totalDays / stageLeads.length;
-    }
-    
-    return {
-      stage: formatWorkflowLabel(stage),
-      countAndDrill: countAndDrill("Leads", stageLeads, { chip: "all" }),
-      avgDaysStuck: Math.round(avgDaysStuck * 10) / 10
-    };
-  });
-}
-
-export function buildConversionVelocity(enriched: EnrichedPerformanceLead[]) {
-  // A true conversion velocity requires timeline events, but we'll approximate with difference from createdAt to stageEnteredAt
-  // For V1, we compute averages for leads that have reached specific stages.
+export function buildPipelineHealth(enriched: EnrichedPerformanceLead[]) {
   let leadToTourSum = 0, leadToTourCount = 0;
   let tourToQuoteSum = 0, tourToQuoteCount = 0;
   let quoteToBookSum = 0, quoteToBookCount = 0;
-  
+
   for (const e of enriched) {
     if (e.lead.stage === "tour-done" || e.lead.stage === "negotiation" || e.lead.stage === "booked") {
       const created = new Date(e.lead.createdAt).getTime();
-      const tourDate = e.openTour ? new Date(e.openTour.scheduledAt).getTime() : created + 86400000*2; // mock if data missing
+      const tourDate = e.openTour ? new Date(e.openTour.scheduledAt).getTime() : created + 86400000*2;
       const diff = Math.max(0, differenceInDays(tourDate, created));
       leadToTourSum += diff;
       leadToTourCount++;
     }
-    
+
     if (e.lead.stage === "quote-sent" || e.lead.stage === "negotiation" || e.lead.stage === "booked") {
       const tourDate = e.openTour ? new Date(e.openTour.scheduledAt).getTime() : new Date(e.lead.createdAt).getTime();
       const quoteDate = e.lastQuote ? new Date(e.lastQuote.sentAt).getTime() : tourDate + 86400000;
@@ -266,7 +274,7 @@ export function buildConversionVelocity(enriched: EnrichedPerformanceLead[]) {
       tourToQuoteSum += diff;
       tourToQuoteCount++;
     }
-    
+
     if (e.lead.stage === "booked") {
       const quoteDate = e.lastQuote ? new Date(e.lastQuote.sentAt).getTime() : new Date(e.lead.createdAt).getTime();
       const bookDate = new Date(e.lead.stageEnteredAt || e.lead.updatedAt).getTime();
@@ -276,10 +284,26 @@ export function buildConversionVelocity(enriched: EnrichedPerformanceLead[]) {
     }
   }
 
+  const missingByItem = new Map<string, EnrichedPerformanceLead[]>();
+  for (const e of enriched) {
+    if (e.lead.stage === "booked" || e.lead.stage === "dropped") continue;
+    const item = e.workflow.pendingItem;
+    if (!missingByItem.has(item)) missingByItem.set(item, []);
+    missingByItem.get(item)!.push(e);
+  }
+  
+  let biggestBottleneck = { label: "None", leads: [] as EnrichedPerformanceLead[] };
+  missingByItem.forEach((leads, item) => {
+    if (leads.length > biggestBottleneck.leads.length) biggestBottleneck = { label: formatWorkflowLabel(item), leads };
+  });
+
   return {
-    leadToTour: leadToTourCount ? Math.round((leadToTourSum / leadToTourCount) * 10) / 10 : 0,
-    tourToQuote: tourToQuoteCount ? Math.round((tourToQuoteSum / tourToQuoteCount) * 10) / 10 : 0,
-    quoteToBook: quoteToBookCount ? Math.round((quoteToBookSum / quoteToBookCount) * 10) / 10 : 0,
+    velocity: {
+      leadToTour: leadToTourCount ? Math.round((leadToTourSum / leadToTourCount) * 10) / 10 : 0,
+      tourToQuote: tourToQuoteCount ? Math.round((tourToQuoteSum / tourToQuoteCount) * 10) / 10 : 0,
+      quoteToBook: quoteToBookCount ? Math.round((quoteToBookSum / quoteToBookCount) * 10) / 10 : 0,
+    },
+    biggestBottleneck: countAndDrill(biggestBottleneck.label, biggestBottleneck.leads, { actionRequired: [] })
   };
 }
 
@@ -320,6 +344,7 @@ export function buildTCMLeaderboard(enriched: EnrichedPerformanceLead[], tcms: T
 
     return {
       tcm,
+      drilldown: countAndDrill("Leads", tcmLeads, { assignment: [tcm.id] }),
       leads: leadsCount,
       tours: toursCount,
       quotes: quotesCount,

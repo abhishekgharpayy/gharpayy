@@ -1068,24 +1068,24 @@ export function ImpactQueue() {
                 </SelectContent>
               </Select>
             )}
-            <div className="flex rounded-md border border-border overflow-hidden bg-background">
+            <div className="flex bg-muted/50 p-1 rounded-lg border border-border/50 shadow-inner">
               <button
-                className={`h-8 px-2 text-[9px] uppercase tracking-wider font-semibold flex items-center gap-1 ${view === "stack" ? "bg-accent text-accent-foreground" : "text-muted-foreground"}`}
+                className={`h-7 px-3 text-[10px] uppercase tracking-wider font-semibold flex items-center gap-1.5 rounded-md transition-all ${view === "stack" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
                 onClick={() => { setView("stack"); writeStoredView("stack"); }}
               >
-                <ListOrdered className="h-3 w-3" /> Stack
+                <ListOrdered className="h-3.5 w-3.5" /> Stack
               </button>
               <button
-                className={`h-8 px-2 text-[9px] uppercase tracking-wider font-semibold flex items-center gap-1 ${view === "board" ? "bg-accent text-accent-foreground" : "text-muted-foreground"}`}
+                className={`h-7 px-3 text-[10px] uppercase tracking-wider font-semibold flex items-center gap-1.5 rounded-md transition-all ${view === "board" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
                 onClick={() => { setView("board"); writeStoredView("board"); }}
               >
-                <LayoutGrid className="h-3 w-3" /> Board
+                <LayoutGrid className="h-3.5 w-3.5" /> Board
               </button>
               <button
-                className={`h-8 px-2 text-[9px] uppercase tracking-wider font-semibold flex items-center gap-1 ${view === "performance" ? "bg-accent text-accent-foreground" : "text-muted-foreground"}`}
+                className={`h-7 px-3 text-[10px] uppercase tracking-wider font-semibold flex items-center gap-1.5 rounded-md transition-all ${view === "performance" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
                 onClick={() => { setView("performance"); writeStoredView("performance"); }}
               >
-                <BarChart3 className="h-3 w-3" /> Performance
+                <BarChart3 className="h-3.5 w-3.5" /> Performance
               </button>
             </div>
           </div>
