@@ -263,6 +263,7 @@ function WarRoomTV() {
         </div>
       )}
     </AdminShell>
+    </div>
   );
 }
 
