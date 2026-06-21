@@ -163,10 +163,10 @@ export function useOrgZones() {
         setError(error.message);
         setError(error.message);
         setZones([
-          { id: "z1", name: "North", city: "Bangalore", areas: [], createdAt: "", updatedAt: "" },
-          { id: "z2", name: "South", city: "Bangalore", areas: [], createdAt: "", updatedAt: "" },
-          { id: "z3", name: "East", city: "Bangalore", areas: [], createdAt: "", updatedAt: "" },
-          { id: "z4", name: "West", city: "Bangalore", areas: [], createdAt: "", updatedAt: "" },
+          { id: "z1", name: "North", city: "Bangalore", areas: [], createdAt: "", updatedAt: "", color: "#3b82f6" },
+          { id: "z2", name: "South", city: "Bangalore", areas: [], createdAt: "", updatedAt: "", color: "#ef4444" },
+          { id: "z3", name: "East", city: "Bangalore", areas: [], createdAt: "", updatedAt: "", color: "#10b981" },
+          { id: "z4", name: "West", city: "Bangalore", areas: [], createdAt: "", updatedAt: "", color: "#f59e0b" },
         ]); // Fallback to mock zones
       } finally {
         if (!cancelled) setLoading(false);

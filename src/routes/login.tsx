@@ -40,7 +40,7 @@ function LoginPage() {
     // Bypasses the backend to allow local testing if the server is offline.
     if (identifier.toLowerCase() === "admin") {
       tokenStore.set("mock-local-token");
-      setUser({ id: "admin-1", username: "admin", role: "super_admin" });
+      setUser({ id: "admin-1", username: "admin", role: "super_admin" } as any);
       nav({ to: "/" });
       setBusy(false);
       return;

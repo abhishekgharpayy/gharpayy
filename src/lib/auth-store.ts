@@ -28,7 +28,7 @@ export const useAuthUser = create<AuthState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       if (token === "mock-local-token") {
-        set({ user: { id: "admin-1", username: "admin", role: "super_admin" }, loading: false });
+        set({ user: { id: "admin-1", username: "admin", role: "super_admin" } as any, loading: false });
         return;
       }
       const r = await api.auth.me();
