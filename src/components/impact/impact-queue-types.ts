@@ -38,6 +38,7 @@ export type ImpactEnriched = {
   tourTimeHint?: string;
   stageDebugReason?: string;
   nextActionReason?: string;
+  workflow?: import("@/lib/crm10x/workflow-navigation").WorkflowNavigationState;
 };
 
 export const COLUMNS: { key: ColumnKey; label: string; tint: string; icon: LucideIcon }[] = [

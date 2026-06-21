@@ -675,7 +675,7 @@ export function ImpactQueue() {
           openTour && column === "tourScheduled"
             ? (buildTourTimeHint(openTour, at) ?? undefined)
             : undefined;
-        return { lead, openTour, lastQuote, nba, score, column, tourBand, tourTimeHint };
+        return { lead, openTour, lastQuote, nba, score, column, tourBand, tourTimeHint, workflow };
       });
   }, [leads, tours, quotes, tcmFilter, query, tick, canSelectTcmScope, allCalls]);
 
@@ -731,11 +731,10 @@ export function ImpactQueue() {
           e.lead.lastContactAt,
           e.openTour?.scheduledAt,
           e.openTour?.updatedAt,
-          e.lastQuote?.sentAt,
-          e.lastQuote?.updatedAt
+          e.lastQuote?.sentAt
         ];
         const leadCalls = allCalls.filter(c => c.leadId === e.lead.id);
-        leadCalls.forEach(c => checkDates.push(c.createdAt));
+        leadCalls.forEach(c => checkDates.push(c.ts));
         
         for (const dStr of checkDates) {
           if (dStr) {
@@ -994,7 +993,7 @@ export function ImpactQueue() {
               onOpenChange={setQuickAddOpen}
               tcmOptions={tcmOptions}
               onLeadSaved={() => {
-                setChipFilter("all");
+                setQueueFilters(defaultQueueFilters);
                 setQuery("");
                 setView("board");
               }}
@@ -1028,7 +1027,7 @@ export function ImpactQueue() {
             <ImpactFocusPopover
               tcmFilter={tcmFilter}
               tcmOptions={tcmOptions}
-              onFilterArea={(area) => setAreaFilter(area)}
+              onFilterArea={(area) => setQueueFilters(prev => ({...prev, area}))}
             />
             {!canSelectTcmScope ? (
               <div className="h-8 min-w-[8rem] rounded-md border border-border bg-background px-3 py-2 text-[11px] font-semibold text-foreground flex items-center gap-1.5">

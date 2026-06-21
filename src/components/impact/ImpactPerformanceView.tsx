@@ -432,7 +432,7 @@ export function ImpactPerformanceView({ leads, tours, quotes, activities, follow
                         {tcms.find(t => t.id === l.assignedTcmId)?.name || <Badge variant="secondary" className="text-[10px] bg-warning/20 text-warning-foreground border-warning/30 font-semibold"><AlertCircle className="w-3 h-3 mr-1" /> Unassigned</Badge>}
                       </div>
                       <div className="flex gap-1.5">
-                        <Button size="sm" variant="ghost" className="h-7 text-[10px] font-semibold text-accent" onClick={() => { setDrilldown(null); handleOpenInBoard({ assignment: [l.assignedTcmId || "unassigned"] }); }}>Board</Button>
+                        <Button size="sm" variant="ghost" className="h-7 text-[10px] font-semibold text-accent" onClick={() => { setDrilldown(null); handleOpenInBoard(l.assignedTcmId ? { assignment: l.assignedTcmId } : { status: "unassigned" }); }}>Board</Button>
                       </div>
                     </div>
                   </div>
