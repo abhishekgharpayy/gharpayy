@@ -124,21 +124,23 @@ export function ZonesPage() {
 
       {/* Bulk Action Toolbar */}
       {selectedIds.size > 0 && (
-        <BulkActionToolbar
-          selectedCount={selectedIds.size}
-          onDeleteAll={async () => {
-            // Bulk delete selected zones
-            for (const id of selectedIds) {
-              try {
-                await api.zones.remove(id);
-              } catch (e) {
-                toast.error((e as Error).message);
+          <BulkActionToolbar
+            selectedCount={selectedIds.size}
+            onDeleteAll={async () => {
+              // Bulk delete selected zones
+              for (const id of selectedIds) {
+                try {
+                  await api.zones.remove(id);
+                } catch (e) {
+                  toast.error((e as Error).message);
+                }
               }
-            }
-            setSelectedIds(new Set());
-            await load();
-          }}
-        />
+              setSelectedIds(new Set());
+              await load();
+            }}
+            onBulkSetColor={() => {}}
+            onExportSelected={() => {}}
+          />
       )}
 
       <div className="flex items-center justify-between">
