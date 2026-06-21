@@ -24,3 +24,18 @@ services:
       # - JWT_SECRET
       # - SUPER_ADMIN_EMAIL
       # - SUPER_ADMIN_PASSWORD
+
+  - type: web
+    name: gharpayy-frontend
+    env: node
+    # The frontend runs from the root directory
+    rootDir: .
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+      # You MUST manually set VITE_API_URL to the URL of your backend on Render
+      # e.g., https://gharpayy-backend.onrender.com
