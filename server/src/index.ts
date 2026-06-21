@@ -56,6 +56,9 @@ async function main() {
       if (/^https:\/\/[a-z0-9-]+\.vercel\.app$/.test(origin)) {
         return cb(null, true);
       }
+      if (/^https:\/\/[a-z0-9-]+\.onrender\.com$/.test(origin)) {
+        return cb(null, true);
+      }
       if (env.NODE_ENV === "development" && /^(https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?)$/.test(origin)) {
         return cb(null, true);
       }
