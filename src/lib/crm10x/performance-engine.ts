@@ -90,12 +90,12 @@ export function buildTodayNeedsAttention(enriched: EnrichedPerformanceLead[]) {
   const tourNotScheduled = enriched.filter(e => e.workflow.pendingItem === "tour-not-scheduled");
 
   return [
-    countAndDrill("Feedback Missing", tourFeedback, { actionRequired: [] }),
-    countAndDrill("Quote Pending", quotePending, { chip: "quote-pending" }),
-    countAndDrill("Move-In < 7 Days", moveIn7, { moveIn: ["movein-0-7"] }),
-    countAndDrill("No Activity > 48h", noAct48, { actionRequired: ["no-activity-48h"] }),
-    countAndDrill("Unassigned", unassigned, { assignment: ["unassigned"] }),
-    countAndDrill("Tour Not Scheduled", tourNotScheduled, { actionRequired: [] })
+    countAndDrill("Feedback Missing", tourFeedback, { quickFilters: ["feedback-missing"] }),
+    countAndDrill("Quote Pending", quotePending, { quickFilters: ["quote-pending"] }),
+    countAndDrill("Move-In < 7 Days", moveIn7, { quickFilters: ["movein-0-7"] }),
+    countAndDrill("No Activity > 48h", noAct48, { quickFilters: ["no-activity-48h"] }),
+    countAndDrill("Unassigned", unassigned, { status: "unassigned" }),
+    countAndDrill("Tour Not Scheduled", tourNotScheduled, { quickFilters: [] })
   ];
 }
 
@@ -177,7 +177,7 @@ export function buildTCMLeaderboard(enriched: EnrichedPerformanceLead[], tcms: T
 
     return {
       tcm,
-      drilldown: countAndDrill("Leads", tcmLeads, { assignment: [tcm.id] }),
+      drilldown: countAndDrill("Leads", tcmLeads, { assignment: tcm.id }),
       activeLeads: activeLeadsCount,
       feedbackPending,
       pendingActions,

@@ -321,7 +321,7 @@ export function ImpactPerformanceView({ leads, tours, quotes, activities, follow
                       }
                     </td>
                     <td className="p-3 text-right space-x-2 whitespace-nowrap">
-                      <Button size="sm" variant="ghost" className="h-7 text-[10px] font-semibold text-accent" onClick={(e) => { e.stopPropagation(); handleOpenInBoard({ assignment: [r.ownerId || "unassigned"] }); }}>Board</Button>
+                      <Button size="sm" variant="ghost" className="h-7 text-[10px] font-semibold text-accent" onClick={(e) => { e.stopPropagation(); handleOpenInBoard(r.ownerId ? { assignment: r.ownerId } : { status: "unassigned" }); }}>Board</Button>
                     </td>
                   </tr>
                 );

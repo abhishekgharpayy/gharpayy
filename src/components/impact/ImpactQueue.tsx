@@ -1124,56 +1124,6 @@ export function ImpactQueue() {
 
       {/* ---------------- 10x Command Bar ---------------- */}
 
-      {(chipFilter !== "all" ||
-        query.trim() ||
-        areaFilter !== "all" ||
-        typeFilter !== "all" ||
-        roomFilter !== "all" ||
-        needFilter !== "all") && (
-        <div className="flex flex-wrap items-center gap-2 text-[11px] rounded-md border border-border bg-muted/30 px-2.5 py-1.5">
-          <span className="text-muted-foreground">Showing:</span>
-          {chipFilter !== "all" && (
-            <Badge variant="outline" className="text-[10px]">
-              {CHIP_LABELS[chipFilter]}
-            </Badge>
-          )}
-          {areaFilter !== "all" && (
-            <Badge variant="outline" className="text-[10px]">
-              {areaFilter}
-            </Badge>
-          )}
-          {typeFilter !== "all" && (
-            <Badge variant="outline" className="text-[10px]">
-              {typeFilter}
-            </Badge>
-          )}
-          {roomFilter !== "all" && (
-            <Badge variant="outline" className="text-[10px]">
-              {roomFilter}
-            </Badge>
-          )}
-          {needFilter !== "all" && (
-            <Badge variant="outline" className="text-[10px]">
-              {needFilter}
-            </Badge>
-          )}
-          {query.trim() && (
-            <Badge variant="outline" className="text-[10px]">
-              “{query.trim()}”
-            </Badge>
-          )}
-          <button
-            type="button"
-            className="text-accent font-semibold hover:underline"
-            onClick={() => {
-              setChipFilter("all");
-              setAreaFilter("all");
-              setTypeFilter("all");
-              setRoomFilter("all");
-              setNeedFilter("all");
-              setQuery("");
-            }}
-          >
             Reset filters
           </button>
         </div>
@@ -1235,31 +1185,19 @@ export function ImpactQueue() {
             {stackSorted.length === 0 && (
               <div className="rounded-lg border border-border bg-card p-10 text-center text-xs text-muted-foreground space-y-2">
                 <p>
-                  {chipFilter !== "all" ||
-                  query.trim() ||
-                  areaFilter !== "all" ||
-                  typeFilter !== "all" ||
-                  roomFilter !== "all" ||
-                  needFilter !== "all"
+                  {queueFilters !== defaultQueueFilters ||
+                  query.trim()
                     ? "No leads match your filters."
                     : "Queue clear. Add a lead or relax 🌱"}
                 </p>
-                {(chipFilter !== "all" ||
-                  query.trim() ||
-                  areaFilter !== "all" ||
-                  typeFilter !== "all" ||
-                  roomFilter !== "all" ||
-                  needFilter !== "all") && (
+                {(queueFilters !== defaultQueueFilters ||
+                  query.trim()) && (
                   <Button
                     size="sm"
                     variant="outline"
                     className="h-7 text-[10px]"
                     onClick={() => {
-                      setChipFilter("all");
-                      setAreaFilter("all");
-                      setTypeFilter("all");
-                      setRoomFilter("all");
-                      setNeedFilter("all");
+                      setQueueFilters(defaultQueueFilters);
                       setQuery("");
                     }}
                   >
@@ -1341,7 +1279,7 @@ export function ImpactQueue() {
                   <div className="h-[calc(100%-2.75rem)] overflow-y-auto overflow-x-hidden bg-muted/15 p-2">
                     {c.key === "superHot" &&
                       boardBuckets.superHot.length === 0 &&
-                      chipFilter === "all" &&
+                      queueFilters === defaultQueueFilters &&
                       query.trim() === "" && (
                         <div
                           className="mb-2 rounded-lg border border-dashed border-border bg-background/80 px-2 py-1.5 text-[10px] text-muted-foreground"
