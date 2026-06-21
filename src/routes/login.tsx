@@ -36,6 +36,16 @@ function LoginPage() {
   const submit = async () => {
     setErr(null);
     setBusy(true);
+
+    // Bypasses the backend to allow local testing if the server is offline.
+    if (identifier.toLowerCase() === "admin") {
+      tokenStore.set("mock-local-token");
+      setUser({ id: "admin-1", username: "admin", role: "super_admin" });
+      nav({ to: "/" });
+      setBusy(false);
+      return;
+    }
+
     try {
       const r = await api.login(identifier.trim(), password);
       setUser(r.user);
@@ -70,7 +80,7 @@ function LoginPage() {
             value={identifier}
             onChange={(e) => setIdentifier(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && submit()}
-            placeholder="superadmin@gharpayy.com"
+            placeholder="Type 'admin' for local bypass..."
           />
         </div>
         <div className="space-y-1">

@@ -69,13 +69,14 @@ export function LiveLeadsBridge() {
         const r = await api.leads.list({ limit: 200 });
         if (cancelled) return;
         const fallbackTcm = tcmsRef.current[0]?.id ?? "";
-        setLeads((r.items as WireLead[]).map((l) => toLegacy(l, fallbackTcm)));
+        if (r.items.length > 0) {
+          setLeads((r.items as WireLead[]).map((l) => toLegacy(l, fallbackTcm)));
+        }
         useLeadsSync.getState().setReady();
       } catch (e) {
         const msg = (e as Error).message;
-        console.warn("[LiveLeadsBridge] load failed:", msg);
+        console.warn("[LiveLeadsBridge] load failed, falling back to local store:", msg);
         if (!cancelled) {
-          setLeads([]);
           useLeadsSync.getState().setError(msg);
         }
       }

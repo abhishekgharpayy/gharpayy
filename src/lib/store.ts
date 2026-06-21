@@ -1183,7 +1183,7 @@ export const useApp = create<AppState>()(
     return prop;
   },
 }),
-    { name: "gharpayy.app.v1" },
+    { name: "gharpayy.app.v2" },
   ),
 );
 

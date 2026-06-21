@@ -130,13 +130,13 @@ function WarRoomTV() {
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-75" />
               <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-success" />
             </span>
-            <span>War-Room · Live · Admin TV</span>
+            <span>War-Room Â· Live Â· Admin TV</span>
           </div>
           <h1 className="text-4xl font-bold tracking-tight">Gharpayy Cockpit</h1>
         </div>
         <div className="text-right">
           <div className="text-3xl font-mono tabular-nums">{new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</div>
-          <div className="text-[11px] text-muted-foreground">auto-refresh · last tick #{tick} · data #{dataTick}</div>
+          <div className="text-[11px] text-muted-foreground">auto-refresh Â· last tick #{tick} Â· data #{dataTick}</div>
           <Link to="/admin" className="text-[11px] underline text-muted-foreground">exit</Link>
         </div>
       </header>
@@ -174,7 +174,7 @@ function WarRoomTV() {
           </Wall>
         </section>
 
-        <section className="grid grid-cols-2 gap-3 mt-4">
+        <section className="grid grid-cols-1 gap-3 mt-4">
           <Wall title="Today's Leaderboard">
             <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
@@ -201,7 +201,7 @@ function WarRoomTV() {
                 {[...allBreaches, ...allBreaches].slice(0, Math.max(allBreaches.length * 2, allBreaches.length)).map((b, i) => (
                   <span key={`${b.leadId}-${b.type}-${i}`} className="inline-flex items-center gap-2">
                     <span className="font-semibold">{b.leadName}</span>
-                    <span className="text-muted-foreground">· {b.type} ·</span>
+                    <span className="text-muted-foreground">Â· {b.type} Â·</span>
                     <span className="font-mono text-destructive">{inrL(b.expectedValue)}</span>
                   </span>
                 ))}
