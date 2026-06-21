@@ -144,7 +144,7 @@ export function ImpactFiltersPopover({
        if (filters.status === "dropped") parts.push("Dropped");
     }
     
-    if (filters.quickFilters.length > 0) parts.push(\`\${filters.quickFilters.length} Quick\`);
+    if (filters.quickFilters.length > 0) parts.push(`\${filters.quickFilters.length} Quick`);
     
     return parts.length > 0 ? parts.join(" • ") : "Filters";
   }, [filters, tcms]);

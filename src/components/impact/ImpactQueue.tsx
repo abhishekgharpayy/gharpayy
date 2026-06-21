@@ -713,8 +713,6 @@ export function ImpactQueue() {
 
   const filtered = useMemo(() => {
     const at = Date.now();
-  const filtered = useMemo(() => {
-    const at = Date.now();
     
     let dateRangeStart = 0;
     if (queueFilters.dateRange === "today") dateRangeStart = at - 24 * 60 * 60 * 1000;
