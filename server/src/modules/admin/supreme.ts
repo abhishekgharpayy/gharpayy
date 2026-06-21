@@ -68,6 +68,13 @@ export function registerAdminSupremeRoutes(app: FastifyInstance) {
     return reply.send({ success: true, activity });
   });
 
+  app.get("/api/v1/tcm/coaching-notes", { preHandler: [requireAuth] }, async (req, reply) => {
+    const notes = await col("activities")
+      .find({ tenantId: req.user!.tenantId, tcmId: req.user!.sub, kind: "coaching_note" })
+      .toArray();
+    return reply.send({ notes });
+  });
+
   // ── Server-Side Audit Log ─────────────────────────────────────────────────
   app.get("/api/v1/admin/audit", { preHandler: [requireAuth] }, async (req, reply) => {
     const role = req.user!.role;
