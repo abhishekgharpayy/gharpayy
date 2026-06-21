@@ -1,7 +1,7 @@
-import Redis from "ioredis";
+import Redis, { RedisOptions } from "ioredis";
 import { env } from "../config/env.js";
 
-const redisOptions: ConstructorParameters<typeof Redis>[1] = {
+const redisOptions: RedisOptions = {
   maxRetriesPerRequest: null,
   lazyConnect: true,
   enableOfflineQueue: false,
