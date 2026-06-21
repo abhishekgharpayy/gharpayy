@@ -2,9 +2,12 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useApp } from "@/lib/store";
 import { useAuthUser } from "@/lib/auth-store";
 import { useMemo } from "react";
-import { LEADS } from "@/lib/mock-data";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, AreaChart, Area, ComposedChart } from "recharts";
-import { IndianRupee, TrendingUp, AlertCircle, Percent, CheckCircle } from "lucide-react";
+import { IndianRupee, TrendingUp, AlertCircle, Percent, CheckCircle, Loader2 } from "lucide-react";
+import { api } from "@/lib/api/client";
+import { normalizeLeadRecord } from "@/lib/lead-helpers";
+import { useState, useEffect } from "react";
+import type { Lead } from "@/lib/types";
 
 export const Route = createFileRoute("/admin/revenue")({
   beforeLoad: () => {
@@ -28,8 +31,22 @@ function formatCurrency(val: number) {
 
 function AdminRevenue() {
   const app = useApp();
-  // Fallback to mock data if live database is empty
-  const leads = app.leads.length > 0 ? app.leads : LEADS;
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const res = await api.leads.list({ limit: 2000 });
+        setLeads((res.items as any[]).map(l => normalizeLeadRecord(l)));
+      } catch (err) {
+        console.error("Failed to fetch leads for revenue", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchData();
+  }, []);
 
   const data = useMemo(() => {
     let totalExpected = 0;
@@ -93,6 +110,15 @@ function AdminRevenue() {
 
     return { totalExpected, totalPotential, totalRealized, funnelData, trendData };
   }, [leads]);
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-muted-foreground animate-pulse">Computing revenue forecasts...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto w-full animate-in fade-in zoom-in-95 duration-500 pb-12">

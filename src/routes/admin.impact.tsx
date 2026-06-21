@@ -1,14 +1,16 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useApp } from "@/lib/store";
 import { useAuthUser } from "@/lib/auth-store";
 import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from "recharts";
-import { Target, Zap, AlertTriangle, CheckCircle, Clock3, Search } from "lucide-react";
+import { Target, Zap, AlertTriangle, CheckCircle, Clock3, Search, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { LEADS, TCMS, FOLLOWUPS } from "@/lib/mock-data";
+import { api } from "@/lib/api/client";
+import { normalizeLeadRecord } from "@/lib/lead-helpers";
+import type { Lead, TCM, FollowUp } from "@/lib/types";
 
 export const Route = createFileRoute("/admin/impact")(
   {
@@ -35,10 +37,30 @@ const PIE_COLORS = [COLORS.primary, COLORS.success, COLORS.warning, COLORS.dange
 function AdminImpact() {
   const app = useApp();
   
-  // Fallback to mock data if the live database returns empty arrays
-  const leads = app.leads.length > 0 ? app.leads : LEADS;
-  const tcms = app.tcms.length > 0 ? app.tcms : TCMS;
-  const followUps = app.followUps.length > 0 ? app.followUps : FOLLOWUPS;
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [tcms, setTcms] = useState<TCM[]>([]);
+  const [followUps, setFollowUps] = useState<FollowUp[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const [lRes, tRes, fRes] = await Promise.all([
+          api.leads.list({ limit: 2000 }),
+          api.tcms.list(),
+          api.followUps.list({ limit: 2000 })
+        ]);
+        setLeads((lRes.items as any[]).map(l => normalizeLeadRecord(l)));
+        setTcms(tRes.map(t => ({ id: t.id, name: t.fullName, initials: t.fullName.substring(0, 2).toUpperCase(), totalLeads: 0, conversionRate: 0, totalTasks: 0, completionRate: 0, avgResponseMins: 0 })));
+        setFollowUps(fRes.items as FollowUp[]);
+      } catch (err) {
+        console.error("Failed to load impact data", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchData();
+  }, []);
 
   const [auditSearch, setAuditSearch] = useState("");
   const [sortCol, setSortCol] = useState("timeStr");
@@ -249,6 +271,15 @@ function AdminImpact() {
     if (sortCol === col) setSortAsc(!sortAsc);
     else { setSortCol(col); setSortAsc(true); }
   };
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-muted-foreground animate-pulse">Computing impact metrics...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 p-6 pb-20 max-w-[1400px] mx-auto animate-in fade-in duration-500">

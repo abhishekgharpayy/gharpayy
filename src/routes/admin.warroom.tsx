@@ -102,10 +102,16 @@ function WarRoomTV() {
         setPingPulse(true);
         setTimeout(() => setPingPulse(false), 2000);
         
-        // Randomly simulate a big win if the user just booked something recently, or just randomly for demo!
-        if (Math.random() > 0.7) {
-            setBigWin({ leadName: "Rajesh K.", amount: 85000, tcmName: "Aditi" });
-            setTimeout(() => setBigWin(null), 4000);
+        // Check for real booking activities instead of faking it
+        const newBookings = newItems.filter(item => item.type === "deal_won" || item.type === "booking_created");
+        if (newBookings.length > 0) {
+            const latest = newBookings[0];
+            setBigWin({ 
+              leadName: String(latest.payload.leadName || "Client"), 
+              amount: Number(latest.payload.amount || 0), 
+              tcmName: String(latest.payload.tcmName || "TCM") 
+            });
+            setTimeout(() => setBigWin(null), 8000);
         }
       }
     }
@@ -134,110 +140,128 @@ function WarRoomTV() {
   }, [refreshData]);
 
   return (
-    <div className="fixed inset-0 bg-background text-foreground overflow-auto p-6 font-display">
-      <style>{`@keyframes warFade{from{opacity:.45;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}@keyframes ticker{from{transform:translateX(0)}to{transform:translateX(-50%)}}`}</style>
-      <header className="flex items-center justify-between mb-4">
+    <div className="fixed inset-0 bg-slate-950 text-slate-50 overflow-auto p-6 font-display">
+      <style>{`
+        @keyframes warFade{from{opacity:.45;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes ticker{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+        .neon-border { box-shadow: 0 0 10px rgba(59, 130, 246, 0.2), inset 0 0 10px rgba(59, 130, 246, 0.1); }
+        .neon-border-success { box-shadow: 0 0 15px rgba(16, 185, 129, 0.2), inset 0 0 10px rgba(16, 185, 129, 0.1); }
+        .neon-border-danger { box-shadow: 0 0 15px rgba(239, 68, 68, 0.2), inset 0 0 10px rgba(239, 68, 68, 0.1); }
+        .neon-border-warn { box-shadow: 0 0 15px rgba(245, 158, 11, 0.2), inset 0 0 10px rgba(245, 158, 11, 0.1); }
+        .neon-text-glow { text-shadow: 0 0 10px currentColor; }
+      `}</style>
+      <header className="flex items-center justify-between mb-6 border-b border-blue-900/30 pb-4">
         <div>
-          <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.2em] text-destructive font-bold">
+          <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.2em] text-blue-400 font-bold mb-1">
             <span className="relative flex h-2.5 w-2.5">
-              <span className={`absolute inline-flex h-full w-full rounded-full bg-success opacity-75 ${pingPulse ? 'animate-ping' : ''}`} />
-              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-success" />
+              <span className={`absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75 ${pingPulse ? 'animate-ping' : ''}`} />
+              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-blue-500" />
             </span>
-            <span>War-Room · Live · Admin TV</span>
+            <span className="neon-text-glow">COMMAND CENTER · LIVE</span>
           </div>
-          <h1 className="text-4xl font-bold tracking-tight">Gharpayy Cockpit</h1>
+          <h1 className="text-4xl font-black tracking-tight text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]">Gharpayy War Room</h1>
         </div>
         <div className="text-right">
-          <div className="text-3xl font-mono tabular-nums">{new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</div>
-          <div className="text-[11px] text-muted-foreground">auto-refresh · last tick #{tick} · data #{dataTick}</div>
-          <Link to="/admin" className="text-[11px] underline text-muted-foreground">exit</Link>
+          <div className="text-4xl font-mono font-bold tabular-nums text-blue-100 neon-text-glow drop-shadow-[0_0_10px_rgba(219,234,254,0.5)]">
+            {new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+          </div>
+          <div className="text-[11px] text-blue-500/60 font-mono mt-1">SYS_TICK #{tick} // DATA_SYNC #{dataTick}</div>
+          <Link to="/admin" className="text-[11px] text-blue-400 hover:text-blue-300 transition-colors uppercase tracking-widest mt-1 inline-block">TERMINATE SESSIONS</Link>
         </div>
       </header>
 
-      <main key={dataTick} style={{ animation: "warFade 420ms ease-out" }}>
-        <section className="grid grid-cols-5 gap-3 mb-4">
-          <BigTile label="Booked 12mo" value={inrL(money.bookedRevenue)} tone="success" />
-          <BigTile label="Weighted pipeline" value={inrL(money.pipelineRevenue)} tone="info" />
-          <BigTile label="Hot >=70%" value={inrL(money.hotRevenue)} tone="accent" />
-          <BigTile label="At risk" value={inrL(money.atRiskRevenue)} tone="warn" />
-          <BigTile label="Walking 30d" value={inrL(money.walkingRevenue)} tone="danger" />
+      <main key={dataTick} style={{ animation: "warFade 600ms cubic-bezier(0.16, 1, 0.3, 1)" }} className="space-y-6">
+        <section className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <BigTile label="BOOKED 12M" value={inrL(money.bookedRevenue)} tone="success" />
+          <BigTile label="WEIGHTED PIPELINE" value={inrL(money.pipelineRevenue)} tone="info" />
+          <BigTile label="HOT >=70%" value={inrL(money.hotRevenue)} tone="accent" />
+          <BigTile label="AT RISK" value={inrL(money.atRiskRevenue)} tone="warn" />
+          <BigTile label="WALKING 30D" value={inrL(money.walkingRevenue)} tone="danger" />
         </section>
 
-        <section className="grid grid-cols-3 gap-3">
-          <Wall title="Most likely to close">
+        <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Wall title="MOST LIKELY TO CLOSE" icon="🎯">
             {hot.map((r, i) => (
               <Row key={r.lead.id} idx={i + 1} left={r.lead.name} mid={r.tcm?.name ?? "-"} right={`${r.probability}%`} />
             ))}
-            {!hot.length && <Empty>No hot leads.</Empty>}
+            {!hot.length && <Empty>NO HOT LEADS DETECTED</Empty>}
           </Wall>
-          <Wall title="SLA breaches by value">
+          
+          <Wall title="SLA BREACHES (HIGH VALUE)" icon="⚠️" borderTone="danger">
             {breaches.map((b, i) => (
-              <Row key={b.leadId + b.type} idx={i + 1} left={b.leadName} mid={b.type} right={inrL(b.expectedValue)} tone="danger" />
+              <Row key={b.leadId + b.type} idx={i + 1} left={b.leadName} mid={b.type.replace(/_/g, " ")} right={inrL(b.expectedValue)} tone="danger" />
             ))}
-            {!breaches.length && <Empty>No breaches. Clean.</Empty>}
+            {!breaches.length && <Empty>ALL SYSTEMS NOMINAL. NO BREACHES.</Empty>}
           </Wall>
-          <Wall title="Live alerts">
+          
+          <Wall title="LIVE ACTIVITY FEED" icon="📡">
             {alerts.map((a) => (
-              <li key={a.id} className="flex gap-3 text-base py-1 border-b border-border/40">
-                <span className="font-mono text-muted-foreground text-sm">{new Date(a.ts).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</span>
-                <span className="flex-1">{a.message}</span>
+              <li key={a.id} className="flex gap-4 text-sm py-2.5 border-b border-blue-900/30">
+                <span className="font-mono text-blue-400/70">{new Date(a.ts).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</span>
+                <span className="flex-1 text-blue-100/90 capitalize">{a.message.replace(/_/g, " ")}</span>
               </li>
             ))}
-            {!alerts.length && <Empty>Silent. All quiet.</Empty>}
+            {!alerts.length && <Empty>COMM CHANNELS SILENT.</Empty>}
           </Wall>
         </section>
 
-        <section className="grid grid-cols-1 gap-3 mt-4">
-          <Wall title="Today's Leaderboard">
-            <div className="h-72">
+        <section className="grid grid-cols-1 gap-6">
+          <Wall title="GLOBAL TCM LEADERBOARD" icon="🏆" borderTone="accent">
+            <div className="h-64 mt-2">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={leaderboard} layout="vertical" margin={{ left: 8, right: 16, top: 8, bottom: 8 }}>
+                <BarChart data={leaderboard} layout="vertical" margin={{ left: 8, right: 30, top: 0, bottom: 0 }}>
                   <XAxis type="number" hide allowDecimals={false} />
-                  <YAxis type="category" dataKey="name" width={120} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
-                  <Tooltip cursor={{ fill: "hsl(var(--muted) / 0.35)" }} />
-                  <Bar dataKey="toursCount" radius={[0, 6, 6, 0]} isAnimationActive={true} animationDuration={1500}>
+                  <YAxis type="category" dataKey="name" width={120} tick={{ fill: "#94a3b8", fontSize: 13, fontWeight: 600 }} axisLine={false} tickLine={false} />
+                  <Tooltip cursor={{ fill: "rgba(59, 130, 246, 0.1)" }} contentStyle={{ backgroundColor: "#020617", border: "1px solid #1e3a8a", borderRadius: "8px" }} />
+                  <Bar dataKey="toursCount" radius={[0, 4, 4, 0]} isAnimationActive={true} animationDuration={1000} barSize={24}>
                     {leaderboard.map((entry) => (
-                      <Cell key={entry.userId} fill={entry.toursCount >= 3 ? "hsl(var(--success))" : entry.toursCount >= 1 ? "hsl(var(--warning))" : "hsl(var(--destructive))"} />
+                      <Cell key={entry.userId} fill={entry.toursCount >= 3 ? "#10b981" : entry.toursCount >= 1 ? "#f59e0b" : "#ef4444"} />
                     ))}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </div>
-            {!leaderboard.length && <Empty>No leaderboard data.</Empty>}
+            {!leaderboard.length && <Empty>AWAITING LEADERBOARD DATA.</Empty>}
           </Wall>
-          <Wall title="SLA Breach Ticker">
-            <div className="overflow-hidden rounded-lg border border-border/60 bg-muted/20 py-3">
-              <div
-                className="flex w-max gap-6 whitespace-nowrap px-4 text-sm"
-                style={{ animation: allBreaches.length > 4 ? "ticker 24s linear infinite" : undefined }}
-              >
-                {[...allBreaches, ...allBreaches].slice(0, Math.max(allBreaches.length * 2, allBreaches.length)).map((b, i) => (
-                  <span key={`${b.leadId}-${b.type}-${i}`} className="inline-flex items-center gap-2">
-                    <span className="font-semibold">{b.leadName}</span>
-                    <span className="text-muted-foreground">· {b.type} ·</span>
-                    <span className="font-mono text-destructive">{inrL(b.expectedValue)}</span>
-                  </span>
-                ))}
-                {!allBreaches.length && <span className="text-muted-foreground">No active SLA breaches.</span>}
-              </div>
+
+          <div className="overflow-hidden rounded-xl border border-red-500/30 bg-red-950/20 py-3 relative neon-border-danger">
+            <div className="absolute left-0 top-0 bottom-0 w-24 bg-gradient-to-r from-slate-950 to-transparent z-10 flex items-center px-4 font-black tracking-widest text-red-500 text-xs">
+              BREACHES
             </div>
-          </Wall>
+            <div className="absolute right-0 top-0 bottom-0 w-16 bg-gradient-to-l from-slate-950 to-transparent z-10" />
+            <div
+              className="flex w-max gap-8 whitespace-nowrap px-24 text-sm font-mono"
+              style={{ animation: allBreaches.length > 0 ? "ticker 20s linear infinite" : undefined }}
+            >
+              {[...allBreaches, ...allBreaches].slice(0, Math.max(allBreaches.length * 2, 1)).map((b, i) => (
+                <span key={`${b.leadId}-${b.type}-${i}`} className="inline-flex items-center gap-3">
+                  <span className="font-bold text-red-400">{b.leadName}</span>
+                  <span className="text-red-500/50">///</span>
+                  <span className="text-red-300 uppercase">{b.type.replace(/_/g, " ")}</span>
+                  <span className="text-red-500/50">///</span>
+                  <span className="font-black text-red-500">{inrL(b.expectedValue)}</span>
+                </span>
+              ))}
+              {!allBreaches.length && <span className="text-green-500 tracking-widest px-8">NO ACTIVE SLA BREACHES DETECTED ACROSS THE NETWORK.</span>}
+            </div>
+          </div>
         </section>
       </main>
 
       {/* BIG WIN TAKEOVER OVERLAY */}
       {bigWin && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/95 backdrop-blur-md animate-in fade-in duration-500">
-          <div className="text-center space-y-6 animate-in slide-in-from-bottom-10 zoom-in-95 duration-700">
-            <div className="text-[200px] leading-none mb-4 animate-bounce">🎉</div>
-            <h2 className="text-6xl font-display font-black text-transparent bg-clip-text bg-gradient-to-r from-success to-accent">
-              DEAL BOOKED!
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/95 backdrop-blur-xl animate-in fade-in duration-500">
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-green-900/40 via-slate-950/90 to-slate-950/100 pointer-events-none" />
+          <div className="relative text-center space-y-6 animate-in slide-in-from-bottom-10 zoom-in-95 duration-700">
+            <div className="text-[180px] leading-none mb-4 animate-bounce drop-shadow-[0_0_50px_rgba(16,185,129,0.8)]">🚀</div>
+            <h2 className="text-7xl font-display font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-green-500 tracking-tight neon-text-glow">
+              MISSION ACCOMPLISHED
             </h2>
-            <div className="text-4xl font-mono text-success">
-              {inrL(bigWin.amount)} <span className="text-2xl text-muted-foreground uppercase">Revenue</span>
+            <div className="text-5xl font-mono text-green-400 font-bold drop-shadow-[0_0_20px_rgba(74,222,128,0.5)] mt-4">
+              {inrL(bigWin.amount)} <span className="text-2xl text-green-600/80 tracking-widest uppercase ml-2">Revenue Secured</span>
             </div>
-            <div className="text-3xl font-medium mt-4">
-              <span className="text-accent">{bigWin.tcmName}</span> closed <span className="font-semibold text-foreground">{bigWin.leadName}</span>!
+            <div className="text-3xl font-medium mt-8 text-slate-300">
+              Agent <span className="text-blue-400 font-bold px-2">{bigWin.tcmName.toUpperCase()}</span> closed <span className="font-black text-white px-2 border-b-2 border-green-500">{bigWin.leadName.toUpperCase()}</span>
             </div>
           </div>
         </div>
@@ -247,35 +271,53 @@ function WarRoomTV() {
 }
 
 function BigTile({ label, value, tone }: { label: string; value: string; tone: "success" | "info" | "accent" | "warn" | "danger" }) {
-  const cls = { success: "text-success", info: "text-info", accent: "text-accent", warn: "text-warning", danger: "text-destructive" }[tone];
+  const tones = {
+    success: { text: "text-emerald-400", border: "neon-border-success", bg: "bg-emerald-950/20 border-emerald-500/30" },
+    info: { text: "text-blue-400", border: "neon-border", bg: "bg-blue-950/20 border-blue-500/30" },
+    accent: { text: "text-purple-400", border: "shadow-[0_0_15px_rgba(168,85,247,0.2)]", bg: "bg-purple-950/20 border-purple-500/30" },
+    warn: { text: "text-amber-400", border: "neon-border-warn", bg: "bg-amber-950/20 border-amber-500/30" },
+    danger: { text: "text-red-500", border: "neon-border-danger", bg: "bg-red-950/20 border-red-500/30" },
+  };
+  const t = tones[tone];
+  
   return (
-    <div className="rounded-2xl border-2 border-border bg-card p-5">
-      <div className="text-xs uppercase tracking-widest text-muted-foreground">{label}</div>
-      <div className={`text-5xl font-bold mt-2 tabular-nums ${cls}`}>{value}</div>
+    <div className={`rounded-xl border ${t.bg} ${t.border} p-5 relative overflow-hidden transition-all duration-300 hover:scale-[1.02]`}>
+      <div className="absolute top-0 right-0 w-16 h-16 bg-white/5 blur-2xl rounded-full transform translate-x-8 -translate-y-8" />
+      <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">{label}</div>
+      <div className={`text-4xl md:text-5xl font-black mt-3 font-mono tabular-nums tracking-tighter ${t.text} drop-shadow-[0_0_8px_currentColor]`}>{value}</div>
     </div>
   );
 }
 
-function Wall({ title, children }: { title: string; children: React.ReactNode }) {
+function Wall({ title, children, icon, borderTone = "info" }: { title: string; children: React.ReactNode; icon?: string; borderTone?: "info" | "danger" | "accent" }) {
+  const borders = {
+    info: "border-blue-800/40 shadow-[0_0_15px_rgba(30,58,138,0.3)]",
+    danger: "border-red-800/40 shadow-[0_0_15px_rgba(153,27,27,0.3)]",
+    accent: "border-purple-800/40 shadow-[0_0_15px_rgba(107,33,168,0.3)]",
+  };
+  
   return (
-    <div className="rounded-2xl border-2 border-border bg-card p-4">
-      <div className="text-lg font-semibold mb-2">{title}</div>
-      <ul className="space-y-0">{children}</ul>
+    <div className={`rounded-xl border bg-slate-900/50 backdrop-blur-sm p-5 flex flex-col h-full ${borders[borderTone]}`}>
+      <div className="flex items-center gap-3 mb-4 border-b border-white/5 pb-3">
+        {icon && <span className="text-xl opacity-80">{icon}</span>}
+        <div className="text-sm font-bold tracking-[0.15em] uppercase text-slate-300">{title}</div>
+      </div>
+      <ul className="space-y-1 flex-1">{children}</ul>
     </div>
   );
 }
 
 function Row({ idx, left, mid, right, tone }: { idx: number; left: string; mid: string; right: string; tone?: "danger" }) {
   return (
-    <li className="flex items-center gap-3 py-1.5 border-b border-border/40 text-base">
-      <span className="w-6 text-center font-mono text-muted-foreground">{idx}</span>
-      <span className="flex-1 truncate font-medium">{left}</span>
-      <span className="text-sm text-muted-foreground truncate w-24 text-right">{mid}</span>
-      <span className={`font-mono tabular-nums w-20 text-right ${tone === "danger" ? "text-destructive" : "text-accent"}`}>{right}</span>
+    <li className="flex items-center gap-4 py-2 border-b border-white/5 text-sm transition-colors hover:bg-white/5 rounded-md px-2 -mx-2">
+      <span className="w-5 text-center font-mono text-slate-500 text-xs">{String(idx).padStart(2, '0')}</span>
+      <span className="flex-1 truncate font-semibold text-slate-200">{left}</span>
+      <span className="text-xs text-slate-400 truncate w-24 text-right uppercase tracking-wider">{mid}</span>
+      <span className={`font-mono font-bold tabular-nums w-24 text-right tracking-tight ${tone === "danger" ? "text-red-400" : "text-emerald-400"}`}>{right}</span>
     </li>
   );
 }
 
 function Empty({ children }: { children: React.ReactNode }) {
-  return <li className="text-muted-foreground py-3 text-center">{children}</li>;
+  return <li className="text-slate-500 py-6 text-center font-mono text-xs uppercase tracking-widest">{children}</li>;
 }

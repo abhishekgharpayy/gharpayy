@@ -1,9 +1,11 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useApp } from "@/lib/store";
 import { useAuthUser } from "@/lib/auth-store";
-import { useMemo } from "react";
-import { LEADS, FOLLOWUPS, TCMS } from "@/lib/mock-data";
-import { Award, Trophy, Medal, Zap, Clock, Star, Target, CheckCircle } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { Award, Trophy, Medal, Zap, Clock, Star, Target, CheckCircle, Loader2 } from "lucide-react";
+import { api } from "@/lib/api/client";
+import { normalizeLeadRecord } from "@/lib/lead-helpers";
+import type { Lead, TCM, FollowUp } from "@/lib/types";
 
 export const Route = createFileRoute("/admin/leaderboard")({
   beforeLoad: () => {
@@ -14,11 +16,30 @@ export const Route = createFileRoute("/admin/leaderboard")({
 });
 
 function AdminLeaderboard() {
-  const app = useApp();
-  // Fallback to mock data
-  const leads = app.leads.length > 0 ? app.leads : LEADS;
-  const tcms = app.tcms.length > 0 ? app.tcms : TCMS;
-  const followUps = app.followUps.length > 0 ? app.followUps : FOLLOWUPS;
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [tcms, setTcms] = useState<TCM[]>([]);
+  const [followUps, setFollowUps] = useState<FollowUp[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const [lRes, tRes, fRes] = await Promise.all([
+          api.leads.list({ limit: 2000 }),
+          api.tcms.list(),
+          api.followUps.list({ limit: 2000 })
+        ]);
+        setLeads((lRes.items as any[]).map(l => normalizeLeadRecord(l)));
+        setTcms(tRes.map(t => ({ id: t.id, name: t.fullName, initials: t.fullName.substring(0, 2).toUpperCase(), totalLeads: 0, conversionRate: 0, totalTasks: 0, completionRate: 0, avgResponseMins: 0 })));
+        setFollowUps(fRes.items as FollowUp[]);
+      } catch (err) {
+        console.error("Failed to fetch leaderboard data", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchData();
+  }, []);
 
   const leaderboard = useMemo(() => {
     const tcmStats = tcms.map(tcm => {
@@ -58,6 +79,15 @@ function AdminLeaderboard() {
 
     return tcmStats;
   }, [tcms, leads, followUps]);
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-muted-foreground animate-pulse">Calculating TCM performance scores...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto w-full animate-in fade-in zoom-in-95 duration-500 pb-12">
