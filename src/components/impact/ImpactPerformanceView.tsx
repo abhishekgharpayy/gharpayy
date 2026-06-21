@@ -8,12 +8,20 @@ import {
   buildTCMLeaderboard,
   MetricDrilldown
 } from "@/lib/crm10x/performance-engine";
+import {
+  exportOperationsReport,
+  exportTeamReport,
+  exportRiskReport,
+  ReportRange,
+  ReportFormat
+} from "@/lib/crm10x/performance-exports";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useApp } from "@/lib/store";
 import { QueueFilters } from "./ImpactQueueHeaderControls";
 import { formatDistanceToNow, format } from "date-fns";
-import { PhoneCall, ArrowRight, ShieldAlert, Users, Search, X, CheckSquare, EyeOff, Eye } from "lucide-react";
+import { ArrowRight, ShieldAlert, Users, Search, X, CheckSquare, EyeOff, Eye, Download, FileText, FileSpreadsheet, FileIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 
@@ -29,7 +37,7 @@ interface Props {
 
 export function ImpactPerformanceView({ leads, tours, quotes, activities, followUps, tcms, tcmOptions }: Props) {
   // Manager Filters
-  const [dateRange, setDateRange] = useState("all");
+  const [dateRange, setDateRange] = useState<ReportRange>("all");
   const [assignedTcm, setAssignedTcm] = useState("all");
   const [stageFilter, setStageFilter] = useState("all");
   const [zoneFilter, setZoneFilter] = useState("all");
@@ -39,7 +47,7 @@ export function ImpactPerformanceView({ leads, tours, quotes, activities, follow
 
   useEffect(() => {
     setLastUpdated(format(new Date(), "h:mm a"));
-  }, [leads, tours]); // rough proxy for data updates
+  }, [leads, tours]);
 
   const selectLead = useApp(s => s.selectLead);
 
@@ -70,7 +78,7 @@ export function ImpactPerformanceView({ leads, tours, quotes, activities, follow
 
   const enriched = useMemo(() => buildEnrichedPerformanceLeads(filteredLeads, tours, quotes, activities, followUps), [filteredLeads, tours, quotes, activities, followUps]);
 
-  const summaryLine = useMemo(() => buildMyTeamNeedsAttentionSummary(enriched), [enriched]);
+  const summaryLine = useMemo(() => buildMyTeamNeedsAttentionSummary(enriched, tours), [enriched, tours]);
   const todayNeedsAttention = useMemo(() => buildTodayNeedsAttention(enriched), [enriched]);
   const atRisk = useMemo(() => buildTopAtRiskLeads(enriched), [enriched]);
   const leaderboard = useMemo(() => buildTCMLeaderboard(enriched, tcms, hideInactive), [enriched, tcms, hideInactive]);
@@ -88,9 +96,10 @@ export function ImpactPerformanceView({ leads, tours, quotes, activities, follow
     setSearchQuery("");
   };
 
-  const handleOpenInBoard = () => {
-    if (!drilldown) return;
-    alert(`Opening Board with filter: ${JSON.stringify(drilldown.filterPayload)}`);
+  const handleOpenInBoard = (filterPayload?: Partial<QueueFilters>) => {
+    const payload = filterPayload || drilldown?.filterPayload || {};
+    // In actual implementation, this dispatches to change the view to board and pass the filter
+    alert(`Opening Board with filter: ${JSON.stringify(payload)}`);
     setDrilldown(null);
   };
 
@@ -113,23 +122,31 @@ export function ImpactPerformanceView({ leads, tours, quotes, activities, follow
     );
   };
 
+  const PriorityBadge = ({ priority }: { priority: string }) => {
+    if (priority === "Critical") return <Badge variant="destructive" className="text-[10px]">🔴 Critical</Badge>;
+    if (priority === "High") return <Badge variant="secondary" className="bg-warning/20 text-warning-foreground border-warning/30 text-[10px]">🟠 High</Badge>;
+    return <Badge variant="secondary" className="text-[10px]">🟡 Medium</Badge>;
+  };
+
   return (
     <div className="space-y-6 pb-20 max-w-[1400px] mx-auto">
       {/* Manager Filters (Sticky Toolbar) */}
       <div className="sticky top-0 z-10 flex flex-wrap items-center gap-2 bg-background/95 backdrop-blur p-2 rounded-lg border border-border shadow-sm">
-        <div className="relative flex-1 min-w-[200px]">
+        <div className="relative flex-1 min-w-[160px]">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input 
-            placeholder="Search leads, phone, property, TCM..." 
+            placeholder="Search leads..." 
             className="h-9 pl-9 text-xs" 
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
           />
         </div>
-        <select className="h-9 rounded-md border border-border bg-background px-3 text-xs" value={dateRange} onChange={e => setDateRange(e.target.value)}>
+        <select className="h-9 rounded-md border border-border bg-background px-3 text-xs" value={dateRange} onChange={e => setDateRange(e.target.value as ReportRange)}>
           <option value="all">All Time</option>
-          <option value="this-month">This Month</option>
-          <option value="this-week">This Week</option>
+          <option value="today">Today</option>
+          <option value="yesterday">Yesterday</option>
+          <option value="last7">Last 7 Days</option>
+          <option value="last30">Last 30 Days</option>
         </select>
         <select className="h-9 rounded-md border border-border bg-background px-3 text-xs" value={assignedTcm} onChange={e => setAssignedTcm(e.target.value)}>
           <option value="all">All Members</option>
@@ -148,10 +165,41 @@ export function ImpactPerformanceView({ leads, tours, quotes, activities, follow
             {zones.map(z => <option key={z as string} value={z as string}>{z as string}</option>)}
           </select>
         )}
-        <Button variant="ghost" size="sm" className="h-9 text-xs px-3" onClick={resetFilters}>
-          <X className="h-3 w-3 mr-1" /> Reset
+        <Button variant="ghost" size="sm" className="h-9 text-xs px-2" onClick={resetFilters}>
+          <X className="h-3 w-3" />
         </Button>
-        <div className="ml-auto text-[10px] text-muted-foreground font-medium px-2">
+        
+        {/* Export Reporting Dropdown */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="h-9 text-xs gap-1.5 ml-auto font-semibold">
+              <Download className="h-3.5 w-3.5" /> Export
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Reports ({dateRange})</DropdownMenuLabel>
+            
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel className="text-[11px]">Daily Ops Report</DropdownMenuLabel>
+            <DropdownMenuItem className="text-xs gap-2 cursor-pointer" onClick={() => exportOperationsReport(enriched, "csv", dateRange)}><FileText className="h-3.5 w-3.5" /> Download CSV</DropdownMenuItem>
+            <DropdownMenuItem className="text-xs gap-2 cursor-pointer" onClick={() => exportOperationsReport(enriched, "xlsx", dateRange)}><FileSpreadsheet className="h-3.5 w-3.5 text-success" /> Download XLSX</DropdownMenuItem>
+            <DropdownMenuItem className="text-xs gap-2 cursor-pointer" onClick={() => exportOperationsReport(enriched, "pdf", dateRange)}><FileIcon className="h-3.5 w-3.5 text-danger" /> Download PDF</DropdownMenuItem>
+            
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel className="text-[11px]">Risk Report</DropdownMenuLabel>
+            <DropdownMenuItem className="text-xs gap-2 cursor-pointer" onClick={() => exportRiskReport(atRisk, tcms, "csv", dateRange)}><FileText className="h-3.5 w-3.5" /> Download CSV</DropdownMenuItem>
+            <DropdownMenuItem className="text-xs gap-2 cursor-pointer" onClick={() => exportRiskReport(atRisk, tcms, "xlsx", dateRange)}><FileSpreadsheet className="h-3.5 w-3.5 text-success" /> Download XLSX</DropdownMenuItem>
+            <DropdownMenuItem className="text-xs gap-2 cursor-pointer" onClick={() => exportRiskReport(atRisk, tcms, "pdf", dateRange)}><FileIcon className="h-3.5 w-3.5 text-danger" /> Download PDF</DropdownMenuItem>
+            
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel className="text-[11px]">Team Report</DropdownMenuLabel>
+            <DropdownMenuItem className="text-xs gap-2 cursor-pointer" onClick={() => exportTeamReport(enriched, tcms, "csv", dateRange)}><FileText className="h-3.5 w-3.5" /> Download CSV</DropdownMenuItem>
+            <DropdownMenuItem className="text-xs gap-2 cursor-pointer" onClick={() => exportTeamReport(enriched, tcms, "xlsx", dateRange)}><FileSpreadsheet className="h-3.5 w-3.5 text-success" /> Download XLSX</DropdownMenuItem>
+            <DropdownMenuItem className="text-xs gap-2 cursor-pointer" onClick={() => exportTeamReport(enriched, tcms, "pdf", dateRange)}><FileIcon className="h-3.5 w-3.5 text-danger" /> Download PDF</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <div className="text-[10px] text-muted-foreground font-medium px-2">
           Last Updated: {lastUpdated}
         </div>
       </div>
@@ -162,13 +210,13 @@ export function ImpactPerformanceView({ leads, tours, quotes, activities, follow
         <div className="flex flex-wrap gap-3 items-center">
           <span>{summaryLine.activeLeads} Active</span>
           <span className="opacity-30">|</span>
-          <span className={summaryLine.tfMissing > 0 ? 'text-danger' : ''}>{summaryLine.tfMissing} Feedback Missing</span>
+          <span>{summaryLine.toursToday} Tours Today</span>
+          <span className="opacity-30">|</span>
+          <span className={summaryLine.tfPending > 0 ? 'text-danger' : ''}>{summaryLine.tfPending} Feedback Missing</span>
           <span className="opacity-30">|</span>
           <span className={summaryLine.quotePending > 0 ? 'text-danger' : ''}>{summaryLine.quotePending} Quotes</span>
           <span className="opacity-30">|</span>
-          <span className={summaryLine.moveIn7 > 0 ? 'text-warning' : ''}>{summaryLine.moveIn7} Move-ins</span>
-          <span className="opacity-30">|</span>
-          <span className={summaryLine.unassigned > 0 ? 'text-danger' : ''}>{summaryLine.unassigned} Unassigned</span>
+          <span className="text-success">{summaryLine.bookingsToday} Bookings Today</span>
         </div>
       </div>
 
@@ -177,14 +225,13 @@ export function ImpactPerformanceView({ leads, tours, quotes, activities, follow
         <h2 className="text-sm font-extrabold text-slate-800 dark:text-foreground mb-3 flex items-center gap-2 uppercase tracking-wide">
           <CheckSquare className="h-4 w-4 text-danger" /> Today Needs Attention
         </h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
           <MetricCard metric={todayNeedsAttention[0]} target={2} /> {/* Feedback Missing */}
           <MetricCard metric={todayNeedsAttention[1]} target={5} /> {/* Quote Pending */}
           <MetricCard metric={todayNeedsAttention[2]} target={10} colorClass="text-warning" /> {/* Move-In < 7 Days */}
           <MetricCard metric={todayNeedsAttention[3]} target={10} /> {/* No Activity > 48h */}
           <MetricCard metric={todayNeedsAttention[4]} target={0} /> {/* Unassigned */}
-          <MetricCard metric={todayNeedsAttention[5]} target={5} /> {/* Property Not Selected */}
-          <MetricCard metric={todayNeedsAttention[6]} target={5} /> {/* Tour Not Scheduled */}
+          <MetricCard metric={todayNeedsAttention[5]} target={5} /> {/* Tour Not Scheduled */}
         </div>
       </section>
 
@@ -199,6 +246,7 @@ export function ImpactPerformanceView({ leads, tours, quotes, activities, follow
               <tr>
                 <th className="p-3 font-bold text-slate-600 dark:text-muted-foreground uppercase tracking-wider text-[10px]">Lead</th>
                 <th className="p-3 font-bold text-slate-600 dark:text-muted-foreground uppercase tracking-wider text-[10px]">Issue</th>
+                <th className="p-3 font-bold text-slate-600 dark:text-muted-foreground uppercase tracking-wider text-[10px]">Priority</th>
                 <th className="p-3 font-bold text-slate-600 dark:text-muted-foreground uppercase tracking-wider text-[10px]">Move In</th>
                 <th className="p-3 font-bold text-slate-600 dark:text-muted-foreground uppercase tracking-wider text-[10px]">Owner</th>
                 <th className="p-3 font-bold text-slate-600 dark:text-muted-foreground uppercase tracking-wider text-[10px] text-right">Action</th>
@@ -210,31 +258,32 @@ export function ImpactPerformanceView({ leads, tours, quotes, activities, follow
                   ? (r.moveInDays < 0 ? <Badge variant="destructive" className="text-[10px]">Expired</Badge> : `${r.moveInDays} days`) 
                   : <span className="text-muted-foreground">Missing</span>;
                 
-                const ownerLabel = r.ownerId ? (tcms.find(t => t.id === r.ownerId)?.name || 'Unknown') : <Badge variant="secondary" className="text-[10px] bg-warning/20 text-warning-foreground border-warning/30 hover:bg-warning/30 cursor-pointer">Needs Assignment</Badge>;
+                const ownerLabel = r.ownerId ? (tcms.find(t => t.id === r.ownerId)?.name || 'Needs Assignment') : <Badge variant="secondary" className="text-[10px] bg-warning/20 text-warning-foreground border-warning/30 hover:bg-warning/30 cursor-pointer">Needs Assignment</Badge>;
                 
                 return (
                   <tr key={r.lead.id} className="border-b border-border hover:bg-muted/10 transition-colors">
                     <td className="p-3 font-semibold text-slate-800 dark:text-foreground">{r.lead.name}</td>
-                    <td className="p-3 text-danger font-semibold">{r.issue}</td>
+                    <td className="p-3 font-bold text-slate-700 dark:text-foreground">{r.issue}</td>
+                    <td className="p-3"><PriorityBadge priority={r.priority} /></td>
                     <td className="p-3 font-medium text-slate-700 dark:text-foreground">{moveInLabel}</td>
                     <td className="p-3 font-medium text-slate-700 dark:text-foreground">{ownerLabel}</td>
                     <td className="p-3 text-right space-x-2 whitespace-nowrap">
+                      <Button size="sm" variant="ghost" className="h-7 text-[10px] font-semibold text-accent" onClick={(e) => { e.stopPropagation(); handleOpenInBoard({ assignment: [r.ownerId || "unassigned"] }); }}>Board</Button>
                       <Button size="sm" variant="outline" className="h-7 text-[10px]" onClick={(e) => { e.stopPropagation(); selectLead(r.lead.id, "impact", "none", "none"); }}>Open</Button>
-                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground hover:text-accent" onClick={(e) => { e.stopPropagation(); window.open(`tel:${r.lead.phone}`, '_self'); }}><PhoneCall className="h-3 w-3" /></Button>
                     </td>
                   </tr>
                 );
               })}
               {atRisk.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="p-8 text-center text-muted-foreground">No at-risk leads found! All clear.</td>
+                  <td colSpan={6} className="p-8 text-center text-muted-foreground">No at-risk leads found! All clear.</td>
                 </tr>
               )}
             </tbody>
           </table>
           {atRisk.length >= 10 && (
             <div className="p-2 border-t border-border bg-muted/10 text-center">
-              <Button variant="ghost" size="sm" className="text-xs w-full text-accent" onClick={() => handleDrilldown({ label: "At Risk Leads", count: atRisk.length, filterPayload: {}, leadIds: atRisk.map(a => a.lead.id) })}>View All At Risk</Button>
+              <Button variant="ghost" size="sm" className="text-xs w-full text-accent font-semibold" onClick={() => handleDrilldown({ label: "At Risk Leads", count: atRisk.length, filterPayload: {}, leadIds: atRisk.map(a => a.lead.id) })}>View All At Risk</Button>
             </div>
           )}
         </div>
@@ -255,10 +304,9 @@ export function ImpactPerformanceView({ leads, tours, quotes, activities, follow
             <thead className="bg-muted/30 border-b border-border">
               <tr>
                 <th className="p-3 font-bold text-slate-600 dark:text-muted-foreground uppercase tracking-wider text-[10px]">TCM</th>
-                <th className="p-3 font-bold text-slate-600 dark:text-muted-foreground uppercase tracking-wider text-[10px]">Leads</th>
-                <th className="p-3 font-bold text-slate-600 dark:text-muted-foreground uppercase tracking-wider text-[10px]">Tours</th>
-                <th className="p-3 font-bold text-slate-600 dark:text-muted-foreground uppercase tracking-wider text-[10px]">Bookings</th>
-                <th className="p-3 font-bold text-slate-600 dark:text-muted-foreground uppercase tracking-wider text-[10px] text-success">Conv %</th>
+                <th className="p-3 font-bold text-slate-600 dark:text-muted-foreground uppercase tracking-wider text-[10px]">Active Leads</th>
+                <th className="p-3 font-bold text-slate-600 dark:text-muted-foreground uppercase tracking-wider text-[10px]">Pending Actions</th>
+                <th className="p-3 font-bold text-slate-600 dark:text-muted-foreground uppercase tracking-wider text-[10px] text-success">Bookings This Week</th>
               </tr>
             </thead>
             <tbody>
@@ -269,15 +317,14 @@ export function ImpactPerformanceView({ leads, tours, quotes, activities, follow
                   onClick={() => handleDrilldown(r.drilldown)}
                 >
                   <td className="p-3 font-semibold text-slate-800 dark:text-foreground">{r.tcm.name}</td>
-                  <td className="p-3 font-medium">{r.leads}</td>
-                  <td className="p-3 font-medium">{r.tours}</td>
-                  <td className="p-3 font-bold text-success">{r.bookings}</td>
-                  <td className={`p-3 font-bold bg-success/5 ${r.conversion > 15 ? 'text-success' : 'text-slate-700 dark:text-foreground'}`}>{r.conversion}%</td>
+                  <td className="p-3 font-medium">{r.activeLeads}</td>
+                  <td className={`p-3 font-bold ${r.pendingActions > 5 ? 'text-danger' : 'text-slate-700 dark:text-foreground'}`}>{r.pendingActions}</td>
+                  <td className="p-3 font-bold text-success">{r.bookingsThisWeek}</td>
                 </tr>
               ))}
               {leaderboard.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="p-8 text-center text-muted-foreground">No active team members.</td>
+                  <td colSpan={4} className="p-8 text-center text-muted-foreground">No active team members.</td>
                 </tr>
               )}
             </tbody>
@@ -294,7 +341,7 @@ export function ImpactPerformanceView({ leads, tours, quotes, activities, follow
                 {drilldown?.label}
                 <Badge variant="secondary" className="text-xs bg-background">{drilldown?.leadIds.length} leads</Badge>
               </span>
-              <Button size="sm" onClick={handleOpenInBoard} className="h-8 gap-1.5 text-xs">
+              <Button size="sm" onClick={() => handleOpenInBoard()} className="h-8 gap-1.5 text-xs">
                 Open in Board <ArrowRight className="h-3 w-3" />
               </Button>
             </DialogTitle>
@@ -316,12 +363,10 @@ export function ImpactPerformanceView({ leads, tours, quotes, activities, follow
                     </div>
                     <div className="flex items-center gap-4">
                       <div className="text-xs text-slate-600 dark:text-muted-foreground w-28 truncate text-right font-medium">
-                        {tcms.find(t => t.id === l.assignedTcmId)?.name || <span className="text-warning font-bold">Needs Assignment</span>}
+                        {tcms.find(t => t.id === l.assignedTcmId)?.name || <Badge variant="secondary" className="text-[10px] bg-warning/20 text-warning-foreground border-warning/30">Needs Assignment</Badge>}
                       </div>
                       <div className="flex gap-1.5">
-                        <Button size="sm" variant="ghost" className="h-7 w-7 p-0 hover:text-accent" title="Call" onClick={() => window.open(`tel:${l.phone}`, '_self')}>
-                          <PhoneCall className="h-3.5 w-3.5" />
-                        </Button>
+                        <Button size="sm" variant="ghost" className="h-7 text-[10px] font-semibold text-accent" onClick={() => { setDrilldown(null); handleOpenInBoard({ assignment: [l.assignedTcmId || "unassigned"] }); }}>Board</Button>
                         <Button size="sm" variant="outline" className="h-7 text-[10px] font-semibold" onClick={() => { setDrilldown(null); selectLead(l.id, "impact", "none", "none"); }}>Open Lead</Button>
                       </div>
                     </div>

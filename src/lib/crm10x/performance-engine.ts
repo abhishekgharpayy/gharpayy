@@ -1,4 +1,4 @@
-import { differenceInHours, differenceInDays } from "date-fns";
+import { differenceInHours, differenceInDays, isToday, isThisWeek } from "date-fns";
 import type { Lead, Tour, ActivityLog, FollowUp, TCM } from "@/lib/types";
 import { deriveImpactStage, calculateLastActivityAt, derivePriorityScore, deriveNextAction } from "./impact-stage-derivation";
 import { deriveWorkflowState } from "./workflow-navigation";
@@ -28,7 +28,6 @@ export function buildEnrichedPerformanceLeads(
   activities: ActivityLog[],
   followUps: FollowUp[]
 ): EnrichedPerformanceLead[] {
-  const at = Date.now();
   return leads.map((lead) => {
     const leadTours = tours
       .filter((t) => t.leadId === lead.id)
@@ -67,17 +66,17 @@ function countAndDrill(label: string, leads: EnrichedPerformanceLead[], filterPa
   };
 }
 
-export function buildMyTeamNeedsAttentionSummary(enriched: EnrichedPerformanceLead[]) {
+export function buildMyTeamNeedsAttentionSummary(enriched: EnrichedPerformanceLead[], tours: Tour[]) {
   const activeLeads = enriched.filter(e => e.lead.stage !== "dropped" && e.lead.stage !== "booked").length;
-  const tfMissing = enriched.filter(e => e.workflow.pendingItem === "tour-feedback-missing").length;
+  const toursToday = tours.filter(t => isToday(new Date(t.scheduledAt))).length;
+  const toursCompletedToday = tours.filter(t => isToday(new Date(t.scheduledAt)) && t.status === "completed").length;
+  
+  const tfPending = enriched.filter(e => e.workflow.pendingItem === "tour-feedback-missing").length;
   const quotePending = enriched.filter(e => e.workflow.pendingItem === "quote-missing").length;
   
-  // Move-ins this week (0-7 days)
-  const moveIn7 = enriched.filter(e => e.lead.moveInDate && differenceInDays(new Date(e.lead.moveInDate), new Date()) <= 7 && differenceInDays(new Date(e.lead.moveInDate), new Date()) >= 0).length;
-  
-  const unassigned = enriched.filter(e => !e.lead.assignedTcmId).length;
+  const bookingsToday = enriched.filter(e => e.lead.stage === "booked" && e.lead.stageEnteredAt && isToday(new Date(e.lead.stageEnteredAt))).length;
 
-  return { activeLeads, tfMissing, quotePending, moveIn7, unassigned };
+  return { activeLeads, toursToday, toursCompletedToday, tfPending, quotePending, bookingsToday };
 }
 
 export function buildTodayNeedsAttention(enriched: EnrichedPerformanceLead[]) {
@@ -88,8 +87,6 @@ export function buildTodayNeedsAttention(enriched: EnrichedPerformanceLead[]) {
   const moveIn7 = enriched.filter(e => e.lead.moveInDate && differenceInDays(new Date(e.lead.moveInDate), new Date()) <= 7 && differenceInDays(new Date(e.lead.moveInDate), new Date()) >= 0);
   const noAct48 = enriched.filter(e => differenceInHours(now, new Date(e.lastActivityAt)) > 48);
   const unassigned = enriched.filter(e => !e.lead.assignedTcmId);
-  
-  const propNotSelected = enriched.filter(e => e.workflow.pendingItem === "property-not-selected");
   const tourNotScheduled = enriched.filter(e => e.workflow.pendingItem === "tour-not-scheduled");
 
   return [
@@ -98,7 +95,6 @@ export function buildTodayNeedsAttention(enriched: EnrichedPerformanceLead[]) {
     countAndDrill("Move-In < 7 Days", moveIn7, { moveIn: ["movein-0-7"] }),
     countAndDrill("No Activity > 48h", noAct48, { actionRequired: ["no-activity-48h"] }),
     countAndDrill("Unassigned", unassigned, { assignment: ["unassigned"] }),
-    countAndDrill("Property Not Selected", propNotSelected, { propertyStatus: ["property-not-selected"] }),
     countAndDrill("Tour Not Scheduled", tourNotScheduled, { actionRequired: [] })
   ];
 }
@@ -115,49 +111,82 @@ export function buildTopAtRiskLeads(enriched: EnrichedPerformanceLead[]) {
     return (moveIn >= 0 && moveIn <= 7) || noAct || e.workflow.pendingItem === "tour-feedback-missing" || e.workflow.pendingItem === "quote-missing" || !e.lead.assignedTcmId;
   });
 
-  return atRisk.sort((a, b) => b.priorityScore - a.priorityScore).slice(0, 10).map(e => {
+  const parsed = atRisk.map(e => {
     let issue = "Unknown";
-    if (!e.lead.assignedTcmId) issue = "No Owner";
-    else if (e.workflow.pendingItem === "tour-feedback-missing") issue = "Tour Feedback Missing";
-    else if (e.workflow.pendingItem === "quote-missing") issue = "Quote Pending";
-    else if (differenceInHours(now, new Date(e.lastActivityAt)) > 48) issue = "No Activity > 48h";
-    else if (e.workflow.pendingItem === "deep-profile-missing") issue = "Deep Profile Missing";
-    else issue = formatWorkflowLabel(e.workflow.pendingItem);
+    let priorityStr = "Medium";
+    let priorityNum = 3; // Lower is higher priority
     
     const moveInDays = e.lead.moveInDate ? differenceInDays(new Date(e.lead.moveInDate), new Date()) : null;
+    const noAct = differenceInHours(now, new Date(e.lastActivityAt)) > 48;
 
+    if (moveInDays !== null && moveInDays >= 0 && moveInDays <= 7) {
+      issue = "Move-In < 7 Days";
+      priorityStr = "Critical";
+      priorityNum = 1;
+    } else if (e.workflow.pendingItem === "tour-feedback-missing") {
+      issue = "Tour Feedback Missing";
+      priorityStr = "High";
+      priorityNum = 2;
+    } else if (e.workflow.pendingItem === "quote-missing") {
+      issue = "Quote Pending";
+      priorityStr = "High";
+      priorityNum = 2;
+    } else if (noAct) {
+      issue = "No Activity > 48h";
+      priorityStr = "Medium";
+      priorityNum = 3;
+    } else if (!e.lead.assignedTcmId) {
+      issue = "No Owner";
+      priorityStr = "Medium";
+      priorityNum = 4;
+    } else {
+      issue = formatWorkflowLabel(e.workflow.pendingItem);
+      priorityStr = "Medium";
+      priorityNum = 5;
+    }
+    
     return {
       lead: e.lead,
       moveInDays,
       issue,
+      priority: priorityStr as "Critical" | "High" | "Medium",
+      priorityNum,
       ownerId: e.lead.assignedTcmId
     };
+  });
+
+  return parsed.sort((a, b) => {
+    if (a.priorityNum !== b.priorityNum) return a.priorityNum - b.priorityNum;
+    return a.moveInDays !== null && b.moveInDays !== null ? a.moveInDays - b.moveInDays : 0;
   });
 }
 
 export function buildTCMLeaderboard(enriched: EnrichedPerformanceLead[], tcms: TCM[], hideInactive: boolean) {
   const result = tcms.map(tcm => {
     const tcmLeads = enriched.filter(e => e.lead.assignedTcmId === tcm.id);
-    const leadsCount = tcmLeads.length;
-    const toursCount = tcmLeads.filter(e => e.openTour).length;
-    const bookingsCount = tcmLeads.filter(e => e.lead.stage === "booked").length;
-    const conversion = leadsCount > 0 ? Math.round((bookingsCount / leadsCount) * 100) : 0;
+    const activeLeadsCount = tcmLeads.filter(e => e.lead.stage !== "dropped" && e.lead.stage !== "booked").length;
+    
+    const pendingActions = tcmLeads.filter(e => {
+       const w = e.workflow.pendingItem;
+       return w === "tour-feedback-missing" || w === "quote-missing" || w === "deep-profile-missing" || w === "tour-not-scheduled";
+    }).length;
+
+    const bookingsThisWeek = tcmLeads.filter(e => e.lead.stage === "booked" && e.lead.stageEnteredAt && isThisWeek(new Date(e.lead.stageEnteredAt))).length;
 
     return {
       tcm,
       drilldown: countAndDrill("Leads", tcmLeads, { assignment: [tcm.id] }),
-      leads: leadsCount,
-      tours: toursCount,
-      bookings: bookingsCount,
-      conversion
+      activeLeads: activeLeadsCount,
+      pendingActions,
+      bookingsThisWeek,
     };
   });
   
-  let sorted = result.sort((a, b) => b.bookings - a.bookings || b.leads - a.leads);
+  let sorted = result.sort((a, b) => b.bookingsThisWeek - a.bookingsThisWeek || b.pendingActions - a.pendingActions);
   
   if (hideInactive) {
-    sorted = sorted.filter(r => r.leads > 0);
+    sorted = sorted.filter(r => r.activeLeads > 0);
   }
   
-  return sorted.slice(0, 10);
+  return sorted;
 }
