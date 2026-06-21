@@ -150,6 +150,8 @@ export interface Zone {
   city: string;
   areas: string[];
   color: string;
+  ownerId?: string; // admin assignment
+  visibility?: 'public' | 'private' | 'team';
   createdAt?: string;
   updatedAt?: string;
 }

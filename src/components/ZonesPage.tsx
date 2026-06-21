@@ -4,6 +4,8 @@ import { Map as MapIcon, Plus, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { SearchBar } from "@/components/zone/SearchBar";
+import { BulkActionToolbar } from "@/components/zone/BulkActionToolbar";
 import { api, type Zone } from "@/lib/api/client";
 
 const ZONE_COLORS = ["#6366f1", "#f59e0b", "#10b981", "#ef4444", "#8b5cf6", "#06b6d4", "#f97316", "#ec4899"];
