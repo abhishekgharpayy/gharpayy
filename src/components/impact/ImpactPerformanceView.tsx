@@ -18,12 +18,15 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
 import { useApp } from "@/lib/store";
 import { QueueFilters } from "./ImpactQueueHeaderControls";
 import { formatDistanceToNow, format } from "date-fns";
-import { ArrowRight, ShieldAlert, Users, Search, X, CheckSquare, EyeOff, Eye, Download, FileText, FileSpreadsheet, FileIcon } from "lucide-react";
+import { ArrowRight, ShieldAlert, Users, Search, X, CheckSquare, EyeOff, Eye, Download, FileText, FileSpreadsheet, FileIcon, ChevronsUpDown, Check, AlertCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 
 interface Props {
   leads: Lead[];
@@ -39,11 +42,13 @@ export function ImpactPerformanceView({ leads, tours, quotes, activities, follow
   // Manager Filters
   const [dateRange, setDateRange] = useState<ReportRange>("all");
   const [assignedTcm, setAssignedTcm] = useState("all");
+  const [memberOpen, setMemberOpen] = useState(false);
   const [stageFilter, setStageFilter] = useState("all");
   const [zoneFilter, setZoneFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [hideInactive, setHideInactive] = useState(true);
   const [lastUpdated, setLastUpdated] = useState("");
+  const [showAllAtRisk, setShowAllAtRisk] = useState(false);
 
   useEffect(() => {
     setLastUpdated(format(new Date(), "h:mm a"));
@@ -98,7 +103,6 @@ export function ImpactPerformanceView({ leads, tours, quotes, activities, follow
 
   const handleOpenInBoard = (filterPayload?: Partial<QueueFilters>) => {
     const payload = filterPayload || drilldown?.filterPayload || {};
-    // In actual implementation, this dispatches to change the view to board and pass the filter
     alert(`Opening Board with filter: ${JSON.stringify(payload)}`);
     setDrilldown(null);
   };
@@ -128,6 +132,9 @@ export function ImpactPerformanceView({ leads, tours, quotes, activities, follow
     return <Badge variant="secondary" className="text-[10px]">🟡 Medium</Badge>;
   };
 
+  const displayedAtRisk = showAllAtRisk ? atRisk : atRisk.slice(0, 10);
+  const isFiltered = assignedTcm !== "all" || stageFilter !== "all" || zoneFilter !== "all" || searchQuery.trim() !== "";
+
   return (
     <div className="space-y-6 pb-20 max-w-[1400px] mx-auto">
       {/* Manager Filters (Sticky Toolbar) */}
@@ -141,6 +148,37 @@ export function ImpactPerformanceView({ leads, tours, quotes, activities, follow
             onChange={e => setSearchQuery(e.target.value)}
           />
         </div>
+        
+        {/* Searchable Combobox for Members */}
+        <Popover open={memberOpen} onOpenChange={setMemberOpen}>
+          <PopoverTrigger asChild>
+            <Button variant="outline" role="combobox" aria-expanded={memberOpen} className="h-9 w-[160px] justify-between text-xs bg-background">
+              {assignedTcm === "all" ? "All Members" : tcms.find((t) => t.id === assignedTcm)?.name}
+              <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[200px] p-0 shadow-lg">
+            <Command>
+              <CommandInput placeholder="Search member..." className="h-9 text-xs" />
+              <CommandEmpty className="text-xs py-3 text-center text-muted-foreground">No member found.</CommandEmpty>
+              <CommandList>
+                <CommandGroup>
+                  <CommandItem value="all" onSelect={() => { setAssignedTcm("all"); setMemberOpen(false); }} className="text-xs">
+                    <Check className={cn("mr-2 h-3.5 w-3.5", assignedTcm === "all" ? "opacity-100" : "opacity-0")} />
+                    All Members
+                  </CommandItem>
+                  {tcms.map((t) => (
+                    <CommandItem key={t.id} value={t.name} onSelect={() => { setAssignedTcm(t.id); setMemberOpen(false); }} className="text-xs">
+                      <Check className={cn("mr-2 h-3.5 w-3.5", assignedTcm === t.id ? "opacity-100" : "opacity-0")} />
+                      {t.name}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
+
         <select className="h-9 rounded-md border border-border bg-background px-3 text-xs" value={dateRange} onChange={e => setDateRange(e.target.value as ReportRange)}>
           <option value="all">All Time</option>
           <option value="today">Today</option>
@@ -148,10 +186,7 @@ export function ImpactPerformanceView({ leads, tours, quotes, activities, follow
           <option value="last7">Last 7 Days</option>
           <option value="last30">Last 30 Days</option>
         </select>
-        <select className="h-9 rounded-md border border-border bg-background px-3 text-xs" value={assignedTcm} onChange={e => setAssignedTcm(e.target.value)}>
-          <option value="all">All Members</option>
-          {tcms.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-        </select>
+        
         <select className="h-9 rounded-md border border-border bg-background px-3 text-xs" value={stageFilter} onChange={e => setStageFilter(e.target.value)}>
           <option value="all">All Stages</option>
           <option value="new">New</option>
@@ -159,15 +194,23 @@ export function ImpactPerformanceView({ leads, tours, quotes, activities, follow
           <option value="tour-done">Tour Done</option>
           <option value="negotiation">Negotiation</option>
         </select>
+        
         {zones.length > 0 && (
           <select className="h-9 rounded-md border border-border bg-background px-3 text-xs" value={zoneFilter} onChange={e => setZoneFilter(e.target.value)}>
             <option value="all">All Zones</option>
             {zones.map(z => <option key={z as string} value={z as string}>{z as string}</option>)}
           </select>
         )}
+        
         <Button variant="ghost" size="sm" className="h-9 text-xs px-2" onClick={resetFilters}>
           <X className="h-3 w-3" />
         </Button>
+        
+        {isFiltered && (
+          <Badge variant="secondary" className="bg-accent/10 text-accent font-semibold ml-2">
+            Showing {filteredLeads.length} Leads
+          </Badge>
+        )}
         
         {/* Export Reporting Dropdown */}
         <DropdownMenu>
@@ -176,7 +219,7 @@ export function ImpactPerformanceView({ leads, tours, quotes, activities, follow
               <Download className="h-3.5 w-3.5" /> Export
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuContent align="end" className="w-56 shadow-lg">
             <DropdownMenuLabel className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Reports ({dateRange})</DropdownMenuLabel>
             
             <DropdownMenuSeparator />
@@ -199,8 +242,8 @@ export function ImpactPerformanceView({ leads, tours, quotes, activities, follow
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <div className="text-[10px] text-muted-foreground font-medium px-2">
-          Last Updated: {lastUpdated}
+        <div className="ml-2 text-[10px] text-muted-foreground font-medium flex items-center gap-1.5 border-l border-border pl-3 h-6">
+          Last Sync: {lastUpdated} <span className="opacity-40">|</span> Source: Production Database
         </div>
       </div>
 
@@ -253,37 +296,53 @@ export function ImpactPerformanceView({ leads, tours, quotes, activities, follow
               </tr>
             </thead>
             <tbody>
-              {atRisk.map(r => {
-                const moveInLabel = r.moveInDays !== null 
-                  ? (r.moveInDays < 0 ? <Badge variant="destructive" className="text-[10px]">Expired</Badge> : `${r.moveInDays} days`) 
-                  : <span className="text-muted-foreground">Missing</span>;
+              {displayedAtRisk.map(r => {
+                const isValidMoveIn = r.moveInDays !== null && !isNaN(r.moveInDays);
+                const moveInLabel = isValidMoveIn 
+                  ? (r.moveInDays! < 0 ? <Badge variant="destructive" className="text-[10px]">Expired</Badge> : `${r.moveInDays} days`) 
+                  : <span className="text-muted-foreground">—</span>;
                 
-                const ownerLabel = r.ownerId ? (tcms.find(t => t.id === r.ownerId)?.name || 'Needs Assignment') : <Badge variant="secondary" className="text-[10px] bg-warning/20 text-warning-foreground border-warning/30 hover:bg-warning/30 cursor-pointer">Needs Assignment</Badge>;
+                const isUnassigned = !r.ownerId;
+                const ownerName = r.ownerId ? tcms.find(t => t.id === r.ownerId)?.name : null;
                 
                 return (
-                  <tr key={r.lead.id} className="border-b border-border hover:bg-muted/10 transition-colors">
-                    <td className="p-3 font-semibold text-slate-800 dark:text-foreground">{r.lead.name}</td>
+                  <tr key={r.lead.id} className={`border-b border-border hover:bg-muted/10 transition-colors ${isUnassigned ? 'bg-warning/5' : ''}`}>
+                    <td className="p-3 font-semibold text-slate-800 dark:text-foreground cursor-pointer group" onClick={(e) => { e.stopPropagation(); selectLead(r.lead.id, "impact", "none", "none"); }}>
+                      <span className="hover:text-accent border-b border-transparent hover:border-accent pb-0.5">{r.lead.name}</span>
+                      <span className="opacity-0 group-hover:opacity-100 transition-opacity text-accent ml-1 font-black">→</span>
+                    </td>
                     <td className="p-3 font-bold text-slate-700 dark:text-foreground">{r.issue}</td>
                     <td className="p-3"><PriorityBadge priority={r.priority} /></td>
                     <td className="p-3 font-medium text-slate-700 dark:text-foreground">{moveInLabel}</td>
-                    <td className="p-3 font-medium text-slate-700 dark:text-foreground">{ownerLabel}</td>
+                    <td className="p-3">
+                      {ownerName 
+                        ? <span className="font-medium text-slate-700 dark:text-foreground">{ownerName}</span>
+                        : <Badge variant="secondary" className="text-[10px] bg-warning/20 text-warning-foreground border-warning/30 font-semibold"><AlertCircle className="w-3 h-3 mr-1" /> Unassigned</Badge>
+                      }
+                    </td>
                     <td className="p-3 text-right space-x-2 whitespace-nowrap">
                       <Button size="sm" variant="ghost" className="h-7 text-[10px] font-semibold text-accent" onClick={(e) => { e.stopPropagation(); handleOpenInBoard({ assignment: [r.ownerId || "unassigned"] }); }}>Board</Button>
-                      <Button size="sm" variant="outline" className="h-7 text-[10px]" onClick={(e) => { e.stopPropagation(); selectLead(r.lead.id, "impact", "none", "none"); }}>Open</Button>
                     </td>
                   </tr>
                 );
               })}
               {atRisk.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-muted-foreground">No at-risk leads found! All clear.</td>
+                  <td colSpan={6} className="p-12 text-center bg-success/5">
+                    <div className="flex flex-col items-center justify-center gap-3">
+                      <CheckSquare className="h-8 w-8 text-success" />
+                      <span className="text-success font-bold text-sm">No At-Risk Leads Found - All Clear!</span>
+                    </div>
+                  </td>
                 </tr>
               )}
             </tbody>
           </table>
-          {atRisk.length >= 10 && (
+          {atRisk.length > 10 && (
             <div className="p-2 border-t border-border bg-muted/10 text-center">
-              <Button variant="ghost" size="sm" className="text-xs w-full text-accent font-semibold" onClick={() => handleDrilldown({ label: "At Risk Leads", count: atRisk.length, filterPayload: {}, leadIds: atRisk.map(a => a.lead.id) })}>View All At Risk</Button>
+              <Button variant="ghost" size="sm" className="text-xs w-full text-accent font-semibold" onClick={() => setShowAllAtRisk(!showAllAtRisk)}>
+                {showAllAtRisk ? "Show Less" : `View All (${atRisk.length})`}
+              </Button>
             </div>
           )}
         </div>
@@ -305,6 +364,7 @@ export function ImpactPerformanceView({ leads, tours, quotes, activities, follow
               <tr>
                 <th className="p-3 font-bold text-slate-600 dark:text-muted-foreground uppercase tracking-wider text-[10px]">TCM</th>
                 <th className="p-3 font-bold text-slate-600 dark:text-muted-foreground uppercase tracking-wider text-[10px]">Active Leads</th>
+                <th className="p-3 font-bold text-slate-600 dark:text-muted-foreground uppercase tracking-wider text-[10px] text-danger">Feedback Pending</th>
                 <th className="p-3 font-bold text-slate-600 dark:text-muted-foreground uppercase tracking-wider text-[10px]">Pending Actions</th>
                 <th className="p-3 font-bold text-slate-600 dark:text-muted-foreground uppercase tracking-wider text-[10px] text-success">Bookings This Week</th>
               </tr>
@@ -318,13 +378,16 @@ export function ImpactPerformanceView({ leads, tours, quotes, activities, follow
                 >
                   <td className="p-3 font-semibold text-slate-800 dark:text-foreground">{r.tcm.name}</td>
                   <td className="p-3 font-medium">{r.activeLeads}</td>
-                  <td className={`p-3 font-bold ${r.pendingActions > 5 ? 'text-danger' : 'text-slate-700 dark:text-foreground'}`}>{r.pendingActions}</td>
+                  <td className={`p-3 font-bold ${r.feedbackPending > 0 ? 'text-danger' : 'text-slate-700 dark:text-foreground'}`}>{r.feedbackPending}</td>
+                  <td className={`p-3 font-bold ${r.pendingActions > 5 ? 'text-warning' : 'text-slate-700 dark:text-foreground'}`}>{r.pendingActions}</td>
                   <td className="p-3 font-bold text-success">{r.bookingsThisWeek}</td>
                 </tr>
               ))}
               {leaderboard.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="p-8 text-center text-muted-foreground">No active team members.</td>
+                  <td colSpan={5} className="p-12 text-center text-muted-foreground font-semibold">
+                    No active team members.
+                  </td>
                 </tr>
               )}
             </tbody>
@@ -339,7 +402,7 @@ export function ImpactPerformanceView({ leads, tours, quotes, activities, follow
             <DialogTitle className="flex items-center justify-between">
               <span className="flex items-center gap-2">
                 {drilldown?.label}
-                <Badge variant="secondary" className="text-xs bg-background">{drilldown?.leadIds.length} leads</Badge>
+                <Badge variant="secondary" className="text-xs bg-background text-foreground shadow-sm">{drilldown?.leadIds.length} Leads</Badge>
               </span>
               <Button size="sm" onClick={() => handleOpenInBoard()} className="h-8 gap-1.5 text-xs">
                 Open in Board <ArrowRight className="h-3 w-3" />
@@ -354,7 +417,10 @@ export function ImpactPerformanceView({ leads, tours, quotes, activities, follow
                 return (
                   <div key={l.id} className="flex items-center justify-between p-3 rounded-lg border border-border bg-card hover:bg-muted/30 transition-colors">
                     <div className="flex-1">
-                      <div className="font-bold text-sm text-slate-800 dark:text-foreground">{l.name}</div>
+                      <div className="font-bold text-sm text-slate-800 dark:text-foreground cursor-pointer group inline-block" onClick={() => { setDrilldown(null); selectLead(l.id, "impact", "none", "none"); }}>
+                        <span className="hover:text-accent border-b border-transparent hover:border-accent pb-0.5">{l.name}</span>
+                        <span className="opacity-0 group-hover:opacity-100 transition-opacity text-accent ml-1 font-black">→</span>
+                      </div>
                       <div className="text-xs text-slate-500 dark:text-muted-foreground mt-1 flex gap-2 font-medium">
                         <span>{l.phone}</span>
                         <span>•</span>
@@ -362,17 +428,24 @@ export function ImpactPerformanceView({ leads, tours, quotes, activities, follow
                       </div>
                     </div>
                     <div className="flex items-center gap-4">
-                      <div className="text-xs text-slate-600 dark:text-muted-foreground w-28 truncate text-right font-medium">
-                        {tcms.find(t => t.id === l.assignedTcmId)?.name || <Badge variant="secondary" className="text-[10px] bg-warning/20 text-warning-foreground border-warning/30">Needs Assignment</Badge>}
+                      <div className="text-xs text-slate-600 dark:text-muted-foreground w-32 truncate text-right font-medium">
+                        {tcms.find(t => t.id === l.assignedTcmId)?.name || <Badge variant="secondary" className="text-[10px] bg-warning/20 text-warning-foreground border-warning/30 font-semibold"><AlertCircle className="w-3 h-3 mr-1" /> Unassigned</Badge>}
                       </div>
                       <div className="flex gap-1.5">
                         <Button size="sm" variant="ghost" className="h-7 text-[10px] font-semibold text-accent" onClick={() => { setDrilldown(null); handleOpenInBoard({ assignment: [l.assignedTcmId || "unassigned"] }); }}>Board</Button>
-                        <Button size="sm" variant="outline" className="h-7 text-[10px] font-semibold" onClick={() => { setDrilldown(null); selectLead(l.id, "impact", "none", "none"); }}>Open Lead</Button>
                       </div>
                     </div>
                   </div>
                 );
               })}
+              {drilldown?.leadIds.length === 0 && (
+                <div className="p-12 text-center">
+                  <div className="flex flex-col items-center justify-center gap-3">
+                    <CheckSquare className="h-8 w-8 text-success" />
+                    <span className="text-success font-bold text-sm">No leads match this filter! All clear.</span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </DialogContent>

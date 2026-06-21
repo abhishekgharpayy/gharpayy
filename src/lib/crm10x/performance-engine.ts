@@ -170,6 +170,8 @@ export function buildTCMLeaderboard(enriched: EnrichedPerformanceLead[], tcms: T
        const w = e.workflow.pendingItem;
        return w === "tour-feedback-missing" || w === "quote-missing" || w === "deep-profile-missing" || w === "tour-not-scheduled";
     }).length;
+    
+    const feedbackPending = tcmLeads.filter(e => e.workflow.pendingItem === "tour-feedback-missing").length;
 
     const bookingsThisWeek = tcmLeads.filter(e => e.lead.stage === "booked" && e.lead.stageEnteredAt && isThisWeek(new Date(e.lead.stageEnteredAt))).length;
 
@@ -177,6 +179,7 @@ export function buildTCMLeaderboard(enriched: EnrichedPerformanceLead[], tcms: T
       tcm,
       drilldown: countAndDrill("Leads", tcmLeads, { assignment: [tcm.id] }),
       activeLeads: activeLeadsCount,
+      feedbackPending,
       pendingActions,
       bookingsThisWeek,
     };
