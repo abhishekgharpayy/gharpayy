@@ -1,27 +1,19 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import type { Lead, Tour, ActivityLog, FollowUp, TCM } from "@/lib/types";
 import {
   buildEnrichedPerformanceLeads,
-  buildQueueHealthSnapshot,
-  buildWorkflowSLA,
-  buildTodaysFocus,
+  buildMyTeamNeedsAttentionSummary,
+  buildTodayNeedsAttention,
   buildTopAtRiskLeads,
-  buildWorkflowHealth,
-  buildStageAging,
-  buildPipelineHealth,
-  buildTourPerformance,
   buildTCMLeaderboard,
-  buildLeadOwnershipRisk,
-  buildConversionOpportunitiesToday,
-  buildBusinessImpact,
   MetricDrilldown
 } from "@/lib/crm10x/performance-engine";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useApp } from "@/lib/store";
 import { QueueFilters } from "./ImpactQueueHeaderControls";
-import { formatDistanceToNow } from "date-fns";
-import { AlertCircle, PhoneCall, UserPlus, ArrowRight, Activity, Clock, Users, Building, ShieldAlert, Target, Search, X, CheckCircle, TrendingUp } from "lucide-react";
+import { formatDistanceToNow, format } from "date-fns";
+import { PhoneCall, ArrowRight, ShieldAlert, Users, Search, X, CheckSquare, EyeOff, Eye } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 
@@ -42,6 +34,12 @@ export function ImpactPerformanceView({ leads, tours, quotes, activities, follow
   const [stageFilter, setStageFilter] = useState("all");
   const [zoneFilter, setZoneFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [hideInactive, setHideInactive] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState("");
+
+  useEffect(() => {
+    setLastUpdated(format(new Date(), "h:mm a"));
+  }, [leads, tours]); // rough proxy for data updates
 
   const selectLead = useApp(s => s.selectLead);
 
@@ -72,16 +70,10 @@ export function ImpactPerformanceView({ leads, tours, quotes, activities, follow
 
   const enriched = useMemo(() => buildEnrichedPerformanceLeads(filteredLeads, tours, quotes, activities, followUps), [filteredLeads, tours, quotes, activities, followUps]);
 
-  const oppsToday = useMemo(() => buildConversionOpportunitiesToday(enriched), [enriched]);
-  const businessImpact = useMemo(() => buildBusinessImpact(enriched), [enriched]);
-  const snapshot = useMemo(() => buildQueueHealthSnapshot(enriched), [enriched]);
-  const slas = useMemo(() => buildWorkflowSLA(enriched), [enriched]);
-  const focus = useMemo(() => buildTodaysFocus(enriched), [enriched]);
+  const summaryLine = useMemo(() => buildMyTeamNeedsAttentionSummary(enriched), [enriched]);
+  const todayNeedsAttention = useMemo(() => buildTodayNeedsAttention(enriched), [enriched]);
   const atRisk = useMemo(() => buildTopAtRiskLeads(enriched), [enriched]);
-  const health = useMemo(() => buildWorkflowHealth(enriched), [enriched]);
-  const pipelineHealth = useMemo(() => buildPipelineHealth(enriched), [enriched]);
-  const leaderboard = useMemo(() => buildTCMLeaderboard(enriched, tcms), [enriched, tcms]);
-  const ownershipRisk = useMemo(() => buildLeadOwnershipRisk(enriched), [enriched]);
+  const leaderboard = useMemo(() => buildTCMLeaderboard(enriched, tcms, hideInactive), [enriched, tcms, hideInactive]);
 
   const handleDrilldown = (metric: MetricDrilldown) => {
     if (metric.count === 0) return;
@@ -98,42 +90,33 @@ export function ImpactPerformanceView({ leads, tours, quotes, activities, follow
 
   const handleOpenInBoard = () => {
     if (!drilldown) return;
-    // Dispatches to board
     alert(`Opening Board with filter: ${JSON.stringify(drilldown.filterPayload)}`);
     setDrilldown(null);
   };
 
-  const MetricCard = ({ metric, icon: Icon, colorClass, target, subtitle }: { metric: MetricDrilldown, icon?: any, colorClass?: string, target?: number, subtitle?: string }) => {
+  const MetricCard = ({ metric, colorClass, target }: { metric: MetricDrilldown, colorClass?: string, target?: number }) => {
     const isFailingTarget = target !== undefined && metric.count > target;
-    const finalColor = isFailingTarget ? "text-danger" : colorClass || "text-foreground";
+    const finalColor = isFailingTarget ? "text-danger" : colorClass || "text-slate-700 dark:text-foreground";
     const bgHover = isFailingTarget ? "hover:border-danger/50 border-danger/20" : "hover:border-accent/50";
+    const bgClass = metric.count > 0 && isFailingTarget ? "bg-danger/5" : "bg-card";
     
     return (
       <div 
         onClick={() => handleDrilldown(metric)}
-        className={`rounded-xl border border-border bg-card p-3 ${bgHover} hover:shadow-sm cursor-pointer transition-all ${metric.count > 0 ? '' : 'opacity-60'}`}
+        className={`rounded-lg border border-border ${bgClass} p-3 ${bgHover} hover:shadow-sm cursor-pointer transition-all ${metric.count > 0 ? '' : 'opacity-60'}`}
       >
-        <div className="flex justify-between items-start mb-1">
-          <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider truncate mr-2" title={metric.label}>{metric.label}</span>
-          {Icon && <Icon className={`h-3 w-3 flex-shrink-0 ${finalColor}`} />}
+        <div className="text-[11px] font-bold text-slate-700 dark:text-muted-foreground uppercase tracking-wider mb-1.5 truncate" title={metric.label}>
+          {metric.label}
         </div>
-        <div className="flex items-end gap-2">
-          <div className={`text-2xl font-bold ${finalColor}`}>{metric.count}</div>
-          {target !== undefined && (
-            <div className={`text-xs pb-1 font-medium ${isFailingTarget ? 'text-danger' : 'text-success'}`}>
-              / Target &lt; {target}
-            </div>
-          )}
-        </div>
-        {subtitle && <div className="text-[10px] text-muted-foreground mt-1 line-clamp-1">{subtitle}</div>}
+        <div className={`text-2xl font-bold ${finalColor}`}>{metric.count}</div>
       </div>
     );
   };
 
   return (
-    <div className="space-y-6 pb-20">
+    <div className="space-y-6 pb-20 max-w-[1400px] mx-auto">
       {/* Manager Filters (Sticky Toolbar) */}
-      <div className="sticky top-0 z-10 flex flex-wrap gap-2 bg-background/95 backdrop-blur p-2 rounded-lg border border-border shadow-sm">
+      <div className="sticky top-0 z-10 flex flex-wrap items-center gap-2 bg-background/95 backdrop-blur p-2 rounded-lg border border-border shadow-sm">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input 
@@ -168,145 +151,61 @@ export function ImpactPerformanceView({ leads, tours, quotes, activities, follow
         <Button variant="ghost" size="sm" className="h-9 text-xs px-3" onClick={resetFilters}>
           <X className="h-3 w-3 mr-1" /> Reset
         </Button>
+        <div className="ml-auto text-[10px] text-muted-foreground font-medium px-2">
+          Last Updated: {lastUpdated}
+        </div>
       </div>
 
-      {/* Section 0: Conversion Opportunities Today */}
+      {/* MY TEAM NEEDS ATTENTION (Summary Strip) */}
+      <div className="bg-accent/10 border border-accent/20 text-accent-foreground px-4 py-2 rounded-lg text-sm font-semibold flex flex-wrap gap-4 items-center shadow-sm">
+        <span className="uppercase tracking-widest text-[10px] opacity-70">My Team Needs Attention</span>
+        <div className="flex flex-wrap gap-3 items-center">
+          <span>{summaryLine.activeLeads} Active</span>
+          <span className="opacity-30">|</span>
+          <span className={summaryLine.tfMissing > 0 ? 'text-danger' : ''}>{summaryLine.tfMissing} Feedback Missing</span>
+          <span className="opacity-30">|</span>
+          <span className={summaryLine.quotePending > 0 ? 'text-danger' : ''}>{summaryLine.quotePending} Quotes</span>
+          <span className="opacity-30">|</span>
+          <span className={summaryLine.moveIn7 > 0 ? 'text-warning' : ''}>{summaryLine.moveIn7} Move-ins</span>
+          <span className="opacity-30">|</span>
+          <span className={summaryLine.unassigned > 0 ? 'text-danger' : ''}>{summaryLine.unassigned} Unassigned</span>
+        </div>
+      </div>
+
+      {/* 1. TODAY NEEDS ATTENTION */}
       <section>
-        <h2 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
-          <CheckCircle className="h-4 w-4 text-success" /> Conversion Opportunities Today
+        <h2 className="text-sm font-extrabold text-slate-800 dark:text-foreground mb-3 flex items-center gap-2 uppercase tracking-wide">
+          <CheckSquare className="h-4 w-4 text-danger" /> Today Needs Attention
         </h2>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          {oppsToday.map(m => <MetricCard key={m.label} metric={m} colorClass="text-success" />)}
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+          <MetricCard metric={todayNeedsAttention[0]} target={2} /> {/* Feedback Missing */}
+          <MetricCard metric={todayNeedsAttention[1]} target={5} /> {/* Quote Pending */}
+          <MetricCard metric={todayNeedsAttention[2]} target={10} colorClass="text-warning" /> {/* Move-In < 7 Days */}
+          <MetricCard metric={todayNeedsAttention[3]} target={10} /> {/* No Activity > 48h */}
+          <MetricCard metric={todayNeedsAttention[4]} target={0} /> {/* Unassigned */}
+          <MetricCard metric={todayNeedsAttention[5]} target={5} /> {/* Property Not Selected */}
+          <MetricCard metric={todayNeedsAttention[6]} target={5} /> {/* Tour Not Scheduled */}
         </div>
       </section>
 
-      {/* Section 1: Business Impact */}
+      {/* 2. AT RISK LEADS */}
       <section>
-        <h2 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
-          <TrendingUp className="h-4 w-4 text-accent" /> Business Impact
-        </h2>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          {businessImpact.map(m => <MetricCard key={m.label} metric={m} colorClass="text-accent" />)}
-        </div>
-      </section>
-
-      {/* Section 2: Executive Summary */}
-      <section>
-        <h2 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
-          <Activity className="h-4 w-4 text-muted-foreground" /> Executive Summary
-        </h2>
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-          {snapshot.metrics.map(m => <MetricCard key={m.label} metric={m} />)}
-        </div>
-      </section>
-
-      {/* Section 3: Action Required Today */}
-      <section>
-        <h2 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
-          <Clock className="h-4 w-4 text-danger" /> Action Required Today
-        </h2>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          <MetricCard metric={slas.find(m => m.label.includes('Tour Feedback')) || slas[3]} colorClass="text-danger" target={2} subtitle="Requires post-tour outcome" />
-          <MetricCard metric={slas.find(m => m.label.includes('Quote Pending')) || slas[4]} colorClass="text-danger" target={5} subtitle="Waiting for pricing" />
-          <MetricCard metric={slas.find(m => m.label.includes('No Activity > 48h')) || slas[1]} colorClass="text-danger" target={10} subtitle="Leads stalling in pipeline" />
-          <MetricCard metric={ownershipRisk[0]} colorClass="text-danger" target={0} subtitle="Leads with no owner assigned" />
-          <MetricCard metric={focus.find(m => m.label.includes('Move-In')) || focus[4]} colorClass="text-warning" subtitle="Urgent move-in timeframe" />
-        </div>
-      </section>
-
-      {/* Section 4: Workflow Bottlenecks */}
-      <section>
-        <h2 className="text-sm font-bold text-foreground mb-3">Workflow Bottlenecks</h2>
-        <div className="grid grid-cols-2 md:grid-cols-7 gap-3">
-          {health.slice(0, 7).map(m => <MetricCard key={m.label} metric={m} />)}
-        </div>
-      </section>
-
-      {/* Section 5: Pipeline Health (Merged) */}
-      <section>
-        <h2 className="text-sm font-bold text-foreground mb-3">Pipeline Health</h2>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="rounded-xl border border-border bg-card p-4 flex flex-col justify-center items-center text-center">
-            <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-2">Lead → Tour</span>
-            <span className="text-3xl font-bold text-foreground">{pipelineHealth.velocity.leadToTour} <span className="text-sm font-normal text-muted-foreground">days</span></span>
-          </div>
-          <div className="rounded-xl border border-border bg-card p-4 flex flex-col justify-center items-center text-center">
-            <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-2">Tour → Quote</span>
-            <span className="text-3xl font-bold text-foreground">{pipelineHealth.velocity.tourToQuote} <span className="text-sm font-normal text-muted-foreground">days</span></span>
-          </div>
-          <div className="rounded-xl border border-border bg-card p-4 flex flex-col justify-center items-center text-center">
-            <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-2">Quote → Book</span>
-            <span className="text-3xl font-bold text-success">{pipelineHealth.velocity.quoteToBook} <span className="text-sm font-normal text-muted-foreground">days</span></span>
-          </div>
-          <div 
-            className={`rounded-xl border border-border bg-card p-4 flex flex-col justify-center items-center text-center transition-all ${pipelineHealth.biggestBottleneck.count > 0 ? 'hover:border-accent/50 cursor-pointer' : 'opacity-60'}`}
-            onClick={() => handleDrilldown(pipelineHealth.biggestBottleneck)}
-          >
-            <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-2">Biggest Bottleneck</span>
-            <span className="text-lg font-bold text-danger line-clamp-2">{pipelineHealth.biggestBottleneck.label}</span>
-            <span className="text-xs text-muted-foreground mt-1">({pipelineHealth.biggestBottleneck.count} leads)</span>
-          </div>
-        </div>
-      </section>
-
-      {/* Section 6: Team Performance */}
-      <section>
-        <h2 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2"><Users className="h-4 w-4 text-accent" /> Team Performance</h2>
-        <div className="rounded-xl border border-border bg-card overflow-hidden">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-muted/30 border-b border-border">
-              <tr>
-                <th className="p-3 font-semibold text-muted-foreground">TCM</th>
-                <th className="p-3 font-semibold text-muted-foreground">Leads</th>
-                <th className="p-3 font-semibold text-muted-foreground">Tours</th>
-                <th className="p-3 font-semibold text-muted-foreground">Quotes</th>
-                <th className="p-3 font-semibold text-muted-foreground">Bookings</th>
-                <th className="p-3 font-semibold text-muted-foreground bg-accent/10">L → T %</th>
-                <th className="p-3 font-semibold text-muted-foreground bg-accent/10">T → Q %</th>
-                <th className="p-3 font-semibold text-muted-foreground bg-success/10 text-success">Q → B %</th>
-              </tr>
-            </thead>
-            <tbody>
-              {leaderboard.map(r => (
-                <tr 
-                  key={r.tcm.id} 
-                  className="border-b border-border hover:bg-muted/10 cursor-pointer transition-colors"
-                  onClick={() => handleDrilldown(r.drilldown)}
-                >
-                  <td className="p-3 font-medium text-foreground">{r.tcm.name}</td>
-                  <td className="p-3">{r.leads}</td>
-                  <td className="p-3">{r.tours}</td>
-                  <td className="p-3">{r.quotes}</td>
-                  <td className="p-3 font-bold text-success">{r.bookings}</td>
-                  <td className={`p-3 font-semibold bg-accent/5 ${r.leadToTour > 30 ? 'text-success' : r.leadToTour < 10 ? 'text-danger' : ''}`}>{r.leadToTour}%</td>
-                  <td className="p-3 font-semibold bg-accent/5">{r.tourToQuote}%</td>
-                  <td className={`p-3 font-bold bg-success/5 ${r.quoteToBook > 20 ? 'text-success' : ''}`}>{r.quoteToBook}%</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      {/* Section 7: At Risk Leads */}
-      <section>
-        <h2 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
+        <h2 className="text-sm font-extrabold text-slate-800 dark:text-foreground mb-3 flex items-center gap-2 uppercase tracking-wide">
           <ShieldAlert className="h-4 w-4 text-danger" /> At Risk Leads
         </h2>
-        <div className="rounded-xl border border-border bg-card overflow-hidden">
+        <div className="rounded-lg border border-border bg-card overflow-hidden shadow-sm">
           <table className="w-full text-left text-xs">
             <thead className="bg-muted/30 border-b border-border">
               <tr>
-                <th className="p-3 font-semibold text-muted-foreground">Lead</th>
-                <th className="p-3 font-semibold text-muted-foreground">Issue</th>
-                <th className="p-3 font-semibold text-muted-foreground">Days To Move-In</th>
-                <th className="p-3 font-semibold text-muted-foreground">Owner</th>
-                <th className="p-3 font-semibold text-muted-foreground">Stage</th>
-                <th className="p-3 font-semibold text-muted-foreground text-right">Actions</th>
+                <th className="p-3 font-bold text-slate-600 dark:text-muted-foreground uppercase tracking-wider text-[10px]">Lead</th>
+                <th className="p-3 font-bold text-slate-600 dark:text-muted-foreground uppercase tracking-wider text-[10px]">Issue</th>
+                <th className="p-3 font-bold text-slate-600 dark:text-muted-foreground uppercase tracking-wider text-[10px]">Move In</th>
+                <th className="p-3 font-bold text-slate-600 dark:text-muted-foreground uppercase tracking-wider text-[10px]">Owner</th>
+                <th className="p-3 font-bold text-slate-600 dark:text-muted-foreground uppercase tracking-wider text-[10px] text-right">Action</th>
               </tr>
             </thead>
             <tbody>
-              {atRisk.slice(0, 10).map(r => {
+              {atRisk.map(r => {
                 const moveInLabel = r.moveInDays !== null 
                   ? (r.moveInDays < 0 ? <Badge variant="destructive" className="text-[10px]">Expired</Badge> : `${r.moveInDays} days`) 
                   : <span className="text-muted-foreground">Missing</span>;
@@ -315,11 +214,10 @@ export function ImpactPerformanceView({ leads, tours, quotes, activities, follow
                 
                 return (
                   <tr key={r.lead.id} className="border-b border-border hover:bg-muted/10 transition-colors">
-                    <td className="p-3 font-medium text-foreground">{r.lead.name}</td>
+                    <td className="p-3 font-semibold text-slate-800 dark:text-foreground">{r.lead.name}</td>
                     <td className="p-3 text-danger font-semibold">{r.issue}</td>
-                    <td className="p-3">{moveInLabel}</td>
-                    <td className="p-3">{ownerLabel}</td>
-                    <td className="p-3 text-muted-foreground capitalize">{r.lead.stage.replace('-', ' ')}</td>
+                    <td className="p-3 font-medium text-slate-700 dark:text-foreground">{moveInLabel}</td>
+                    <td className="p-3 font-medium text-slate-700 dark:text-foreground">{ownerLabel}</td>
                     <td className="p-3 text-right space-x-2 whitespace-nowrap">
                       <Button size="sm" variant="outline" className="h-7 text-[10px]" onClick={(e) => { e.stopPropagation(); selectLead(r.lead.id, "impact", "none", "none"); }}>Open</Button>
                       <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground hover:text-accent" onClick={(e) => { e.stopPropagation(); window.open(`tel:${r.lead.phone}`, '_self'); }}><PhoneCall className="h-3 w-3" /></Button>
@@ -329,27 +227,72 @@ export function ImpactPerformanceView({ leads, tours, quotes, activities, follow
               })}
               {atRisk.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="p-6 text-center text-muted-foreground">No at-risk leads found!</td>
+                  <td colSpan={5} className="p-8 text-center text-muted-foreground">No at-risk leads found! All clear.</td>
                 </tr>
               )}
             </tbody>
           </table>
-          {atRisk.length > 10 && (
+          {atRisk.length >= 10 && (
             <div className="p-2 border-t border-border bg-muted/10 text-center">
-              <Button variant="ghost" size="sm" className="text-xs w-full" onClick={() => handleDrilldown({ label: "At Risk Leads", count: atRisk.length, filterPayload: {}, leadIds: atRisk.map(a => a.lead.id) })}>View All {atRisk.length}</Button>
+              <Button variant="ghost" size="sm" className="text-xs w-full text-accent" onClick={() => handleDrilldown({ label: "At Risk Leads", count: atRisk.length, filterPayload: {}, leadIds: atRisk.map(a => a.lead.id) })}>View All At Risk</Button>
             </div>
           )}
+        </div>
+      </section>
+
+      {/* 3. TEAM PERFORMANCE */}
+      <section>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-extrabold text-slate-800 dark:text-foreground flex items-center gap-2 uppercase tracking-wide">
+            <Users className="h-4 w-4 text-accent" /> Team Performance
+          </h2>
+          <Button variant="ghost" size="sm" className="h-6 text-[10px]" onClick={() => setHideInactive(!hideInactive)}>
+            {hideInactive ? <><Eye className="h-3 w-3 mr-1" /> Show Inactive</> : <><EyeOff className="h-3 w-3 mr-1" /> Hide Inactive</>}
+          </Button>
+        </div>
+        <div className="rounded-lg border border-border bg-card overflow-hidden shadow-sm">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-muted/30 border-b border-border">
+              <tr>
+                <th className="p-3 font-bold text-slate-600 dark:text-muted-foreground uppercase tracking-wider text-[10px]">TCM</th>
+                <th className="p-3 font-bold text-slate-600 dark:text-muted-foreground uppercase tracking-wider text-[10px]">Leads</th>
+                <th className="p-3 font-bold text-slate-600 dark:text-muted-foreground uppercase tracking-wider text-[10px]">Tours</th>
+                <th className="p-3 font-bold text-slate-600 dark:text-muted-foreground uppercase tracking-wider text-[10px]">Bookings</th>
+                <th className="p-3 font-bold text-slate-600 dark:text-muted-foreground uppercase tracking-wider text-[10px] text-success">Conv %</th>
+              </tr>
+            </thead>
+            <tbody>
+              {leaderboard.map(r => (
+                <tr 
+                  key={r.tcm.id} 
+                  className="border-b border-border hover:bg-muted/10 cursor-pointer transition-colors"
+                  onClick={() => handleDrilldown(r.drilldown)}
+                >
+                  <td className="p-3 font-semibold text-slate-800 dark:text-foreground">{r.tcm.name}</td>
+                  <td className="p-3 font-medium">{r.leads}</td>
+                  <td className="p-3 font-medium">{r.tours}</td>
+                  <td className="p-3 font-bold text-success">{r.bookings}</td>
+                  <td className={`p-3 font-bold bg-success/5 ${r.conversion > 15 ? 'text-success' : 'text-slate-700 dark:text-foreground'}`}>{r.conversion}%</td>
+                </tr>
+              ))}
+              {leaderboard.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="p-8 text-center text-muted-foreground">No active team members.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </section>
 
       {/* Drilldown Modal */}
       <Dialog open={!!drilldown} onOpenChange={o => !o && setDrilldown(null)}>
         <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col p-0 gap-0">
-          <DialogHeader className="p-4 border-b border-border">
+          <DialogHeader className="p-4 border-b border-border bg-muted/10">
             <DialogTitle className="flex items-center justify-between">
               <span className="flex items-center gap-2">
                 {drilldown?.label}
-                <Badge variant="secondary" className="text-xs">{drilldown?.leadIds.length} leads</Badge>
+                <Badge variant="secondary" className="text-xs bg-background">{drilldown?.leadIds.length} leads</Badge>
               </span>
               <Button size="sm" onClick={handleOpenInBoard} className="h-8 gap-1.5 text-xs">
                 Open in Board <ArrowRight className="h-3 w-3" />
@@ -362,24 +305,24 @@ export function ImpactPerformanceView({ leads, tours, quotes, activities, follow
                 const l = leads.find(x => x.id === id);
                 if (!l) return null;
                 return (
-                  <div key={l.id} className="flex items-center justify-between p-3 rounded-lg border border-border bg-card hover:bg-muted/30">
+                  <div key={l.id} className="flex items-center justify-between p-3 rounded-lg border border-border bg-card hover:bg-muted/30 transition-colors">
                     <div className="flex-1">
-                      <div className="font-semibold text-sm">{l.name}</div>
-                      <div className="text-xs text-muted-foreground mt-1 flex gap-2">
+                      <div className="font-bold text-sm text-slate-800 dark:text-foreground">{l.name}</div>
+                      <div className="text-xs text-slate-500 dark:text-muted-foreground mt-1 flex gap-2 font-medium">
                         <span>{l.phone}</span>
                         <span>•</span>
                         <span>{formatDistanceToNow(new Date(l.stageEnteredAt || l.updatedAt))} stuck</span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <div className="text-xs text-muted-foreground w-28 truncate text-right">
-                        {tcms.find(t => t.id === l.assignedTcmId)?.name || <span className="text-warning font-semibold">Needs Assignment</span>}
+                    <div className="flex items-center gap-4">
+                      <div className="text-xs text-slate-600 dark:text-muted-foreground w-28 truncate text-right font-medium">
+                        {tcms.find(t => t.id === l.assignedTcmId)?.name || <span className="text-warning font-bold">Needs Assignment</span>}
                       </div>
-                      <div className="flex gap-1">
+                      <div className="flex gap-1.5">
                         <Button size="sm" variant="ghost" className="h-7 w-7 p-0 hover:text-accent" title="Call" onClick={() => window.open(`tel:${l.phone}`, '_self')}>
-                          <PhoneCall className="h-3 w-3" />
+                          <PhoneCall className="h-3.5 w-3.5" />
                         </Button>
-                        <Button size="sm" variant="outline" className="h-7 text-[10px]" onClick={() => { setDrilldown(null); selectLead(l.id, "impact", "none", "none"); }}>Open Lead</Button>
+                        <Button size="sm" variant="outline" className="h-7 text-[10px] font-semibold" onClick={() => { setDrilldown(null); selectLead(l.id, "impact", "none", "none"); }}>Open Lead</Button>
                       </div>
                     </div>
                   </div>
