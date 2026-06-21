@@ -720,10 +720,18 @@ export function ImpactQueue() {
     const at = Date.now();
     
     let dateRangeStart = 0;
+    let dateRangeEnd = Infinity;
     if (queueFilters.dateRange === "today") dateRangeStart = at - 24 * 60 * 60 * 1000;
-    else if (queueFilters.dateRange === "yesterday") dateRangeStart = at - 48 * 60 * 60 * 1000;
+    else if (queueFilters.dateRange === "yesterday") {
+      dateRangeStart = at - 48 * 60 * 60 * 1000;
+      dateRangeEnd = at - 24 * 60 * 60 * 1000;
+    }
     else if (queueFilters.dateRange === "last7") dateRangeStart = at - 7 * 24 * 60 * 60 * 1000;
     else if (queueFilters.dateRange === "last30") dateRangeStart = at - 30 * 24 * 60 * 60 * 1000;
+    else if (queueFilters.dateRange === "custom" && queueFilters.customDateRange) {
+      if (queueFilters.customDateRange.start) dateRangeStart = new Date(queueFilters.customDateRange.start).getTime();
+      if (queueFilters.customDateRange.end) dateRangeEnd = new Date(queueFilters.customDateRange.end).getTime() + 86400000;
+    }
 
     return enriched.filter((e) => {
       // 1. DATE RANGE (Activity-based)
@@ -744,13 +752,9 @@ export function ImpactQueue() {
         for (const dStr of checkDates) {
           if (dStr) {
             const ms = new Date(dStr).getTime();
-            if (ms >= dateRangeStart) {
-               if (queueFilters.dateRange === "yesterday" && ms > (at - 24 * 60 * 60 * 1000)) {
-                 // skip if strictly yesterday
-               } else {
-                 hadActivity = true;
-                 break;
-               }
+            if (ms >= dateRangeStart && ms <= dateRangeEnd) {
+               hadActivity = true;
+               break;
             }
           }
         }
