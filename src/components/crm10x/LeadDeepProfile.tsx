@@ -57,8 +57,13 @@ export function LeadDeepProfile({
     const [budgetMin, budgetMax] = inferBudgetRange(lead);
     const moveInDate = toInputDate(f.preferredMoveInDate || lead.moveInDate);
 
+    const inferredCompany = inferCompany(lead);
+    const inferredDecisionMaker = inferDecisionMaker(lead);
+
     if (!f.gender && inferredGender) patch.gender = inferredGender;
     if (!f.roomType && inferredRoom) patch.roomType = inferredRoom;
+    if (!f.companyOrCollege && inferredCompany) patch.companyOrCollege = inferredCompany;
+    if (!f.decisionMaker && inferredDecisionMaker) patch.decisionMaker = inferredDecisionMaker;
     if (!f.preferredMoveInDate && moveInDate) patch.preferredMoveInDate = new Date(moveInDate).toISOString();
     const canCorrectCollapsedBudget =
       budgetMin !== undefined &&
@@ -403,4 +408,24 @@ function inferBudgetRange(lead: Lead): [number | undefined, number | undefined] 
     if (min > 0 && max >= min) return [min, max];
   }
   return lead.budget ? [lead.budget, lead.budget] : [undefined, undefined];
+}
+
+function inferCompany(lead: Lead): string | undefined {
+  const typeStr = String(lead.type ?? "").toLowerCase();
+  const text = [lead.specialReqs, lead.notes].filter(Boolean).join(" ").toLowerCase();
+  
+  if (text.match(/\b(college|university|student)\b/)) return "College";
+  if (text.match(/\b(company|office|working|job)\b/)) return "Company";
+  
+  if (typeStr.includes("student")) return "College";
+  if (typeStr.includes("working") || typeStr.includes("intern")) return "Company";
+  
+  return undefined;
+}
+
+function inferDecisionMaker(lead: Lead): DecisionAuthority | undefined {
+  const text = [lead.specialReqs, lead.notes, lead.need, lead.type].filter(Boolean).join(" ").toLowerCase();
+  if (text.match(/\b(parent|father|mother|dad|mom)\b/)) return "parents";
+  if (text.match(/\b(company|hr|corporate)\b/)) return "company-hr";
+  return undefined;
 }
