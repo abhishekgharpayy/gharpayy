@@ -165,9 +165,30 @@ async function applyCommand(cmd: Command, user: JwtClaims): Promise<LedgerDoc["r
     case "cmd.lead.create": {
       const p = CreateLeadCmd.parse(cmd).payload;
 
+      // Strict validation per Flow Ops requirements
+      const cleanPhone = p.phone.replace(/\D/g, "").slice(-10);
+      if (cleanPhone.length !== 10) {
+        return { ok: false, error: "VALIDATION_FAILED: Phone must be exactly 10 digits" };
+      }
+      if (typeof p.budget !== "number" || p.budget < 0) {
+        return { ok: false, error: "VALIDATION_FAILED: Budget is required and must be a valid number" };
+      }
+      if (!p.moveInDate || isNaN(Date.parse(p.moveInDate))) {
+        return { ok: false, error: "VALIDATION_FAILED: Move-In Date is required and must be a valid date" };
+      }
+      if (!p.zoneId) {
+        return { ok: false, error: "VALIDATION_FAILED: Zone is required" };
+      }
+      if (!p.assigneeId) {
+        return { ok: false, error: "VALIDATION_FAILED: Assignment is required" };
+      }
+      if (!p.preferredArea && (!p.areas || p.areas.length === 0)) {
+        return { ok: false, error: "VALIDATION_FAILED: Area is required" };
+      }
+
       // Phone normalization to E.164. Rejects on unparseable input rather than
       // letting bad data flood the system.
-      const phoneE164 = toE164(p.phone);
+      const phoneE164 = toE164(cleanPhone);
       if (!phoneE164) {
         return { ok: false, error: "VALIDATION_FAILED: Invalid phone number" };
       }
@@ -269,6 +290,7 @@ async function applyCommand(cmd: Command, user: JwtClaims): Promise<LedgerDoc["r
         stageLabel: p.stageLabel ?? "",
         createdAt: now,
         updatedAt: now,
+        stageEnteredAt: now,
         createdBy: user.sub,
         tenantId: user.tenantId,
       });
@@ -417,7 +439,7 @@ async function applyCommand(cmd: Command, user: JwtClaims): Promise<LedgerDoc["r
       // changes can't lose the "from" value.
       const before = await col<{ stage: string; __v?: number }>(LEADS).findOneAndUpdate(
         { _id: p.leadId, tenantId: user.tenantId },
-        { $set: { stage: p.to, updatedAt: now }, $inc: { __v: 1 } },
+        { $set: { stage: p.to, updatedAt: now, stageEnteredAt: now }, $inc: { __v: 1 } },
         { returnDocument: "before" },
       );
       if (!before) throw Object.assign(new Error("Lead not found"), { code: "NOT_FOUND" });

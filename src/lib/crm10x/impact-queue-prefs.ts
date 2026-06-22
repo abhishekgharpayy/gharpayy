@@ -13,7 +13,7 @@ const VIEW_KEY = "gharpayy.impact.view";
 const OVERDUE_HOME_KEY = "gharpayy.impact.overdue-home";
 const DIGEST_DATE_KEY = "gharpayy.impact.digest-date";
 
-export type ViewMode = "stack" | "board";
+export type ViewMode = "stack" | "board" | "performance";
 
 export const CHIP_LABELS: Record<QueueChipFilter, string> = {
   all: "All leads",
@@ -28,7 +28,7 @@ export const CHIP_LABELS: Record<QueueChipFilter, string> = {
 export function readStoredView(): ViewMode {
   if (typeof window === "undefined") return "board";
   const v = localStorage.getItem(VIEW_KEY);
-  return v === "stack" || v === "board" ? v : "board";
+  return v === "stack" || v === "board" || v === "performance" ? (v as ViewMode) : "board";
 }
 
 export function writeStoredView(view: ViewMode) {

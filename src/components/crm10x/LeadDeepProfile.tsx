@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useCRM10x } from "@/lib/crm10x/store";
+import { useApp } from "@/lib/store";
 import type {
   DecisionAuthority, Gender, RoomTypePref,
 } from "@/lib/crm10x/types";
@@ -40,7 +41,14 @@ export function LeadDeepProfile({
 
   const f = profile ?? { leadId: lead.id, updatedAt: new Date().toISOString() };
 
-  const completion = profileCompletion(f as unknown as Record<string, unknown>);
+  const completion = profileCompletion(f as unknown as Record<string, unknown>) || 0;
+  const selectedLeadSection = useApp((s) => s.selectedLeadSection);
+
+  useEffect(() => {
+    if (selectedLeadSection === "deep-profile" || selectedLeadSection === "budget") {
+      setOpen(true);
+    }
+  }, [selectedLeadSection]);
 
   useEffect(() => {
     const patch: Record<string, unknown> = { leadId: lead.id };
@@ -49,8 +57,13 @@ export function LeadDeepProfile({
     const [budgetMin, budgetMax] = inferBudgetRange(lead);
     const moveInDate = toInputDate(f.preferredMoveInDate || lead.moveInDate);
 
+    const inferredCompany = inferCompany(lead);
+    const inferredDecisionMaker = inferDecisionMaker(lead);
+
     if (!f.gender && inferredGender) patch.gender = inferredGender;
     if (!f.roomType && inferredRoom) patch.roomType = inferredRoom;
+    if (!f.companyOrCollege && inferredCompany) patch.companyOrCollege = inferredCompany;
+    if (!f.decisionMaker && inferredDecisionMaker) patch.decisionMaker = inferredDecisionMaker;
     if (!f.preferredMoveInDate && moveInDate) patch.preferredMoveInDate = new Date(moveInDate).toISOString();
     const canCorrectCollapsedBudget =
       budgetMin !== undefined &&
@@ -140,6 +153,15 @@ export function LeadDeepProfile({
                   onChange={(v) => upsert({ leadId: lead.id, locationFeasible: v === "yes" })}
                 />
               </Field>
+              <Field label="Preferred Area">
+                <Input
+                  id="field-preferred-area"
+                  className="h-8 text-xs"
+                  value={lead.preferredArea ?? ""}
+                  readOnly
+                  onClick={() => toast.info("To edit Preferred Area, go to edit lead screen")}
+                />
+              </Field>
               <Field label="Company / college">
                 <Input
                   className="h-8 text-xs"
@@ -160,6 +182,7 @@ export function LeadDeepProfile({
           <div className="grid grid-cols-[1.25fr_0.75fr] gap-2 rounded-lg border border-border/80 bg-muted/10 p-2.5">
             <Field label="Move-in date">
               <Input
+                id="field-move-in-date"
                 type="date"
                 className="h-8 text-xs"
                 min={new Date().toISOString().slice(0, 10)}
@@ -195,6 +218,7 @@ export function LeadDeepProfile({
             <div className="grid grid-cols-2 gap-2">
               <Field label="Stated budget (₹)">
                 <Input
+                  id="field-budget-stated"
                   type="number" className="h-8 text-xs"
                   value={f.budgetStated ?? ""}
                   onChange={(e) => upsert({ leadId: lead.id, budgetStated: Number(e.target.value) })}
@@ -384,4 +408,24 @@ function inferBudgetRange(lead: Lead): [number | undefined, number | undefined] 
     if (min > 0 && max >= min) return [min, max];
   }
   return lead.budget ? [lead.budget, lead.budget] : [undefined, undefined];
+}
+
+function inferCompany(lead: Lead): string | undefined {
+  const typeStr = String(lead.type ?? "").toLowerCase();
+  const text = [lead.specialReqs, lead.notes].filter(Boolean).join(" ").toLowerCase();
+  
+  if (text.match(/\b(college|university|student)\b/)) return "College";
+  if (text.match(/\b(company|office|working|job)\b/)) return "Company";
+  
+  if (typeStr.includes("student")) return "College";
+  if (typeStr.includes("working") || typeStr.includes("intern")) return "Company";
+  
+  return undefined;
+}
+
+function inferDecisionMaker(lead: Lead): DecisionAuthority | undefined {
+  const text = [lead.specialReqs, lead.notes, lead.need, lead.type].filter(Boolean).join(" ").toLowerCase();
+  if (text.match(/\b(parent|father|mother|dad|mom)\b/)) return "parents";
+  if (text.match(/\b(company|hr|corporate)\b/)) return "company-hr";
+  return undefined;
 }

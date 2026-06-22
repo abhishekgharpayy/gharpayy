@@ -19,7 +19,17 @@ export function AuthGate({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
 
+  const signOut = useAuthUser((s) => s.signOut);
+
   useEffect(() => { hydrate(); }, [hydrate]);
+
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      void signOut();
+    };
+    window.addEventListener("gharpayy:unauthorized", handleUnauthorized);
+    return () => window.removeEventListener("gharpayy:unauthorized", handleUnauthorized);
+  }, [signOut]);
 
   const hasToken = typeof window !== "undefined" && !!tokenStore.get();
   const isLoginRoute = pathname === "/login";

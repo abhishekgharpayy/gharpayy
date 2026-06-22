@@ -38,7 +38,7 @@ export const TOUR_BAND_META: Record<
 };
 
 export function classifyTourBand(
-  column: "scheduled" | "onTour",
+  column: "scheduled" | "onTour" | "tourScheduled",
   openTour: Tour | undefined,
   lead: Lead,
   nba: NextBestAction,
@@ -54,7 +54,7 @@ export function classifyTourBand(
   if (nba.pressure === "escalate") return "fire";
   if (lead.intent === "hot" && mins <= 120) return "fire";
 
-  if (column === "onTour") {
+  if (column === "onTour" || (column === "tourScheduled" && isTodayIST(openTour.scheduledAt))) {
     if (mins < 0 || mins <= 30) return "fire";
     if (mins <= 120) return "confirm";
     return "soon";

@@ -187,10 +187,19 @@ export function registerLeadsRoutes(app: FastifyInstance) {
   app.get("/api/leads/check-duplicate", { preHandler: [requireAuth] }, async (req, reply) => {
     const q = z.object({ phone: z.string() }).parse(req.query);
     const cleanPhone = q.phone.replace(/\D/g, "").slice(-10);
-    if (!cleanPhone) return reply.send({ exists: false });
+    if (!cleanPhone || cleanPhone.length < 10) return reply.send({ exists: false });
+
+    const possiblePhones = [
+      `+91${cleanPhone}`,
+      cleanPhone,
+      `0${cleanPhone}`,
+      `91${cleanPhone}`,
+      `+91 ${cleanPhone.slice(0, 5)} ${cleanPhone.slice(5)}`,
+      `+91-${cleanPhone.slice(0, 5)}-${cleanPhone.slice(5)}`
+    ];
 
     const existing = await col<Lead>("leads").findOne(
-      { phone: `+91${cleanPhone}`, tenantId: req.user!.tenantId },
+      { phone: { $in: possiblePhones }, tenantId: req.user!.tenantId },
       { sort: { _id: -1 } }
     );
 
@@ -213,89 +222,169 @@ export function registerLeadsRoutes(app: FastifyInstance) {
     });
   });
 
-  // POST /api/leads/parse
   app.post("/api/leads/parse", { preHandler: [requireAuth] }, async (req, reply) => {
-    req.log.info("[AI] Parse request received");
     const body = z.object({ text: z.string().min(3) }).parse(req.body);
-    
-    req.log.info(`[AI] GEMINI_API_KEY loaded: ${!!env.GEMINI_API_KEY}`);
-    if (!env.GEMINI_API_KEY) {
-      return reply.code(500).send({ code: "INTERNAL_ERROR", message: "GEMINI_API_KEY is not configured on the server." });
+
+    // Check which AI service is available
+    const hasGroq = !!env.GROQ_API_KEY;
+    const hasGemini = !!env.GEMINI_API_KEY;
+
+    req.log.info({ hasGroq, hasGemini }, "[AI] Parse request received");
+
+    if (!hasGroq && !hasGemini) {
+      return reply.code(500).send({ 
+        code: "INTERNAL_ERROR", 
+        message: "No AI API key configured. Add GROQ_API_KEY to server/.env" 
+      });
     }
 
-    const systemPrompt = `You are an AI assistant that extracts real estate lead information from unstructured text (like WhatsApp messages, portal leads, notes).
-Extract only information explicitly present. If a value is uncertain: return null.
-Never infer: budget, room type, move-in date, occupation, gender preference unless explicitly stated.
+    const systemPrompt = `You are an AI that extracts PG/hostel lead info from WhatsApp messages or pasted text.
 
-Output ONLY a JSON object (no markdown, no backticks, no other text) with this exact structure:
+OUTPUT ONLY valid JSON. No markdown, no backticks, no explanation text before or after.
+
+STRICT RULES:
+- Extract ONLY what is clearly stated. Never guess or infer.
+- name: Full person name only. Not "Hi team". Not greetings. null if unclear.
+- phone: 10 digits only, no country code, no spaces, no dashes. null if absent.
+- email: valid email address or null.
+- budget: string like "8-12k" or "10k". null if absent.
+- moveIn: YYYY-MM-DD if exact date given, else human text like "immediate". null if absent.
+- area: location names only like "HSR Layout, BTM". null if absent.
+- need: ONLY one of "Boys", "Girls", "Coed". null if absent.
+- type: ONLY one of "Working", "Student", "Intern". null if absent.
+- room: ONLY one of "Private", "Shared", "Both". null if absent.
+- inBLR: true if person says currently in Bangalore/BLR. false if not in Bangalore. null if not mentioned.
+- specialReqs: ONLY specific amenity requests like "veg food", "attached washroom", "AC room". null if none. NEVER put greetings here.
+- internalNotes: ONLY info that fits no other field. null if none. NEVER put "Currently in Bangalore" here. NEVER put greetings here.
+
+Return exactly this JSON structure:
 {
-  "confidence": <number between 0 and 100 representing overall confidence>,
+  "status": "Success",
   "fields": {
-    "name": "<extracted full name, or null>",
-    "phone": "<10-digit phone number without country code, or null>",
-    "email": "<extracted email, or null>",
-    "budget": "<extracted budget as a string, e.g. '8-12k' or null>",
-    "moveIn": "<extracted move-in date in YYYY-MM-DD or human readable, or null>",
-    "area": "<extracted location or areas, or null>",
-    "need": "<extracted need like 'Boys', 'Girls', 'Coed' or null>",
-    "type": "<extracted type like 'Student', 'Working' or null>",
-    "room": "<extracted room like 'Private', 'Shared' or null>",
-    "specialReqs": "<any special requests, amenities, or null>",
-    "internalNotes": "<any other extracted info, or null>"
+    "name": null,
+    "phone": null,
+    "email": null,
+    "budget": null,
+    "moveIn": null,
+    "area": null,
+    "need": null,
+    "type": null,
+    "room": null,
+    "specialReqs": null,
+    "internalNotes": null,
+    "inBLR": null
   },
-  "missing": [
-    "<array of keys from 'fields' that were null or not found>"
-  ]
-}
-`;
+  "missing": []
+}`;
 
-    const requestBody = {
-      system_instruction: { parts: [{ text: systemPrompt }] },
-      contents: [{ parts: [{ text: body.text }] }],
-      generationConfig: {
-        temperature: 0.1,
-        response_mime_type: "application/json",
-      }
-    };
+    // ── Try Groq first (faster, more reliable) ──
+    if (hasGroq) {
+      try {
+        req.log.info({ model: env.GROQ_MODEL }, "[AI] Trying Groq");
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-    try {
-      req.log.info("[AI] Gemini request started");
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${env.GEMINI_API_KEY}`,
-        {
+        const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(requestBody),
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${env.GROQ_API_KEY}`,
+          },
+          body: JSON.stringify({
+            model: env.GROQ_MODEL,
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: `Extract lead info from this text:\n\n${body.text}` }
+            ],
+            temperature: 0.0,
+            max_tokens: 400,
+            response_format: { type: "json_object" },
+          }),
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+
+        if (response.ok) {
+          const data = await response.json();
+          const resultText = data.choices?.[0]?.message?.content;
+          if (resultText) {
+            try {
+              const parsed = JSON.parse(resultText);
+              req.log.info({ status: parsed.status }, "[AI] Groq parsed successfully");
+              return reply.send(parsed);
+            } catch {
+              req.log.error("[AI] Groq returned invalid JSON");
+            }
+          }
+        } else {
+          const errText = await response.text();
+          req.log.error({ status: response.status, err: errText }, "[AI] Groq request failed");
         }
-      );
-
-      req.log.info("[AI] Gemini response received");
-      if (!response.ok) {
-        const errText = await response.text();
-        req.log.error({ status: response.status, errText }, "[AI] Gemini parsing failed");
-        return reply.code(502).send({ code: "BAD_GATEWAY", message: "Gemini API failed" });
+      } catch (err) {
+        req.log.error({ err }, "[AI] Groq exception or timeout");
       }
-
-      const data = await response.json();
-      const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      
-      if (!resultText) {
-        return reply.code(500).send({ code: "INTERNAL_ERROR", message: "No response text from Gemini" });
-      }
-
-      // Ensure it's clean JSON (strip possible markdown wrappers if the model ignores the prompt)
-      let cleanText = resultText.trim();
-      if (cleanText.startsWith("\`\`\`json")) cleanText = cleanText.replace(/^\`\`\`json\n?/, "");
-      if (cleanText.startsWith("\`\`\`")) cleanText = cleanText.replace(/^\`\`\`\n?/, "");
-      if (cleanText.endsWith("\`\`\`")) cleanText = cleanText.replace(/\n?\`\`\`$/, "");
-      
-      const parsed = JSON.parse(cleanText);
-      req.log.info("[AI] Returning AI parsed result");
-      return reply.send(parsed);
-    } catch (err) {
-      req.log.error({ err }, "[AI] Gemini parsing failed");
-      return reply.code(500).send({ code: "INTERNAL_ERROR", message: "Failed to parse lead via Gemini" });
     }
+
+    // ── Fallback to Gemini if Groq failed ──
+    if (hasGemini) {
+      const models = env.GEMINI_MODELS
+        ? env.GEMINI_MODELS.split(",").map((s) => s.trim()).filter(Boolean)
+        : ["gemini-2.0-flash-lite", "gemini-2.0-flash", "gemini-1.5-flash"];
+
+      const geminiBody = {
+        contents: [{ 
+          role: "user", 
+          parts: [{ text: systemPrompt + "\n\nExtract lead info from this text:\n\n" + body.text }] 
+        }],
+        generationConfig: { temperature: 0.0, maxOutputTokens: 300 },
+      };
+
+      for (const model of models) {
+        try {
+          req.log.info({ model }, "[AI] Trying Gemini fallback");
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+          const response = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env.GEMINI_API_KEY}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(geminiBody),
+              signal: controller.signal,
+            }
+          );
+          clearTimeout(timeoutId);
+
+          if (!response.ok) {
+            req.log.error({ status: response.status, model }, "[AI] Gemini model failed");
+            continue;
+          }
+
+          const data = await response.json();
+          let resultText = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+          resultText = resultText.trim()
+            .replace(/^```json\n?/, "").replace(/^```\n?/, "").replace(/\n?```$/, "");
+
+          if (resultText) {
+            try {
+              const parsed = JSON.parse(resultText);
+              req.log.info({ model, status: parsed.status }, "[AI] Gemini parsed successfully");
+              return reply.send(parsed);
+            } catch {
+              req.log.error({ model }, "[AI] Gemini returned invalid JSON");
+            }
+          }
+        } catch (err) {
+          req.log.error({ err }, "[AI] Gemini exception or timeout");
+        }
+      }
+    }
+
+    return reply.code(502).send({ 
+      code: "BAD_GATEWAY", 
+      message: "All AI parsing attempts failed" 
+    });
   });
 
   // ---------- Assignment Notifications ----------

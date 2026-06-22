@@ -81,8 +81,10 @@ interface AppState {
 
   selectedLeadId: string | null;
   selectedLeadTab: string | null;
+  selectedLeadSection: string | null;
+  selectedLeadField: string | null;
   selectedLeadAction: LeadFocusAction | null;
-  selectLead: (id: string | null, tab?: string | null, action?: LeadFocusAction | null) => void;
+  selectLead: (id: string | null, tab?: string | null, section?: string | null, field?: string | null, action?: LeadFocusAction | null) => void;
   consumeSelectedLeadAction: () => void;
 
   tcms: TCM[];
@@ -190,11 +192,15 @@ export const useApp = create<AppState>()(
 
   selectedLeadId: null,
   selectedLeadTab: null,
+  selectedLeadSection: null,
+  selectedLeadField: null,
   selectedLeadAction: null,
-  selectLead: (id, tab = null, action = null) =>
+  selectLead: (id, tab = null, section = null, field = null, action = null) =>
     set({
       selectedLeadId: id,
       selectedLeadTab: id ? tab : null,
+      selectedLeadSection: id ? section : null,
+      selectedLeadField: id ? field : null,
       selectedLeadAction: id ? action : null,
     }),
   consumeSelectedLeadAction: () => set({ selectedLeadAction: null }),
@@ -276,7 +282,7 @@ export const useApp = create<AppState>()(
     // Optimistic UI so status changes feel instant.
     set((s) => ({
       leads: s.leads.map((l) =>
-        l.id === leadId ? { ...l, stage, updatedAt: new Date().toISOString() } : l,
+        l.id === leadId ? { ...l, stage, updatedAt: new Date().toISOString(), stageEnteredAt: new Date().toISOString() } : l,
       ),
     }));
 
