@@ -55,6 +55,7 @@ import { LeadJourneyStepper, type JourneyTab } from "./crm10x/LeadJourneyStepper
 import { SmartDossier } from "./crm10x/SmartDossier";
 import { LeadDeepProfile } from "./crm10x/LeadDeepProfile";
 import { ObjectionLogger } from "./crm10x/ObjectionLogger";
+import { EditLeadDialog } from "./leads/EditLeadDialog";
 import { useImpactStateForLead } from "./impact/ImpactQueue";
 import { isTodayIST } from "@/lib/crm10x/dates";
 import { useCRM10x } from "@/lib/crm10x/store";
@@ -87,6 +88,7 @@ import {
   Clock,
   Home,
   ExternalLink,
+  Edit3,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { cn, formatTime12h, localDateISO, tourTimeSlotsForDate } from "@/lib/utils";
@@ -228,6 +230,7 @@ type DrawerScheduleAnswers = {
 
 export function LeadControlPanel() {
   const reminderTimersRef = useRef<Map<string, number>>(new Map());
+  const [isEditLeadOpen, setIsEditLeadOpen] = useState(false);
   const {
     selectedLeadId,
     selectedLeadTab,
@@ -331,6 +334,8 @@ export function LeadControlPanel() {
     () => drawerQuotes.some((quote) => quote.status === "paid"),
     [drawerQuotes],
   );
+
+  // Auto-redirect if trying to access non-existent lead,
   const leadProfile = useCRM10x((s) => (selectedLeadId ? s.profiles[selectedLeadId] : undefined));
   const allObjections = useCRM10x((s) => s.objections);
   const leadObjections = useMemo(
@@ -462,7 +467,7 @@ export function LeadControlPanel() {
     if (lead.stage === "quote-sent") return "quote";
     if (completedPostTour) return "quote";
     if (pendingPostTour || lead.stage === "tour-done") return "post";
-    if (hasScheduledTour || lead.stage === "tour-scheduled" || lead.stage === "on-tour")
+    if (hasScheduledTour || lead.stage === "tour-scheduled" || lead.stage === "on-tour" || lead.tags.includes("impact:visit-ready") || Boolean(leadProfile?.visitReadyAt))
       return "tour";
     return "impact";
   })();
@@ -783,37 +788,34 @@ export function LeadControlPanel() {
     <Sheet open={!!selectedLeadId} onOpenChange={(o) => !o && selectLead(null)}>
       <SheetContent
         side="right"
-        className="w-full p-0 flex flex-col overflow-y-auto transition-all duration-300"
+        className="w-full p-0 flex flex-col transition-all duration-300"
         style={{ maxWidth: 560 }}
       >
         {/* Header block */}
-        <SheetHeader className="px-4 py-3 border-b border-border space-y-2">
+        <SheetHeader className="px-4 py-3 border-b border-border space-y-2 shrink-0">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <SheetTitle className="font-display text-base leading-tight">
-                {displayLeadName}
-              </SheetTitle>
-              <SheetDescription className="text-xs">
-                {lead.phone} · via {lead.source}
-              </SheetDescription>
-            </div>
-            {drawerImpactState && (
-              <div
-                className={`min-w-[118px] rounded-md border px-2 py-1.5 text-right ${pressureColor(drawerImpactState.nba.pressure)}`}
-              >
-                <div className="text-[9px] uppercase tracking-wider opacity-70">Next action</div>
-                <div className="text-xs font-semibold truncate">{drawerImpactState.nba.label}</div>
-                <div className="flex items-center justify-end gap-1 text-[11px] font-semibold">
-                  <Trophy className="h-3 w-3" />
-                  {drawerImpactState.score}%
-                </div>
+              <div className="flex items-center gap-2">
+                <SheetTitle className="font-display text-2xl font-bold tracking-tight text-primary leading-tight">
+                  {displayLeadName}
+                </SheetTitle>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                  onClick={() => setIsEditLeadOpen(true)}
+                >
+                  <Edit3 className="h-4 w-4" />
+                </Button>
               </div>
-            )}
+              <div className="text-sm text-muted-foreground mt-0.5 font-medium">
+                {lead.phone}
+              </div>
+            </div>
           </div>
           <div className="flex items-center gap-1.5 flex-wrap">
             <StageBadge stage={lead.stage} />
             <IntentChip intent={lead.intent} />
-            <ConfidenceBar value={lead.confidence} />
             <ObjectionTag leadId={lead.id} />
           </div>
           <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
@@ -832,6 +834,36 @@ export function LeadControlPanel() {
               <MapPin className="mr-1 inline h-3 w-3" />
               Area: <b className="font-medium text-foreground">{leadLocation.area}</b>
             </span>
+            {lead.email && (
+              <span>
+                Email: <b className="font-medium text-foreground">{lead.email}</b>
+              </span>
+            )}
+            {lead.type && (
+              <span>
+                Type: <b className="font-medium text-foreground capitalize">{lead.type}</b>
+              </span>
+            )}
+            {lead.need && (
+              <span>
+                Need: <b className="font-medium text-foreground capitalize">{lead.need}</b>
+              </span>
+            )}
+            {lead.room && (
+              <span>
+                Room: <b className="font-medium text-foreground capitalize">{lead.room}</b>
+              </span>
+            )}
+            {lead.quality && (
+              <span>
+                Quality: <b className="font-medium text-foreground capitalize">{lead.quality}</b>
+              </span>
+            )}
+            {lead.inBLR !== null && lead.inBLR !== undefined && (
+              <span>
+                In BLR: <b className="font-medium text-foreground">{lead.inBLR ? "Yes" : "No"}</b>
+              </span>
+            )}
           </div>
           <div className="truncate text-[11px] text-muted-foreground">
             {actualPropertyName ? <>{actualPropertyName} · </> : null}
@@ -841,25 +873,27 @@ export function LeadControlPanel() {
           </div>
         </SheetHeader>
 
-        <LeadJourneyStepper lead={lead} currentTab={tab} onJump={(t: JourneyTab) => setTab(t)} />
-
-        {/* CRM 10x - commitment banner + 48h post-visit gate */}
-        <CommitmentBanner lead={lead} />
-        <PostVisitGate lead={lead} />
-
-        {/* Stale alert */}
-        {pendingPostTour && (
-          <div className="mx-5 mt-3 rounded-lg border border-destructive/30 bg-destructive/5 p-3 flex items-start gap-2">
-            <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
-            <div className="text-xs">
-              <div className="font-semibold text-destructive">Post-tour pending</div>
-              <div className="text-muted-foreground">Fill the post-tour outcome.</div>
-            </div>
-          </div>
-        )}
+        <div className="shrink-0 bg-background">
+          <LeadJourneyStepper lead={lead} currentTab={tab} onJump={(t: JourneyTab) => setTab(t)} />
+        </div>
 
         {/* Body */}
-        <div className="flex-none">
+        <div className="flex-1 overflow-y-auto bg-background">
+          {/* CRM 10x - commitment banner + 48h post-visit gate */}
+          <CommitmentBanner lead={lead} />
+          <PostVisitGate lead={lead} />
+
+          {/* Stale alert */}
+          {pendingPostTour && (
+            <div className="mx-5 mt-3 rounded-lg border border-destructive/30 bg-destructive/5 p-3 flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+              <div className="text-xs">
+                <div className="font-semibold text-destructive">Post-tour pending</div>
+                <div className="text-muted-foreground">Fill the post-tour outcome.</div>
+              </div>
+            </div>
+          )}
+
           <Tabs value={tab} onValueChange={setTab} className="px-6 pt-5 pb-6">
             {/* Quiet underline tab bar — single horizontal scroll, no chrome */}
             <TabsList className="h-auto w-full justify-start gap-6 rounded-none border-b border-border/60 bg-transparent p-0 overflow-x-auto scrollbar-thin">
@@ -1789,6 +1823,7 @@ export function LeadControlPanel() {
             </TabsContent>
           </Tabs>
         </div>
+        <EditLeadDialog open={isEditLeadOpen} onOpenChange={setIsEditLeadOpen} lead={lead} />
       </SheetContent>
     </Sheet>
   );
@@ -1905,9 +1940,8 @@ function ImpactTabContent({
   const reopenCall = tags.includes("impact:reopen-call");
 
   let activeStep = getPreVisitActiveStep({
-    profileDone: qualificationDone,
-    callConnected: Boolean(latestAnsweredCall),
-    objectionDone: hasObjectionCapture,
+    profileDone: qualificationDone || visitReadyDone,
+    callConnected: Boolean(latestAnsweredCall) || visitReadyDone,
     visitReady: visitReadyDone,
   });
 
@@ -1939,8 +1973,8 @@ function ImpactTabContent({
         activeStep={activeStep}
         done={{
           "new-lead": true,
-          qualification: qualificationDone,
-          call: Boolean(latestAnsweredCall) && hasObjectionCapture,
+          qualification: qualificationDone || visitReadyDone,
+          call: Boolean(latestAnsweredCall) || visitReadyDone,
           shortlist: visitReadyDone,
         }}
         backAction={
@@ -2068,11 +2102,10 @@ function preVisitTag(key: Exclude<PreVisitStepKey, "call">) {
 function getPreVisitActiveStep(state: {
   profileDone: boolean;
   callConnected: boolean;
-  objectionDone: boolean;
   visitReady: boolean;
 }): PreVisitStepKey {
   if (!state.profileDone) return "qualification";
-  if (!state.callConnected || !state.objectionDone) return "call";
+  if (!state.callConnected) return "call";
   return "visit-ready";
 }
 
@@ -2694,9 +2727,21 @@ function PropertyShortlistStep({
 
   const list = useMemo(() => {
     const base = query.trim()
-      ? searchPropertyCatalog(query, properties, { preferredArea: lead.preferredArea, limit: 12 })
+      ? searchPropertyCatalog(query, properties, { 
+          preferredArea: lead.preferredArea, 
+          limit: 12,
+          budget: lead.budget,
+          need: lead.need,
+          room: lead.room
+        })
       : areas.flatMap((area) =>
-          searchPropertyCatalog(area, properties, { preferredArea: area, limit: 5 }),
+          searchPropertyCatalog(area, properties, { 
+            preferredArea: area, 
+            limit: 5,
+            budget: lead.budget,
+            need: lead.need,
+            room: lead.room
+          }),
         );
     const seen = new Set<string>();
     const filtered = base
