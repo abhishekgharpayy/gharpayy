@@ -538,49 +538,49 @@ export const api = {
   },
   performance: {
     tcm: (q?: { startDate?: string; endDate?: string }) => {
-      if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+      if (typeof window !== 'undefined' && window.localStorage.getItem('MOCK_PERF') === 'true') {
         return Promise.resolve(mockTcmList);
       }
       const qs = new URLSearchParams(q as Record<string, string>).toString();
       return request<any[]>(`/api/v1/admin/performance/tcm${qs ? `?${qs}` : ""}`);
     },
     tcmDetail: (userId: string, q?: { startDate?: string; endDate?: string }) => {
-      if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+      if (typeof window !== 'undefined' && window.localStorage.getItem('MOCK_PERF') === 'true') {
         return Promise.resolve(mockTcmDetail(userId));
       }
       const qs = new URLSearchParams(q as Record<string, string>).toString();
       return request<any>(`/api/v1/admin/performance/tcm/${userId}${qs ? `?${qs}` : ""}`);
     },
     flowops: (q?: { startDate?: string; endDate?: string }) => {
-      if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+      if (typeof window !== 'undefined' && window.localStorage.getItem('MOCK_PERF') === 'true') {
         return Promise.resolve(mockFlowOpsList);
       }
       const qs = new URLSearchParams(q as Record<string, string>).toString();
       return request<any[]>(`/api/v1/admin/performance/flowops${qs ? `?${qs}` : ""}`);
     },
     flowopsDetail: (userId: string, q?: { startDate?: string; endDate?: string }) => {
-      if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+      if (typeof window !== 'undefined' && window.localStorage.getItem('MOCK_PERF') === 'true') {
         return Promise.resolve(mockFlowOpsDetail(userId));
       }
       const qs = new URLSearchParams(q as Record<string, string>).toString();
       return request<any>(`/api/v1/admin/performance/flowops/${userId}${qs ? `?${qs}` : ""}`);
     },
     propertyowners: (q?: { startDate?: string; endDate?: string }) => {
-      if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+      if (typeof window !== 'undefined' && window.localStorage.getItem('MOCK_PERF') === 'true') {
         return Promise.resolve(mockOwnersList);
       }
       const qs = new URLSearchParams(q as Record<string, string>).toString();
       return request<any[]>(`/api/v1/admin/performance/propertyowners${qs ? `?${qs}` : ""}`);
     },
     propertyownerDetail: (userId: string, q?: { startDate?: string; endDate?: string }) => {
-      if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+      if (typeof window !== 'undefined' && window.localStorage.getItem('MOCK_PERF') === 'true') {
         return Promise.resolve(mockOwnerDetail(userId));
       }
       const qs = new URLSearchParams(q as Record<string, string>).toString();
       return request<any>(`/api/v1/admin/performance/propertyowner/${userId}${qs ? `?${qs}` : ""}`);
     },
     summary: (q?: { startDate?: string; endDate?: string }) => {
-      if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+      if (typeof window !== 'undefined' && window.localStorage.getItem('MOCK_PERF') === 'true') {
         return Promise.resolve(mockSummary);
       }
       const qs = new URLSearchParams(q as Record<string, string>).toString();
