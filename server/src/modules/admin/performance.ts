@@ -275,7 +275,7 @@ export function registerAdminPerformanceRoutes(app: FastifyInstance) {
       propertyName: t.propertyId || "Unknown",
       clientName: "Client", 
       scheduledAt: t.scheduledAt || t.createdAt,
-      reason: t.notes || "No reason given"
+      reason: (t as any).notes || "No reason given"
     }));
 
     // Weekly trend
