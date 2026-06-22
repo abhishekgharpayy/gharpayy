@@ -16,6 +16,14 @@ import {
 
 export type ColumnKey = "superHot" | "followUp" | "tourScheduled" | "stuck" | "decisionPending" | "booked" | "notNeeded";
 
+export type ActiveView = 
+  | "all" 
+  | "tours-today" 
+  | "feedback-missing" 
+  | "quote-pending" 
+  | "movein-0-7" 
+  | "no-activity-48h";
+
 /** Target stage when dragging a card into a column (confirmed in dialog). */
 export const COLUMN_STAGE_TARGET: Partial<Record<ColumnKey, LeadStage>> = {
   superHot: "contacted",

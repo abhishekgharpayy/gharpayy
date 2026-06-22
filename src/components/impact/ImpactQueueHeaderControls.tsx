@@ -41,18 +41,19 @@ import {
   SlidersHorizontal,
   Check,
   ChevronsUpDown,
-  ChevronDown
+  ChevronDown,
+  Calendar
 } from "lucide-react";
 import { ImpactFocusInventoryPanel } from "@/components/impact/ImpactFocusInventoryPanel";
 import { useCRM10x } from "@/lib/crm10x/store";
+import type { ActiveView } from "./impact-queue-types";
 
 export type QueueFilters = {
+  activeView: ActiveView;
   dateRange: string;
-  assignment: string;
-  status: string;
+  customDate?: string;
   quickFilters: string[];
   area: string;
-  customDateRange?: { start: string; end: string };
   advanced: {
     type: string;
     room: string;
@@ -63,9 +64,8 @@ export type QueueFilters = {
 };
 
 export const defaultQueueFilters: QueueFilters = {
+  activeView: "all",
   dateRange: "all",
-  assignment: "all",
-  status: "all",
   quickFilters: [],
   area: "all",
   advanced: {
@@ -98,25 +98,18 @@ export function ImpactFiltersPopover({
   }, [open, filters]);
   const allObjections = useCRM10x((s) => s.objections);
 
-  // Directly call onApply whenever we want to instantly filter.
-  // We can just use the provided `filters` as source of truth.
-  
   const updateFilter = (updater: (prev: QueueFilters) => QueueFilters) => {
     setLocalFilters(updater(localFilters!));
   };
 
-  const reset = () => {
-    onApply(defaultQueueFilters);
+  const applyChanges = () => {
+    onApply(localFilters);
+    setOpen(false);
   };
 
-  const toggleQuickFilter = (item: string) => {
-    updateFilter((prev) => {
-      const arr = prev.quickFilters;
-      if (arr.includes(item)) {
-        return { ...prev, quickFilters: arr.filter((x) => x !== item) };
-      }
-      return { ...prev, quickFilters: [...arr, item] };
-    });
+  const reset = () => {
+    onApply({ ...defaultQueueFilters, activeView: filters.activeView });
+    setOpen(false);
   };
 
   const toggleAdvancedArray = (key: 'objections' | 'qualification', item: string) => {
@@ -127,45 +120,6 @@ export function ImpactFiltersPopover({
     });
   };
 
-  // Compute active filters summary string
-  const activeSummary = useMemo(() => {
-    const parts = [];
-    if (localFilters.dateRange === "today") parts.push("Today");
-    if (localFilters.dateRange === "yesterday") parts.push("Yesterday");
-    if (localFilters.dateRange === "last7") parts.push("Last 7 Days");
-    if (localFilters.dateRange === "last30") parts.push("Last 30 Days");
-    
-    if (localFilters.assignment !== "all") {
-       const tcm = tcms?.find(t => t.id === localFilters.assignment);
-       if (tcm?.name) parts.push(tcm.name.split(" ")[0]);
-       else parts.push("Assigned");
-    }
-    
-    if (localFilters.status !== "all") {
-       if (localFilters.status === "my-leads") parts.push("My Leads");
-       if (localFilters.status === "needs-action") parts.push("Needs Action");
-       if (localFilters.status === "at-risk") parts.push("At Risk");
-       if (localFilters.status === "unassigned") parts.push("Unassigned");
-       if (localFilters.status === "booked") parts.push("Booked");
-       if (localFilters.status === "dropped") parts.push("Dropped");
-    }
-    
-    if (localFilters.quickFilters.length > 0) {
-       const labelMap: Record<string, string> = {
-         "tour-today": "Tour Today",
-         "feedback-missing": "Feedback Missing",
-         "quote-pending": "Quote Pending",
-         "movein-0-7": "Move-In < 7 Days",
-         "no-activity-48h": "No Activity > 48h",
-         "property-not-selected": "Property Not Selected",
-       };
-       if (localFilters.quickFilters.length === 1) parts.push(labelMap[localFilters.quickFilters[0]] || "1 Filter");
-       else parts.push(`${localFilters.quickFilters.length} Filters`);
-    }
-    
-    return parts.length > 0 ? parts.join(" • ") : "Filters";
-  }, [filters, tcms]);
-
   const [memberOpen, setMemberOpen] = useState(false);
 
   return (
@@ -175,104 +129,18 @@ export function ImpactFiltersPopover({
           <button
             type="button"
             className={cn(
-              "h-8 shrink-0 rounded-md border px-3 text-[11px] font-semibold flex items-center gap-1.5 transition-colors",
-              activeSummary !== "Filters"
-                ? "border-accent bg-accent/10 text-accent-foreground"
-                : "border-border bg-background text-muted-foreground hover:text-foreground hover:bg-accent/5",
+              "h-8 shrink-0 rounded-md border px-3 text-[11px] font-semibold flex items-center gap-1.5 transition-colors border-border bg-background text-muted-foreground hover:bg-muted/50 hover:text-foreground"
             )}
           >
             <SlidersHorizontal className="h-3.5 w-3.5" />
-            {activeSummary}
+            <span className="hidden sm:inline">More Filters</span>
+            <span className="sm:hidden">Filters</span>
           </button>
         </PopoverTrigger>
         <PopoverContent align="start" className="w-[min(95vw,32rem)] p-0 flex flex-col max-h-[85vh] shadow-xl">
           <div className="p-4 overflow-y-auto space-y-6">
             
-            {/* SECTION 1: DATE RANGE */}
-            <div>
-              <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Date Range</p>
-              <div className="flex flex-wrap gap-2">
-                {[
-                  { k: "today", l: "Today" },
-                  { k: "yesterday", l: "Yesterday" },
-                  { k: "last7", l: "Last 7 Days" },
-                  { k: "last30", l: "Last 30 Days" },
-                  { k: "all", l: "All Time" },
-                  { k: "custom", l: "Custom Range" }
-                ].map((item) => (
-                  <button
-                    key={item.k}
-                    onClick={() => updateFilter(p => ({ ...p, dateRange: item.k }))}
-                    className={cn("rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-colors", localFilters.dateRange === item.k ? "bg-primary text-primary-foreground border-primary shadow-sm" : "bg-background text-slate-600 border-border hover:bg-muted")}
-                  >
-                    {item.l}
-                  </button>
-                ))}
-                {localFilters.dateRange === "custom" && (
-                  <div className="w-full mt-2 flex items-center gap-2">
-                    <input type="date" className="flex h-8 w-full rounded-md border border-input bg-background px-3 py-1 text-xs shadow-sm"
-                       value={localFilters.customDateRange?.start || ""}
-                       onChange={(e) => updateFilter(p => ({ ...p, customDateRange: { start: e.target.value, end: p.customDateRange?.end || "" } }))}
-                    />
-                    <span className="text-muted-foreground text-[10px]">to</span>
-                    <input type="date" className="flex h-8 w-full rounded-md border border-input bg-background px-3 py-1 text-xs shadow-sm"
-                       value={localFilters.customDateRange?.end || ""}
-                       onChange={(e) => updateFilter(p => ({ ...p, customDateRange: { start: p.customDateRange?.start || "", end: e.target.value } }))}
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* SECTION 3: STATUS FILTER */}
-            <div>
-              <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Status</p>
-              <div className="flex flex-wrap gap-2">
-                {[
-                  { k: "all", l: "All Leads" },
-                  { k: "needs-action", l: "Needs Action" },
-                  { k: "at-risk", l: "At Risk" },
-                  { k: "booked", l: "Booked" },
-                  { k: "dropped", l: "Dropped" }
-                ].map((item) => (
-                  <button
-                    key={item.k}
-                    onClick={() => updateFilter(p => ({ ...p, status: item.k }))}
-                    className={cn("rounded-md border px-3 py-1.5 text-[11px] font-semibold transition-colors shadow-sm", localFilters.status === item.k ? "bg-slate-800 text-white border-slate-800 dark:bg-foreground dark:text-background" : "bg-card text-slate-700 border-border hover:bg-muted/50")}
-                  >
-                    {item.l}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* SECTION 4: QUICK FILTERS */}
-            <div>
-              <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Quick Interventions</p>
-              <div className="flex flex-wrap gap-2">
-                {[
-                  { k: "tour-today", l: "Tour Today" },
-                  { k: "feedback-missing", l: "Feedback Missing" },
-                  { k: "quote-pending", l: "Quote Pending" },
-                  { k: "movein-0-7", l: "Move-In < 7 Days" },
-                  { k: "no-activity-48h", l: "No Activity > 48h" },
-                  { k: "property-not-selected", l: "Property Not Selected" }
-                ].map((item) => {
-                  const active = localFilters.quickFilters.includes(item.k);
-                  return (
-                    <button
-                      key={item.k}
-                      onClick={() => toggleQuickFilter(item.k)}
-                      className={cn("rounded-md border px-3 py-1.5 text-[11px] font-semibold transition-colors", active ? "bg-warning/20 text-warning-foreground border-warning/40 shadow-sm" : "bg-card text-slate-600 border-border hover:bg-muted")}
-                    >
-                      {item.l}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-
-            {/* SECTION 5: AREA */}
+            {/* SECTION 1: AREA */}
             <div>
               <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Area</p>
               <Select value={localFilters.area} onValueChange={(area) => updateFilter((prev) => ({ ...prev, area }))}>
@@ -290,7 +158,7 @@ export function ImpactFiltersPopover({
             <Collapsible>
               <CollapsibleTrigger asChild>
                 <button className="flex w-full items-center justify-between rounded-md border border-border bg-muted/30 px-3 py-2 text-xs font-bold text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors">
-                  More Filters
+                  Advanced Filters
                   <ChevronDown className="h-4 w-4" />
                 </button>
               </CollapsibleTrigger>
@@ -413,9 +281,14 @@ export function ImpactFiltersPopover({
               </DropdownMenuContent>
             </DropdownMenu>
             
-            <Button size="sm" variant="ghost" className="h-8 px-4 text-xs font-semibold text-muted-foreground hover:text-foreground" onClick={reset}>
-              Clear All
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="ghost" className="h-8 px-4 text-xs font-semibold text-muted-foreground hover:text-foreground" onClick={reset}>
+                Clear All
+              </Button>
+              <Button size="sm" className="h-8 px-4 text-xs font-semibold shadow-sm" onClick={applyChanges}>
+                Apply Filters
+              </Button>
+            </div>
           </div>
         </PopoverContent>
       </Popover>
@@ -476,63 +349,154 @@ export function ImpactQueueMetaBar({
   );
 }
 
-export function ImpactTeamCombobox({
-  assignment,
-  tcms,
+export function ImpactDateDropdown({
+  filters,
   onChange,
 }: {
-  assignment: string;
-  tcms: Array<{id: string; name?: string}>;
-  onChange: (id: string) => void;
+  filters: QueueFilters;
+  onChange: (dateRange: string, customDate?: string) => void;
 }) {
   const [open, setOpen] = useState(false);
-  if (!tcms || tcms.length === 0) return null;
+  const [customVal, setCustomVal] = useState(filters.customDate || "");
 
-  const isSpecific = assignment !== "all" && assignment !== "my-leads" && assignment !== "unassigned";
+  const getLabel = () => {
+    switch (filters.dateRange) {
+      case "today": return "Today";
+      case "yesterday": return "Yesterday";
+      case "last7": return "Last 7 Days";
+      case "custom": return "Custom Range";
+      default: return "All Time";
+    }
+  };
 
   return (
-    <div className="flex items-center gap-1">
-      <Select value={isSpecific ? "specific" : assignment} onValueChange={(val) => {
-        if (val === "specific") setOpen(true);
-        else onChange(val);
-      }}>
-        <SelectTrigger className="h-8 w-40 text-[11px] bg-background">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all" className="text-[11px]">All Owners</SelectItem>
-          <SelectItem value="my-leads" className="text-[11px]">My Leads</SelectItem>
-          <SelectItem value="unassigned" className="text-[11px]">Unassigned</SelectItem>
-          {isSpecific && (
-            <SelectItem value="specific" className="text-[11px]">
-               {tcms?.find((t) => t.id === assignment)?.name || "Specific Owner"}
-            </SelectItem>
-          )}
-          {!isSpecific && <SelectItem value="specific" className="text-[11px]">Specific Owner...</SelectItem>}
-        </SelectContent>
-      </Select>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button className="h-8 rounded-md border border-border bg-background px-3 text-[11px] font-semibold flex items-center gap-1.5 transition-colors text-muted-foreground hover:bg-muted/50 hover:text-foreground">
+          <Calendar className="h-3.5 w-3.5" />
+          {getLabel()}
+          <ChevronDown className="h-3.5 w-3.5 opacity-50" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-56 p-1" align="start">
+        <div className="flex flex-col">
+          {[
+            { k: "all", l: "All Time" },
+            { k: "today", l: "Today" },
+            { k: "yesterday", l: "Yesterday" },
+            { k: "last7", l: "Last 7 Days" },
+            { k: "custom", l: "Custom Range" },
+          ].map(opt => (
+            <div key={opt.k} className="flex flex-col">
+              <button
+                className={cn("flex items-center px-2 py-1.5 text-sm rounded-sm hover:bg-muted text-left", filters.dateRange === opt.k && "bg-muted font-medium")}
+                onClick={() => {
+                  if (opt.k !== "custom") {
+                    onChange(opt.k);
+                    setOpen(false);
+                  } else {
+                    onChange("custom", customVal);
+                  }
+                }}
+              >
+                {opt.l}
+              </button>
+              {opt.k === "custom" && filters.dateRange === "custom" && (
+                <div className="p-2 border-t mt-1 flex flex-col gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-muted-foreground w-8">From</span>
+                    <input type="date" value={customVal.split(":")[0] || ""} onChange={(e) => {
+                      const to = customVal.split(":")[1] || "";
+                      const newVal = `${e.target.value}:${to}`;
+                      setCustomVal(newVal);
+                      onChange("custom", newVal);
+                    }} className="h-8 w-full rounded-md border border-input text-xs px-2 bg-background" />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-muted-foreground w-8">To</span>
+                    <input type="date" value={customVal.split(":")[1] || ""} onChange={(e) => {
+                      const from = customVal.split(":")[0] || "";
+                      const newVal = `${from}:${e.target.value}`;
+                      setCustomVal(newVal);
+                      onChange("custom", newVal);
+                    }} className="h-8 w-full rounded-md border border-input text-xs px-2 bg-background" />
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <div className="w-0 h-0 overflow-hidden" />
-        </PopoverTrigger>
-        <PopoverContent className="w-[18rem] p-0 shadow-lg" align="start">
-          <Command>
-            <CommandInput placeholder="Search owner..." className="h-9 text-[11px]" />
-            <CommandEmpty className="text-[11px] py-3 text-center text-muted-foreground">No owner found.</CommandEmpty>
-            <CommandList className="max-h-48">
-              <CommandGroup>
-                {tcms.map((t) => (
-                  <CommandItem key={t.id} value={t.name || t.id} onSelect={() => { onChange(t.id); setOpen(false); }} className="text-[11px]">
-                    <Check className={cn("mr-2 h-3.5 w-3.5", assignment === t.id ? "opacity-100" : "opacity-0")} />
-                    {t.name}
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
+export function ImpactQueueSwitcher({
+  activeView,
+  counts,
+  onChange
+}: {
+  activeView: ActiveView;
+  counts: Record<ActiveView, number>;
+  onChange: (view: ActiveView) => void;
+}) {
+  const views: { k: ActiveView; l: string }[] = [
+    { k: "all", l: "All Leads" },
+    { k: "tours-today", l: "Tours Today" },
+    { k: "feedback-missing", l: "Feedback Missing" },
+    { k: "quote-pending", l: "Quote Pending" },
+    { k: "movein-0-7", l: "Move-In < 7 Days" },
+    { k: "no-activity-48h", l: "No Activity > 48h" },
+  ];
+
+  return (
+    <div className="flex flex-1 items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 sm:pb-0">
+      {views.map((v) => {
+         const active = activeView === v.k;
+         return (
+           <button
+             key={v.k}
+             onClick={() => onChange(v.k)}
+             className={cn("shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-colors shadow-sm", active ? "bg-slate-800 text-white border-slate-800 dark:bg-foreground dark:text-background" : "bg-card text-slate-600 border-border hover:bg-muted hover:text-foreground")}
+           >
+             {v.l} ({counts[v.k] ?? 0})
+           </button>
+         );
+      })}
     </div>
   );
 }
+
+export function ImpactActiveFiltersSummary({ filters, tcms }: { filters: QueueFilters, tcms?: Array<{id: string; name?: string}> }) {
+  const parts: string[] = [];
+
+  if (filters.dateRange !== "all") {
+    const dr = {
+      today: "Today",
+      yesterday: "Yesterday",
+      last7: "Last 7 Days",
+      custom: `Range: ${filters.customDate?.replace(":", " to ")}`,
+    }[filters.dateRange];
+    if (dr) parts.push(dr);
+  }
+
+  if (filters.area !== "all") {
+    parts.push(filters.area);
+  }
+
+  const adv = filters.advanced;
+  if (adv.type !== "all") parts.push(`Type: ${adv.type}`);
+  if (adv.room !== "all") parts.push(`Room: ${adv.room}`);
+  if (adv.need !== "all") parts.push(`Need: ${adv.need}`);
+  if (adv.qualification.length > 0) parts.push(`${adv.qualification.length} Qual. Filters`);
+  if (adv.objections.length > 0) parts.push(`${adv.objections.length} Objections`);
+
+  if (parts.length === 0) return null;
+
+  return (
+    <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground font-medium truncate max-w-[300px]">
+      <span className="truncate">{parts.join(" • ")}</span>
+    </div>
+  );
+}
+
