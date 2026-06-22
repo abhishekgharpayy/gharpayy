@@ -7,6 +7,7 @@ import { LiveActivityDrawer } from "./LiveActivityDrawer";
 
 const TABS = [
   { to: "/admin",                label: "Cockpit" },
+  { to: "/admin/performance",    label: "Performance" },
   { to: "/admin/leads",          label: "Master Leads" },
   { to: "/admin/bookings",       label: "Bookings" },
   { to: "/admin/tenants",        label: "Tenants" },

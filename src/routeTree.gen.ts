@@ -87,6 +87,7 @@ import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
 import { Route as AdminRevenueRouteImport } from './routes/admin.revenue'
 import { Route as AdminRadarRouteImport } from './routes/admin.radar'
 import { Route as AdminPropertyRouteImport } from './routes/admin.property'
+import { Route as AdminPerformanceRouteImport } from './routes/admin.performance'
 import { Route as AdminPeopleRouteImport } from './routes/admin.people'
 import { Route as AdminOwnersRouteImport } from './routes/admin.owners'
 import { Route as AdminOwnerBookingsRouteImport } from './routes/admin.owner-bookings'
@@ -109,6 +110,9 @@ import { Route as MytFeedbackIdRouteImport } from './routes/myt/feedback.$id'
 import { Route as AdminTenantsIdRouteImport } from './routes/admin.tenants.$id'
 import { Route as PropertyOwnerPropertiesIdRoomsRouteImport } from './routes/property-owner.properties.$id.rooms'
 import { Route as MytTourIdReportRouteImport } from './routes/myt/tour.$id.report'
+import { Route as AdminPerformanceTcmUserIdRouteImport } from './routes/admin.performance.tcm.$userId'
+import { Route as AdminPerformancePropertyownerUserIdRouteImport } from './routes/admin.performance.propertyowner.$userId'
+import { Route as AdminPerformanceFlowopsUserIdRouteImport } from './routes/admin.performance.flowops.$userId'
 import { Route as PropertyOwnerPropertiesIdRoomsRoomIdRouteImport } from './routes/property-owner.properties.$id.rooms.$roomId'
 
 const ZonesRoute = ZonesRouteImport.update({
@@ -502,6 +506,11 @@ const AdminPropertyRoute = AdminPropertyRouteImport.update({
   path: '/property',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminPerformanceRoute = AdminPerformanceRouteImport.update({
+  id: '/performance',
+  path: '/performance',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminPeopleRoute = AdminPeopleRouteImport.update({
   id: '/people',
   path: '/people',
@@ -614,6 +623,24 @@ const MytTourIdReportRoute = MytTourIdReportRouteImport.update({
   path: '/report',
   getParentRoute: () => MytTourIdRoute,
 } as any)
+const AdminPerformanceTcmUserIdRoute =
+  AdminPerformanceTcmUserIdRouteImport.update({
+    id: '/tcm/$userId',
+    path: '/tcm/$userId',
+    getParentRoute: () => AdminPerformanceRoute,
+  } as any)
+const AdminPerformancePropertyownerUserIdRoute =
+  AdminPerformancePropertyownerUserIdRouteImport.update({
+    id: '/propertyowner/$userId',
+    path: '/propertyowner/$userId',
+    getParentRoute: () => AdminPerformanceRoute,
+  } as any)
+const AdminPerformanceFlowopsUserIdRoute =
+  AdminPerformanceFlowopsUserIdRouteImport.update({
+    id: '/flowops/$userId',
+    path: '/flowops/$userId',
+    getParentRoute: () => AdminPerformanceRoute,
+  } as any)
 const PropertyOwnerPropertiesIdRoomsRoomIdRoute =
   PropertyOwnerPropertiesIdRoomsRoomIdRouteImport.update({
     id: '/$roomId',
@@ -670,6 +697,7 @@ export interface FileRoutesByFullPath {
   '/admin/owner-bookings': typeof AdminOwnerBookingsRoute
   '/admin/owners': typeof AdminOwnersRoute
   '/admin/people': typeof AdminPeopleRoute
+  '/admin/performance': typeof AdminPerformanceRouteWithChildren
   '/admin/property': typeof AdminPropertyRoute
   '/admin/radar': typeof AdminRadarRoute
   '/admin/revenue': typeof AdminRevenueRoute
@@ -720,6 +748,9 @@ export interface FileRoutesByFullPath {
   '/myt/tcm/performance': typeof MytTcmPerformanceRoute
   '/myt/tour/$id': typeof MytTourIdRouteWithChildren
   '/property-owner/properties/new': typeof PropertyOwnerPropertiesNewRoute
+  '/admin/performance/flowops/$userId': typeof AdminPerformanceFlowopsUserIdRoute
+  '/admin/performance/propertyowner/$userId': typeof AdminPerformancePropertyownerUserIdRoute
+  '/admin/performance/tcm/$userId': typeof AdminPerformanceTcmUserIdRoute
   '/myt/tour/$id/report': typeof MytTourIdReportRoute
   '/property-owner/properties/$id/rooms': typeof PropertyOwnerPropertiesIdRoomsRouteWithChildren
   '/property-owner/properties/$id/rooms/$roomId': typeof PropertyOwnerPropertiesIdRoomsRoomIdRoute
@@ -772,6 +803,7 @@ export interface FileRoutesByTo {
   '/admin/owner-bookings': typeof AdminOwnerBookingsRoute
   '/admin/owners': typeof AdminOwnersRoute
   '/admin/people': typeof AdminPeopleRoute
+  '/admin/performance': typeof AdminPerformanceRouteWithChildren
   '/admin/property': typeof AdminPropertyRoute
   '/admin/radar': typeof AdminRadarRoute
   '/admin/revenue': typeof AdminRevenueRoute
@@ -822,6 +854,9 @@ export interface FileRoutesByTo {
   '/myt/tcm/performance': typeof MytTcmPerformanceRoute
   '/myt/tour/$id': typeof MytTourIdRouteWithChildren
   '/property-owner/properties/new': typeof PropertyOwnerPropertiesNewRoute
+  '/admin/performance/flowops/$userId': typeof AdminPerformanceFlowopsUserIdRoute
+  '/admin/performance/propertyowner/$userId': typeof AdminPerformancePropertyownerUserIdRoute
+  '/admin/performance/tcm/$userId': typeof AdminPerformanceTcmUserIdRoute
   '/myt/tour/$id/report': typeof MytTourIdReportRoute
   '/property-owner/properties/$id/rooms': typeof PropertyOwnerPropertiesIdRoomsRouteWithChildren
   '/property-owner/properties/$id/rooms/$roomId': typeof PropertyOwnerPropertiesIdRoomsRoomIdRoute
@@ -876,6 +911,7 @@ export interface FileRoutesById {
   '/admin/owner-bookings': typeof AdminOwnerBookingsRoute
   '/admin/owners': typeof AdminOwnersRoute
   '/admin/people': typeof AdminPeopleRoute
+  '/admin/performance': typeof AdminPerformanceRouteWithChildren
   '/admin/property': typeof AdminPropertyRoute
   '/admin/radar': typeof AdminRadarRoute
   '/admin/revenue': typeof AdminRevenueRoute
@@ -926,6 +962,9 @@ export interface FileRoutesById {
   '/myt/tcm/performance': typeof MytTcmPerformanceRoute
   '/myt/tour/$id': typeof MytTourIdRouteWithChildren
   '/property-owner/properties/new': typeof PropertyOwnerPropertiesNewRoute
+  '/admin/performance/flowops/$userId': typeof AdminPerformanceFlowopsUserIdRoute
+  '/admin/performance/propertyowner/$userId': typeof AdminPerformancePropertyownerUserIdRoute
+  '/admin/performance/tcm/$userId': typeof AdminPerformanceTcmUserIdRoute
   '/myt/tour/$id/report': typeof MytTourIdReportRoute
   '/property-owner/properties/$id/rooms': typeof PropertyOwnerPropertiesIdRoomsRouteWithChildren
   '/property-owner/properties/$id/rooms/$roomId': typeof PropertyOwnerPropertiesIdRoomsRoomIdRoute
@@ -981,6 +1020,7 @@ export interface FileRouteTypes {
     | '/admin/owner-bookings'
     | '/admin/owners'
     | '/admin/people'
+    | '/admin/performance'
     | '/admin/property'
     | '/admin/radar'
     | '/admin/revenue'
@@ -1031,6 +1071,9 @@ export interface FileRouteTypes {
     | '/myt/tcm/performance'
     | '/myt/tour/$id'
     | '/property-owner/properties/new'
+    | '/admin/performance/flowops/$userId'
+    | '/admin/performance/propertyowner/$userId'
+    | '/admin/performance/tcm/$userId'
     | '/myt/tour/$id/report'
     | '/property-owner/properties/$id/rooms'
     | '/property-owner/properties/$id/rooms/$roomId'
@@ -1083,6 +1126,7 @@ export interface FileRouteTypes {
     | '/admin/owner-bookings'
     | '/admin/owners'
     | '/admin/people'
+    | '/admin/performance'
     | '/admin/property'
     | '/admin/radar'
     | '/admin/revenue'
@@ -1133,6 +1177,9 @@ export interface FileRouteTypes {
     | '/myt/tcm/performance'
     | '/myt/tour/$id'
     | '/property-owner/properties/new'
+    | '/admin/performance/flowops/$userId'
+    | '/admin/performance/propertyowner/$userId'
+    | '/admin/performance/tcm/$userId'
     | '/myt/tour/$id/report'
     | '/property-owner/properties/$id/rooms'
     | '/property-owner/properties/$id/rooms/$roomId'
@@ -1186,6 +1233,7 @@ export interface FileRouteTypes {
     | '/admin/owner-bookings'
     | '/admin/owners'
     | '/admin/people'
+    | '/admin/performance'
     | '/admin/property'
     | '/admin/radar'
     | '/admin/revenue'
@@ -1236,6 +1284,9 @@ export interface FileRouteTypes {
     | '/myt/tcm/performance'
     | '/myt/tour/$id'
     | '/property-owner/properties/new'
+    | '/admin/performance/flowops/$userId'
+    | '/admin/performance/propertyowner/$userId'
+    | '/admin/performance/tcm/$userId'
     | '/myt/tour/$id/report'
     | '/property-owner/properties/$id/rooms'
     | '/property-owner/properties/$id/rooms/$roomId'
@@ -1853,6 +1904,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminPropertyRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/performance': {
+      id: '/admin/performance'
+      path: '/performance'
+      fullPath: '/admin/performance'
+      preLoaderRoute: typeof AdminPerformanceRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/people': {
       id: '/admin/people'
       path: '/people'
@@ -2007,6 +2065,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MytTourIdReportRouteImport
       parentRoute: typeof MytTourIdRoute
     }
+    '/admin/performance/tcm/$userId': {
+      id: '/admin/performance/tcm/$userId'
+      path: '/tcm/$userId'
+      fullPath: '/admin/performance/tcm/$userId'
+      preLoaderRoute: typeof AdminPerformanceTcmUserIdRouteImport
+      parentRoute: typeof AdminPerformanceRoute
+    }
+    '/admin/performance/propertyowner/$userId': {
+      id: '/admin/performance/propertyowner/$userId'
+      path: '/propertyowner/$userId'
+      fullPath: '/admin/performance/propertyowner/$userId'
+      preLoaderRoute: typeof AdminPerformancePropertyownerUserIdRouteImport
+      parentRoute: typeof AdminPerformanceRoute
+    }
+    '/admin/performance/flowops/$userId': {
+      id: '/admin/performance/flowops/$userId'
+      path: '/flowops/$userId'
+      fullPath: '/admin/performance/flowops/$userId'
+      preLoaderRoute: typeof AdminPerformanceFlowopsUserIdRouteImport
+      parentRoute: typeof AdminPerformanceRoute
+    }
     '/property-owner/properties/$id/rooms/$roomId': {
       id: '/property-owner/properties/$id/rooms/$roomId'
       path: '/$roomId'
@@ -2016,6 +2095,22 @@ declare module '@tanstack/react-router' {
     }
   }
 }
+
+interface AdminPerformanceRouteChildren {
+  AdminPerformanceFlowopsUserIdRoute: typeof AdminPerformanceFlowopsUserIdRoute
+  AdminPerformancePropertyownerUserIdRoute: typeof AdminPerformancePropertyownerUserIdRoute
+  AdminPerformanceTcmUserIdRoute: typeof AdminPerformanceTcmUserIdRoute
+}
+
+const AdminPerformanceRouteChildren: AdminPerformanceRouteChildren = {
+  AdminPerformanceFlowopsUserIdRoute: AdminPerformanceFlowopsUserIdRoute,
+  AdminPerformancePropertyownerUserIdRoute:
+    AdminPerformancePropertyownerUserIdRoute,
+  AdminPerformanceTcmUserIdRoute: AdminPerformanceTcmUserIdRoute,
+}
+
+const AdminPerformanceRouteWithChildren =
+  AdminPerformanceRoute._addFileChildren(AdminPerformanceRouteChildren)
 
 interface AdminTenantsRouteChildren {
   AdminTenantsIdRoute: typeof AdminTenantsIdRoute
@@ -2044,6 +2139,7 @@ interface AdminRouteChildren {
   AdminOwnerBookingsRoute: typeof AdminOwnerBookingsRoute
   AdminOwnersRoute: typeof AdminOwnersRoute
   AdminPeopleRoute: typeof AdminPeopleRoute
+  AdminPerformanceRoute: typeof AdminPerformanceRouteWithChildren
   AdminPropertyRoute: typeof AdminPropertyRoute
   AdminRadarRoute: typeof AdminRadarRoute
   AdminRevenueRoute: typeof AdminRevenueRoute
@@ -2070,6 +2166,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminOwnerBookingsRoute: AdminOwnerBookingsRoute,
   AdminOwnersRoute: AdminOwnersRoute,
   AdminPeopleRoute: AdminPeopleRoute,
+  AdminPerformanceRoute: AdminPerformanceRouteWithChildren,
   AdminPropertyRoute: AdminPropertyRoute,
   AdminRadarRoute: AdminRadarRoute,
   AdminRevenueRoute: AdminRevenueRoute,

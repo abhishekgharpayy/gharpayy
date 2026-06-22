@@ -6,6 +6,7 @@
 // the VPS is provisioned. As soon as VITE_API_URL is set and reachable,
 // real network mode kicks in automatically.
 import { localAdapter, isLocalMode } from "./local-adapter";
+import { mockTcmList, mockTcmDetail, mockFlowOpsList, mockFlowOpsDetail, mockOwnersList, mockOwnerDetail, mockSummary } from "./mockPerformanceData";
 
 export const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 
@@ -534,6 +535,66 @@ export const api = {
           request<{ items: AssignmentNotificationItem[] }>("/api/assignment-notifications/passed"),
         () => ({ items: [] }),
       ),
+  },
+  performance: {
+    tcm: (q?: { startDate?: string; endDate?: string }) => {
+      if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+        return Promise.resolve(mockTcmList);
+      }
+      const qs = new URLSearchParams(q as Record<string, string>).toString();
+      return request<any[]>(`/api/v1/admin/performance/tcm${qs ? `?${qs}` : ""}`);
+    },
+    tcmDetail: (userId: string, q?: { startDate?: string; endDate?: string }) => {
+      if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+        return Promise.resolve(mockTcmDetail(userId));
+      }
+      const qs = new URLSearchParams(q as Record<string, string>).toString();
+      return request<any>(`/api/v1/admin/performance/tcm/${userId}${qs ? `?${qs}` : ""}`);
+    },
+    flowops: (q?: { startDate?: string; endDate?: string }) => {
+      if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+        return Promise.resolve(mockFlowOpsList);
+      }
+      const qs = new URLSearchParams(q as Record<string, string>).toString();
+      return request<any[]>(`/api/v1/admin/performance/flowops${qs ? `?${qs}` : ""}`);
+    },
+    flowopsDetail: (userId: string, q?: { startDate?: string; endDate?: string }) => {
+      if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+        return Promise.resolve(mockFlowOpsDetail(userId));
+      }
+      const qs = new URLSearchParams(q as Record<string, string>).toString();
+      return request<any>(`/api/v1/admin/performance/flowops/${userId}${qs ? `?${qs}` : ""}`);
+    },
+    propertyowners: (q?: { startDate?: string; endDate?: string }) => {
+      if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+        return Promise.resolve(mockOwnersList);
+      }
+      const qs = new URLSearchParams(q as Record<string, string>).toString();
+      return request<any[]>(`/api/v1/admin/performance/propertyowners${qs ? `?${qs}` : ""}`);
+    },
+    propertyownerDetail: (userId: string, q?: { startDate?: string; endDate?: string }) => {
+      if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+        return Promise.resolve(mockOwnerDetail(userId));
+      }
+      const qs = new URLSearchParams(q as Record<string, string>).toString();
+      return request<any>(`/api/v1/admin/performance/propertyowner/${userId}${qs ? `?${qs}` : ""}`);
+    },
+    summary: (q?: { startDate?: string; endDate?: string }) => {
+      if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+        return Promise.resolve(mockSummary);
+      }
+      const qs = new URLSearchParams(q as Record<string, string>).toString();
+      return request<{
+        totalTours: number;
+        totalLeads: number;
+        totalBookings: number;
+        overallConversionRate: number;
+        totalRevenue: number;
+        activeTCMs: number;
+        activeFlowOps: number;
+        activePropertyOwners: number;
+      }>(`/api/v1/admin/performance/summary${qs ? `?${qs}` : ""}`);
+    },
   },
 };
 
