@@ -61,6 +61,15 @@ export function registerZoneRoutes(app: FastifyInstance) {
   const zones = () => col<ZoneDoc>("zones");
 
   // List zones — any authed user (forms need them)
+  // Alias for legacy client path
+  app.get("/api/myt/zones", { preHandler: [requireAuth] }, async (req, reply) => {
+    await ensureSeedZones(req.user!.tenantId);
+    const list = await zones()
+      .find({ tenantId: req.user!.tenantId })
+      .sort({ name: 1 })
+      .toArray();
+    return reply.send(list.map(zoneOut));
+  });
   app.get("/api/zones", { preHandler: [requireAuth] }, async (req, reply) => {
     await ensureSeedZones(req.user!.tenantId);
     const list = await zones()
