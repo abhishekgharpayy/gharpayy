@@ -305,28 +305,32 @@ export function deriveWorkflowState(
   }
 
   // 4. Qualification & Profile Checks
-  if (isDeepProfileIncomplete) {
-     currentStep = "Qualification";
-     pendingItem = "Deep Profile Incomplete";
-     nextAction = "Complete Profile";
-     clickDestination = "impact";
-     return { currentStep, pendingItem, nextAction, clickDestination, sortingScore, pendingDurationDays };
-  }
+  const isVisitReady = lead.tags?.includes("impact:visit-ready") ?? false;
 
-  if (isBudgetNotVerified) {
-     currentStep = "Qualification";
-     pendingItem = "Budget Not Verified";
-     nextAction = "Verify Budget";
-     clickDestination = "impact";
-     return { currentStep, pendingItem, nextAction, clickDestination, sortingScore, pendingDurationDays };
-  }
+  if (!isVisitReady) {
+    if (isDeepProfileIncomplete) {
+       currentStep = "Qualification";
+       pendingItem = "Deep Profile Incomplete";
+       nextAction = "Complete Profile";
+       clickDestination = "impact";
+       return { currentStep, pendingItem, nextAction, clickDestination, sortingScore, pendingDurationDays };
+    }
 
-  if (!hasPropertySelected) {
-     currentStep = "Qualification";
-     pendingItem = "Property Not Selected";
-     nextAction = "Select Property";
-     clickDestination = "best-fit";
-     return { currentStep, pendingItem, nextAction, clickDestination, sortingScore, pendingDurationDays };
+    if (isBudgetNotVerified) {
+       currentStep = "Qualification";
+       pendingItem = "Budget Not Verified";
+       nextAction = "Verify Budget";
+       clickDestination = "impact";
+       return { currentStep, pendingItem, nextAction, clickDestination, sortingScore, pendingDurationDays };
+    }
+
+    if (!hasPropertySelected) {
+       currentStep = "Qualification";
+       pendingItem = "Property Not Selected";
+       nextAction = "Select Property";
+       clickDestination = "best-fit";
+       return { currentStep, pendingItem, nextAction, clickDestination, sortingScore, pendingDurationDays };
+    }
   }
 
   if (!openTour) {

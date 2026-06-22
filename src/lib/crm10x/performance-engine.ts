@@ -94,7 +94,7 @@ export function buildTodayNeedsAttention(enriched: EnrichedPerformanceLead[]) {
     countAndDrill("Quote Pending", quotePending, { quickFilters: ["quote-pending"] }),
     countAndDrill("Move-In < 7 Days", moveIn7, { quickFilters: ["movein-0-7"] }),
     countAndDrill("No Activity > 48h", noAct48, { quickFilters: ["no-activity-48h"] }),
-    countAndDrill("Unassigned", unassigned, { status: "unassigned" }),
+    countAndDrill("Unassigned", unassigned, {}),
     countAndDrill("Tour Not Scheduled", tourNotScheduled, { quickFilters: [] })
   ];
 }
@@ -177,7 +177,7 @@ export function buildTCMLeaderboard(enriched: EnrichedPerformanceLead[], tcms: T
 
     return {
       tcm,
-      drilldown: countAndDrill("Leads", tcmLeads, { assignment: tcm.id }),
+      drilldown: countAndDrill("Leads", tcmLeads, {}),
       activeLeads: activeLeadsCount,
       feedbackPending,
       pendingActions,
