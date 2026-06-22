@@ -521,6 +521,53 @@ export const api = {
       request<import("@/contracts").TenantEntity>(`/api/tenants/${id}`),
   },
 
+  payments: {
+    list: (q: Record<string, string | number> = {}) =>
+      safe<{ items: any[]; nextCursor: string | null }>(
+        () => {
+          const qs = new URLSearchParams(
+            Object.entries(q).map(([k, v]) => [k, String(v)]),
+          ).toString();
+          return request<{ items: any[]; nextCursor: string | null }>(
+            `/api/payments${qs ? `?${qs}` : ""}`,
+          );
+        },
+        () => ({ items: [], nextCursor: null }),
+      ),
+    get: (id: string) => request<any>(`/api/payments/${id}`),
+    record: (input: {
+      tenantId: string;
+      bookingId?: string;
+      tenantName: string;
+      propertyName?: string;
+      month: string;
+      amount: number;
+      method?: "UPI" | "Cash" | "Bank" | "Card" | null;
+      ref?: string | null;
+      type?: string;
+      notes?: string;
+      paidAt?: string | null;
+      dueAt?: string | null;
+    }) =>
+      request<any>("/api/payments", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+    update: (id: string, patch: Record<string, unknown>) =>
+      request<any>(`/api/payments/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(patch),
+      }),
+    remove: (id: string) =>
+      request<{ ok: true }>(`/api/payments/${id}`, { method: "DELETE" }),
+    generateRents: (month: string) =>
+      request<{ ok: true; generated: number; total: number }>(
+        "/api/payments/generate-rents",
+        { method: "POST", body: JSON.stringify({ month }) },
+      ),
+    stats: () => request<any>("/api/payments/stats"),
+  },
+
   assignmentNotifications: {
     /** Fetch pending assignment notifications addressed to the current user */
     listPending: () =>

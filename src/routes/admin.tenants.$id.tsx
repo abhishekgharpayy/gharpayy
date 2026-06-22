@@ -1,9 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { useApp } from "@/lib/store";
 import { useAuthUser } from "@/lib/auth-store";
 import { Link } from "@tanstack/react-router";
+import { api } from "@/lib/api/client";
+import { toast } from "sonner";
+import { IndianRupee } from "lucide-react";
 
 export const Route = createFileRoute("/admin/tenants/$id")({
   beforeLoad: () => {
@@ -18,6 +22,24 @@ function AdminTenantDetail() {
   const { tenants, bookings, rents, payments, properties, tcms } = useApp();
   const [editNotes, setEditNotes] = useState(false);
   const [notes, setNotes] = useState("");
+  const queryClient = useQueryClient();
+
+  const markPaid = useMutation({
+    mutationFn: ({ method }: { method: string }) =>
+      api.payments.record({
+        tenantId: id,
+        tenantName: tenants.find((t) => t.id === id)?.name ?? "",
+        month: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`,
+        amount: tenants.find((t) => t.id === id)?.rent ?? 0,
+        method: method as any,
+        paidAt: new Date().toISOString(),
+      }),
+    onSuccess: () => {
+      toast.success("Payment recorded");
+      queryClient.invalidateQueries({ queryKey: ["payments"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const tenant = useMemo(() => tenants.find((t) => t.id === id), [tenants, id]);
   const booking = useMemo(
@@ -99,7 +121,27 @@ function AdminTenantDetail() {
 
           {/* Status actions */}
           {tenant.status === "active" && (
-            <div className="border-t border-border pt-3 flex gap-2">
+            <div className="border-t border-border pt-3 flex gap-2 flex-wrap">
+              <button
+                onClick={() => markPaid.mutate({ method: "UPI" })}
+                disabled={markPaid.isPending}
+                className="text-[10px] px-3 py-1.5 rounded-md border border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 flex items-center gap-1"
+              >
+                <IndianRupee size={10} /> Record Rent (UPI)
+              </button>
+              <button
+                onClick={() => markPaid.mutate({ method: "Cash" })}
+                disabled={markPaid.isPending}
+                className="text-[10px] px-3 py-1.5 rounded-md border border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 flex items-center gap-1"
+              >
+                <IndianRupee size={10} /> Record Rent (Cash)
+              </button>
+              <Link
+                to="/admin/rents"
+                className="text-[10px] px-3 py-1.5 rounded-md border border-border text-muted-foreground hover:bg-muted/20"
+              >
+                View All Rents
+              </Link>
               <button
                 onClick={() => useApp.getState().updateTenantStatus(tenant.id, "notice")}
                 className="text-[10px] px-3 py-1.5 rounded-md border border-amber-500/40 text-amber-400 hover:bg-amber-500/10"

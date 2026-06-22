@@ -350,3 +350,33 @@ export const TenantEntity = z.object({
   updatedAt: z.string(),
 });
 export type TenantEntity = z.infer<typeof TenantEntity>;
+
+// ------------------- PAYMENT ENTITY -------------------
+export const PaymentMethod = z.enum(["UPI", "Cash", "Bank", "Card"]);
+export type PaymentMethod = z.infer<typeof PaymentMethod>;
+
+export const PaymentType = z.enum(["token", "rent", "deposit", "maintenance", "other"]);
+export type PaymentType = z.infer<typeof PaymentType>;
+
+export const PaymentStatus = z.enum(["paid", "pending", "overdue", "partial"]);
+export type PaymentStatus = z.infer<typeof PaymentStatus>;
+
+export const PaymentRecord = z.object({
+  _id: z.string(),
+  tenantId: z.string(),
+  bookingId: z.string(),
+  tenantName: z.string(),
+  propertyName: z.string().default(""),
+  month: z.string(), // "YYYY-MM"
+  amount: z.number().int().min(0),
+  status: PaymentStatus.default("pending"),
+  method: PaymentMethod.nullable().default(null),
+  ref: z.string().max(200).nullable().default(null),
+  type: PaymentType.default("rent"),
+  notes: z.string().max(2000).default(""),
+  paidAt: z.string().nullable().default(null),
+  dueAt: z.string().nullable().default(null),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type PaymentRecord = z.infer<typeof PaymentRecord>;

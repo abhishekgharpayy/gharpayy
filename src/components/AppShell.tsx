@@ -214,6 +214,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       { to: "/admin/leads", label: "Master Leads", icon: Target },
       { to: "/admin/visits", label: "Master Visits", icon: CalendarPlus },
       { to: "/admin/bookings", label: "Bookings", icon: IndianRupee },
+      { to: "/admin/rents", label: "Rent Collection", icon: IndianRupee },
       { to: "/admin/owner-bookings", label: "Owner Console", icon: Boxes },
       { to: "/admin/tenants", label: "Tenants", icon: Users },
       { to: "/admin/calendar", label: "Master Calendar", icon: Calendar },

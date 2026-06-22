@@ -29,6 +29,7 @@ import { registerHandoffsRoutes } from "./modules/handoffs/routes.js";
 import { registerSequencesRoutes } from "./modules/sequences/routes.js";
 import { registerBookingsRoutes } from "./modules/bookings/routes.js";
 import { registerTenantsRoutes } from "./modules/tenants/routes.js";
+import { registerPaymentsRoutes } from "./modules/payments/routes.js";
 import { registerOwnerRoutes } from "./modules/owner/routes.js";
 import { registerAdminSupremeRoutes } from "./modules/admin/supreme.js";
 import { registerAdminPerformanceRoutes } from "./modules/admin/performance.js";
@@ -125,6 +126,7 @@ h1{margin:0 0 .5rem;font-size:1.5rem;color:#34d399}p{margin:.25rem 0;color:#94a3
   registerSequencesRoutes(app);
   registerBookingsRoutes(app);
   registerTenantsRoutes(app);
+  registerPaymentsRoutes(app);
   registerOwnerRoutes(app);
   registerAdminSupremeRoutes(app);
   registerAdminPerformanceRoutes(app);
