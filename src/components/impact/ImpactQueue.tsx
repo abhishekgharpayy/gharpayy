@@ -9,9 +9,11 @@ import { ImpactManagerEscalations } from "@/components/impact/ImpactManagerEscal
 import { ImpactStageMoveDialog } from "@/components/impact/ImpactStageMoveDialog";
 import {
   ImpactFiltersPopover,
-  ImpactTeamCombobox,
+  ImpactQueueSwitcher,
+  ImpactActiveFiltersSummary,
   ImpactFocusPopover,
   ImpactQueueMetaBar,
+  ImpactDateDropdown,
   type QueueFilters,
   defaultQueueFilters,
 } from "@/components/impact/ImpactQueueHeaderControls";
@@ -535,11 +537,8 @@ export function ImpactQueue() {
   const allObjections = useCRM10x((s) => s.objections);
   const allFollowUps = useApp((s) => s.followUps);
   const [query, setQuery] = useState("");
-  const [queueFilters, setQueueFilters] = useState<QueueFilters>(() => ({
-    ...defaultQueueFilters,
-    assignment: role === "tcm" ? currentTcmId : "all"
-  }));
-  const tcmFilter = queueFilters.assignment;
+  const [queueFilters, setQueueFilters] = useState<QueueFilters>(defaultQueueFilters);
+  const tcmFilter = canSelectTcmScope ? "all" : selfScopeId || "all";
   const [view, setView] = useState<ViewMode>(readStoredView);
   const [stageFilter, setStageFilter] = useState<string>("all");
   const [focusLeadId, setFocusLeadId] = useState<string | null>(null);
@@ -557,19 +556,7 @@ export function ImpactQueue() {
 
   useImpactMorningDigest(() => setDigestOpen(true));
 
-  useEffect(() => {
-    if (!canSelectTcmScope && selfScopeId && queueFilters.assignment !== selfScopeId) {
-      setQueueFilters(prev => ({...prev, assignment: selfScopeId}));
-    }
-  }, [canSelectTcmScope, selfScopeId, queueFilters.assignment]);
-
-  useEffect(() => {
-    if (!canSelectTcmScope) return;
-    if (queueFilters.assignment === "all") return;
-    if (!memberScopeOptions.some((m) => m.id === queueFilters.assignment)) {
-      setQueueFilters(prev => ({...prev, assignment: "all"}));
-    }
-  }, [canSelectTcmScope, memberScopeOptions, queueFilters.assignment]);
+  // removed assignment use effects
 
   const [fixing, setFixing] = useState(false);
   const handleFixProperties = async () => {
@@ -716,9 +703,8 @@ export function ImpactQueue() {
     return Array.from(s).filter(Boolean).sort();
   }, [enriched]);
 
-  const filtered = useMemo(() => {
+  const { baseFiltered, viewCounts, filtered } = useMemo(() => {
     const at = Date.now();
-    
     let dateRangeStart = 0;
     let dateRangeEnd = Infinity;
     if (queueFilters.dateRange === "today") dateRangeStart = at - 24 * 60 * 60 * 1000;
@@ -728,12 +714,13 @@ export function ImpactQueue() {
     }
     else if (queueFilters.dateRange === "last7") dateRangeStart = at - 7 * 24 * 60 * 60 * 1000;
     else if (queueFilters.dateRange === "last30") dateRangeStart = at - 30 * 24 * 60 * 60 * 1000;
-    else if (queueFilters.dateRange === "custom" && queueFilters.customDateRange) {
-      if (queueFilters.customDateRange.start) dateRangeStart = new Date(queueFilters.customDateRange.start).getTime();
-      if (queueFilters.customDateRange.end) dateRangeEnd = new Date(queueFilters.customDateRange.end).getTime() + 86400000;
+    else if (queueFilters.dateRange === "custom" && queueFilters.customDate) {
+      const [fromStr, toStr] = queueFilters.customDate.split(":");
+      dateRangeStart = fromStr ? new Date(fromStr).getTime() : 0;
+      dateRangeEnd = toStr ? new Date(toStr).getTime() + 86400000 : Infinity;
     }
 
-    return enriched.filter((e) => {
+    const baseFiltered = enriched.filter((e) => {
       // 1. DATE RANGE (Activity-based)
       if (queueFilters.dateRange !== "all") {
         let hadActivity = false;
@@ -761,41 +748,9 @@ export function ImpactQueue() {
         if (!hadActivity) return false;
       }
 
-      // 2. STATUS
-      if (queueFilters.status !== "all") {
-        const s = queueFilters.status;
-        if (s === "my-leads" && e.lead.assignedTcmId !== selfScopeId) return false;
-        if (s === "needs-action") {
-           const pending = e.workflow?.pendingItem;
-           if (pending !== "tour-feedback-missing" && pending !== "quote-missing" && pending !== "tour-not-scheduled") return false;
-        }
-        if (s === "at-risk") {
-           const noAct = (at - (e.lead.lastContactAt ? new Date(e.lead.lastContactAt).getTime() : 0)) > 48 * 3600000;
-           const moveInDays = e.lead.moveInDate ? (new Date(e.lead.moveInDate).getTime() - at) / 86400000 : Infinity;
-           const moveInRisk = moveInDays >= 0 && moveInDays <= 7;
-           const isFeedback = e.workflow?.pendingItem === "tour-feedback-missing";
-           const isQuote = e.workflow?.pendingItem === "quote-missing";
-           if (!noAct && !moveInRisk && !isFeedback && !isQuote && e.lead.assignedTcmId) return false;
-        }
-        if (s === "unassigned" && e.lead.assignedTcmId) return false;
-        if (s === "booked" && e.lead.stage !== "booked") return false;
-        if (s === "dropped" && e.lead.stage !== "dropped") return false;
-      }
+      if (e.lead.stage === "dropped") return false;
 
-      if (queueFilters.status !== "dropped" && e.lead.stage === "dropped") return false;
-
-      // 3. ASSIGNMENT
-      if (queueFilters.assignment !== "all") {
-        if (queueFilters.assignment === "my-leads") {
-          if (e.lead.assignedTcmId !== selfScopeId) return false;
-        } else if (queueFilters.assignment === "unassigned") {
-          if (e.lead.assignedTcmId) return false;
-        } else {
-          if (e.lead.assignedTcmId !== queueFilters.assignment) return false;
-        }
-      }
-
-      // 4. QUICK FILTERS
+      // 2. QUICK FILTERS
       if (queueFilters.quickFilters.length > 0) {
         let qPass = false;
         for (const qf of queueFilters.quickFilters) {
@@ -858,6 +813,39 @@ export function ImpactQueue() {
 
       return true;
     });
+
+    const isMatch = (e: Enriched, view: import("@/components/impact/impact-queue-types").ActiveView) => {
+      if (view === "all") return true;
+      if (view === "tours-today") return e.openTour && isToday(e.openTour.scheduledAt);
+      if (view === "feedback-missing") return e.workflow?.pendingItem === "tour-feedback-missing";
+      if (view === "quote-pending") return e.workflow?.pendingItem === "quote-missing";
+      if (view === "movein-0-7") {
+        const days = e.lead.moveInDate ? (new Date(e.lead.moveInDate).getTime() - at) / 86400000 : -1;
+        return days >= 0 && days <= 7;
+      }
+      if (view === "no-activity-48h") {
+        const ms = e.lead.lastContactAt ? new Date(e.lead.lastContactAt).getTime() : 0;
+        return (at - ms > 48 * 3600000);
+      }
+      return false;
+    };
+
+    const counts: Record<import("@/components/impact/impact-queue-types").ActiveView, number> = {
+      "all": 0, "tours-today": 0, "feedback-missing": 0, "quote-pending": 0, "movein-0-7": 0, "no-activity-48h": 0
+    };
+
+    for (const e of baseFiltered) {
+      if (isMatch(e, "all")) counts["all"]++;
+      if (isMatch(e, "tours-today")) counts["tours-today"]++;
+      if (isMatch(e, "feedback-missing")) counts["feedback-missing"]++;
+      if (isMatch(e, "quote-pending")) counts["quote-pending"]++;
+      if (isMatch(e, "movein-0-7")) counts["movein-0-7"]++;
+      if (isMatch(e, "no-activity-48h")) counts["no-activity-48h"]++;
+    }
+
+    const filtered = baseFiltered.filter((e) => isMatch(e, queueFilters.activeView));
+
+    return { baseFiltered, viewCounts: counts, filtered };
   }, [enriched, queueFilters, allCalls, profiles, allObjections, selfScopeId]);
 
   const stackSorted = useMemo(() => {
@@ -984,120 +972,112 @@ export function ImpactQueue() {
       <ImpactApiHealthBanner />
 
       {/* ---------------- Command deck ---------------- */}
-      <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-        {/* Row 1: heading left | controls right */}
-        <div className="flex flex-wrap items-center justify-between gap-2 px-4 pt-3 pb-1">
-          <h1 className="text-xl font-display font-bold shrink-0">Impact Queue</h1>
+      <div className="rounded-xl border border-border bg-card shadow-sm sticky top-0 z-30 flex flex-col">
+        <div className="flex flex-col gap-3 px-4 pt-3 pb-3">
+          {/* Row 1: heading left | controls right */}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h1 className="text-xl font-display font-bold shrink-0">Impact Queue</h1>
 
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <TenXCommandBar
-              lastRerank={lastRerank}
-              escalations={escalations}
-              counters={counters}
-              targets={targets}
-              stackSorted={stackSorted}
-              tick={tick}
-              digestOpen={digestOpen}
-              onDigestOpenChange={setDigestOpen}
-              onFocusLead={(leadId) => {
-                setFocusLeadId(leadId);
-                setFocusAction("auto");
-              }}
-            />
-            <QuickAddLead
-              defaultTcmId={tcmFilter !== "all" ? tcmFilter : currentTcmId}
-              open={quickAddOpen}
-              onOpenChange={setQuickAddOpen}
-              tcmOptions={tcmOptions}
-              onLeadSaved={() => {
-                setQueueFilters(defaultQueueFilters);
-                setQuery("");
-                setView("board");
-              }}
-            />
-            <div className="relative">
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-              <Input
-                className={`h-8 pl-7 text-[11px] w-48 sm:w-56 bg-background ${query.trim() ? "pr-7" : ""}`}
-                placeholder="Search lead or phone"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <TenXCommandBar
+                lastRerank={lastRerank}
+                escalations={escalations}
+                counters={counters}
+                targets={targets}
+                stackSorted={stackSorted}
+                tick={tick}
+                digestOpen={digestOpen}
+                onDigestOpenChange={setDigestOpen}
+                onFocusLead={(leadId) => {
+                  setFocusLeadId(leadId);
+                  setFocusAction("auto");
+                }}
               />
-              {query.trim() && (
-                <button
-                  type="button"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  aria-label="Clear search"
-                  onClick={() => setQuery("")}
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              )}
-            </div>
-            <ImpactFiltersPopover
-              filters={queueFilters}
-              uniqueAreas={uniqueAreas}
-              tcms={tcmOptions.map(t => ({ id: t.id, name: t.name || t.fullName }))}
-              onApply={setQueueFilters}
-              onOpenMessageLab={() => setMessageLabOpen(true)}
-            />
-            <ImpactFocusPopover
-              tcmFilter={tcmFilter}
-              tcmOptions={tcmOptions}
-              onFilterArea={(area) => setQueueFilters(prev => ({...prev, area}))}
-            />
-            {!canSelectTcmScope ? (
-              <div className="h-8 min-w-[8rem] rounded-md border border-border bg-background px-3 py-2 text-[11px] font-semibold text-foreground flex items-center gap-1.5">
-                {(() => {
-                  const me = tcmOptions.find((t: any) => t.id === selfScopeId);
-                  const name =
-                    (me as any)?.fullName ?? (me as any)?.name ?? authUser?.fullName ?? "My queue";
-                  const zone = (me as any)?.zones?.[0] ?? (me as any)?.zone ?? "";
-                  return zone ? (
-                    <>
-                      <span>{name}</span>
-                      <span className="text-muted-foreground font-normal">· {zone}</span>
-                    </>
-                  ) : (
-                    name
-                  );
-                })()}
+              <QuickAddLead
+                defaultTcmId={tcmFilter !== "all" ? tcmFilter : currentTcmId}
+                open={quickAddOpen}
+                onOpenChange={setQuickAddOpen}
+                tcmOptions={tcmOptions}
+                onLeadSaved={() => {
+                  setQueueFilters(defaultQueueFilters);
+                  setQuery("");
+                  setView("board");
+                }}
+              />
+              <div className="relative">
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  className={`h-8 pl-7 text-[11px] w-48 sm:w-56 bg-background ${query.trim() ? "pr-7" : ""}`}
+                  placeholder="Search lead or phone"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                />
+                {query.trim() && (
+                  <button
+                    type="button"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    aria-label="Clear search"
+                    onClick={() => setQuery("")}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
               </div>
-            ) : (
-              <ImpactTeamCombobox
-                assignment={queueFilters.assignment}
-                tcms={memberScopeOptions.map(m => ({ id: m.id, name: memberOptionLabel(m) }))}
-                onChange={(val) => setQueueFilters(prev => ({...prev, assignment: val}))}
+              
+              <div className="flex items-center gap-1.5">
+                <ImpactDateDropdown 
+                  filters={queueFilters}
+                  onChange={(dateRange, customDate) => setQueueFilters(prev => ({ ...prev, dateRange, customDate }))}
+                />
+                <ImpactFiltersPopover
+                  filters={queueFilters}
+                  uniqueAreas={uniqueAreas}
+                  tcms={tcmOptions.map(t => ({ id: t.id, name: t.name || t.fullName }))}
+                  onApply={setQueueFilters}
+                  onOpenMessageLab={() => setMessageLabOpen(true)}
+                />
+                <ImpactActiveFiltersSummary 
+                  filters={queueFilters} 
+                  tcms={tcmOptions.map(t => ({ id: t.id, name: t.name || t.fullName }))} 
+                />
+              </div>
+
+              <ImpactFocusPopover
+                tcmFilter={tcmFilter}
+                tcmOptions={tcmOptions}
+                onFilterArea={(area) => setQueueFilters(prev => ({...prev, area}))}
               />
-            )}
-            <div className="flex bg-muted/50 p-1 rounded-lg border border-border/50 shadow-inner">
-              <button
-                className={`h-7 px-3 text-[10px] uppercase tracking-wider font-semibold flex items-center gap-1.5 rounded-md transition-all ${view === "stack" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-                onClick={() => { setView("stack"); writeStoredView("stack"); }}
-              >
-                <ListOrdered className="h-3.5 w-3.5" /> Stack
-              </button>
-              <button
-                className={`h-7 px-3 text-[10px] uppercase tracking-wider font-semibold flex items-center gap-1.5 rounded-md transition-all ${view === "board" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-                onClick={() => { setView("board"); writeStoredView("board"); }}
-              >
-                <LayoutGrid className="h-3.5 w-3.5" /> Board
-              </button>
-              <button
-                className={`h-7 px-3 text-[10px] uppercase tracking-wider font-semibold flex items-center gap-1.5 rounded-md transition-all ${view === "performance" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-                onClick={() => { setView("performance"); writeStoredView("performance"); }}
-              >
-                <BarChart3 className="h-3.5 w-3.5" /> Performance
-              </button>
+              
+              <div className="flex bg-muted/50 p-1 rounded-lg border border-border/50 shadow-inner">
+                <button
+                  className={`h-7 px-3 text-[10px] uppercase tracking-wider font-semibold flex items-center gap-1.5 rounded-md transition-all ${view === "stack" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                  onClick={() => { setView("stack"); writeStoredView("stack"); }}
+                >
+                  <ListOrdered className="h-3.5 w-3.5" /> Stack
+                </button>
+                <button
+                  className={`h-7 px-3 text-[10px] uppercase tracking-wider font-semibold flex items-center gap-1.5 rounded-md transition-all ${view === "board" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                  onClick={() => { setView("board"); writeStoredView("board"); }}
+                >
+                  <LayoutGrid className="h-3.5 w-3.5" /> Board
+                </button>
+                <button
+                  className={`h-7 px-3 text-[10px] uppercase tracking-wider font-semibold flex items-center gap-1.5 rounded-md transition-all ${view === "performance" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                  onClick={() => { setView("performance"); writeStoredView("performance"); }}
+                >
+                  <BarChart3 className="h-3.5 w-3.5" /> Performance
+                </button>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Row 2: subtitle */}
-        <div className="px-4 pb-2.5">
-          <p className="text-[11px] text-muted-foreground">
-            One Screen Conversion Engine (Lead → Booked)
-          </p>
+          <div className="w-full pt-1">
+            <ImpactQueueSwitcher 
+               activeView={queueFilters.activeView} 
+               counts={viewCounts} 
+               onChange={(val) => setQueueFilters(prev => ({...prev, activeView: val}))} 
+            />
+          </div>
         </div>
 
         <div className="border-t border-border/70 px-3 py-2 bg-muted/10">
@@ -1187,9 +1167,13 @@ export function ImpactQueue() {
             {stackSorted.length === 0 && (
               <div className="rounded-lg border border-border bg-card p-10 text-center text-xs text-muted-foreground space-y-2">
                 <p>
-                  {queueFilters !== defaultQueueFilters ||
-                  query.trim()
-                    ? "No leads match your filters."
+                  {query.trim()
+                    ? "No leads match your search."
+                    : queueFilters.activeView === "feedback-missing" ? "No Feedback Missing Leads"
+                    : queueFilters.activeView === "quote-pending" ? "No Quotes Pending"
+                    : queueFilters.activeView === "tours-today" ? "No Tours Scheduled Today"
+                    : queueFilters.activeView === "movein-0-7" ? "No Move-Ins < 7 Days"
+                    : queueFilters.activeView === "no-activity-48h" ? "No Stale Leads (> 48h No Activity)"
                     : "Queue clear. Add a lead or relax 🌱"}
                 </p>
                 {(queueFilters !== defaultQueueFilters ||
@@ -1203,7 +1187,7 @@ export function ImpactQueue() {
                       setQuery("");
                     }}
                   >
-                    Show all leads
+                    Clear filters & Show all leads
                   </Button>
                 )}
               </div>
@@ -1773,11 +1757,11 @@ function LeadRow({
           e.dataTransfer.setData("text/plain", lead.id);
           e.dataTransfer.effectAllowed = "move";
         }}
-        onClick={() => selectLead(lead.id, workflowState.destinationTab, workflowState.destinationSection, workflowState.destinationField)}
+        onClick={() => selectLead(lead.id)}
         onKeyDown={(ev) => {
           if (ev.key === "Enter" || ev.key === " ") {
             ev.preventDefault();
-            selectLead(lead.id, workflowState.destinationTab, workflowState.destinationSection, workflowState.destinationField);
+            selectLead(lead.id);
           }
         }}
         className={cn(
@@ -1813,24 +1797,9 @@ function LeadRow({
             Current Step: {formatWorkflowLabel(workflowState.currentStep)}
           </div>
 
-          <Badge variant="outline" className="text-[10px] bg-warning/10 text-warning border-warning/40 uppercase tracking-wider font-bold">
+          <Badge variant="outline" className="text-[10px] mt-1 bg-primary/10 text-primary border-primary/30 hover:bg-primary/20 hover:border-primary/50 uppercase tracking-wider font-extrabold transition-colors py-1 px-2 shadow-sm">
             {formatWorkflowLabel(workflowState.pendingItem)}
           </Badge>
-
-          {workflowState.nextAction && (
-             <Button
-              size="sm"
-              variant="outline"
-              className="h-7 text-[10px] mt-1 shadow-sm border-accent/30 bg-accent/5"
-              onClick={(e) => {
-                e.stopPropagation();
-                selectLead(lead.id, workflowState.destinationTab, workflowState.destinationSection, workflowState.destinationField);
-              }}
-            >
-              <ArrowRight className="h-3 w-3 mr-1" />
-              {formatWorkflowLabel(workflowState.nextAction)}
-            </Button>
-          )}
 
           {latestObjection && (
             <Badge variant="outline" className="mt-1 text-[10px] bg-danger/10 text-danger border-danger/40 uppercase">
