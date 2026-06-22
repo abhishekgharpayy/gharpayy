@@ -307,7 +307,7 @@ export function ImpactPerformanceView({ leads, tours, quotes, activities, follow
                 
                 return (
                   <tr key={r.lead.id} className={`border-b border-border hover:bg-muted/10 transition-colors ${isUnassigned ? 'bg-warning/5' : ''}`}>
-                    <td className="p-3 font-semibold text-slate-800 dark:text-foreground cursor-pointer group" onClick={(e) => { e.stopPropagation(); selectLead(r.lead.id, "impact", "none", "none"); }}>
+                    <td className="p-3 font-semibold text-slate-800 dark:text-foreground cursor-pointer group" onClick={(e) => { e.stopPropagation(); selectLead(r.lead.id); }}>
                       <span className="hover:text-accent border-b border-transparent hover:border-accent pb-0.5">{r.lead.name}</span>
                       <span className="opacity-0 group-hover:opacity-100 transition-opacity text-accent ml-1 font-black">→</span>
                     </td>
@@ -321,7 +321,7 @@ export function ImpactPerformanceView({ leads, tours, quotes, activities, follow
                       }
                     </td>
                     <td className="p-3 text-right space-x-2 whitespace-nowrap">
-                      <Button size="sm" variant="ghost" className="h-7 text-[10px] font-semibold text-accent" onClick={(e) => { e.stopPropagation(); handleOpenInBoard(r.ownerId ? { assignment: r.ownerId } : { status: "unassigned" }); }}>Board</Button>
+                      <Button size="sm" variant="ghost" className="h-7 text-[10px] font-semibold text-accent" onClick={(e) => { e.stopPropagation(); handleOpenInBoard(); }}>Board</Button>
                     </td>
                   </tr>
                 );
@@ -417,7 +417,7 @@ export function ImpactPerformanceView({ leads, tours, quotes, activities, follow
                 return (
                   <div key={l.id} className="flex items-center justify-between p-3 rounded-lg border border-border bg-card hover:bg-muted/30 transition-colors">
                     <div className="flex-1">
-                      <div className="font-bold text-sm text-slate-800 dark:text-foreground cursor-pointer group inline-block" onClick={() => { setDrilldown(null); selectLead(l.id, "impact", "none", "none"); }}>
+                      <div className="font-bold text-sm text-slate-800 dark:text-foreground cursor-pointer group inline-block" onClick={() => { setDrilldown(null); selectLead(l.id); }}>
                         <span className="hover:text-accent border-b border-transparent hover:border-accent pb-0.5">{l.name}</span>
                         <span className="opacity-0 group-hover:opacity-100 transition-opacity text-accent ml-1 font-black">→</span>
                       </div>
@@ -432,7 +432,7 @@ export function ImpactPerformanceView({ leads, tours, quotes, activities, follow
                         {tcms.find(t => t.id === l.assignedTcmId)?.name || <Badge variant="secondary" className="text-[10px] bg-warning/20 text-warning-foreground border-warning/30 font-semibold"><AlertCircle className="w-3 h-3 mr-1" /> Unassigned</Badge>}
                       </div>
                       <div className="flex gap-1.5">
-                        <Button size="sm" variant="ghost" className="h-7 text-[10px] font-semibold text-accent" onClick={() => { setDrilldown(null); handleOpenInBoard(l.assignedTcmId ? { assignment: l.assignedTcmId } : { status: "unassigned" }); }}>Board</Button>
+                        <Button size="sm" variant="ghost" className="h-7 text-[10px] font-semibold text-accent" onClick={() => { setDrilldown(null); handleOpenInBoard(); }}>Board</Button>
                       </div>
                     </div>
                   </div>
