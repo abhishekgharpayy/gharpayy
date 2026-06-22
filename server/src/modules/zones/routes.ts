@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { z } from "zod";
 import { col } from "../../db/mongo.js";
 import { requireAuth, requireScope } from "../../middleware/auth.js";
@@ -79,7 +79,9 @@ export function registerZoneRoutes(app: FastifyInstance) {
     return reply.send(list.map(zoneOut));
   });
 
-  const createHandler: Parameters<typeof app.post>[2] = async (req, reply) => {
+  const zoneAuth = { preHandler: [requireAuth, requireScope("user.admin")] };
+
+  const handleCreate = async (req: FastifyRequest, reply: FastifyReply) => {
     try {
       const body = CreateBody.parse(req.body);
       const name = body.name.trim();
@@ -103,7 +105,8 @@ export function registerZoneRoutes(app: FastifyInstance) {
       return reply.code(400).send({ code: "BAD_REQUEST", message: err.message });
     }
   };
-  const updateHandler: Parameters<typeof app.put>[2] = async (req, reply) => {
+
+  const handleUpdate = async (req: FastifyRequest, reply: FastifyReply) => {
     try {
       const { id } = req.params as { id: string };
       const body = UpdateBody.parse(req.body);
@@ -130,20 +133,20 @@ export function registerZoneRoutes(app: FastifyInstance) {
       return reply.code(400).send({ code: "BAD_REQUEST", message: err.message });
     }
   };
-  const deleteHandler: Parameters<typeof app.delete>[2] = async (req, reply) => {
+
+  const handleDelete = async (req: FastifyRequest, reply: FastifyReply) => {
     const { id } = req.params as { id: string };
     const r = await zones().deleteOne({ _id: id, tenantId: req.user!.tenantId });
     if (r.deletedCount === 0) return reply.code(404).send({ code: "NOT_FOUND", message: "Zone not found" });
     return reply.send({ ok: true });
   };
-  const zoneAuth = { preHandler: [requireAuth, requireScope("user.admin")] };
 
-  app.post("/api/zones", zoneAuth, createHandler);
-  app.post("/api/myt/zones", zoneAuth, createHandler);
+  app.post("/api/zones", zoneAuth, handleCreate);
+  app.post("/api/myt/zones", zoneAuth, handleCreate);
 
-  app.put("/api/zones/:id", zoneAuth, updateHandler);
-  app.put("/api/myt/zones/:id", zoneAuth, updateHandler);
+  app.put("/api/zones/:id", zoneAuth, handleUpdate);
+  app.put("/api/myt/zones/:id", zoneAuth, handleUpdate);
 
-  app.delete("/api/zones/:id", zoneAuth, deleteHandler);
-  app.delete("/api/myt/zones/:id", zoneAuth, deleteHandler);
+  app.delete("/api/zones/:id", zoneAuth, handleDelete);
+  app.delete("/api/myt/zones/:id", zoneAuth, handleDelete);
 }
