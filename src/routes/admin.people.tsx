@@ -1,6 +1,5 @@
 import { createFileRoute, redirect, Link } from "@tanstack/react-router";
 import { useMemo } from "react";
-import { AdminShell } from "@/admin/components/AdminShell";
 import { useLiveSupremeMetrics } from "@/admin/lib/use-live-supreme";
 import { useAuthUser } from "@/lib/auth-store";
 
@@ -90,24 +89,36 @@ function AdminPeople() {
 
   if (isLoading) {
     return (
-      <AdminShell title="People 360" sub="Loading…">
+      <div className="space-y-4">
+        <div>
+          <h1 className="text-lg font-semibold">People 360</h1>
+          <p className="text-sm text-muted-foreground">Loading…</p>
+        </div>
         <div className="p-8 text-center text-muted-foreground animate-pulse">
           Loading TCM performance from MongoDB…
         </div>
-      </AdminShell>
+      </div>
     );
   }
 
   if (isError) {
     return (
-      <AdminShell title="People 360" sub="Error">
+      <div className="space-y-4">
+        <div>
+          <h1 className="text-lg font-semibold">People 360</h1>
+          <p className="text-sm text-muted-foreground">Error</p>
+        </div>
         <div className="p-8 text-center text-destructive">Failed to load. Check backend connection.</div>
-      </AdminShell>
+      </div>
     );
   }
 
   return (
-    <AdminShell title="People 360" sub="Live TCM performance — every lead, visit, and booking from MongoDB">
+    <div className="space-y-4">
+      <div>
+        <h1 className="text-lg font-semibold">People 360</h1>
+        <p className="text-sm text-muted-foreground">Live TCM performance — every lead, visit, and booking from MongoDB</p>
+      </div>
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
         {[
@@ -190,6 +201,6 @@ function AdminPeople() {
           </tbody>
         </table>
       </div>
-    </AdminShell>
+    </div>
   );
 }

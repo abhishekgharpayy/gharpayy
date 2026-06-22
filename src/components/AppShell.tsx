@@ -4,7 +4,7 @@ import {
   Building2, Search, Sun, Command, Trophy, Sparkles, MessageSquare,
   IndianRupee, MapPin, Zap, Users, Home, Calendar, Store, Swords, Settings, AlertTriangle,
   ShieldCheck, Inbox, Camera, HelpCircle, Layers, HeartPulse, ListTodo, Gauge, Radio,
-  Menu, X,
+  BarChart3, Radar, Menu, X,
 } from "lucide-react";
 import { MemberDailyReminderPopup } from "@/components/stats/MemberDailyReminderPopup";
 import { NotificationCenter } from "./NotificationCenter";
@@ -207,6 +207,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     ]),
     "super-admin": [
       { to: "/admin", label: "Cockpit", icon: Gauge },
+      { to: "/admin/performance", label: "Performance", icon: BarChart3 },
       { to: "/admin/supreme", label: "Supreme \u00B7 God Mode", icon: Zap },
       { to: "/admin/command", label: "Command Bridge", icon: Swords },
       { to: "/admin/warroom", label: "War-Room TV", icon: Radio },
@@ -218,6 +219,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       { to: "/admin/calendar", label: "Master Calendar", icon: Calendar },
       { to: "/admin/owners", label: "Master Owners", icon: ShieldCheck },
       { to: "/admin/people", label: "People 360", icon: Users },
+      { to: "/admin/radar", label: "Radar", icon: Radar },
       { to: "/admin/intelligence", label: "Intelligence", icon: Activity },
       { to: "/admin/health-score", label: "⚡ Health Score", icon: HeartPulse },
       { to: "/admin/property", label: "Property Pulse", icon: Building2 },

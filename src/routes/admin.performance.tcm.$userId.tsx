@@ -1,5 +1,4 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { AdminShell } from "@/admin/components/AdminShell";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api/client";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -45,9 +44,13 @@ function TCMDetail() {
 
   if (isLoading || !data) {
     return (
-      <AdminShell title="Loading Profile..." sub="Fetching performance data">
-        <div className="space-y-4"><Skeleton className="h-[200px] w-full" /><Skeleton className="h-[400px] w-full" /></div>
-      </AdminShell>
+      <div className="space-y-4">
+        <div>
+          <h1 className="text-lg font-semibold">Loading Profile...</h1>
+          <p className="text-sm text-muted-foreground">Fetching performance data</p>
+        </div>
+        <Skeleton className="h-[200px] w-full" /><Skeleton className="h-[400px] w-full" />
+      </div>
     );
   }
 
@@ -65,10 +68,12 @@ function TCMDetail() {
   };
 
   return (
-    <AdminShell 
-      title={data.name}
-      sub={`TCM · Joined ${new Date(data.joinDate).toLocaleDateString()}`}
-      actions={
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-lg font-semibold">{data.name}</h1>
+          <p className="text-sm text-muted-foreground">TCM · Joined {new Date(data.joinDate).toLocaleDateString()}</p>
+        </div>
         <div className="flex gap-2 items-center">
           <Select value={datePreset} onValueChange={setDatePreset}>
             <SelectTrigger className="w-[160px] bg-background">
@@ -85,8 +90,7 @@ function TCMDetail() {
             </SelectContent>
           </Select>
         </div>
-      }
-    >
+      </div>
       <div className="mb-4">
         <Link to="/admin/performance" search={{ startDate, endDate }} className="text-sm text-muted-foreground hover:text-primary flex items-center gap-1">
           <ArrowLeft size={14} /> Back to Performance Dashboard
@@ -206,7 +210,7 @@ function TCMDetail() {
         </Card>
       </div>
 
-    </AdminShell>
+    </div>
   );
 }
 

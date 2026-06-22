@@ -1,6 +1,5 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { AdminShell } from "@/admin/components/AdminShell";
 import { useLiveSupremeMetrics } from "@/admin/lib/use-live-supreme";
 import { computeHealthScores, type TcmHealthScore } from "@/admin/lib/supreme-metrics";
 import { useAuthUser } from "@/lib/auth-store";
@@ -168,27 +167,36 @@ function HealthScorePage() {
 
   if (isLoading) {
     return (
-      <AdminShell title="TCM Health Scores" sub="Loading…">
+      <div className="space-y-4">
+        <div>
+          <h1 className="text-lg font-semibold">TCM Health Scores</h1>
+          <p className="text-sm text-muted-foreground">Loading…</p>
+        </div>
         <div className="p-8 text-center text-muted-foreground animate-pulse">
           Computing health scores from live data…
         </div>
-      </AdminShell>
+      </div>
     );
   }
 
   if (isError) {
     return (
-      <AdminShell title="TCM Health Scores" sub="Error">
+      <div className="space-y-4">
+        <div>
+          <h1 className="text-lg font-semibold">TCM Health Scores</h1>
+          <p className="text-sm text-muted-foreground">Error</p>
+        </div>
         <div className="p-8 text-center text-destructive">Failed to load. Check backend connection.</div>
-      </AdminShell>
+      </div>
     );
   }
 
   return (
-    <AdminShell
-      title="TCM Health Scores"
-      sub="Composite AI-style performance score — conversion, response rate, pipeline quality & activity"
-    >
+    <div className="space-y-4">
+      <div>
+        <h1 className="text-lg font-semibold">TCM Health Scores</h1>
+        <p className="text-sm text-muted-foreground">Composite AI-style performance score — conversion, response rate, pipeline quality & activity</p>
+      </div>
       {/* Summary strip */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div className="rounded-xl border border-border bg-card p-3">
@@ -232,6 +240,6 @@ function HealthScorePage() {
           ))}
         </div>
       )}
-    </AdminShell>
+    </div>
   );
 }

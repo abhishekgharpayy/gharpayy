@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { AdminShell } from "@/admin/components/AdminShell";
+
 import { useApp } from "@/lib/store";
 import { useAuthUser } from "@/lib/auth-store";
 import { useOwnerBookings, computeTotals } from "@/lib/owner-bookings/store";
@@ -128,7 +128,7 @@ function AdminBookings() {
   }, [bookings, ownerBookings, statusFilter, search, propName]);
 
   return (
-    <AdminShell title="Bookings" sub="Manage booking lifecycle — from pending to active tenant & owner bookings">
+    <div className="space-y-4">
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         {[
           { label: "Total bookings", value: stats.total, accent: "text-foreground" },
@@ -254,6 +254,6 @@ function AdminBookings() {
           {detailBooking && <OwnerBookingCard booking={detailBooking} mode="sales" />}
         </DialogContent>
       </Dialog>
-    </AdminShell>
+    </div>
   );
 }

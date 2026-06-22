@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { AdminShell } from "@/admin/components/AdminShell";
+
 import { useLiveAuditLog, type AuditEntry } from "@/admin/lib/use-live-supreme";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,7 +62,7 @@ function AdminAudit() {
   };
 
   return (
-    <AdminShell title="Audit Log" sub="Every admin action — persisted to MongoDB">
+    <div className="space-y-4">
       <div className="rounded-xl border border-border bg-card p-4">
         <div className="flex items-center gap-2 mb-4">
           <div className="relative flex-1">
@@ -164,6 +164,6 @@ function AdminAudit() {
           </div>
         )}
       </div>
-    </AdminShell>
+    </div>
   );
 }

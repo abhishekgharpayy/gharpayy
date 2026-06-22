@@ -1,7 +1,7 @@
 import { createFileRoute, redirect, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { AdminShell } from "@/admin/components/AdminShell";
+
 import { useAdminRows } from "@/admin/lib/use-admin-rows";
 import { computeMoneyMap, computeSlaBreaches } from "@/admin/lib/supreme-metrics";
 import { useVisitWar } from "@/lib/visits/war-store";
@@ -142,7 +142,7 @@ function WarRoomTV() {
 
   return (
     <div className="fixed inset-0 bg-slate-950 text-slate-50 overflow-auto p-6 font-display">
-    <AdminShell title="War Room TV" sub="Live Command Center & Activity Feed" className="bg-slate-950 p-4 rounded-xl text-slate-50 font-mono relative overflow-hidden">
+    <div className="space-y-4 bg-slate-950 p-4 rounded-xl text-slate-50 font-mono relative overflow-hidden">
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-900/20 via-slate-950/80 to-slate-950 pointer-events-none" />
       
       <div className="absolute top-6 right-6 flex items-center gap-3 z-20">
@@ -262,7 +262,7 @@ function WarRoomTV() {
           </div>
         </div>
       )}
-    </AdminShell>
+    </div>
     </div>
   );
 }

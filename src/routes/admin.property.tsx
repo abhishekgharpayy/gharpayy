@@ -1,6 +1,6 @@
 import { createFileRoute, redirect, Link } from "@tanstack/react-router";
 import { useMemo } from "react";
-import { AdminShell } from "@/admin/components/AdminShell";
+
 import { useApp } from "@/lib/store";
 import { useVisitWar } from "@/lib/visits/war-store";
 import { useCRM10x } from "@/lib/crm10x/store";
@@ -71,7 +71,7 @@ function AdminProperty() {
   const noLeads = stats.filter((s) => s.totalLeads === 0).length;
 
   return (
-    <AdminShell title="Property Pulse" sub="Analytics view of all properties">
+    <div className="space-y-4">
         <div className="grid grid-cols-3 gap-3 mb-4">
           <div className="rounded-xl border border-border bg-card p-3">
             <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Total Properties</div>
@@ -143,6 +143,6 @@ function AdminProperty() {
             </tbody>
           </table>
         </div>
-      </AdminShell>
+      </div>
   );
 }

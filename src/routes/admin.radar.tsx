@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useLiveSupremeMetrics } from "@/admin/lib/use-live-supreme";
-import { AdminShell } from "@/admin/components/AdminShell";
+
 import { useAuthUser } from "@/lib/auth-store";
 import { cn } from "@/lib/utils";
 import { useMemo } from "react";
@@ -108,22 +108,22 @@ function RadarPage() {
 
   if (isLoading) {
     return (
-      <AdminShell title="AI Radar" sub="Loading predictive models...">
+      <div className="space-y-4">
         <div className="p-8 text-center text-muted-foreground animate-pulse">Running churn predictions...</div>
-      </AdminShell>
+      </div>
     );
   }
 
   if (isError) {
     return (
-      <AdminShell title="AI Radar" sub="Error loading data">
+      <div className="space-y-4">
         <div className="p-8 text-center text-destructive">Failed to fetch intelligence.</div>
-      </AdminShell>
+      </div>
     );
   }
 
   return (
-    <AdminShell title="AI Radar" sub="Predictive churn & spatial demand mapping.">
+    <div className="space-y-4">
       <div className="grid lg:grid-cols-2 gap-4 mt-4">
         
         {/* Heatmap Panel */}
@@ -257,6 +257,6 @@ function RadarPage() {
         </div>
       </div>
 
-    </AdminShell>
+    </div>
   );
 }

@@ -1,5 +1,4 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { AdminShell } from "@/admin/components/AdminShell";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api/client";
 import { useState, useMemo } from "react";
@@ -147,10 +146,12 @@ function AdminPerformancePage() {
   const filteredOwners = getFilteredData(ownersData);
 
   return (
-    <AdminShell 
-      title="Performance Dashboard" 
-      sub="Holistic view of organizational performance across all teams"
-      actions={
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-lg font-semibold">Performance Dashboard</h1>
+          <p className="text-sm text-muted-foreground">Holistic view of organizational performance across all teams</p>
+        </div>
         <div className="flex items-center gap-3">
           <Select value={preset} onValueChange={setPreset}>
             <SelectTrigger className="w-[160px] h-9 bg-card text-xs">
@@ -166,8 +167,7 @@ function AdminPerformancePage() {
             </SelectContent>
           </Select>
         </div>
-      }
-    >
+      </div>
       <div className="space-y-6">
         {/* Global Summary */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -474,6 +474,6 @@ function AdminPerformancePage() {
           </TabsContent>
         </Tabs>
       </div>
-    </AdminShell>
+    </div>
   );
 }

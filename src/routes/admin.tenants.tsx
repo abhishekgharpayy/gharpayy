@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { AdminShell } from "@/admin/components/AdminShell";
+
 import { useApp } from "@/lib/store";
 import { useAuthUser } from "@/lib/auth-store";
 import { Link } from "@tanstack/react-router";
@@ -50,7 +50,7 @@ function AdminTenants() {
   const openRents = (tenantId: string) => rents.filter((r) => r.tenantId === tenantId && r.status !== "paid").length;
 
   return (
-    <AdminShell title="Tenants" sub="Active tenants, rent ledgers, and occupancy management">
+    <div className="space-y-4">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
           { label: "Total tenants", value: stats.total, accent: "text-foreground" },
@@ -145,6 +145,6 @@ function AdminTenants() {
           </table>
         </div>
       </div>
-    </AdminShell>
+    </div>
   );
 }

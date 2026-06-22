@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { AdminShell } from "@/admin/components/AdminShell";
+
 import { useLiveSupremeMetrics } from "@/admin/lib/use-live-supreme";
 import { summarizeWhyNotClosing } from "@/admin/lib/selectors";
 import { useAuditLog } from "@/lib/crm10x/audit-log";
@@ -70,17 +70,17 @@ function AdminCockpit() {
 
   if (isLoading) {
     return (
-      <AdminShell title="Cockpit" sub="Loading live intelligence...">
+      <div className="space-y-4">
         <div className="p-8 text-center text-muted-foreground animate-pulse">Initializing God Mode...</div>
-      </AdminShell>
+      </div>
     );
   }
 
   if (isError) {
     return (
-      <AdminShell title="Cockpit" sub="Error loading metrics">
+      <div className="space-y-4">
         <div className="p-8 text-center text-destructive">Failed to fetch metrics. Please check your connection.</div>
-      </AdminShell>
+      </div>
     );
   }
 
@@ -350,7 +350,7 @@ function AdminCockpit() {
 
   return (
     <>
-    <AdminShell title="Cockpit" sub="Single screen — every signal, every action.">
+    <div className="space-y-4">
         <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
           {[
             { label: "Pipeline open", value: open.length, accent: "text-info" },
@@ -481,7 +481,7 @@ function AdminCockpit() {
 
         {/* Live Command Terminal */}
         <CommandTerminal />
-      </AdminShell>
+      </div>
 
       <Sheet open={!!drawer} onOpenChange={(o) => { if (!o) setDrawer(null); }}>
         <SheetContent side="right" className="w-full sm:max-w-xl p-0 flex flex-col gap-0">

@@ -1,6 +1,6 @@
 import { createFileRoute, redirect, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { AdminShell } from "@/admin/components/AdminShell";
+
 import { useLiveSupremeMetrics, useAddCoachingNote } from "@/admin/lib/use-live-supreme";
 import {
   computeMoneyMap, computeTcmHealth, computeAreaPulse,
@@ -46,26 +46,29 @@ function SupremePage() {
 
   if (isLoading) {
     return (
-      <AdminShell title="Admin Supreme \u00B7 God Mode" sub="Loading live metrics...">
+      <div className="space-y-4">
         <div className="p-8 text-center text-muted-foreground animate-pulse">Gathering intelligence...</div>
-      </AdminShell>
+      </div>
     );
   }
 
   if (isError) {
     return (
-      <AdminShell title="Admin Supreme \u00B7 God Mode" sub="Error loading metrics">
+      <div className="space-y-4">
         <div className="p-8 text-center text-destructive">Failed to fetch metrics. Please check your connection.</div>
-      </AdminShell>
+      </div>
     );
   }
 
   return (
-    <AdminShell 
-      title="Admin Supreme \u00B7 God Mode" 
-      sub="Every rupee, every person, every breach \u2014 one screen."
-      actions={<Button size="sm" variant="outline" onClick={() => window.print()}>Export Briefing</Button>}
-    >
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-lg font-semibold">Admin Supreme · God Mode</h1>
+          <p className="text-xs text-muted-foreground">Every rupee, every person, every breach — one screen.</p>
+        </div>
+        <Button size="sm" variant="outline" onClick={() => window.print()}>Export Briefing</Button>
+      </div>
       <section className="grid grid-cols-2 md:grid-cols-6 gap-3">
         <Tile label="Projected EOM" value={inrL(money.projectedEomRevenue)} tone="success" />
         <Tile label="Booked (12mo)" value={inrL(money.bookedRevenue)} tone="success" />
@@ -208,7 +211,7 @@ function SupremePage() {
 
       {drawer?.kind === "lead" && <LeadDrawer row={drawer.row} onClose={() => setDrawer(null)} />}
       {drawer?.kind === "tcm" && <TcmDrawer tcmId={drawer.tcmId} name={drawer.name} rows={rows} onClose={() => setDrawer(null)} />}
-    </AdminShell>
+    </div>
   );
 }
 

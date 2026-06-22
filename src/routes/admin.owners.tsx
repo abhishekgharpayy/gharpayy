@@ -1,6 +1,5 @@
 import { createFileRoute, redirect, Link } from "@tanstack/react-router";
 import { useMemo } from "react";
-import { AdminShell } from "@/admin/components/AdminShell";
 import { useApp } from "@/lib/store";
 import { useAuthUser } from "@/lib/auth-store";
 
@@ -35,7 +34,11 @@ function AdminOwners() {
   }, [properties, leads]);
 
   return (
-    <AdminShell title="Master Owner Console" sub={`${properties.length} properties \u00B7 full visibility`}>
+    <div className="space-y-4">
+      <div>
+        <h1 className="text-lg font-semibold">Master Owner Console</h1>
+        <p className="text-sm text-muted-foreground">{properties.length} properties · full visibility</p>
+      </div>
       <div className="rounded-xl border border-border bg-card overflow-hidden">
         <div className="overflow-auto">
           <table className="w-full text-xs">
@@ -85,6 +88,6 @@ function AdminOwners() {
           </table>
         </div>
       </div>
-    </AdminShell>
+    </div>
   );
 }

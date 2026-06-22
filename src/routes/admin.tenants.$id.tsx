@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { AdminShell } from "@/admin/components/AdminShell";
+
 import { useApp } from "@/lib/store";
 import { useAuthUser } from "@/lib/auth-store";
 import { Link } from "@tanstack/react-router";
@@ -38,11 +38,11 @@ function AdminTenantDetail() {
 
   if (!tenant) {
     return (
-      <AdminShell title="Tenant" sub="Tenant not found">
+      <div className="space-y-4">
         <div className="rounded-xl border border-border bg-card p-6 text-center text-muted-foreground text-sm">
           Tenant not found.
         </div>
-      </AdminShell>
+      </div>
     );
   }
 
@@ -50,7 +50,7 @@ function AdminTenantDetail() {
   const totalPaid = tenantPayments.reduce((s, p) => s + p.amount, 0);
 
   return (
-    <AdminShell title={tenant.name} sub={`Tenant · ${propName(tenant.propertyId)}`}>
+    <div className="space-y-4">
       <div className="grid md:grid-cols-3 gap-3">
         {/* Detail card */}
         <div className="rounded-xl border border-border bg-card p-4 space-y-3 md:col-span-2">
@@ -241,7 +241,7 @@ function AdminTenantDetail() {
           </div>
         </div>
       )}
-    </AdminShell>
+    </div>
   );
 }
 

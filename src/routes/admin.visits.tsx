@@ -1,6 +1,6 @@
 import { createFileRoute, redirect, Link } from "@tanstack/react-router";
 import { useMemo } from "react";
-import { AdminShell } from "@/admin/components/AdminShell";
+
 import { useApp } from "@/lib/store";
 import { useVisitWar } from "@/lib/visits/war-store";
 import { useAuthUser } from "@/lib/auth-store";
@@ -45,7 +45,7 @@ function AdminVisits() {
   }, [tours, visits, leads, tcms]);
 
   return (
-    <AdminShell title="Master Visits" sub={`${data.length} visits and tours across all TCMs`}>
+    <div className="space-y-4">
       <div className="rounded-xl border border-border bg-card overflow-auto">
         <table className="w-full text-xs">
           <thead className="bg-muted/40">
@@ -81,6 +81,6 @@ function AdminVisits() {
           </tbody>
         </table>
       </div>
-    </AdminShell>
+    </div>
   );
 }

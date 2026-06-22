@@ -1,6 +1,5 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useMemo } from "react";
-import { AdminShell } from "@/admin/components/AdminShell";
 import { useLiveSupremeMetrics } from "@/admin/lib/use-live-supreme";
 import { useAuthUser } from "@/lib/auth-store";
 
@@ -134,22 +133,34 @@ function AdminIntelligence() {
 
   if (isLoading) {
     return (
-      <AdminShell title="Intelligence" sub="Loading…">
+      <div className="space-y-4">
+        <div>
+          <h1 className="text-lg font-semibold">Intelligence</h1>
+          <p className="text-sm text-muted-foreground">Loading…</p>
+        </div>
         <div className="p-8 text-center text-muted-foreground animate-pulse">Fetching live data from MongoDB…</div>
-      </AdminShell>
+      </div>
     );
   }
 
   if (isError) {
     return (
-      <AdminShell title="Intelligence" sub="Error">
+      <div className="space-y-4">
+        <div>
+          <h1 className="text-lg font-semibold">Intelligence</h1>
+          <p className="text-sm text-muted-foreground">Error</p>
+        </div>
         <div className="p-8 text-center text-destructive">Failed to load. Check backend connection.</div>
-      </AdminShell>
+      </div>
     );
   }
 
   return (
-    <AdminShell title="Intelligence" sub="Funnel velocity, objection correlation & task analytics — live from MongoDB">
+    <div className="space-y-4">
+      <div>
+        <h1 className="text-lg font-semibold">Intelligence</h1>
+        <p className="text-sm text-muted-foreground">Funnel velocity, objection correlation & task analytics — live from MongoDB</p>
+      </div>
       <div className="grid md:grid-cols-2 gap-4">
         {/* Funnel Velocity */}
         <div className="rounded-xl border border-border bg-card p-4">
@@ -271,6 +282,6 @@ function AdminIntelligence() {
           </ul>
         </div>
       </div>
-    </AdminShell>
+    </div>
   );
 }

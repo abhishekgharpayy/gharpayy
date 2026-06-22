@@ -1,6 +1,5 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
-import { AdminShell } from "@/admin/components/AdminShell";
 import { useLiveSupremeMetrics } from "@/admin/lib/use-live-supreme";
 import { useAuditLog } from "@/lib/crm10x/audit-log";
 import { useSendBroadcast, useKillSwitch } from "@/admin/lib/use-live-supreme";
@@ -119,7 +118,11 @@ function CommandBridge() {
   }
 
   return (
-    <AdminShell title="Command Bridge" sub="Broadcast, pause, snapshot — every god-mode lever. Now persisted.">
+    <div className="space-y-4">
+      <div>
+        <h1 className="text-lg font-semibold">Command Bridge</h1>
+        <p className="text-sm text-muted-foreground">Broadcast, pause, snapshot — every god-mode lever. Now persisted.</p>
+      </div>
       {isLoading && (
         <div className="flex items-center gap-2 text-xs text-muted-foreground mb-3 animate-pulse">
           <RefreshCw className="h-3 w-3 animate-spin" />
@@ -279,7 +282,7 @@ function CommandBridge() {
           </tbody>
         </table>
       </div>
-    </AdminShell>
+    </div>
   );
 }
 
