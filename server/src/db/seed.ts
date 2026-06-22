@@ -12,7 +12,7 @@ const TCM_NAMES = ["Aryan T", "Ishika M", "Kabir S", "Riya K", "Dev V"];
 const SOURCES = ["Facebook", "Instagram", "Google Ads", "Organic", "Referral", "Broker"];
 const INTENTS = ["hot", "warm", "cold"] as const;
 
-function random<T>(arr: T[]): T {
+function random<T>(arr: readonly T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
