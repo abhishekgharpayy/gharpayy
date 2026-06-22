@@ -144,7 +144,6 @@ const OTHER_PROPERTY_VALUE = "__others__";
 const TOUR_TYPES = [
   { value: "physical", label: "Physical", icon: Building2 },
   { value: "virtual", label: "Virtual", icon: Video },
-  { value: "pre-book-pitch", label: "Pre-book", icon: Briefcase },
 ];
 const TOUR_TYPE_LABELS = Object.fromEntries(
   TOUR_TYPES.map((item) => [item.value, item.label]),
@@ -488,7 +487,7 @@ export function LeadControlPanel() {
       ...answers,
       bookingSource: profileToBookingSource(leadProfile?.source) || answers.bookingSource,
       decisionMaker: profileToDecisionMaker(leadProfile?.decisionMaker) || answers.decisionMaker,
-      budget: String(leadProfile?.budgetStated || lead.budget || ""),
+      budget: String(lead.budget || leadProfile?.budgetStated || ""),
       moveInDate: profileDateToInput(leadProfile?.preferredMoveInDate || lead.moveInDate),
       occupation: leadProfile?.companyOrCollege || answers.occupation,
       workLocation:
@@ -1360,7 +1359,8 @@ export function LeadControlPanel() {
               {!hasScheduledTour ? (
                 <InlineScheduleTour
                   lead={lead}
-                  properties={selectedTourPropertyOptions}
+                  properties={tourPropertyOptions}
+                  selectedPropertyIds={selectedInterestIds}
                   tcms={scheduleAssignees}
                   propertyId={propertyId}
                   tcmId={tcmId}
@@ -1373,6 +1373,7 @@ export function LeadControlPanel() {
                   onTcmChange={setTcmId}
                   onScheduledAtChange={setScheduledAt}
                   onSchedule={handleSchedule}
+                  onSkipToQuote={async () => { await setLeadStage(lead.id, "quote-sent"); setTab("quote"); }}
                 />
               ) : null}
 
@@ -3309,6 +3310,8 @@ function InlineScheduleTour({
   onTcmChange,
   onScheduledAtChange,
   onSchedule,
+  selectedPropertyIds = [],
+  onSkipToQuote,
 }: {
   lead: Lead;
   properties: any[];
@@ -3322,6 +3325,8 @@ function InlineScheduleTour({
   onTcmChange: (value: string) => void;
   onScheduledAtChange: (value: string) => void;
   onSchedule: () => void;
+  selectedPropertyIds?: string[];
+  onSkipToQuote?: () => void;
 }) {
   const [propertyQuery, setPropertyQuery] = useState("");
   const filteredProperties = useMemo(() => {
@@ -3334,294 +3339,276 @@ function InlineScheduleTour({
     );
   }, [properties, propertyQuery]);
 
+  // Split answers into filled and empty
+  const filledAnswers = {
+    bookingSource: answers.bookingSource,
+    decisionMaker: answers.decisionMaker,
+    moveInDate: answers.moveInDate,
+    budget: answers.budget,
+    occupation: answers.occupation,
+    workLocation: answers.workLocation,
+    willBookToday: answers.willBookToday,
+    keyConcern: answers.keyConcern,
+  };
+  const hasFilled = Object.values(filledAnswers).some(v => Boolean(v));
+  
+  // Filter TCMs by selected property area
+  const selectedPropObj = properties.find(p => p.id === propertyId);
+  const selectedArea = selectedPropObj?.area || "";
+  const filteredTcms = useMemo(() => {
+    if (!selectedArea) return tcms;
+    const matches = tcms.filter(t => t.zones?.includes(selectedArea) || t.zone === selectedArea);
+    return matches.length > 0 ? matches : tcms; // fallback to all if none match
+  }, [tcms, selectedArea]);
+
+  // Ensure TCM is valid for the filtered list, or auto-select first
+  useEffect(() => {
+    if (filteredTcms.length > 0 && !filteredTcms.some(t => t.id === tcmId)) {
+      onTcmChange(filteredTcms[0].id);
+    }
+  }, [filteredTcms, tcmId, onTcmChange]);
+
   return (
     <Section title="Tour scheduling" centeredTitle>
-      <div className="rounded-lg border border-border bg-card p-3 space-y-3">
-        <div className="grid grid-cols-3 gap-2 text-[11px]">
-          <div className="rounded-md bg-muted/60 px-2 py-1.5">
-            <span className="block text-muted-foreground">Phone</span>
-            <span className="font-medium text-foreground">{lead.phone}</span>
+      <div className="rounded-lg border border-border bg-card p-3 space-y-4">
+        {/* Pre-filled Summary */}
+        {hasFilled && (
+          <div className="rounded-md border border-border bg-muted/30 p-2.5">
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex justify-between items-center">
+              <span>Deep Profile Summary</span>
+              <span className="text-[9px] lowercase opacity-60">(Edit in Deep Profile tab)</span>
+            </div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[11px]">
+              {answers.bookingSource && <div><span className="text-muted-foreground">Source:</span> <span className="font-medium capitalize">{answers.bookingSource}</span></div>}
+              {answers.decisionMaker && <div><span className="text-muted-foreground">Decision maker:</span> <span className="font-medium capitalize">{answers.decisionMaker}</span></div>}
+              {answers.moveInDate && <div><span className="text-muted-foreground">Move-in:</span> <span className="font-medium">{answers.moveInDate}</span></div>}
+              {answers.budget && <div><span className="text-muted-foreground">Budget:</span> <span className="font-medium">₹{(Number(answers.budget || 0) >= 1000 ? (Number(answers.budget)/1000).toFixed(0) + "k" : answers.budget)}</span></div>}
+              {answers.occupation && <div><span className="text-muted-foreground">Work/College:</span> <span className="font-medium">{answers.occupation}</span></div>}
+              {answers.workLocation && <div><span className="text-muted-foreground">Location:</span> <span className="font-medium">{answers.workLocation}</span></div>}
+              {answers.willBookToday && <div><span className="text-muted-foreground">Will book today:</span> <span className="font-medium capitalize">{answers.willBookToday}</span></div>}
+            </div>
+            {answers.keyConcern && <div className="mt-1.5 text-[11px]"><span className="text-muted-foreground">Blocker/Concern:</span> <span className="font-medium text-destructive">{answers.keyConcern}</span></div>}
           </div>
-          <div className="rounded-md bg-muted/60 px-2 py-1.5">
-            <span className="block text-muted-foreground">Budget</span>
-            <span className="font-medium text-foreground">₹{(lead.budget / 1000).toFixed(0)}k</span>
-          </div>
-          <div className="rounded-md bg-muted/60 px-2 py-1.5">
-            <span className="block text-muted-foreground">Area</span>
-            <span className="font-medium text-foreground">{lead.preferredArea}</span>
-          </div>
-        </div>
-        <div className="rounded-md border border-border bg-background/60 p-2 space-y-2">
-          <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            MYT Schedule questions
-          </div>
-          <div className="grid gap-2 sm:grid-cols-2">
-            <Field label="Source">
-              <Select
-                value={answers.bookingSource}
-                onValueChange={(v) => onAnswersChange({ bookingSource: v })}
-              >
-                <SelectTrigger className="h-8 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {BOOKING_SOURCES.map((s) => (
-                    <SelectItem key={s} value={s} className="capitalize">
-                      {s}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-            <Field label="Decision maker">
-              <Select
-                value={answers.decisionMaker}
-                onValueChange={(v) => onAnswersChange({ decisionMaker: v })}
-              >
-                <SelectTrigger className="h-8 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {DECISION_MAKERS.map((s) => (
-                    <SelectItem key={s} value={s} className="capitalize">
-                      {s}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-            <Field label="Move-in">
-              <Input
-                type="date"
-                value={answers.moveInDate}
-                onChange={(e) => onAnswersChange({ moveInDate: e.target.value })}
-                className="h-8 text-xs"
-              />
-            </Field>
-            <Field label="Budget">
-              <Input
-                type="number"
-                value={answers.budget}
-                onChange={(e) => onAnswersChange({ budget: e.target.value })}
-                className="h-8 text-xs"
-              />
-            </Field>
-            <Field label="Work / College">
-              <Input
-                value={answers.occupation}
-                onChange={(e) => onAnswersChange({ occupation: e.target.value })}
-                className="h-8 text-xs"
-              />
-            </Field>
-            <Field label="Work location">
-              <Input
-                value={answers.workLocation}
-                onChange={(e) => onAnswersChange({ workLocation: e.target.value })}
-                className="h-8 text-xs"
-              />
-            </Field>
-          </div>
-          <Field label="Room type">
-            <Select
-              value={answers.roomType}
-              onValueChange={(v) => onAnswersChange({ roomType: v })}
-            >
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {ROOM_TYPES.map((r) => (
-                  <SelectItem key={r} value={r}>
-                    {r}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-          <div className="grid gap-1.5">
-            {(
-              [
-                ["readyIn48h", "Ready to finalize within 48 hours"],
-                ["exploring", "Only exploring"],
-                ["comparing", "Comparing options"],
-                ["needsFamily", "Needs family approval"],
-              ] as const
-            ).map(([key, label]) => (
-              <label
-                key={key}
-                className="flex items-center gap-2 rounded-md border border-border bg-surface-2/40 px-2 py-1.5 text-xs"
-              >
-                <Checkbox
-                  checked={answers[key]}
-                  onCheckedChange={(v) => onAnswersChange({ [key]: v === true })}
-                />
-                <span>{label}</span>
-              </label>
-            ))}
-          </div>
-          <Field label="Will book today">
-            <Select
-              value={answers.willBookToday}
-              onValueChange={(v) => onAnswersChange({ willBookToday: v })}
-            >
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {["yes", "maybe", "no"].map((s) => (
-                  <SelectItem key={s} value={s} className="capitalize">
-                    {s}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-          <Field label="Key concern / blocker">
-            <Input
-              value={answers.keyConcern}
-              placeholder="e.g. price high, parents approval, location mismatch"
-              onChange={(e) => onAnswersChange({ keyConcern: e.target.value })}
-              className="h-8 text-xs"
-            />
-          </Field>
-        </div>
-        <div>
-          <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">
-            Tour Type
-          </Label>
-          <div className="mt-1 grid grid-cols-3 gap-2">
-            {TOUR_TYPES.map(({ value, label, icon: Icon }) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => onAnswersChange({ tourType: value })}
-                className={`h-12 rounded-md border text-xs flex flex-col items-center justify-center gap-1 ${
-                  answers.tourType === value
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-border bg-surface-2 text-muted-foreground"
-                }`}
-              >
-                <Icon className="h-3.5 w-3.5" />
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="grid gap-2 sm:grid-cols-2">
-          <div>
-            <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">
-              Property
-            </Label>
-            <Select value={propertyId} onValueChange={onPropertyChange}>
-              <SelectTrigger className="h-9 text-sm">
-                <SelectValue placeholder="Select Property" />
-              </SelectTrigger>
-              <SelectContent>
-                <div className="sticky top-0 z-10 border-b border-border bg-popover p-2">
-                  <div className="relative">
-                    <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      className="h-8 pl-7 text-xs"
-                      placeholder="Search selected properties"
-                      value={propertyQuery}
-                      onChange={(event) => setPropertyQuery(event.target.value)}
-                      onKeyDown={(event) => event.stopPropagation()}
-                    />
-                  </div>
-                </div>
-                {filteredProperties.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.name}
-                    {p.area ? ` · ${p.area}` : ""}
-                  </SelectItem>
-                ))}
-                {filteredProperties.length === 0 && (
-                  <div className="px-2 py-3 text-center text-xs text-muted-foreground">
-                    No selected property matches.
-                  </div>
-                )}
-                <SelectItem value={OTHER_PROPERTY_VALUE}>Others</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">
-              TCM
-            </Label>
-            <Select value={tcmId} onValueChange={onTcmChange}>
-              <SelectTrigger className="h-9 text-sm">
-                <SelectValue placeholder="Select TCM" />
-              </SelectTrigger>
-              <SelectContent>
-                {tcms.map((t) => (
-                  <SelectItem key={t.id} value={t.id}>
-                    {memberOptionLabel(t)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-        <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-          {/* Separate date and time selectors. Time options: 09:00–21:00 every 30 minutes */}
-          {(() => {
-            const datePart = scheduledAt ? scheduledAt.split("T")[0] : "";
-            const timePartRaw =
-              scheduledAt && scheduledAt.includes("T")
-                ? (scheduledAt.split("T")[1] || "").slice(0, 5)
-                : "";
-            const times = tourTimeSlotsForDate(datePart);
+        )}
 
-            return (
-              <div className="grid sm:grid-cols-2 gap-2">
-                <Input
-                  id="field-tour-date"
-                  type="date"
-                  value={datePart}
-                  onChange={(e) => {
-                    const d = e.target.value;
-                    const nextTimes = tourTimeSlotsForDate(d);
-                    const t = nextTimes.includes(timePartRaw) ? timePartRaw : nextTimes[0] || "";
-                    onScheduledAtChange(d && t ? `${d}T${t}` : "");
-                  }}
-                  min={localDateISO()}
-                  className="h-9 text-sm"
-                />
-
-                <Select
-                  value={timePartRaw}
-                  onValueChange={(v) => {
-                    const d = datePart || localDateISO();
-                    onScheduledAtChange(v ? `${d}T${v}` : "");
-                  }}
-                >
-                  <SelectTrigger className="h-9 text-sm">
-                    <SelectValue placeholder="Select time" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {times.length > 0 ? (
-                      times.map((t) => (
-                        <SelectItem key={t} value={t} className="text-sm">
-                          {formatTime12h(t)}
-                        </SelectItem>
-                      ))
-                    ) : (
-                      <div className="px-2 py-3 text-xs text-muted-foreground">
-                        No slots left today. Pick tomorrow.
-                      </div>
-                    )}
-                  </SelectContent>
+        {/* MYT Schedule questions (Missing) */}
+        {!hasFilled && (
+          <div className="rounded-md border border-border bg-background/60 p-2 space-y-2">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              MYT Schedule questions
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {!answers.bookingSource && <Field label="Source">
+                <Select value={answers.bookingSource} onValueChange={(v) => onAnswersChange({ bookingSource: v })}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>{BOOKING_SOURCES.map((s) => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}</SelectContent>
                 </Select>
-              </div>
-            );
-          })()}
+              </Field>}
+              {!answers.moveInDate && <Field label="Move-in"><Input type="date" value={answers.moveInDate} onChange={(e) => onAnswersChange({ moveInDate: e.target.value })} className="h-8 text-xs" /></Field>}
+              {!answers.budget && <Field label="Budget"><Input type="number" value={answers.budget} onChange={(e) => onAnswersChange({ budget: e.target.value })} className="h-8 text-xs" /></Field>}
+              {!answers.occupation && <Field label="Work / College"><Input value={answers.occupation} onChange={(e) => onAnswersChange({ occupation: e.target.value })} className="h-8 text-xs" /></Field>}
+              {!answers.workLocation && <Field label="Work location"><Input value={answers.workLocation} onChange={(e) => onAnswersChange({ workLocation: e.target.value })} className="h-8 text-xs" /></Field>}
+            </div>
+          </div>
+        )}
+        
+        {/* Room Type & Intent */}
+        <div className="rounded-md border border-border bg-background/60 p-2.5">
+          <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Requirements & Intent</div>
+          <div className="grid gap-4">
+            <div className="grid sm:grid-cols-2 gap-4">
+              <Field label="Room type">
+                <Select value={answers.roomType} onValueChange={(v) => onAnswersChange({ roomType: v })}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>{ROOM_TYPES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
+                </Select>
+              </Field>
+              <Field label="Key concern / blocker (Optional)">
+                <Input
+                  value={answers.keyConcern}
+                  placeholder="e.g. price high, parents approval"
+                  onChange={(e) => onAnswersChange({ keyConcern: e.target.value })}
+                  className="h-8 text-xs"
+                />
+              </Field>
+            </div>
+            <div className="grid sm:grid-cols-4 gap-2">
+              {(
+                [
+                  ["readyIn48h", "Finalize in 48h"],
+                  ["exploring", "Only exploring"],
+                  ["comparing", "Comparing options"],
+                  ["needsFamily", "Family approval"],
+                ] as const
+              ).map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => {
+                    // Mutually exclusive behavior
+                    onAnswersChange({
+                      readyIn48h: false,
+                      exploring: false,
+                      comparing: false,
+                      needsFamily: false,
+                      [key]: !answers[key]
+                    });
+                  }}
+                  className={`flex items-center justify-center rounded-md border px-2 py-1.5 text-[11px] font-medium transition-colors ${
+                    answers[key]
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border bg-surface-2/40 text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
 
-          <Button size="sm" onClick={onSchedule} className="gap-1.5">
-            <CalendarIcon className="h-3.5 w-3.5" /> Schedule Tour
+        {/* Scheduling Core */}
+        <div className="grid gap-3 p-2 bg-muted/20 rounded-md border border-border">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">Property</Label>
+              <Select value={propertyId} onValueChange={onPropertyChange}>
+                <SelectTrigger className="h-9 text-sm mt-1">
+                  <SelectValue placeholder="Select Property" />
+                </SelectTrigger>
+                <SelectContent>
+                  <div className="sticky top-0 z-10 border-b border-border bg-popover p-2">
+                    <div className="relative">
+                      <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        className="h-8 pl-7 text-xs"
+                        placeholder="Search all properties"
+                        value={propertyQuery}
+                        onChange={(event) => setPropertyQuery(event.target.value)}
+                        onKeyDown={(event) => event.stopPropagation()}
+                      />
+                    </div>
+                  </div>
+                  {/* Show Selected ones first if there is no query */}
+                  {!propertyQuery && selectedPropertyIds.length > 0 && (
+                    <div className="px-2 py-1 text-[10px] font-semibold text-muted-foreground uppercase bg-muted/50">Interested Properties</div>
+                  )}
+                  {(!propertyQuery ? filteredProperties.filter(p => selectedPropertyIds.includes(p.id)) : []).map((p) => (
+                    <SelectItem key={p.id} value={p.id}>{p.name}{p.area ? ` · ${p.area}` : ""}</SelectItem>
+                  ))}
+                  {!propertyQuery && selectedPropertyIds.length > 0 && (
+                    <div className="px-2 py-1 text-[10px] font-semibold text-muted-foreground uppercase bg-muted/50 border-t mt-1">All Properties</div>
+                  )}
+                  {filteredProperties.filter(p => propertyQuery || !selectedPropertyIds.includes(p.id)).map((p) => (
+                    <SelectItem key={p.id} value={p.id}>{p.name}{p.area ? ` · ${p.area}` : ""}</SelectItem>
+                  ))}
+                  {filteredProperties.length === 0 && (
+                    <div className="px-2 py-3 text-center text-xs text-muted-foreground">No matches.</div>
+                  )}
+                  <SelectItem value={OTHER_PROPERTY_VALUE}>Others</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">TCM (Filtered by Area)</Label>
+              <Select value={tcmId} onValueChange={onTcmChange}>
+                <SelectTrigger className="h-9 text-sm mt-1 border-primary/50 ring-1 ring-primary/20">
+                  <SelectValue placeholder="Select TCM" />
+                </SelectTrigger>
+                <SelectContent>
+                  {filteredTcms.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>{memberOptionLabel(t)}</SelectItem>
+                  ))}
+                  {filteredTcms.length === 0 && <SelectItem value="none" disabled>No TCMs available</SelectItem>}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div>
+            <Label className="text-[11px] uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+              <CalendarIcon className="w-3.5 h-3.5 text-primary" />
+              Please select the date and time for the tour
+            </Label>
+            {(() => {
+              const datePart = scheduledAt ? scheduledAt.split("T")[0] : "";
+              const timePartRaw = scheduledAt && scheduledAt.includes("T") ? (scheduledAt.split("T")[1] || "").slice(0, 5) : "";
+              const times = tourTimeSlotsForDate(datePart);
+              return (
+                <div className="grid sm:grid-cols-2 gap-2 mt-1">
+                  <Input
+                    id="field-tour-date"
+                    type="date"
+                    value={datePart}
+                    onChange={(e) => {
+                      const d = e.target.value;
+                      const nextTimes = tourTimeSlotsForDate(d);
+                      const t = nextTimes.includes(timePartRaw) ? timePartRaw : nextTimes[0] || "";
+                      onScheduledAtChange(d && t ? `${d}T${t}` : "");
+                    }}
+                    min={localDateISO()}
+                    className="h-9 text-sm border-primary/50 ring-1 ring-primary/20"
+                  />
+                  <Select
+                    value={timePartRaw}
+                    onValueChange={(v) => {
+                      const d = datePart || localDateISO();
+                      onScheduledAtChange(v ? `${d}T${v}` : "");
+                    }}
+                  >
+                    <SelectTrigger className="h-9 text-sm border-primary/50 ring-1 ring-primary/20">
+                      <SelectValue placeholder="Select time" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-60">
+                      {times.map((time) => <SelectItem key={time} value={time}>{formatTime12h(time)}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              );
+            })()}
+          </div>
+          
+          <div>
+            <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">Tour Type</Label>
+            <div className="mt-1 grid grid-cols-2 gap-2">
+              {TOUR_TYPES.filter(t => t.value === 'physical' || t.value === 'virtual').map(({ value, label, icon: Icon }) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => onAnswersChange({ tourType: value })}
+                  className={`h-10 rounded-md border text-xs flex items-center justify-center gap-2 ${
+                    answers.tourType === value
+                      ? "border-primary bg-primary/10 text-primary font-medium"
+                      : "border-border bg-surface-2 text-muted-foreground"
+                  }`}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            className="flex-1 border border-border shadow-sm"
+            onClick={() => onSkipToQuote?.()}
+          >
+            Skip to Booking
+          </Button>
+          <Button
+            type="button"
+            disabled={!propertyId || !tcmId || !scheduledAt}
+            className="flex-1 shadow-sm font-semibold"
+            onClick={onSchedule}
+          >
+            Schedule Tour
           </Button>
         </div>
-      </div>
-    </Section>
+      </div></Section>
   );
 }
 
