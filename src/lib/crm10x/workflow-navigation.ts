@@ -46,18 +46,20 @@ export function deriveWorkflowState(
     destinationField: "default"
   };
 
+  const isVisitReady = lead.tags?.includes("impact:visit-ready") ?? false;
+
   if (lead.stage === "dropped") {
     state = { currentStep: "not-needed", pendingItem: "lead-dropped", nextAction: "none", destinationTab: "impact", destinationSection: "none", destinationField: "none" };
   } else if (completion.bookingCompleted || lead.stage === "booked") {
     state = { currentStep: "booked", pendingItem: "booking-pending", nextAction: "prepare-check-in", destinationTab: "checkin", destinationSection: "checkin", destinationField: "checkin" };
-  } else if (!lead.moveInDate) { // using moveInDate as proxy for basic deep profile
+  } else if (!isVisitReady && !lead.moveInDate) { // using moveInDate as proxy for basic deep profile
     state = { currentStep: "qualification", pendingItem: "deep-profile-missing", nextAction: "add-move-in-date", destinationTab: "impact", destinationSection: "deep-profile", destinationField: "move-in-date" };
-  } else if (!completion.budgetVerified) {
+  } else if (!isVisitReady && !completion.budgetVerified) {
     state = { currentStep: "qualification", pendingItem: "budget-missing", nextAction: "verify-budget", destinationTab: "impact", destinationSection: "deep-profile", destinationField: "budget-stated" };
-  } else if (!lead.preferredArea) {
+  } else if (!isVisitReady && !lead.preferredArea) {
     state = { currentStep: "qualification", pendingItem: "preferred-area-missing", nextAction: "add-preferred-area", destinationTab: "impact", destinationSection: "deep-profile", destinationField: "preferred-area" };
-  } else if (!completion.propertySelected) {
-    state = { currentStep: "qualification", pendingItem: "property-not-selected", nextAction: "select-property", destinationTab: "best-fit", destinationSection: "property-selector", destinationField: "property-search" };
+  } else if (!isVisitReady && !completion.propertySelected) {
+    state = { currentStep: "qualification", pendingItem: "property-not-selected", nextAction: "select-property", destinationTab: "impact", destinationSection: "property-selector", destinationField: "property-search" };
   } else if (!openTour && !completion.tourCompleted) {
     state = { currentStep: "tour", pendingItem: "tour-not-scheduled", nextAction: "schedule-tour", destinationTab: "tour", destinationSection: "schedule-tour", destinationField: "tour-date" };
   } else if (openTour && new Date(openTour.scheduledAt).getTime() < Date.now() && !completion.tourCompleted) {
