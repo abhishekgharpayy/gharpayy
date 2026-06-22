@@ -50,22 +50,22 @@ async function main() {
   await app.register(cors, {
     origin: (origin, cb) => {
       if (!origin) return cb(null, true);
-      if (corsOrigins.includes(origin)) return cb(null, true);
+      if (corsOrigins.includes(origin)) return cb(null, origin);
       if (/^https:\/\/[a-z0-9-]+\.trycloudflare\.com$/.test(origin)) {
-        return cb(null, true);
+        return cb(null, origin);
       }
       if (/^https:\/\/[a-z0-9-]+\.vercel\.app$/.test(origin)) {
-        return cb(null, true);
+        return cb(null, origin);
       }
       if (/^https:\/\/[a-z0-9-]+\.onrender\.com$/.test(origin)) {
-        return cb(null, true);
+        return cb(null, origin);
       }
       if (env.NODE_ENV === "development" && /^(https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?)$/.test(origin)) {
-        return cb(null, true);
+        return cb(null, origin);
       }
       // Allow any origin in local development to avoid port mismatch issues
       if (env.NODE_ENV === "development") {
-         return cb(null, true);
+         return cb(null, origin);
       }
       return cb(new Error("Not allowed by CORS: " + origin), false);
     },
