@@ -89,7 +89,7 @@ export function LeadJourneyStepper({
   return (
     <div className="border-b border-border bg-muted/20 px-4 py-2 space-y-2">
       {/* Step row with arrows */}
-      <div className="flex items-center gap-0 overflow-x-auto scrollbar-thin">
+      <div className="flex items-center justify-between w-full gap-0.5">
         {steps.map((s, i) => {
           const Icon = s.icon;
           const isCurrent = currentTab === s.key;
@@ -99,12 +99,12 @@ export function LeadJourneyStepper({
             : s.state === "locked" ? "border-border bg-card text-foreground"
             : "border-border bg-card text-foreground";
           return (
-            <div key={s.key} className="flex items-center shrink-0">
+            <div key={s.key} className="flex items-center flex-1 min-w-0">
               <button
                 onClick={() => (s.state === "done" || s.state === "active") && onJump(s.key)}
                 disabled={s.state === "locked" || s.state === "todo"}
                 aria-current={isCurrent ? "step" : undefined}
-                className={`group flex flex-col items-center gap-0.5 rounded-md border px-2 py-1.5 min-w-[92px] transition-all ${tone} ${isCurrent ? "shadow-sm" : ""} ${s.state === "locked" || s.state === "todo" ? "cursor-not-allowed" : "hover:brightness-110"}`}
+                className={`group flex flex-col items-center justify-center gap-0.5 rounded-md border px-1 py-1.5 w-full min-w-0 transition-all ${tone} ${isCurrent ? "shadow-sm" : ""} ${s.state === "locked" || s.state === "todo" ? "cursor-not-allowed" : "hover:brightness-110"}`}
                 title={s.state === "locked" || s.state === "todo" ? "Complete previous step first" : s.label}
               >
                 <div className="flex items-center gap-1">
