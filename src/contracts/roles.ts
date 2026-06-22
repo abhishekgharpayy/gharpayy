@@ -49,6 +49,7 @@ export const Scope = z.enum([
   "tenant.read",
   "tenant.create",
   "tenant.update",
+  "tenant.write",
 ]);
 export type Scope = z.infer<typeof Scope>;
 
@@ -63,7 +64,7 @@ export const DEFAULT_SCOPES: Record<TopRole, Scope[]> = {
     "todo.read", "todo.create", "todo.update", "todo.assign",
     "activity.read", "activity.log",
     "booking.read", "booking.create", "booking.update",
-    "tenant.read", "tenant.create", "tenant.update",
+    "tenant.read", "tenant.create", "tenant.update", "tenant.write",
   ],
   admin: [
     "lead.read", "lead.create", "lead.update", "lead.assign",
@@ -73,7 +74,7 @@ export const DEFAULT_SCOPES: Record<TopRole, Scope[]> = {
     "todo.read", "todo.create", "todo.update", "todo.assign",
     "activity.read", "activity.log",
     "booking.read", "booking.create", "booking.update",
-    "tenant.read", "tenant.create", "tenant.update",
+    "tenant.read", "tenant.create", "tenant.update", "tenant.write",
   ],
   member: [
     "lead.read", "lead.create", "lead.update", "lead.claim",

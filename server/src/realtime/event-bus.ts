@@ -60,6 +60,10 @@ function deriveAggregate(evt: DomainEvent): { type: string | null; id: string | 
       return { type: "tenant", id: (p.tenant as { _id: string })._id };
     }
     if ("tenantId" in p && typeof p.tenantId === "string") return { type: "tenant", id: p.tenantId };
+    if ("payment" in p && typeof p.payment === "object" && p.payment && "_id" in (p.payment as object)) {
+      return { type: "payment", id: (p.payment as { _id: string })._id };
+    }
+    if ("paymentId" in p && typeof p.paymentId === "string") return { type: "payment", id: p.paymentId };
   }
   return { type: null, id: null };
 }

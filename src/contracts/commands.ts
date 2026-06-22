@@ -364,7 +364,7 @@ export const UpdateTenantCmd = Base.extend({
 export const UpdateTenantStatusCmd = Base.extend({
   type: z.literal("cmd.tenant.update_status"),
   payload: z.object({
-    tenantId: string,
+    tenantId: z.string(),
     status: TenantStatus,
     exitDate: z.string().nullable().optional(),
   }),

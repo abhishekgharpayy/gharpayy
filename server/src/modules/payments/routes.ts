@@ -4,7 +4,7 @@ import { col } from "../../db/mongo.js";
 import { requireAuth, requireScope } from "../../middleware/auth.js";
 import { ulid } from "../../../../src/contracts/ids.js";
 import { PaymentRecord } from "../../../../src/contracts/entities.js";
-import { emit } from "../../realtime/event-bus.js";
+import { emit, newEventId } from "../../realtime/event-bus.js";
 
 type PaymentDoc = z.infer<typeof PaymentRecord> & { _id: string; tenantId_scope: string };
 
@@ -120,11 +120,17 @@ export function registerPaymentsRoutes(app: FastifyInstance) {
       };
       await payments().insertOne(doc);
 
+      const evtId = newEventId();
       await emit({
+        _id: evtId,
         type: "evt.payment.recorded",
-        payload: { payment: paymentOut(doc) as any },
+        occurredAt: now,
         actor: req.user!.sub,
         tenantId: req.user!.tenantId,
+        correlationId: evtId,
+        causationId: null,
+        version: 1,
+        payload: { payment: paymentOut(doc) as any },
       });
 
       return reply.code(201).send(paymentOut(doc));
@@ -155,11 +161,18 @@ export function registerPaymentsRoutes(app: FastifyInstance) {
       );
       if (!r) return reply.code(404).send({ code: "NOT_FOUND", message: "Payment not found" });
 
+      const evtId = newEventId();
+      const now = new Date().toISOString();
       await emit({
+        _id: evtId,
         type: "evt.payment.updated",
-        payload: { paymentId: id, patch },
+        occurredAt: now,
         actor: req.user!.sub,
         tenantId: req.user!.tenantId,
+        correlationId: evtId,
+        causationId: null,
+        version: 1,
+        payload: { paymentId: id, patch },
       });
 
       return reply.send(paymentOut(r));
@@ -175,11 +188,18 @@ export function registerPaymentsRoutes(app: FastifyInstance) {
     const r = await payments().deleteOne({ _id: id, tenantId_scope: req.user!.tenantId });
     if (r.deletedCount === 0) return reply.code(404).send({ code: "NOT_FOUND", message: "Payment not found" });
 
+    const evtId = newEventId();
+    const now = new Date().toISOString();
     await emit({
+      _id: evtId,
       type: "evt.payment.deleted",
-      payload: { paymentId: id, tenantId: "" },
+      occurredAt: now,
       actor: req.user!.sub,
       tenantId: req.user!.tenantId,
+      correlationId: evtId,
+      causationId: null,
+      version: 1,
+      payload: { paymentId: id, tenantId: "" },
     });
 
     return reply.send({ ok: true });
@@ -235,10 +255,15 @@ export function registerPaymentsRoutes(app: FastifyInstance) {
       }
 
       await emit({
+        _id: newEventId(),
         type: "evt.rents.generated",
-        payload: { month, count: created },
+        occurredAt: now,
         actor: req.user!.sub,
         tenantId: req.user!.tenantId,
+        correlationId: ulid(),
+        causationId: null,
+        version: 1,
+        payload: { month, count: created },
       });
 
       return reply.send({ ok: true, generated: created, total: tenants.length });
