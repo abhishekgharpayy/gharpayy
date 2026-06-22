@@ -187,7 +187,7 @@ function looksLikeDate(line: string): boolean {
   return /^(immediate|asap|now|today|tomorrow)/i.test(t) ||
     /\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}/.test(t) ||
     /\d{1,2}(?:st|nd|rd|th)?\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i.test(t) ||
-    /(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+\d{1,2}/i.test(t) ||
+    /(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(\d{1,2}|end)/i.test(t) ||
     /(monday|tuesday|wednesday|thursday|friday|saturday|sunday)/i.test(t);
 }
 
@@ -385,6 +385,10 @@ export function parseLead(raw: string): ParsedLeadDraft | null {
     const m = digitOnly.match(/[6-9]\d{9}/);
     if (m) phone = m[0];
   }
+  if (!phone) {
+    const phoneMatch = clean.match(/(?<!\d)([6-9]\d{9})(?!\d)/);
+    if (phoneMatch) phone = phoneMatch[1];
+  }
 
   // ---------- Email ----------
   const emailMatch = clean.match(/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/);
@@ -406,6 +410,24 @@ export function parseLead(raw: string): ParsedLeadDraft | null {
       .trim();
     if (name && name.length >= 2) {
       nameConfidence = 0.95;
+    }
+  }
+
+  // Tier 1.5: Regex fallback user provided
+  if (!name) {
+    const nameMatch = clean.match(/(?:name[:\s]+)([A-Za-z][A-Za-z\s]{2,30})/i);
+    if (nameMatch) {
+      name = nameMatch[1].trim();
+      nameConfidence = 0.9;
+    } else if (phone) {
+      const phoneLine = clean.split('\n').find(l => l.includes(phone));
+      if (phoneLine) {
+        const nameCandidate = phoneLine.replace(phone, '').replace(/[^A-Za-z\s]/g, '').trim();
+        if (nameCandidate && nameCandidate.length > 2) {
+          name = nameCandidate;
+          nameConfidence = 0.8;
+        }
+      }
     }
   }
 
@@ -506,6 +528,13 @@ export function parseLead(raw: string): ParsedLeadDraft | null {
     }
   }
 
+  if (!location) {
+    const areaMatch = clean.match(/(?:looking\s+(?:in|at)|area[s]?[:\s]+|location[:\s]+)([^\n.]{5,80})/i);
+    if (areaMatch) {
+      location = areaMatch[1].trim();
+    }
+  }
+
   // ---------- Budget ----------
   const budgets = extractBudgets(clean);
   let budget = grab(
@@ -516,6 +545,13 @@ export function parseLead(raw: string): ParsedLeadDraft | null {
   if (!budget) {
     for (const line of clean.split("\n").map((l) => l.trim())) {
       if (looksLikeBudget(line)) { budget = line.replace(/[₹]/g, "").trim(); break; }
+    }
+  }
+
+  if (!budget) {
+    const budgetMatch = clean.match(/(?:budget[:\s]*)?(\d+(?:\.\d+)?k?\s*[-–to]+\s*\d+(?:\.\d+)?k?|\d+(?:\.\d+)?k)/i);
+    if (budgetMatch) {
+      budget = budgetMatch[1];
     }
   }
 
@@ -584,6 +620,8 @@ export function parseLead(raw: string): ParsedLeadDraft | null {
       if (/@/.test(line)) continue;
       if (looksLikeBudget(line) || looksLikeDate(line)) continue;
       if (NON_NAME_TOKENS.test(line) && !/\b(veg|non[- ]?veg|ac|gym|wifi|food|parking|pet|ventilation|spacious|clean|backup|family|balcony|attached|sunlight|quiet|washroom)\b/i.test(line)) continue;
+      // Skip greeting/intro/status lines — these are never special requests
+      if (/\b(hi|hello|hey|team|new\s*lead|gharpayy|currently|in\s*blr|in\s*bangalore|boys|girls|coed|working|student|intern|private|shared)\b/i.test(line)) continue;
       if (/\b(veg|non[- ]?veg|ac|gym|wifi|food|parking|pet|ventilation|spacious|clean|backup|family|quiet|sunlight|balcony|attached|washroom)\b/i.test(line)
           || (/^[A-Za-z]/.test(line) && line.split(/\s+/).length >= 3)) {
         extras.push(line);
@@ -592,8 +630,8 @@ export function parseLead(raw: string): ParsedLeadDraft | null {
     specialReqs = extras.join("; ").slice(0, 240);
   }
 
-  const inBLRTrue = /\bin\s*blr\b|in bangalore|currently in bangalore|already here|yes.*blr/i.test(normalised);
-  const inBLRFalse = /not in blr|not in bangalore|outside bangalore|relocating|out.*blr/i.test(normalised);
+  const inBLRTrue = /\b(currently in (bangalore|blr)|in blr|already here|in the city|yes.*blr)\b/i.test(normalised);
+  const inBLRFalse = /\b(not in (bangalore|blr)|outside|relocating|out of (bangalore|blr)|out.*blr)\b/i.test(normalised);
   let inBLR = inBLRTrue ? true : inBLRFalse ? false : null;
 
   const zone = detectZone(normalised);
