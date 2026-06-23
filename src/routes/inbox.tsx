@@ -67,9 +67,25 @@ function InboxPage() {
       return item.body.includes("Lead name not captured");
     };
   }, [capturedLeadIds, currentLeadIds, currentTourIds]);
+
+  const isRelevant = useMemo(() => (n: typeof items[number]) => {
+    if (n.title?.includes("Customer") || n.body?.includes("Customer")) return false;
+    if (n.recipientId && n.recipientId === recipientId) return true;
+    if (n.leadId) {
+      const lead = leads.find(l => l.id === n.leadId);
+      if (lead && lead.assignedTcmId !== recipientId && lead.assigneeId !== recipientId) return false;
+    }
+    if (n.tourId) {
+      const tour = tours.find(t => t.id === n.tourId);
+      if (tour && tour.tcmId !== recipientId && tour.assignedTo !== recipientId) return false;
+    }
+    return n.audience.length === 0 || n.audience.includes(role);
+  }, [leads, tours, recipientId, role]);
+
   const inbox = useMemo(() => {
-    return selectInboxFor(items, role, recipientId).filter((item) => !isStaleTourNotification(item));
-  }, [isStaleTourNotification, items, role, recipientId]);
+    return selectInboxFor(items, role, recipientId)
+      .filter((item) => !isStaleTourNotification(item) && isRelevant(item));
+  }, [isStaleTourNotification, isRelevant, items, role, recipientId]);
 
   useEffect(() => {
     const staleIds = selectInboxFor(items, role, recipientId)
@@ -114,33 +130,13 @@ function InboxPage() {
       <div className="space-y-5">
         <header className="flex items-end justify-between flex-wrap gap-3">
           <div>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
-              <InboxIcon className="h-3.5 w-3.5" />
-              <span>Inbox · {me.name}</span>
-              <Badge variant="outline" className="text-[10px] font-mono">{labelForRole(role)}</Badge>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1 font-medium">
+              <Bell className="h-3.5 w-3.5" />
+              <span>Notifications - {authUser?.name || authUser?.fullName || "User"} {authUser?.zones && authUser.zones.length > 0 ? `(${authUser.zones.join(", ")})` : ""}</span>
+              <Badge variant="outline" className="text-[10px] font-mono border-primary/20 bg-primary/5 text-primary">{labelForRole(role)}</Badge>
             </div>
-            <h1 className="font-display text-2xl font-semibold tracking-tight">
-              Everything you need to act on, in one place.
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              {truePending.length > 0 && (
-                <span className="text-accent font-medium mr-1">
-                  {truePending.length} pending assignment{truePending.length > 1 ? "s" : ""} ·
-                </span>
-              )}
-              {inbox.length === 0
-                ? "Nothing else to do right now."
-                : `${unread} unread · ${counts.todo} open todos · ${counts.calendar} calendar items.`}
-            </p>
+
           </div>
-          <Button
-            size="sm" variant="outline"
-            onClick={() => markAllRead(role, recipientId)}
-            disabled={unread === 0}
-          >
-            <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
-            Mark all read
-          </Button>
         </header>
 
         {/* HR can compose broadcasts straight from inbox */}
@@ -151,35 +147,39 @@ function InboxPage() {
           {([
             ["assignments", "Assignments", UserCheck, counts.assignments],
             ["all", "All", InboxIcon, counts.all],
-            ["broadcasts", "From HR", Send, counts.broadcasts],
-            ["tours", "Tours", Bell, counts.tours],
-            ["todo", "Todo", ListTodo, counts.todo],
-            ["calendar", "Calendar", CalendarDays, counts.calendar],
-            ["email", "Email", Mail, counts.email],
-          ] as const).map(([k, label, Icon, n]) => (
+            role !== "tcm" ? ["broadcasts", "From HR", Send, counts.broadcasts] : null,
+            role !== "tcm" ? ["tours", "Tours", Bell, counts.tours] : null,
+            role !== "tcm" ? ["todo", "Todo", ListTodo, counts.todo] : null,
+            role !== "tcm" ? ["calendar", "Calendar", CalendarDays, counts.calendar] : null,
+            role !== "tcm" ? ["email", "Email", Mail, counts.email] : null,
+          ] as const).filter(Boolean).map((tuple) => {
+            const [k, label, Icon, n] = tuple as [string, string, any, number];
+            return (
             <button
               key={k}
               onClick={() => setTab(k as Tab)}
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5",
+                "inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 transition-colors font-medium",
                 tab === k
                   ? k === "assignments" && n > 0
-                    ? "border-accent bg-accent/15 text-accent"
-                    : "border-accent/40 bg-accent/10 text-accent"
-                  : "border-border text-muted-foreground hover:bg-muted",
+                    ? "border-orange-500 bg-orange-500/10 text-orange-600"
+                    : "border-primary bg-primary/10 text-primary"
+                  : "border-border text-foreground hover:bg-muted",
               )}
             >
               <Icon className="h-3 w-3" />
               {label}
               <span className={cn(
-                "font-mono text-[10px] opacity-70",
-                k === "assignments" && n > 0 && tab !== k && "opacity-100 text-accent font-bold",
+                "font-mono text-[10px]",
+                tab === k ? "opacity-70" : "text-muted-foreground",
+                k === "assignments" && n > 0 && tab !== k && "bg-orange-100 text-orange-700 px-1 rounded font-bold opacity-100",
               )}>({n})</span>
             </button>
-          ))}
+            );
+          })}
         </div>
 
-        <ScrollArea className="h-[calc(100vh-360px)] min-h-[400px] pr-2">
+        <ScrollArea className="h-[calc(100vh-220px)] min-h-[400px] pr-2">
           {/* Assignment notifications panel */}
           {(tab === "assignments" || (tab === "all" && pendingAssignments.length > 0)) && (
             <div className="space-y-2 mb-4">

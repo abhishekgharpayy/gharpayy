@@ -89,9 +89,11 @@ import {
   Home,
   ExternalLink,
   Edit3,
+  AlertCircle,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { cn, formatTime12h, localDateISO, tourTimeSlotsForDate } from "@/lib/utils";
+import { supplyHubProperties } from "@/myt/lib/inventory-intelligence";
 import {
   formatBudget,
   formatAssignee,
@@ -144,7 +146,6 @@ const OTHER_PROPERTY_VALUE = "__others__";
 const TOUR_TYPES = [
   { value: "physical", label: "Physical", icon: Building2 },
   { value: "virtual", label: "Virtual", icon: Video },
-  { value: "pre-book-pitch", label: "Pre-book", icon: Briefcase },
 ];
 const TOUR_TYPE_LABELS = Object.fromEntries(
   TOUR_TYPES.map((item) => [item.value, item.label]),
@@ -377,6 +378,9 @@ export function LeadControlPanel() {
   );
 
   const { tcms: activeTcms } = useActiveTcMs();
+
+  const [propertyId, setPropertyId] = useState("");
+
   const tcmUsers = useMemo(() => {
     if (activeTcms && activeTcms.length > 0) {
       return activeTcms
@@ -386,12 +390,45 @@ export function LeadControlPanel() {
           role: a.role ?? "tcm",
           zones: a.zones ?? (a.zone ? [a.zone] : []),
         }))
-        .sort((a, b) => a.name.localeCompare(b.name));
+        .sort((a: any, b: any) => a.name.localeCompare(b.name));
     }
-    return orgMembers
-      .filter((m) => m.role === "tcm" || m.isTcm !== false)
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [orgMembers, activeTcms]);
+    const allTcms = orgMembers.sort((a: any, b: any) => a.name.localeCompare(b.name));
+    
+    // Get the property's area from the selected propertyId
+    const scheduledPropertyId = propertyId;
+    const scheduledPropertyName = lead?.propertyName;
+    const selectedProperty = supplyHubProperties.find(
+      (p) => p.id === scheduledPropertyId || p.name === scheduledPropertyName
+    );
+    const propertyArea = selectedProperty?.area ?? lead?.preferredArea ?? lead?.zoneCategory ?? "";
+
+    return allTcms.filter((m: any) => {
+      const isTcm = m.role === "tcm" || m.isTcm !== false;
+      if (!isTcm) return false;
+      // If we know the property area, filter by zone match
+      if (propertyArea) {
+        const memberZones: string[] = m.zones ?? (m.zone ? [m.zone] : []);
+        // Match if any zone contains the area keyword or vice versa
+        const zoneMatch = memberZones.some((z) =>
+          z.toLowerCase().includes(propertyArea.toLowerCase()) ||
+          propertyArea.toLowerCase().includes(z.toLowerCase())
+        );
+        if (zoneMatch) return true;
+        // If no zone match found at all, fall back to showing all TCMs
+        // (prevents empty list when zone data is incomplete)
+        const anyMatch = allTcms.some((tm: any) => {
+          const tz: string[] = tm.zones ?? (tm.zone ? [tm.zone] : []);
+          return tz.some((z) =>
+            z.toLowerCase().includes(propertyArea.toLowerCase()) ||
+            propertyArea.toLowerCase().includes(z.toLowerCase())
+          );
+        });
+        return !anyMatch; // Only show unfiltered if nobody matches
+      }
+      return true; // No area info — show all TCMs
+    });
+  }, [orgMembers, activeTcms, propertyId, lead]);
+
   const scheduleAssignees = useMemo(() => {
     if (authUser?.role !== "member") return tcmUsers;
 
@@ -415,12 +452,12 @@ export function LeadControlPanel() {
   const defaultSelfAssigneeId = useMemo(() => {
     if (!authUser?.id) return "";
     if (authUser.role !== "tcm" && authUser.role !== "member") return "";
-    return scheduleAssignees.some((option) => option.id === authUser.id) ? authUser.id : "";
+    return scheduleAssignees.some((option: any) => option.id === authUser.id) ? authUser.id : "";
   }, [authUser, scheduleAssignees]);
 
   // Tour scheduling form state
   const [tcmId, setTcmId] = useState("");
-  const [propertyId, setPropertyId] = useState("");
+  // propertyId was moved up
   const [scheduledAt, setScheduledAt] = useState("");
   const [scheduleAnswers, setScheduleAnswers] = useState({
     bookingSource: "whatsapp",
@@ -479,7 +516,7 @@ export function LeadControlPanel() {
     const roleDefaultAssignee = isSelfDefaultRole ? defaultSelfAssigneeId : "";
     const preferredAssignee = tourAssigneeId || lead.assignedTcmId || currentMemberId || "";
     const preferredExists = preferredAssignee
-      ? scheduleAssignees.some((option) => option.id === preferredAssignee)
+      ? scheduleAssignees.some((option: any) => option.id === preferredAssignee)
       : false;
     setTcmId(roleDefaultAssignee || (preferredExists ? preferredAssignee : ""));
     setPropertyId(tourToShow?.propertyId ?? selectedInterestIds[0] ?? "");
@@ -488,7 +525,7 @@ export function LeadControlPanel() {
       ...answers,
       bookingSource: profileToBookingSource(leadProfile?.source) || answers.bookingSource,
       decisionMaker: profileToDecisionMaker(leadProfile?.decisionMaker) || answers.decisionMaker,
-      budget: String(leadProfile?.budgetStated || lead.budget || ""),
+      budget: String(lead.budget || leadProfile?.budgetStated || ""),
       moveInDate: profileDateToInput(leadProfile?.preferredMoveInDate || lead.moveInDate),
       occupation: leadProfile?.companyOrCollege || answers.occupation,
       workLocation:
@@ -675,7 +712,7 @@ export function LeadControlPanel() {
       toast.error("Member and time are required");
       return;
     }
-    const assignee = scheduleAssignees.find((m) => m.id === tcmId) ?? null;
+    const assignee = scheduleAssignees.find((m: any) => m.id === tcmId) ?? null;
     const scheduler = currentMemberId
       ? (orgMembers.find((m) => m.id === currentMemberId) ?? null)
       : null;
@@ -792,8 +829,9 @@ export function LeadControlPanel() {
         style={{ maxWidth: 560 }}
       >
         {/* Header block */}
-        <SheetHeader className="px-4 py-3 border-b border-border space-y-2 shrink-0">
-          <div className="flex items-start justify-between gap-3">
+        <SheetHeader className="px-4 py-3 border-b border-border space-y-4 shrink-0">
+          {/* Identity & Ownership Row */}
+          <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <SheetTitle className="font-display text-2xl font-bold tracking-tight text-primary leading-tight">
@@ -802,74 +840,81 @@ export function LeadControlPanel() {
                 <Button 
                   variant="ghost" 
                   size="icon" 
-                  className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                  className="h-6 w-6 text-muted-foreground hover:text-foreground shrink-0"
                   onClick={() => setIsEditLeadOpen(true)}
                 >
                   <Edit3 className="h-4 w-4" />
                 </Button>
               </div>
-              <div className="text-sm text-muted-foreground mt-0.5 font-medium">
+              <div className="text-sm text-muted-foreground mt-0.5 font-medium flex items-center gap-1.5">
+                <Phone className="h-3.5 w-3.5" />
                 {lead.phone}
               </div>
             </div>
+            {/* Prominent Assignment Badge */}
+            <div className="text-right shrink-0 flex flex-col items-end gap-1">
+              <Badge variant="secondary" className="bg-muted/50 border-border shadow-sm text-xs py-1 px-2.5">
+                {assignmentLabel === "Unassigned" ? "Unassigned" : assignmentLabel}
+              </Badge>
+              {actualPropertyName && (
+                <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider max-w-[120px] truncate" title={actualPropertyName}>
+                  {actualPropertyName}
+                </div>
+              )}
+            </div>
           </div>
+
+          {/* Status Tags */}
           <div className="flex items-center gap-1.5 flex-wrap">
             <StageBadge stage={lead.stage} />
             <IntentChip intent={lead.intent} />
             <ObjectionTag leadId={lead.id} />
           </div>
-          <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-            <span>
-              <CalendarIcon className="mr-1 inline h-3 w-3" />
-              Move-in:{" "}
-              <b className="font-medium text-foreground">
-                {formatSafeDate(lead.moveInDate, "MMM d", "TBD")}
-              </b>
-            </span>
-            <span>
-              <Wallet className="mr-1 inline h-3 w-3" />
-              Budget: <b className="font-medium text-foreground">{formatBudget(lead.budget)}</b>
-            </span>
-            <span>
-              <MapPin className="mr-1 inline h-3 w-3" />
-              Area: <b className="font-medium text-foreground">{leadLocation.area}</b>
-            </span>
+
+          {/* Compact Lead Info */}
+          <div className="flex flex-wrap gap-x-4 gap-y-2 text-[11px] bg-muted/20 rounded-md p-2.5 border border-border/50">
+            <div className="flex items-center gap-1.5" title="Move-in Date">
+              <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="font-semibold text-foreground">{formatSafeDate(lead.moveInDate, "MMM d", "TBD")}</span>
+            </div>
+            <div className="flex items-center gap-1.5" title="Budget">
+              <Wallet className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="font-semibold text-foreground">{formatBudget(lead.budget)}</span>
+            </div>
+            <div className="flex items-center gap-1.5" title="Area">
+              <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="font-semibold text-foreground truncate max-w-[150px]">
+                {leadLocation.area || "—"}
+              </span>
+            </div>
+
             {lead.email && (
-              <span>
-                Email: <b className="font-medium text-foreground">{lead.email}</b>
-              </span>
+              <div className="w-full font-medium text-muted-foreground truncate" title={lead.email}>
+                {lead.email}
+              </div>
             )}
-            {lead.type && (
-              <span>
-                Type: <b className="font-medium text-foreground capitalize">{lead.type}</b>
-              </span>
+
+            {(lead.type || lead.need || lead.room || lead.quality || (lead.inBLR !== null && lead.inBLR !== undefined)) && (
+              <div className="w-full h-px bg-border/50 my-0.5" />
             )}
-            {lead.need && (
-              <span>
-                Need: <b className="font-medium text-foreground capitalize">{lead.need}</b>
-              </span>
-            )}
-            {lead.room && (
-              <span>
-                Room: <b className="font-medium text-foreground capitalize">{lead.room}</b>
-              </span>
-            )}
-            {lead.quality && (
-              <span>
-                Quality: <b className="font-medium text-foreground capitalize">{lead.quality}</b>
-              </span>
-            )}
-            {lead.inBLR !== null && lead.inBLR !== undefined && (
-              <span>
-                In BLR: <b className="font-medium text-foreground">{lead.inBLR ? "Yes" : "No"}</b>
-              </span>
-            )}
-          </div>
-          <div className="truncate text-[11px] text-muted-foreground">
-            {actualPropertyName ? <>{actualPropertyName} · </> : null}
-            {assignmentLabel === "Unassigned"
-              ? "Not assigned yet"
-              : `Assigned · ${assignmentLabel}`}
+
+            <div className="flex flex-wrap gap-x-4 gap-y-1.5 w-full">
+              {lead.type && (
+                <div className="flex gap-1"><span className="text-muted-foreground">Type:</span><span className="font-medium text-foreground capitalize">{lead.type}</span></div>
+              )}
+              {lead.need && (
+                <div className="flex gap-1"><span className="text-muted-foreground">Need:</span><span className="font-medium text-foreground capitalize">{lead.need}</span></div>
+              )}
+              {lead.room && (
+                <div className="flex gap-1"><span className="text-muted-foreground">Room:</span><span className="font-medium text-foreground capitalize">{lead.room}</span></div>
+              )}
+              {lead.quality && (
+                <div className="flex gap-1"><span className="text-muted-foreground">Quality:</span><span className="font-medium text-foreground capitalize">{lead.quality}</span></div>
+              )}
+              {lead.inBLR !== null && lead.inBLR !== undefined && (
+                <div className="flex gap-1"><span className="text-muted-foreground">In BLR:</span><span className="font-medium text-foreground">{lead.inBLR ? "Yes" : "No"}</span></div>
+              )}
+            </div>
           </div>
         </SheetHeader>
 
@@ -1360,7 +1405,8 @@ export function LeadControlPanel() {
               {!hasScheduledTour ? (
                 <InlineScheduleTour
                   lead={lead}
-                  properties={selectedTourPropertyOptions}
+                  properties={tourPropertyOptions}
+                  selectedPropertyIds={selectedInterestIds}
                   tcms={scheduleAssignees}
                   propertyId={propertyId}
                   tcmId={tcmId}
@@ -1373,6 +1419,7 @@ export function LeadControlPanel() {
                   onTcmChange={setTcmId}
                   onScheduledAtChange={setScheduledAt}
                   onSchedule={handleSchedule}
+                  onSkipToQuote={async () => { await setLeadStage(lead.id, "quote-sent"); setTab("quote"); }}
                 />
               ) : null}
 
@@ -1422,6 +1469,10 @@ export function LeadControlPanel() {
             {/* POST-TOUR */}
             <TabsContent value="post" className="space-y-4 pt-4">
               {(() => {
+                const canEditPostTour = 
+                  authUser?.role === "tcm" || 
+                  authUser?.role === "super_admin" ||
+                  authUser?.role === "manager";
                 const target = pendingPostTour ?? leadTours.find((t) => t.status === "completed");
                 if (!target) {
                   return (
@@ -1549,8 +1600,10 @@ export function LeadControlPanel() {
                 };
                 return (
                   <div className="space-y-4">
-                    <Section title="Post-tour">
-                      <div className="mb-3 grid grid-cols-3 gap-2 text-xs">
+                    {canEditPostTour ? (
+                      <>
+                        <Section title="Post-tour">
+                          <div className="mb-3 grid grid-cols-3 gap-2 text-xs">
                         <div className="rounded-md bg-muted/50 px-3 py-2">
                           <div className="text-muted-foreground">Property</div>
                           <div className="truncate font-medium" title={postTourPropertyName}>
@@ -1780,6 +1833,57 @@ export function LeadControlPanel() {
                         <CheckCircle2 className="h-5 w-5 text-success" />
                         <span className="font-semibold text-success">Booked.</span>
                         <span className="text-muted-foreground">Bed blocked, lead closed.</span>
+                      </div>
+                    )}
+                      </>
+                    ) : (
+                      <div className="space-y-3">
+                        {target?.postTour?.filledAt ? (
+                          <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-3">
+                            <div className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                              TCM Post-Tour Response
+                            </div>
+                            <div className="grid grid-cols-2 gap-3 text-sm">
+                              <div>
+                                <div className="text-[10px] text-muted-foreground uppercase">Outcome</div>
+                                <div className="font-semibold capitalize">{target.postTour.outcome ?? "—"}</div>
+                              </div>
+                              <div>
+                                <div className="text-[10px] text-muted-foreground uppercase">Confidence</div>
+                                <div className="font-semibold">{target.postTour.confidence ?? "—"}%</div>
+                              </div>
+                              <div>
+                                <div className="text-[10px] text-muted-foreground uppercase">Objection</div>
+                                <div className="font-semibold">{target.postTour.objection ?? "None"}</div>
+                              </div>
+                              <div>
+                                <div className="text-[10px] text-muted-foreground uppercase">Follow-up</div>
+                                <div className="font-semibold">
+                                  {target.postTour.nextFollowUpAt
+                                    ? new Date(target.postTour.nextFollowUpAt).toLocaleDateString()
+                                    : "—"}
+                                </div>
+                              </div>
+                            </div>
+                            {target.postTour.objectionNote && (
+                              <div>
+                                <div className="text-[10px] text-muted-foreground uppercase">TCM Notes</div>
+                                <div className="text-sm mt-1 text-foreground/80">{target.postTour.objectionNote}</div>
+                              </div>
+                            )}
+                            <div className="text-[10px] text-muted-foreground">
+                              Filled by TCM on {new Date(target.postTour.filledAt).toLocaleString()}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-4 text-center space-y-1">
+                            <AlertCircle className="h-5 w-5 text-amber-500 mx-auto" />
+                            <div className="text-sm font-medium">Awaiting TCM response</div>
+                            <div className="text-xs text-muted-foreground">
+                              TCM will fill this after the tour is completed
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -3309,6 +3413,8 @@ function InlineScheduleTour({
   onTcmChange,
   onScheduledAtChange,
   onSchedule,
+  selectedPropertyIds = [],
+  onSkipToQuote,
 }: {
   lead: Lead;
   properties: any[];
@@ -3322,6 +3428,8 @@ function InlineScheduleTour({
   onTcmChange: (value: string) => void;
   onScheduledAtChange: (value: string) => void;
   onSchedule: () => void;
+  selectedPropertyIds?: string[];
+  onSkipToQuote?: () => void;
 }) {
   const [propertyQuery, setPropertyQuery] = useState("");
   const filteredProperties = useMemo(() => {
@@ -3334,294 +3442,276 @@ function InlineScheduleTour({
     );
   }, [properties, propertyQuery]);
 
+  // Split answers into filled and empty
+  const filledAnswers = {
+    bookingSource: answers.bookingSource,
+    decisionMaker: answers.decisionMaker,
+    moveInDate: answers.moveInDate,
+    budget: answers.budget,
+    occupation: answers.occupation,
+    workLocation: answers.workLocation,
+    willBookToday: answers.willBookToday,
+    keyConcern: answers.keyConcern,
+  };
+  const hasFilled = Object.values(filledAnswers).some(v => Boolean(v));
+  
+  // Filter TCMs by selected property area
+  const selectedPropObj = properties.find(p => p.id === propertyId);
+  const selectedArea = selectedPropObj?.area || "";
+  const filteredTcms = useMemo(() => {
+    if (!selectedArea) return tcms;
+    const matches = tcms.filter(t => t.zones?.includes(selectedArea) || t.zone === selectedArea);
+    return matches.length > 0 ? matches : tcms; // fallback to all if none match
+  }, [tcms, selectedArea]);
+
+  // Ensure TCM is valid for the filtered list, or auto-select first
+  useEffect(() => {
+    if (filteredTcms.length > 0 && !filteredTcms.some(t => t.id === tcmId)) {
+      onTcmChange(filteredTcms[0].id);
+    }
+  }, [filteredTcms, tcmId, onTcmChange]);
+
   return (
     <Section title="Tour scheduling" centeredTitle>
-      <div className="rounded-lg border border-border bg-card p-3 space-y-3">
-        <div className="grid grid-cols-3 gap-2 text-[11px]">
-          <div className="rounded-md bg-muted/60 px-2 py-1.5">
-            <span className="block text-muted-foreground">Phone</span>
-            <span className="font-medium text-foreground">{lead.phone}</span>
+      <div className="rounded-lg border border-border bg-card p-3 space-y-4">
+        {/* Pre-filled Summary */}
+        {hasFilled && (
+          <div className="rounded-md border border-border bg-muted/30 p-2.5">
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex justify-between items-center">
+              <span>Deep Profile Summary</span>
+              <span className="text-[9px] lowercase opacity-60">(Edit in Deep Profile tab)</span>
+            </div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[11px]">
+              {answers.bookingSource && <div><span className="text-muted-foreground">Source:</span> <span className="font-medium capitalize">{answers.bookingSource}</span></div>}
+              {answers.decisionMaker && <div><span className="text-muted-foreground">Decision maker:</span> <span className="font-medium capitalize">{answers.decisionMaker}</span></div>}
+              {answers.moveInDate && <div><span className="text-muted-foreground">Move-in:</span> <span className="font-medium">{answers.moveInDate}</span></div>}
+              {answers.budget && <div><span className="text-muted-foreground">Budget:</span> <span className="font-medium">₹{(Number(answers.budget || 0) >= 1000 ? (Number(answers.budget)/1000).toFixed(0) + "k" : answers.budget)}</span></div>}
+              {answers.occupation && <div><span className="text-muted-foreground">Work/College:</span> <span className="font-medium">{answers.occupation}</span></div>}
+              {answers.workLocation && <div><span className="text-muted-foreground">Location:</span> <span className="font-medium">{answers.workLocation}</span></div>}
+              {answers.willBookToday && <div><span className="text-muted-foreground">Will book today:</span> <span className="font-medium capitalize">{answers.willBookToday}</span></div>}
+            </div>
+            {answers.keyConcern && <div className="mt-1.5 text-[11px]"><span className="text-muted-foreground">Blocker/Concern:</span> <span className="font-medium text-destructive">{answers.keyConcern}</span></div>}
           </div>
-          <div className="rounded-md bg-muted/60 px-2 py-1.5">
-            <span className="block text-muted-foreground">Budget</span>
-            <span className="font-medium text-foreground">₹{(lead.budget / 1000).toFixed(0)}k</span>
-          </div>
-          <div className="rounded-md bg-muted/60 px-2 py-1.5">
-            <span className="block text-muted-foreground">Area</span>
-            <span className="font-medium text-foreground">{lead.preferredArea}</span>
-          </div>
-        </div>
-        <div className="rounded-md border border-border bg-background/60 p-2 space-y-2">
-          <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            MYT Schedule questions
-          </div>
-          <div className="grid gap-2 sm:grid-cols-2">
-            <Field label="Source">
-              <Select
-                value={answers.bookingSource}
-                onValueChange={(v) => onAnswersChange({ bookingSource: v })}
-              >
-                <SelectTrigger className="h-8 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {BOOKING_SOURCES.map((s) => (
-                    <SelectItem key={s} value={s} className="capitalize">
-                      {s}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-            <Field label="Decision maker">
-              <Select
-                value={answers.decisionMaker}
-                onValueChange={(v) => onAnswersChange({ decisionMaker: v })}
-              >
-                <SelectTrigger className="h-8 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {DECISION_MAKERS.map((s) => (
-                    <SelectItem key={s} value={s} className="capitalize">
-                      {s}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-            <Field label="Move-in">
-              <Input
-                type="date"
-                value={answers.moveInDate}
-                onChange={(e) => onAnswersChange({ moveInDate: e.target.value })}
-                className="h-8 text-xs"
-              />
-            </Field>
-            <Field label="Budget">
-              <Input
-                type="number"
-                value={answers.budget}
-                onChange={(e) => onAnswersChange({ budget: e.target.value })}
-                className="h-8 text-xs"
-              />
-            </Field>
-            <Field label="Work / College">
-              <Input
-                value={answers.occupation}
-                onChange={(e) => onAnswersChange({ occupation: e.target.value })}
-                className="h-8 text-xs"
-              />
-            </Field>
-            <Field label="Work location">
-              <Input
-                value={answers.workLocation}
-                onChange={(e) => onAnswersChange({ workLocation: e.target.value })}
-                className="h-8 text-xs"
-              />
-            </Field>
-          </div>
-          <Field label="Room type">
-            <Select
-              value={answers.roomType}
-              onValueChange={(v) => onAnswersChange({ roomType: v })}
-            >
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {ROOM_TYPES.map((r) => (
-                  <SelectItem key={r} value={r}>
-                    {r}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-          <div className="grid gap-1.5">
-            {(
-              [
-                ["readyIn48h", "Ready to finalize within 48 hours"],
-                ["exploring", "Only exploring"],
-                ["comparing", "Comparing options"],
-                ["needsFamily", "Needs family approval"],
-              ] as const
-            ).map(([key, label]) => (
-              <label
-                key={key}
-                className="flex items-center gap-2 rounded-md border border-border bg-surface-2/40 px-2 py-1.5 text-xs"
-              >
-                <Checkbox
-                  checked={answers[key]}
-                  onCheckedChange={(v) => onAnswersChange({ [key]: v === true })}
-                />
-                <span>{label}</span>
-              </label>
-            ))}
-          </div>
-          <Field label="Will book today">
-            <Select
-              value={answers.willBookToday}
-              onValueChange={(v) => onAnswersChange({ willBookToday: v })}
-            >
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {["yes", "maybe", "no"].map((s) => (
-                  <SelectItem key={s} value={s} className="capitalize">
-                    {s}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-          <Field label="Key concern / blocker">
-            <Input
-              value={answers.keyConcern}
-              placeholder="e.g. price high, parents approval, location mismatch"
-              onChange={(e) => onAnswersChange({ keyConcern: e.target.value })}
-              className="h-8 text-xs"
-            />
-          </Field>
-        </div>
-        <div>
-          <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">
-            Tour Type
-          </Label>
-          <div className="mt-1 grid grid-cols-3 gap-2">
-            {TOUR_TYPES.map(({ value, label, icon: Icon }) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => onAnswersChange({ tourType: value })}
-                className={`h-12 rounded-md border text-xs flex flex-col items-center justify-center gap-1 ${
-                  answers.tourType === value
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-border bg-surface-2 text-muted-foreground"
-                }`}
-              >
-                <Icon className="h-3.5 w-3.5" />
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="grid gap-2 sm:grid-cols-2">
-          <div>
-            <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">
-              Property
-            </Label>
-            <Select value={propertyId} onValueChange={onPropertyChange}>
-              <SelectTrigger className="h-9 text-sm">
-                <SelectValue placeholder="Select Property" />
-              </SelectTrigger>
-              <SelectContent>
-                <div className="sticky top-0 z-10 border-b border-border bg-popover p-2">
-                  <div className="relative">
-                    <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      className="h-8 pl-7 text-xs"
-                      placeholder="Search selected properties"
-                      value={propertyQuery}
-                      onChange={(event) => setPropertyQuery(event.target.value)}
-                      onKeyDown={(event) => event.stopPropagation()}
-                    />
-                  </div>
-                </div>
-                {filteredProperties.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.name}
-                    {p.area ? ` · ${p.area}` : ""}
-                  </SelectItem>
-                ))}
-                {filteredProperties.length === 0 && (
-                  <div className="px-2 py-3 text-center text-xs text-muted-foreground">
-                    No selected property matches.
-                  </div>
-                )}
-                <SelectItem value={OTHER_PROPERTY_VALUE}>Others</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">
-              TCM
-            </Label>
-            <Select value={tcmId} onValueChange={onTcmChange}>
-              <SelectTrigger className="h-9 text-sm">
-                <SelectValue placeholder="Select TCM" />
-              </SelectTrigger>
-              <SelectContent>
-                {tcms.map((t) => (
-                  <SelectItem key={t.id} value={t.id}>
-                    {memberOptionLabel(t)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-        <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-          {/* Separate date and time selectors. Time options: 09:00–21:00 every 30 minutes */}
-          {(() => {
-            const datePart = scheduledAt ? scheduledAt.split("T")[0] : "";
-            const timePartRaw =
-              scheduledAt && scheduledAt.includes("T")
-                ? (scheduledAt.split("T")[1] || "").slice(0, 5)
-                : "";
-            const times = tourTimeSlotsForDate(datePart);
+        )}
 
-            return (
-              <div className="grid sm:grid-cols-2 gap-2">
-                <Input
-                  id="field-tour-date"
-                  type="date"
-                  value={datePart}
-                  onChange={(e) => {
-                    const d = e.target.value;
-                    const nextTimes = tourTimeSlotsForDate(d);
-                    const t = nextTimes.includes(timePartRaw) ? timePartRaw : nextTimes[0] || "";
-                    onScheduledAtChange(d && t ? `${d}T${t}` : "");
-                  }}
-                  min={localDateISO()}
-                  className="h-9 text-sm"
-                />
-
-                <Select
-                  value={timePartRaw}
-                  onValueChange={(v) => {
-                    const d = datePart || localDateISO();
-                    onScheduledAtChange(v ? `${d}T${v}` : "");
-                  }}
-                >
-                  <SelectTrigger className="h-9 text-sm">
-                    <SelectValue placeholder="Select time" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {times.length > 0 ? (
-                      times.map((t) => (
-                        <SelectItem key={t} value={t} className="text-sm">
-                          {formatTime12h(t)}
-                        </SelectItem>
-                      ))
-                    ) : (
-                      <div className="px-2 py-3 text-xs text-muted-foreground">
-                        No slots left today. Pick tomorrow.
-                      </div>
-                    )}
-                  </SelectContent>
+        {/* MYT Schedule questions (Missing) */}
+        {!hasFilled && (
+          <div className="rounded-md border border-border bg-background/60 p-2 space-y-2">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              MYT Schedule questions
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {!answers.bookingSource && <Field label="Source">
+                <Select value={answers.bookingSource} onValueChange={(v) => onAnswersChange({ bookingSource: v })}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>{BOOKING_SOURCES.map((s) => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}</SelectContent>
                 </Select>
-              </div>
-            );
-          })()}
+              </Field>}
+              {!answers.moveInDate && <Field label="Move-in"><Input type="date" value={answers.moveInDate} onChange={(e) => onAnswersChange({ moveInDate: e.target.value })} className="h-8 text-xs" /></Field>}
+              {!answers.budget && <Field label="Budget"><Input type="number" value={answers.budget} onChange={(e) => onAnswersChange({ budget: e.target.value })} className="h-8 text-xs" /></Field>}
+              {!answers.occupation && <Field label="Work / College"><Input value={answers.occupation} onChange={(e) => onAnswersChange({ occupation: e.target.value })} className="h-8 text-xs" /></Field>}
+              {!answers.workLocation && <Field label="Work location"><Input value={answers.workLocation} onChange={(e) => onAnswersChange({ workLocation: e.target.value })} className="h-8 text-xs" /></Field>}
+            </div>
+          </div>
+        )}
+        
+        {/* Room Type & Intent */}
+        <div className="rounded-md border border-border bg-background/60 p-2.5">
+          <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Requirements & Intent</div>
+          <div className="grid gap-4">
+            <div className="grid sm:grid-cols-2 gap-4">
+              <Field label="Room type">
+                <Select value={answers.roomType} onValueChange={(v) => onAnswersChange({ roomType: v })}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>{ROOM_TYPES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
+                </Select>
+              </Field>
+              <Field label="Key concern / blocker (Optional)">
+                <Input
+                  value={answers.keyConcern}
+                  placeholder="e.g. price high, parents approval"
+                  onChange={(e) => onAnswersChange({ keyConcern: e.target.value })}
+                  className="h-8 text-xs"
+                />
+              </Field>
+            </div>
+            <div className="grid sm:grid-cols-4 gap-2">
+              {(
+                [
+                  ["readyIn48h", "Finalize in 48h"],
+                  ["exploring", "Only exploring"],
+                  ["comparing", "Comparing options"],
+                  ["needsFamily", "Family approval"],
+                ] as const
+              ).map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => {
+                    // Mutually exclusive behavior
+                    onAnswersChange({
+                      readyIn48h: false,
+                      exploring: false,
+                      comparing: false,
+                      needsFamily: false,
+                      [key]: !answers[key]
+                    });
+                  }}
+                  className={`flex items-center justify-center rounded-md border px-2 py-1.5 text-[11px] font-medium transition-colors ${
+                    answers[key]
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border bg-surface-2/40 text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
 
-          <Button size="sm" onClick={onSchedule} className="gap-1.5">
-            <CalendarIcon className="h-3.5 w-3.5" /> Schedule Tour
+        {/* Scheduling Core */}
+        <div className="grid gap-3 p-2 bg-muted/20 rounded-md border border-border">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">Property</Label>
+              <Select value={propertyId} onValueChange={onPropertyChange}>
+                <SelectTrigger className="h-9 text-sm mt-1">
+                  <SelectValue placeholder="Select Property" />
+                </SelectTrigger>
+                <SelectContent>
+                  <div className="sticky top-0 z-10 border-b border-border bg-popover p-2">
+                    <div className="relative">
+                      <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        className="h-8 pl-7 text-xs"
+                        placeholder="Search all properties"
+                        value={propertyQuery}
+                        onChange={(event) => setPropertyQuery(event.target.value)}
+                        onKeyDown={(event) => event.stopPropagation()}
+                      />
+                    </div>
+                  </div>
+                  {/* Show Selected ones first if there is no query */}
+                  {!propertyQuery && selectedPropertyIds.length > 0 && (
+                    <div className="px-2 py-1 text-[10px] font-semibold text-muted-foreground uppercase bg-muted/50">Interested Properties</div>
+                  )}
+                  {(!propertyQuery ? filteredProperties.filter(p => selectedPropertyIds.includes(p.id)) : []).map((p) => (
+                    <SelectItem key={p.id} value={p.id}>{p.name}{p.area ? ` · ${p.area}` : ""}</SelectItem>
+                  ))}
+                  {!propertyQuery && selectedPropertyIds.length > 0 && (
+                    <div className="px-2 py-1 text-[10px] font-semibold text-muted-foreground uppercase bg-muted/50 border-t mt-1">All Properties</div>
+                  )}
+                  {filteredProperties.filter(p => propertyQuery || !selectedPropertyIds.includes(p.id)).map((p) => (
+                    <SelectItem key={p.id} value={p.id}>{p.name}{p.area ? ` · ${p.area}` : ""}</SelectItem>
+                  ))}
+                  {filteredProperties.length === 0 && (
+                    <div className="px-2 py-3 text-center text-xs text-muted-foreground">No matches.</div>
+                  )}
+                  <SelectItem value={OTHER_PROPERTY_VALUE}>Others</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">TCM (Filtered by Area)</Label>
+              <Select value={tcmId} onValueChange={onTcmChange}>
+                <SelectTrigger className="h-9 text-sm mt-1 border-primary/50 ring-1 ring-primary/20">
+                  <SelectValue placeholder="Select TCM" />
+                </SelectTrigger>
+                <SelectContent>
+                  {filteredTcms.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>{memberOptionLabel(t)}</SelectItem>
+                  ))}
+                  {filteredTcms.length === 0 && <SelectItem value="none" disabled>No TCMs available</SelectItem>}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div>
+            <Label className="text-[11px] uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+              <CalendarIcon className="w-3.5 h-3.5 text-primary" />
+              Please select the date and time for the tour
+            </Label>
+            {(() => {
+              const datePart = scheduledAt ? scheduledAt.split("T")[0] : "";
+              const timePartRaw = scheduledAt && scheduledAt.includes("T") ? (scheduledAt.split("T")[1] || "").slice(0, 5) : "";
+              const times = tourTimeSlotsForDate(datePart);
+              return (
+                <div className="grid sm:grid-cols-2 gap-2 mt-1">
+                  <Input
+                    id="field-tour-date"
+                    type="date"
+                    value={datePart}
+                    onChange={(e) => {
+                      const d = e.target.value;
+                      const nextTimes = tourTimeSlotsForDate(d);
+                      const t = nextTimes.includes(timePartRaw) ? timePartRaw : nextTimes[0] || "";
+                      onScheduledAtChange(d && t ? `${d}T${t}` : "");
+                    }}
+                    min={localDateISO()}
+                    className="h-9 text-sm border-primary/50 ring-1 ring-primary/20"
+                  />
+                  <Select
+                    value={timePartRaw}
+                    onValueChange={(v) => {
+                      const d = datePart || localDateISO();
+                      onScheduledAtChange(v ? `${d}T${v}` : "");
+                    }}
+                  >
+                    <SelectTrigger className="h-9 text-sm border-primary/50 ring-1 ring-primary/20">
+                      <SelectValue placeholder="Select time" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-60">
+                      {times.map((time) => <SelectItem key={time} value={time}>{formatTime12h(time)}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              );
+            })()}
+          </div>
+          
+          <div>
+            <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">Tour Type</Label>
+            <div className="mt-1 grid grid-cols-2 gap-2">
+              {TOUR_TYPES.filter(t => t.value === 'physical' || t.value === 'virtual').map(({ value, label, icon: Icon }) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => onAnswersChange({ tourType: value })}
+                  className={`h-10 rounded-md border text-xs flex items-center justify-center gap-2 ${
+                    answers.tourType === value
+                      ? "border-primary bg-primary/10 text-primary font-medium"
+                      : "border-border bg-surface-2 text-muted-foreground"
+                  }`}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            className="flex-1 border border-border shadow-sm"
+            onClick={() => onSkipToQuote?.()}
+          >
+            Skip to Booking
+          </Button>
+          <Button
+            type="button"
+            disabled={!propertyId || !tcmId || !scheduledAt}
+            className="flex-1 shadow-sm font-semibold"
+            onClick={onSchedule}
+          >
+            Schedule Tour
           </Button>
         </div>
-      </div>
-    </Section>
+      </div></Section>
   );
 }
 

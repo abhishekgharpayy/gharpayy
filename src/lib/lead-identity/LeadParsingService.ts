@@ -155,7 +155,7 @@ export class LeadParsingService {
     const cleanInternalNotes = (() => {
       const v = regexParsed?.extraContent?.trim();
       if (!v || v.length > 150) return null;
-      if (/hi\s*team|new\s*lead|gharpayy|currently\s*in\s*(bangalore|blr)|not\s*in\s*(bangalore|blr)/i.test(v)) return null;
+      if (/hi\s*team|new\s*lead|gharpayy/i.test(v)) return null;
       return v;
     })();
 

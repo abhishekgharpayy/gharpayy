@@ -1,10 +1,10 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
-  LayoutDashboard, Target, CalendarPlus, ClipboardList, Boxes, Activity,
+  LayoutDashboard, Target, CalendarPlus, ClipboardList, ClipboardCheck, Boxes, Activity,
   Building2, Search, Sun, Command, Trophy, Sparkles, MessageSquare,
   IndianRupee, MapPin, Zap, Users, Home, Calendar, Store, Swords, Settings, AlertTriangle,
   ShieldCheck, Inbox, Camera, HelpCircle, Layers, HeartPulse, ListTodo, Gauge, Radio,
-  Menu, X,
+  Menu, X, CalendarCheck, Bell,
 } from "lucide-react";
 import { MemberDailyReminderPopup } from "@/components/stats/MemberDailyReminderPopup";
 import { NotificationCenter } from "./NotificationCenter";
@@ -26,6 +26,7 @@ import { PipButton } from "./pip/PipButton";
 import { usePipRouteSync } from "./pip/usePipSync";
 
 
+import { useNotifications } from "@/lib/notifications";
 import { LiveActivitiesBridge } from "./LiveActivitiesBridge";
 import { LiveTodosBridge } from "./LiveTodosBridge";
 import { LiveFollowUpsBridge } from "./LiveFollowUpsBridge";
@@ -105,6 +106,15 @@ export function AppShell({ children }: { children: ReactNode }) {
   const router = useRouterState();
   const path = router.location.pathname;
   const [now, mounted] = useMountedNow();
+  const { currentTcmId: currentTcmIdFromApp, tcmQueueLength } = useApp() as any;
+  const notifications = useNotifications();
+
+  // Temporary clear to wipe out old local notifications
+  useEffect(() => {
+    notifications.clear();
+  }, []);
+
+  const [tcmSelectOpen, setTcmSelectOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const canSeeAllQueue =
@@ -195,16 +205,13 @@ export function AppShell({ children }: { children: ReactNode }) {
       { to: "/sequences", label: "Outreach", icon: Zap },
       { to: "/my-tasks", label: "My Tasks", icon: ListTodo },
     ]),
-    tcm: withTailNav([
-      { to: "/today", label: "Today", icon: Sun, badge: queue.length },
-      { to: "/impact", label: "Impact Queue", icon: HeartPulse },
-      { to: "/property-hub", label: "Property Hub", icon: Building2 },
-      { to: "/visit-war", label: "Visit War Room", icon: Radio },
-      { to: "/myt/tcm", label: "TCM Desk", icon: Target },
+    tcm: [
       { to: "/inbox", label: "Inbox", icon: Inbox },
-      { to: "/follow-ups", label: "Follow-ups", icon: ClipboardList, badge: overdueCount },
-      { to: "/myt/schedule", label: "Schedule Tour", icon: CalendarPlus },
-    ]),
+      { to: "/myt/tours", label: "My Tours", icon: CalendarCheck },
+      { to: "/property-hub", label: "Property Hub", icon: Building2 },
+      { to: "/settings", label: "Settings", icon: Settings },
+      { to: "/daily-progress", label: "Daily Progress", icon: Gauge },
+    ],
     "super-admin": [
       { to: "/admin", label: "Cockpit", icon: Gauge },
       { to: "/admin/supreme", label: "Supreme \u00B7 God Mode", icon: Zap },
@@ -329,9 +336,9 @@ export function AppShell({ children }: { children: ReactNode }) {
                 className={cn(
                   "flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] transition-colors",
                   active
-                    ? "bg-accent/15 text-accent border border-accent/20"
+                    ? "bg-primary/15 text-primary border border-primary/20 font-medium"
                     : "hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
-                  it.accent && !active && "text-accent",
+                  it.accent && !active && "text-primary",
                 )}
               >
                 <Icon className="h-4 w-4" />
@@ -386,11 +393,14 @@ export function AppShell({ children }: { children: ReactNode }) {
               owner: "Property Owner",
               "super-admin": "Super Admin",
             };
+            const roleLabel = role === "tcm" && authUser?.zones?.length 
+              ? `TCM (${authUser.zones.join(", ")})` 
+              : labels[role] ?? role;
             const userName = authUser?.fullName || authUser?.username || authUser?.email || "";
             if (allowed.length <= 1) {
               return (
                 <div className="bg-sidebar-accent border border-sidebar-border text-sidebar-accent-foreground rounded-md px-3 py-1.5 flex flex-col leading-tight">
-                  <span className="text-xs">{labels[role] ?? role}</span>
+                  <span className="text-xs">{roleLabel}</span>
                   {userName && <span className="text-[10px] text-sidebar-accent-foreground truncate">{userName}</span>}
                 </div>
               );
@@ -399,7 +409,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Select value={role} onValueChange={(v) => setRole(v as typeof role)}>
                 <SelectTrigger className="bg-sidebar-accent border-sidebar-border text-sidebar-accent-foreground h-auto py-1.5 text-xs">
                   <div className="flex flex-col items-start leading-tight">
-                    <span>{labels[role] ?? role}</span>
+                    <span>{roleLabel}</span>
                     {userName && <span className="text-[10px] text-sidebar-accent-foreground truncate">{userName}</span>}
                   </div>
                 </SelectTrigger>
@@ -445,11 +455,14 @@ export function AppShell({ children }: { children: ReactNode }) {
             </kbd>
           </button>
           <div className="ml-auto flex items-center gap-2">
-            <ClientOnly><QuickCreateMenu /></ClientOnly>
-
-            <PipButton mode="capture" label="PiP Add" className="hidden sm:inline-flex" />
-            <PipButton mode="manage" label="PiP Manage" className="hidden sm:inline-flex" />
-            <PipButton />
+            {role !== "tcm" && (
+              <>
+                <ClientOnly><QuickCreateMenu /></ClientOnly>
+                <PipButton mode="capture" label="PiP Add" className="hidden sm:inline-flex" />
+                <PipButton mode="manage" label="PiP Manage" className="hidden sm:inline-flex" />
+                <PipButton />
+              </>
+            )}
             <NotificationCenter role={role} />
             <ProfileMenu />
           </div>

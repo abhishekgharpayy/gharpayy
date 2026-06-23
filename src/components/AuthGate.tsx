@@ -50,6 +50,14 @@ export function AuthGate({ children }: { children: ReactNode }) {
     }
   }, [user, loading, isOwnerRoute, isLoginRoute, navigate]);
 
+  // Redirect TCM from root to /inbox
+  useEffect(() => {
+    if (!user || loading || isLoginRoute || pathname !== "/") return;
+    if (user.role === "tcm") {
+      void navigate({ to: "/inbox", replace: true }).catch(() => undefined);
+    }
+  }, [user, loading, isLoginRoute, pathname, navigate]);
+
   const spinner = (
     <div className="min-h-screen flex items-center justify-center bg-background">
       <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />

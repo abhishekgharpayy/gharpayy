@@ -72,7 +72,9 @@ export function NotificationCenter({ role }: { role: Role }) {
 
   // Assignment notifications (server-backed)
   const { pending: allAssignments, refresh: refreshAssignments } = useAssignmentNotifications();
-  const pendingAssignments = allAssignments.filter(a => a.status === "pending");
+  const pendingAssignments = allAssignments.filter(a => 
+    !a.leadName?.startsWith("Customer ")
+  );
 
   useEffect(() => {
     refreshAssignments();
@@ -82,11 +84,33 @@ export function NotificationCenter({ role }: { role: Role }) {
   }, [refreshAssignments]);
 
   const myId = recipientId;
-  const visible: AppNotification[] = items.filter(
-    (n) =>
-      (n.audience.length === 0 || n.audience.includes(role)) &&
-      (n.recipientId ? n.recipientId === myId : true),
-  );
+  const leads = useApp((s) => s.leads);
+  const tours = useApp((s) => s.tours);
+
+  const isRelevant = (n: AppNotification) => {
+    // 1. Filter out fake/test leads
+    if (n.title?.includes("Customer") || n.body?.includes("Customer")) return false;
+    
+    // 2. If it's explicitly addressed to me, it's relevant
+    if (n.recipientId && n.recipientId === myId) return true;
+    
+    // 3. If it has a leadId or tourId, only show if I own it
+    if (n.leadId) {
+      const lead = leads.find(l => l.id === n.leadId);
+      if (lead && lead.assignedTcmId !== myId && lead.assigneeId !== myId) return false;
+    }
+    if (n.tourId) {
+      const tour = tours.find(t => t.id === n.tourId);
+      if (tour && tour.tcmId !== myId && tour.assignedTo !== myId) return false;
+    }
+    
+    // 4. Role check
+    return n.audience.length === 0 || n.audience.includes(role);
+  };
+
+  const visible: AppNotification[] = role === "tcm" 
+    ? [] 
+    : items.filter(isRelevant).sort((a, b) => b.ts - a.ts);
 
   // Total badge count = unread regular + pending assignments
   const totalBadge = unread + pendingAssignments.length;
@@ -110,7 +134,7 @@ export function NotificationCenter({ role }: { role: Role }) {
 
       {open && (
         <div
-          className="absolute right-0 mt-2 w-90 max-w-[92vw] rounded-lg border border-border bg-popover text-popover-foreground shadow-2xl z-50"
+          className="absolute right-0 mt-2 w-90 max-w-[92vw] rounded-lg border border-border bg-popover text-popover-foreground shadow-2xl z-50 overflow-hidden flex flex-col"
           role="dialog"
           aria-label="Notifications"
         >
@@ -124,22 +148,14 @@ export function NotificationCenter({ role }: { role: Role }) {
                 </span>
               )}
             </div>
-            <button
-              type="button"
-              onClick={() => markAllRead(role, recipientId)}
-              disabled={unread === 0}
-              className="text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-40 inline-flex items-center gap-1"
-            >
-              <CheckCircle2 className="h-3 w-3" /> Mark all read
-            </button>
           </div>
 
-          <div className="max-h-[65vh] overflow-y-auto overscroll-contain">
+          <div className="max-h-[65vh] overflow-y-auto overscroll-contain pb-2">
             {/* 1. Pending Assignments Block */}
             {pendingAssignments.length > 0 && (
               <div className="border-b border-border/50 bg-background/50">
                 <div className="px-3 py-1.5 text-[10px] font-semibold tracking-wider uppercase text-muted-foreground bg-muted/30">
-                  Pending assignments ({pendingAssignments.length})
+                  Assignments ({pendingAssignments.length})
                 </div>
                 {pendingAssignments.slice(0, 3).map((notif) => (
                   <AssignmentNotificationCard
@@ -156,7 +172,7 @@ export function NotificationCenter({ role }: { role: Role }) {
                   <Link
                     to="/inbox"
                     onClick={() => setOpen(false)}
-                    className="block px-3 py-2 text-xs text-center font-medium text-accent hover:bg-accent/5 transition-colors"
+                    className="block px-3 py-2 text-xs text-center font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors"
                   >
                     +{pendingAssignments.length - 3} more — view in Inbox
                   </Link>
@@ -186,7 +202,9 @@ export function NotificationCenter({ role }: { role: Role }) {
                       <span className={cn("mt-1 h-2 w-2 rounded-full shrink-0", sevDot[n.severity])} />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5">
-                          <span className={cn("text-xs font-semibold truncate", n.read ? "text-muted-foreground" : "text-foreground")}>{n.title}</span>
+                          <span className={cn("text-xs font-semibold truncate", n.read ? "text-muted-foreground" : "text-foreground")}>
+                            {n.kind === "handoff.sent" && n.leadId ? `Handoff: ${leads.find(l => l.id === n.leadId)?.name || "Lead"}` : n.title}
+                          </span>
                           {!n.read && <Circle className="h-1.5 w-1.5 fill-accent text-accent shrink-0" />}
                         </div>
                         <div className="text-[11px] text-muted-foreground line-clamp-2">{n.body}</div>
@@ -196,8 +214,9 @@ export function NotificationCenter({ role }: { role: Role }) {
                     </div>
                   );
                   const onClick = () => { markRead(n.id); setOpen(false); };
-                  return n.href ? (
-                    <Link key={n.id} to={n.href} onClick={onClick} className="block">
+                  const href = n.kind === "handoff.sent" && n.leadId ? `/leads/${n.leadId}` : n.href;
+                  return href ? (
+                    <Link key={n.id} to={href} onClick={onClick} className="block">
                       {Body}
                     </Link>
                   ) : (

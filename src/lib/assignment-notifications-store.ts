@@ -8,6 +8,31 @@
 
 import { create } from "zustand";
 import { api, type AssignmentNotificationItem } from "@/lib/api/client";
+import { toast } from "sonner";
+
+function playNotificationSound() {
+  try {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const ctx = new AudioContextClass();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(500, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(1000, ctx.currentTime + 0.1);
+    
+    gain.gain.setValueAtTime(0, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.5, ctx.currentTime + 0.05);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+    
+    osc.start();
+    osc.stop(ctx.currentTime + 0.3);
+  } catch (e) {}
+}
 
 const uid = (p: string) => `${p}-${Math.random().toString(36).slice(2, 14)}`;
 
@@ -18,6 +43,7 @@ interface AssignmentNotifState {
   passed: AssignmentNotificationItem[];
   loading: boolean;
   error: string | null;
+  hasLoadedOnce: boolean;
 
   /** Fetch both pending + passed lists from the server */
   refresh: () => Promise<void>;
@@ -34,6 +60,7 @@ export const useAssignmentNotifications = create<AssignmentNotifState>()((set, g
   passed: [],
   loading: false,
   error: null,
+  hasLoadedOnce: false,
 
   refresh: async () => {
     set({ loading: true, error: null });
@@ -42,7 +69,28 @@ export const useAssignmentNotifications = create<AssignmentNotifState>()((set, g
         api.assignmentNotifications.listPending(),
         api.assignmentNotifications.listPassed(),
       ]);
-      set({ pending: pendingRes.items, passed: passedRes.items });
+
+      const oldPending = get().pending;
+      const hasLoadedOnce = get().hasLoadedOnce;
+
+      if (hasLoadedOnce) {
+        const newItems = pendingRes.items.filter((n) => !oldPending.some((o) => o._id === n._id));
+        if (newItems.length > 0) {
+          playNotificationSound();
+          const first = newItems[0];
+          toast.success(first.type === "tour" ? "New tour assigned!" : "New lead assigned!", {
+            description: `${first.assignedByName} assigned ${first.leadName}'s ${first.type} to you.`,
+            action: {
+              label: "Check Inbox",
+              onClick: () => {
+                window.location.href = "/inbox";
+              }
+            }
+          });
+        }
+      }
+
+      set({ pending: pendingRes.items, passed: passedRes.items, hasLoadedOnce: true });
     } catch (e) {
       set({ error: (e as Error).message });
     } finally {

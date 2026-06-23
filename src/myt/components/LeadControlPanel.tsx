@@ -16,6 +16,7 @@ import {
 import { Tour, Lead, TourStatus, TourOutcome, WhyLost } from "@/myt/lib/types";
 import { useAppState } from "@/myt/lib/app-context";
 import { useTourData } from "@/myt/lib/tour-data-context";
+import { useAuthUser } from "@/lib/auth-store";
 import { memberDisplayName, memberShortLabel, useOrgMembers } from "@/hooks/useOrgDirectory";
 import { intentBg, confirmationLabel } from "@/myt/lib/confidence";
 import { toast } from "sonner";
@@ -50,6 +51,16 @@ export function LeadControlPanel({ subject, trigger, defaultTab = "overview" }: 
   const { tours, setTours, leads, setLeads } = useAppState();
   const { members: orgMembers } = useOrgMembers();
   const { addEvent, eventsForTour, reports, setReport } = useTourData();
+  const authUser = useAuthUser((s) => s.user);
+  const isTCM = authUser?.role === "tcm";
+  
+  const visibleTabs = isTCM 
+    ? ["overview", "actions", "post-tour"] 
+    : ["overview", "actions", "followup", "post-tour", "activity"];
+  
+  const tabLabels: Record<string, string> = isTCM
+    ? { overview: "Brief", actions: "Contact", "post-tour": "Post-tour" }
+    : { overview: "Overview", actions: "Action", followup: "Follow-up", "post-tour": "Post-tour", activity: "Activity" };
 
   // ----- derive lead + tour from subject + global state -----
   const lead = subject.kind === "lead"
@@ -268,60 +279,143 @@ export function LeadControlPanel({ subject, trigger, defaultTab = "overview" }: 
         {/* Tabs */}
         <Tabs defaultValue={stale ? "post-tour" : defaultTab} className="p-4">
           <TabsList className="w-full justify-start h-9 flex-wrap">
-            <TabsTrigger value="overview" className="text-[11px] gap-1"><FileText className="h-3 w-3" /> Overview</TabsTrigger>
-            <TabsTrigger value="actions" className="text-[11px] gap-1"><MessageSquare className="h-3 w-3" /> Action</TabsTrigger>
-            <TabsTrigger value="followup" className="text-[11px] gap-1"><Bell className="h-3 w-3" /> Follow-up</TabsTrigger>
-            {tour && <TabsTrigger value="post-tour" className={cn("text-[11px] gap-1", stale && "text-destructive")}><CheckCircle2 className="h-3 w-3" /> Post-tour</TabsTrigger>}
-            <TabsTrigger value="activity" className="text-[11px] gap-1"><ActivityIcon className="h-3 w-3" /> Activity</TabsTrigger>
+            {visibleTabs.includes("overview") && <TabsTrigger value="overview" className="text-[11px] gap-1"><FileText className="h-3 w-3" /> {tabLabels.overview}</TabsTrigger>}
+            {visibleTabs.includes("actions") && <TabsTrigger value="actions" className="text-[11px] gap-1"><MessageSquare className="h-3 w-3" /> {tabLabels.actions}</TabsTrigger>}
+            {visibleTabs.includes("followup") && <TabsTrigger value="followup" className="text-[11px] gap-1"><Bell className="h-3 w-3" /> {tabLabels.followup}</TabsTrigger>}
+            {tour && visibleTabs.includes("post-tour") && <TabsTrigger value="post-tour" className={cn("text-[11px] gap-1", stale && "text-destructive")}><CheckCircle2 className="h-3 w-3" /> {tabLabels["post-tour"]}</TabsTrigger>}
+            {visibleTabs.includes("activity") && <TabsTrigger value="activity" className="text-[11px] gap-1"><ActivityIcon className="h-3 w-3" /> {tabLabels.activity}</TabsTrigger>}
           </TabsList>
 
           {/* ---- OVERVIEW ---- */}
           <TabsContent value="overview" className="mt-3 space-y-3">
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <Info icon={<Wallet className="h-3.5 w-3.5" />} label="Budget" value={`₹${budget.toLocaleString()}/mo`} />
-              <Info icon={<MapPin className="h-3.5 w-3.5" />} label="Area" value={area} />
-              {tour && <Info icon={<Building2 className="h-3.5 w-3.5" />} label="Property" value={property!} />}
-              {tour && <Info icon={<Clock className="h-3.5 w-3.5" />} label="Slot" value={`${tour.tourDate} ${formatTime12h(tour.tourTime)}`} />}
-              {lead && <Info icon={<Tag className="h-3.5 w-3.5" />} label="Source" value={lead.addedByName ?? "-"} />}
-              {lead && <Info icon={<Clock className="h-3.5 w-3.5" />} label="Move-in" value={lead.moveInDate} />}
-            </div>
+            {isTCM ? (
+              <div className="space-y-3 p-1">
+                {/* Lead essentials */}
+                <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-2">
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                    <div>
+                      <div className="text-[10px] text-muted-foreground uppercase">Name</div>
+                      <div className="font-semibold">{tour?.leadName || name}</div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-muted-foreground uppercase">Phone</div>
+                      <div className="font-semibold">
+                        <a href={`tel:${phone}`} className="text-primary">{phone}</a>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-muted-foreground uppercase">Budget</div>
+                      <div className="font-semibold">₹{budget?.toLocaleString()}/mo</div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-muted-foreground uppercase">Area</div>
+                      <div className="font-semibold">{area}</div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-muted-foreground uppercase">Property</div>
+                      <div className="font-semibold">{property || "-"}</div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-muted-foreground uppercase">Slot</div>
+                      <div className="font-semibold">{tour ? `${tour.tourDate} ${formatTime12h(tour.tourTime)}` : "-"}</div>
+                    </div>
+                  </div>
+                </div>
 
-            {tour && (tour.confidenceReason?.length ?? 0) > 0 && (
-              <div className="rounded-md border border-border bg-surface-2/40 p-2.5 text-[11px] text-muted-foreground">
-                <div className="font-medium text-foreground mb-1 flex items-center gap-1"><Sparkles className="h-3 w-3" /> Why this score</div>
-                {tour!.confidenceReason!.join(" · ")}
+                {/* Show-up status — big and obvious */}
+                {tour && (
+                  <div>
+                    <div className="text-xs font-semibold text-muted-foreground mb-1">Show-up status</div>
+                    <div className="flex gap-2">
+                      {[
+                        { v: true, label: "✅ Showed up" },
+                        { v: false, label: "❌ No show" },
+                        { v: null, label: "⏳ Pending" },
+                      ].map((opt) => (
+                        <button
+                          key={String(opt.v)}
+                          onClick={() => updateTour({ showUp: opt.v })}
+                          className={cn(
+                            "flex-1 rounded-lg border py-2 text-xs font-medium transition-colors",
+                            tour.showUp === opt.v
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "bg-background border-border hover:bg-muted"
+                          )}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Quick status update */}
+                {tour && (
+                  <div>
+                    <div className="text-xs font-semibold text-muted-foreground mb-1">Tour status</div>
+                    <select
+                      value={tour.status}
+                      onChange={(e) => setStatus(e.target.value as any)}
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                    >
+                      <option value="scheduled">Scheduled</option>
+                      <option value="completed">Completed</option>
+                      <option value="no-show">No Show</option>
+                      <option value="cancelled">Cancelled</option>
+                      <option value="rescheduled">Rescheduled</option>
+                    </select>
+                  </div>
+                )}
               </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <Info icon={<Wallet className="h-3.5 w-3.5" />} label="Budget" value={`₹${budget.toLocaleString()}/mo`} />
+                  <Info icon={<MapPin className="h-3.5 w-3.5" />} label="Area" value={area} />
+                  {tour && <Info icon={<Building2 className="h-3.5 w-3.5" />} label="Property" value={property!} />}
+                  {tour && <Info icon={<Clock className="h-3.5 w-3.5" />} label="Slot" value={`${tour.tourDate} ${formatTime12h(tour.tourTime)}`} />}
+                  {lead && <Info icon={<Tag className="h-3.5 w-3.5" />} label="Source" value={lead.addedByName ?? "-"} />}
+                  {lead && <Info icon={<Clock className="h-3.5 w-3.5" />} label="Move-in" value={lead.moveInDate} />}
+                </div>
+
+                {tour && (tour.confidenceReason?.length ?? 0) > 0 && (
+                  <div className="rounded-md border border-border bg-surface-2/40 p-2.5 text-[11px] text-muted-foreground">
+                    <div className="font-medium text-foreground mb-1 flex items-center gap-1"><Sparkles className="h-3 w-3" /> Why this score</div>
+                    {tour!.confidenceReason!.join(" · ")}
+                  </div>
+                )}
+
+                {/* Notes + signals */}
+                <div className="space-y-2">
+                  <Label className="text-[11px] text-muted-foreground">Add note</Label>
+                  <Textarea
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    placeholder="What did the lead say? Concerns, decision triggers, parent objections…"
+                    className="min-h-[70px] text-xs"
+                  />
+                  <div className="flex flex-wrap gap-1">
+                    {SIGNAL_TAGS.map((t) => (
+                      <button
+                        key={t}
+                        onClick={() => setTags((s) => s.includes(t) ? s.filter((x) => x !== t) : [...s, t])}
+                        className={cn(
+                          "text-[10px] px-2 py-0.5 rounded-full border transition-colors",
+                          tags.includes(t)
+                            ? "bg-primary/15 border-primary/40 text-primary"
+                            : "bg-surface-2 border-border text-muted-foreground hover:bg-surface-3"
+                        )}
+                      >
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                  <Button size="sm" className="w-full gap-1.5" onClick={saveNote} disabled={!note.trim()}>
+                    <FileText className="h-3.5 w-3.5" /> Save to log
+                  </Button>
+                </div>
+              </>
             )}
-
-            {/* Notes + signals */}
-            <div className="space-y-2">
-              <Label className="text-[11px] text-muted-foreground">Add note</Label>
-              <Textarea
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                placeholder="What did the lead say? Concerns, decision triggers, parent objections…"
-                className="min-h-[70px] text-xs"
-              />
-              <div className="flex flex-wrap gap-1">
-                {SIGNAL_TAGS.map((t) => (
-                  <button
-                    key={t}
-                    onClick={() => setTags((s) => s.includes(t) ? s.filter((x) => x !== t) : [...s, t])}
-                    className={cn(
-                      "text-[10px] px-2 py-0.5 rounded-full border transition-colors",
-                      tags.includes(t)
-                        ? "bg-primary/15 border-primary/40 text-primary"
-                        : "bg-surface-2 border-border text-muted-foreground hover:bg-surface-3"
-                    )}
-                  >
-                    {t}
-                  </button>
-                ))}
-              </div>
-              <Button size="sm" className="w-full gap-1.5" onClick={saveNote} disabled={!note.trim()}>
-                <FileText className="h-3.5 w-3.5" /> Save to log
-              </Button>
-            </div>
           </TabsContent>
 
           {/* ---- ACTIONS (WhatsApp templates) ---- */}
@@ -356,7 +450,8 @@ export function LeadControlPanel({ subject, trigger, defaultTab = "overview" }: 
           </TabsContent>
 
           {/* ---- FOLLOW-UP ---- */}
-          <TabsContent value="followup" className="mt-3 space-y-3">
+          {visibleTabs.includes("followup") && (
+            <TabsContent value="followup" className="mt-3 space-y-3">
             <div className="rounded-md border border-amber/30 bg-amber/5 p-2.5 text-[11px] text-amber-foreground/90">
               ⚠ Every lead must have a next follow-up date. No exceptions.
             </div>
@@ -394,7 +489,8 @@ export function LeadControlPanel({ subject, trigger, defaultTab = "overview" }: 
             <Button onClick={saveFollowUp} className="w-full gap-1.5">
               <Bell className="h-4 w-4" /> Set follow-up
             </Button>
-          </TabsContent>
+            </TabsContent>
+          )}
 
           {/* ---- POST-TOUR (mandatory enforcement) ---- */}
           {tour && (
@@ -407,7 +503,7 @@ export function LeadControlPanel({ subject, trigger, defaultTab = "overview" }: 
 
               <div className="space-y-1.5">
                 <Label className="text-[11px] text-muted-foreground">Outcome (mandatory)</Label>
-                <div className="grid grid-cols-3 gap-1.5">
+                <div className="grid grid-cols-2 gap-2">
                   {[
                     { v: "booked", label: "✅ Booked" },
                     { v: "token-paid", label: "💰 Token" },
@@ -420,10 +516,10 @@ export function LeadControlPanel({ subject, trigger, defaultTab = "overview" }: 
                       key={o.v}
                       onClick={() => setPtOutcome(o.v as TourOutcome)}
                       className={cn(
-                        "h-8 rounded-md border text-[10px] font-medium transition-colors",
+                        "h-10 rounded-md border text-xs font-medium transition-colors shadow-sm",
                         ptOutcome === o.v
-                          ? "border-primary bg-primary/15 text-primary"
-                          : "border-border bg-surface-2 text-muted-foreground hover:bg-surface-3"
+                          ? "border-primary bg-primary/10 text-primary ring-1 ring-primary/20"
+                          : "border-border bg-surface-2 text-muted-foreground hover:bg-surface-3 hover:text-foreground"
                       )}
                     >
                       {o.label}
@@ -474,7 +570,8 @@ export function LeadControlPanel({ subject, trigger, defaultTab = "overview" }: 
           )}
 
           {/* ---- ACTIVITY TIMELINE ---- */}
-          <TabsContent value="activity" className="mt-3 space-y-2">
+          {visibleTabs.includes("activity") && (
+            <TabsContent value="activity" className="mt-3 space-y-2">
             {events.length === 0 ? (
               <p className="text-xs text-muted-foreground text-center py-6">No activity yet. Every action you take here will appear in this timeline.</p>
             ) : (
@@ -490,7 +587,8 @@ export function LeadControlPanel({ subject, trigger, defaultTab = "overview" }: 
                 ))}
               </div>
             )}
-          </TabsContent>
+            </TabsContent>
+          )}
         </Tabs>
       </SheetContent>
     </Sheet>

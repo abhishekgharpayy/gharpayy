@@ -551,6 +551,14 @@ export const api = {
         () => ({ items: [] }),
       ),
   },
+
+  ai: {
+    getCoachAdvice: (payload: { tours: any[], leads: any[], role: string, userName?: string }) =>
+      request<{ advice: string; tours: { tourId: string; briefing: string }[] }>("/api/ai/coach", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }),
+  },
 };
 
 /** Shape of an assignment notification returned from the server */

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CalendarDays, CheckCircle2, Loader2, Sparkles } from "lucide-react";
+import { CalendarDays, CheckCircle2, Loader2, Sparkles, X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -8,9 +8,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { useAuthUser } from "@/lib/auth-store";
 import { useLeadsDailyProgress } from "@/hooks/use-stats";
 import { getTodayIstDate } from "@/lib/ist-date";
+import { useAppState } from "@/myt/lib/app-context";
 
 const shownReminderKeys = new Set<string>();
 
@@ -79,10 +81,19 @@ export function MemberDailyReminderPopup() {
 
   if (!isMemberLikeRole) return null;
 
+  const isTcm = authUser?.role === "tcm";
+  const { tours } = useAppState();
+
   const leadsAdded = memberRow?.leadsAdded ?? 0;
   const toursScheduled = memberRow?.toursScheduled ?? 0;
   const quotesSent = memberRow?.quotesSent ?? 0;
   const allDone = memberRow?.allDone ?? false;
+
+  // TCM specifics
+  const myTours = tours.filter((t: any) => t.assignedTo === authUser?.id);
+  const todayTours = myTours.filter((t: any) => t.tourDate === today);
+  const tcmDone = todayTours.filter((t: any) => t.status === "completed").length;
+  const pendingPostTour = myTours.filter((t: any) => t.status === "completed" && !t.postTour?.filledAt).length;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -100,10 +111,12 @@ export function MemberDailyReminderPopup() {
                   </div>
                   <DialogTitle className="text-base font-semibold">Today&apos;s Focus</DialogTitle>
                   <DialogDescription className="text-xs mt-0.5">
-                    Your daily targets: {goals.leadsAdded} leads, {goals.toursScheduled} tours, and {goals.quotesSent ?? 10} quotes.
+                    {isTcm 
+                      ? `Your focus: complete your ${todayTours.length} tours and fill post-tour outcomes.`
+                      : `Your daily targets: ${goals.leadsAdded} leads, ${goals.toursScheduled} tours, and ${goals.quotesSent ?? 10} quotes.`}
                   </DialogDescription>
                 </div>
-                {allDone && (
+                {!isTcm && allDone && (
                   <Badge className="bg-emerald-600 hover:bg-emerald-600 text-[10px]">
                     <CheckCircle2 size={11} className="mr-1" /> Great Job
                   </Badge>
@@ -117,43 +130,71 @@ export function MemberDailyReminderPopup() {
                 <span>{today}</span>
               </div>
 
-              {isLoading && (
+              {isLoading && !isTcm && (
                 <div className="py-8 flex items-center justify-center gap-2 text-sm text-muted-foreground">
                   <Loader2 size={14} className="animate-spin" />
                   Loading your progress...
                 </div>
               )}
 
-              {!isLoading && (
+              {isTcm ? (
                 <>
                   <ProgressStrip
-                    label="Leads Added"
-                    value={leadsAdded}
-                    max={goals.leadsAdded}
+                    label="Today's Tours"
+                    value={tcmDone}
+                    max={todayTours.length || 1}
                     colorClass="bg-gradient-to-r from-indigo-500 to-violet-500"
                   />
                   <ProgressStrip
-                    label="Tours Scheduled + Completed"
-                    value={toursScheduled}
-                    max={goals.toursScheduled}
-                    colorClass="bg-gradient-to-r from-emerald-500 to-teal-500"
+                    label="Pending Post-Tours"
+                    value={pendingPostTour === 0 ? 1 : 0}
+                    max={1}
+                    colorClass={pendingPostTour === 0 ? "bg-gradient-to-r from-emerald-500 to-teal-500" : "bg-gradient-to-r from-red-500 to-rose-500"}
                   />
-                  <ProgressStrip
-                    label="Quotes Sent"
-                    value={quotesSent}
-                    max={goals.quotesSent ?? 10}
-                    colorClass="bg-gradient-to-r from-fuchsia-500 to-pink-500"
-                  />
-
-                  <div className={`rounded-xl border p-3 ${allDone ? "bg-emerald-500/10 border-emerald-500/30" : "bg-secondary/20"}`}>
-                    <p className={`text-xs ${allDone ? "text-emerald-700 dark:text-emerald-300 font-medium" : "text-muted-foreground"}`}>
-                      {allDone
-                        ? "Excellent work. You completed all three milestones for today."
-                        : "Stay consistent. Finish all three milestones and make today count."}
+                  <div className={`rounded-xl border p-3 ${pendingPostTour === 0 ? "bg-emerald-500/10 border-emerald-500/30" : "bg-secondary/20"}`}>
+                    <p className={`text-xs ${pendingPostTour === 0 ? "text-emerald-700 dark:text-emerald-300 font-medium" : "text-muted-foreground"}`}>
+                      {pendingPostTour === 0
+                        ? "Great! No pending post-tours right now."
+                        : `You have ${pendingPostTour} post-tour${pendingPostTour > 1 ? 's' : ''} to fill. Get them done!`}
                     </p>
                   </div>
                 </>
+              ) : (
+                !isLoading && (
+                  <>
+                    <ProgressStrip
+                      label="Leads Added"
+                      value={leadsAdded}
+                      max={goals.leadsAdded}
+                      colorClass="bg-gradient-to-r from-indigo-500 to-violet-500"
+                    />
+                    <ProgressStrip
+                      label="Tours Scheduled + Completed"
+                      value={toursScheduled}
+                      max={goals.toursScheduled}
+                      colorClass="bg-gradient-to-r from-emerald-500 to-teal-500"
+                    />
+                    <ProgressStrip
+                      label="Quotes Sent"
+                      value={quotesSent}
+                      max={goals.quotesSent ?? 10}
+                      colorClass="bg-gradient-to-r from-fuchsia-500 to-pink-500"
+                    />
+
+                    <div className={`rounded-xl border p-3 ${allDone ? "bg-emerald-500/10 border-emerald-500/30" : "bg-secondary/20"}`}>
+                      <p className={`text-xs ${allDone ? "text-emerald-700 dark:text-emerald-300 font-medium" : "text-muted-foreground"}`}>
+                        {allDone
+                          ? "Excellent work. You completed all three milestones for today."
+                          : "Stay consistent. Finish all three milestones and make today count."}
+                      </p>
+                    </div>
+                  </>
+                )
               )}
+              
+              <Button onClick={() => setOpen(false)} className="w-full mt-2" size="lg">
+                Let's Go!
+              </Button>
             </div>
           </div>
         </div>

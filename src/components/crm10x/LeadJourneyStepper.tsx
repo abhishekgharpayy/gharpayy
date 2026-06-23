@@ -89,7 +89,7 @@ export function LeadJourneyStepper({
   return (
     <div className="border-b border-border bg-muted/20 px-4 py-2 space-y-2">
       {/* Step row with arrows */}
-      <div className="flex items-center justify-between w-full gap-0.5">
+      <div className="flex items-center w-full gap-1 overflow-x-auto pb-2 pt-1 px-1 -mx-1 scrollbar-thin">
         {steps.map((s, i) => {
           const Icon = s.icon;
           const isCurrent = currentTab === s.key;
@@ -99,24 +99,24 @@ export function LeadJourneyStepper({
             : s.state === "locked" ? "border-border bg-card text-foreground"
             : "border-border bg-card text-foreground";
           return (
-            <div key={s.key} className="flex items-center flex-1 min-w-0">
+            <div key={s.key} className="flex items-center shrink-0">
               <button
                 onClick={() => (s.state === "done" || s.state === "active") && onJump(s.key)}
                 disabled={s.state === "locked" || s.state === "todo"}
                 aria-current={isCurrent ? "step" : undefined}
-                className={`group flex flex-col items-center justify-center gap-0.5 rounded-md border px-1 py-1.5 w-full min-w-0 transition-all ${tone} ${isCurrent ? "shadow-sm" : ""} ${s.state === "locked" || s.state === "todo" ? "cursor-not-allowed" : "hover:brightness-110"}`}
+                className={`group flex flex-col items-center justify-center gap-1 rounded-md border px-3 py-2 w-[110px] transition-all ${tone} ${isCurrent ? "shadow-sm" : ""} ${s.state === "locked" || s.state === "todo" ? "cursor-not-allowed opacity-80" : "hover:brightness-110"}`}
                 title={s.state === "locked" || s.state === "todo" ? "Complete previous step first" : s.label}
               >
-                <div className="flex items-center gap-1">
-                  {s.state === "done" ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-                    : s.state === "locked" ? <Lock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                    : <Icon className="h-3.5 w-3.5 shrink-0" />}
-                  <span className="text-[10px] font-semibold whitespace-nowrap">{s.label}</span>
+                <div className="flex items-center gap-1.5">
+                  {s.state === "done" ? <CheckCircle2 className="h-4 w-4 shrink-0" />
+                    : s.state === "locked" ? <Lock className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    : <Icon className="h-4 w-4 shrink-0" />}
+                  <span className="text-xs font-semibold whitespace-nowrap">{s.label}</span>
                 </div>
-                {s.hint && <span className="max-w-[84px] truncate text-[9px] text-muted-foreground leading-none">{s.hint}</span>}
+                {s.hint && <span className="max-w-full truncate text-[10px] text-muted-foreground leading-none">{s.hint}</span>}
               </button>
               {i < steps.length - 1 && (
-                <ChevronRight className="h-3 w-3 mx-0.5 shrink-0 text-muted-foreground" />
+                <ChevronRight className="h-3.5 w-3.5 mx-1.5 shrink-0 text-muted-foreground" />
               )}
             </div>
           );
@@ -126,10 +126,10 @@ export function LeadJourneyStepper({
       {activeStep && (
         <Button
           size="sm"
-          className="w-full h-7 text-[11px] gap-1.5 font-semibold"
+          className="w-full h-9 text-xs gap-1.5 font-semibold mt-1"
           onClick={() => onJump(activeStep.key)}
         >
-          <ArrowRight className="h-3.5 w-3.5" />
+          <ArrowRight className="h-4 w-4" />
           Next step · {nextLabel}
         </Button>
       )}

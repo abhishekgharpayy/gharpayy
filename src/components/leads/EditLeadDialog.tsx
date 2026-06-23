@@ -12,7 +12,7 @@ import { Loader2 } from "lucide-react";
 import { QUICKAD_NEED_OPTIONS, QUICKAD_ROOM_OPTIONS, QUICKAD_TYPE_OPTIONS } from "@/lib/quickad-shared";
 
 export function EditLeadDialog({ open, onOpenChange, lead }: { open: boolean, onOpenChange: (open: boolean) => void, lead: Lead }) {
-  const updateLead = useApp((s) => s.updateLead);
+  const updateLead = useApp((s: any) => s.updateLead);
   const [submitting, setSubmitting] = useState(false);
   
   const [draft, setDraft] = useState({
