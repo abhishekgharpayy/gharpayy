@@ -184,7 +184,7 @@ function toNotification(e: ConnectorEvent): Omit<AppNotification, "id" | "ts" | 
         severity: "warn",
         title: "Tour finished - fill post-tour",
         body: e.text,
-        href: "/tours",
+        href: "/myt/tours",
         kind: e.kind,
         tourId: e.tourId,
       };
@@ -194,7 +194,7 @@ function toNotification(e: ConnectorEvent): Omit<AppNotification, "id" | "ts" | 
         severity: "success",
         title: "Post-tour closed",
         body: e.text,
-        href: "/tours",
+        href: "/myt/tours",
         kind: e.kind,
         tourId: e.tourId,
       };
