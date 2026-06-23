@@ -153,9 +153,12 @@ export function registerStatsRoutes(app: FastifyInstance) {
       const leadsAdded = leadsMap.get(id) ?? 0;
       const toursScheduled = toursMap.get(id) ?? 0;
       const quotesSent = quotesMap.get(id) ?? 0;
+      const isTcm = member.role === "tcm";
       const leadsDone = leadsAdded >= GOALS.leadsAdded;
       const toursDone = toursScheduled >= GOALS.toursScheduled;
       const quotesDone = quotesSent >= GOALS.quotesSent;
+      
+      const allDone = isTcm ? toursDone : leadsDone && toursDone && quotesDone;
 
       return {
         id,
@@ -168,7 +171,7 @@ export function registerStatsRoutes(app: FastifyInstance) {
         leadsDone,
         toursDone,
         quotesDone,
-        allDone: leadsDone && toursDone && quotesDone,
+        allDone,
         newLeads: leadsAdded,
         visitConfirmed: toursScheduled,
       };
