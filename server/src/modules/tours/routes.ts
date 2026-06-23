@@ -17,7 +17,17 @@ export function registerToursRoutes(app: FastifyInstance) {
     const myId = req.user!.sub;
 
     if (role === "member") {
-      filter.$or = [{ assignedTo: myId }, { scheduledBy: myId }];
+      const userZones = req.user!.zones ?? [];
+      if (userZones.length > 0) {
+        filter.$or = [
+          { assignedTo: myId },
+          { scheduledBy: myId },
+          { zoneId: { $in: userZones } },
+          { zoneCategory: { $in: userZones } },
+        ];
+      } else {
+        filter.$or = [{ assignedTo: myId }, { scheduledBy: myId }];
+      }
     }
 
     if (q.cursor) {
