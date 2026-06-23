@@ -7,6 +7,7 @@ import type { Tour as MytTour } from "@/myt/lib/types";
 import type { Property } from "@/lib/types";
 import { resolvePropertyById, searchPropertyCatalog } from "@/lib/crm10x/property-catalog";
 import { resolveBestLeadName } from "@/lib/lead-helpers";
+import { useApp } from "@/lib/store";
 
 type LiveTourEvent = {
   _id: string;
@@ -186,7 +187,12 @@ export function LiveToursBridge() {
         );
 
         if (missingLeadIds.length > 0) {
-          Promise.all(missingLeadIds.map((id) => api.leads.get(id).catch(() => null))).then(
+          const leads = useApp.getState().leads;
+          Promise.all(missingLeadIds.map(async (id) => {
+            const l = leads.find((x) => x.id === id || (x as any)._id === id);
+            if (l) return { _id: l.id || (l as any)._id, name: l.name, phone: l.phone, budget: l.budget };
+            return null;
+          })).then(
             (fetchedLeads) => {
               fetchedLeads.forEach((l) => {
                 if (isWireLead(l)) leadMapRef.current[l._id] = l;
@@ -218,16 +224,17 @@ export function LiveToursBridge() {
     getSocket();
     const off = onEvent((e: DomainEvent) => {
       // Helper to hydrate a single tour's lead if missing
-      const ensureLead = (tourId: string, leadId: string) => {
+      const ensureLead = async (tourId: string, leadId: string) => {
         if (!leadMapRef.current[leadId]) {
-          api.leads
-            .get(leadId)
-            .then((fetchedLead) => {
-              if (isWireLead(fetchedLead)) {
-                leadMapRef.current[leadId] = fetchedLead;
-                setTours((prev) => {
-                  return prev.map((t) => {
-                    if (t.id === tourId) {
+          const leads = useApp.getState().leads;
+          const l = leads.find((x) => x.id === leadId || (x as any)._id === leadId);
+          const fetchedLead = l ? { _id: l.id || (l as any)._id, name: l.name, phone: l.phone, budget: l.budget } : null;
+          
+          if (isWireLead(fetchedLead)) {
+            leadMapRef.current[leadId] = fetchedLead;
+            setTours((prev) => {
+              return prev.map((t) => {
+                if (t.id === tourId) {
                       return {
                         ...t,
                         leadName: fetchedLead.name,
@@ -239,8 +246,6 @@ export function LiveToursBridge() {
                   });
                 });
               }
-            })
-            .catch(() => null);
         }
       };
 
@@ -289,12 +294,13 @@ export function LiveToursBridge() {
           };
         }
         if (!leadMapRef.current[tour.leadId]) {
-          api.leads
-            .get(tour.leadId)
-            .then((fetchedLead) => {
-              if (isWireLead(fetchedLead)) {
-                leadMapRef.current[tour.leadId] = fetchedLead;
-                const mytTour = toMytTour(
+          const leads = useApp.getState().leads;
+          const l = leads.find((x) => x.id === tour.leadId || (x as any)._id === tour.leadId);
+          const fetchedLead = l ? { _id: l.id || (l as any)._id, name: l.name, phone: l.phone, budget: l.budget } : null;
+          
+          if (isWireLead(fetchedLead)) {
+            leadMapRef.current[tour.leadId] = fetchedLead;
+            const mytTour = toMytTour(
                   tour,
                   leadMapRef.current,
                   propertyMapRef.current,
@@ -307,23 +313,21 @@ export function LiveToursBridge() {
                   currentToursRef.current = [mytTour, ...prev];
                   return [mytTour, ...prev];
                 });
+              } else {
+                // If not found in store, add with fallback
+                const mytTour = toMytTour(
+                  tour,
+                  leadMapRef.current,
+                  propertyMapRef.current,
+                  userMapRef.current,
+                );
+                setTours((prev) => {
+                  if (prev.some((t) => t.id === mytTour.id))
+                    return prev.map((t) => (t.id === mytTour.id ? { ...t, ...mytTour } : t));
+                  currentToursRef.current = [mytTour, ...prev];
+                  return [mytTour, ...prev];
+                });
               }
-            })
-            .catch((err) => {
-              console.warn("[LiveToursBridge] failed to fetch lead", tour.leadId, err);
-              const mytTour = toMytTour(
-                tour,
-                leadMapRef.current,
-                propertyMapRef.current,
-                userMapRef.current,
-              );
-              setTours((prev) => {
-                if (prev.some((t) => t.id === mytTour.id))
-                  return prev.map((t) => (t.id === mytTour.id ? { ...t, ...mytTour } : t));
-                currentToursRef.current = [mytTour, ...prev];
-                return [mytTour, ...prev];
-              });
-            });
           return;
         }
         const mytTour = toMytTour(
