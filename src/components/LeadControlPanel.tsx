@@ -89,9 +89,11 @@ import {
   Home,
   ExternalLink,
   Edit3,
+  AlertCircle,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { cn, formatTime12h, localDateISO, tourTimeSlotsForDate } from "@/lib/utils";
+import { supplyHubProperties } from "@/myt/lib/inventory-intelligence";
 import {
   formatBudget,
   formatAssignee,
@@ -376,6 +378,9 @@ export function LeadControlPanel() {
   );
 
   const { tcms: activeTcms } = useActiveTcMs();
+
+  const [propertyId, setPropertyId] = useState("");
+
   const tcmUsers = useMemo(() => {
     if (activeTcms && activeTcms.length > 0) {
       return activeTcms
@@ -385,12 +390,45 @@ export function LeadControlPanel() {
           role: a.role ?? "tcm",
           zones: a.zones ?? (a.zone ? [a.zone] : []),
         }))
-        .sort((a, b) => a.name.localeCompare(b.name));
+        .sort((a: any, b: any) => a.name.localeCompare(b.name));
     }
-    return orgMembers
-      .filter((m) => m.role === "tcm" || m.isTcm !== false)
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [orgMembers, activeTcms]);
+    const allTcms = orgMembers.sort((a: any, b: any) => a.name.localeCompare(b.name));
+    
+    // Get the property's area from the selected propertyId
+    const scheduledPropertyId = propertyId;
+    const scheduledPropertyName = lead?.propertyName;
+    const selectedProperty = supplyHubProperties.find(
+      (p) => p.id === scheduledPropertyId || p.name === scheduledPropertyName
+    );
+    const propertyArea = selectedProperty?.area ?? lead?.preferredArea ?? lead?.zoneCategory ?? "";
+
+    return allTcms.filter((m: any) => {
+      const isTcm = m.role === "tcm" || m.isTcm !== false;
+      if (!isTcm) return false;
+      // If we know the property area, filter by zone match
+      if (propertyArea) {
+        const memberZones: string[] = m.zones ?? (m.zone ? [m.zone] : []);
+        // Match if any zone contains the area keyword or vice versa
+        const zoneMatch = memberZones.some((z) =>
+          z.toLowerCase().includes(propertyArea.toLowerCase()) ||
+          propertyArea.toLowerCase().includes(z.toLowerCase())
+        );
+        if (zoneMatch) return true;
+        // If no zone match found at all, fall back to showing all TCMs
+        // (prevents empty list when zone data is incomplete)
+        const anyMatch = allTcms.some((tm: any) => {
+          const tz: string[] = tm.zones ?? (tm.zone ? [tm.zone] : []);
+          return tz.some((z) =>
+            z.toLowerCase().includes(propertyArea.toLowerCase()) ||
+            propertyArea.toLowerCase().includes(z.toLowerCase())
+          );
+        });
+        return !anyMatch; // Only show unfiltered if nobody matches
+      }
+      return true; // No area info — show all TCMs
+    });
+  }, [orgMembers, activeTcms, propertyId, lead]);
+
   const scheduleAssignees = useMemo(() => {
     if (authUser?.role !== "member") return tcmUsers;
 
@@ -414,12 +452,12 @@ export function LeadControlPanel() {
   const defaultSelfAssigneeId = useMemo(() => {
     if (!authUser?.id) return "";
     if (authUser.role !== "tcm" && authUser.role !== "member") return "";
-    return scheduleAssignees.some((option) => option.id === authUser.id) ? authUser.id : "";
+    return scheduleAssignees.some((option: any) => option.id === authUser.id) ? authUser.id : "";
   }, [authUser, scheduleAssignees]);
 
   // Tour scheduling form state
   const [tcmId, setTcmId] = useState("");
-  const [propertyId, setPropertyId] = useState("");
+  // propertyId was moved up
   const [scheduledAt, setScheduledAt] = useState("");
   const [scheduleAnswers, setScheduleAnswers] = useState({
     bookingSource: "whatsapp",
@@ -478,7 +516,7 @@ export function LeadControlPanel() {
     const roleDefaultAssignee = isSelfDefaultRole ? defaultSelfAssigneeId : "";
     const preferredAssignee = tourAssigneeId || lead.assignedTcmId || currentMemberId || "";
     const preferredExists = preferredAssignee
-      ? scheduleAssignees.some((option) => option.id === preferredAssignee)
+      ? scheduleAssignees.some((option: any) => option.id === preferredAssignee)
       : false;
     setTcmId(roleDefaultAssignee || (preferredExists ? preferredAssignee : ""));
     setPropertyId(tourToShow?.propertyId ?? selectedInterestIds[0] ?? "");
@@ -674,7 +712,7 @@ export function LeadControlPanel() {
       toast.error("Member and time are required");
       return;
     }
-    const assignee = scheduleAssignees.find((m) => m.id === tcmId) ?? null;
+    const assignee = scheduleAssignees.find((m: any) => m.id === tcmId) ?? null;
     const scheduler = currentMemberId
       ? (orgMembers.find((m) => m.id === currentMemberId) ?? null)
       : null;
@@ -791,8 +829,9 @@ export function LeadControlPanel() {
         style={{ maxWidth: 560 }}
       >
         {/* Header block */}
-        <SheetHeader className="px-4 py-3 border-b border-border space-y-2 shrink-0">
-          <div className="flex items-start justify-between gap-3">
+        <SheetHeader className="px-4 py-3 border-b border-border space-y-4 shrink-0">
+          {/* Identity & Ownership Row */}
+          <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <SheetTitle className="font-display text-2xl font-bold tracking-tight text-primary leading-tight">
@@ -801,74 +840,81 @@ export function LeadControlPanel() {
                 <Button 
                   variant="ghost" 
                   size="icon" 
-                  className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                  className="h-6 w-6 text-muted-foreground hover:text-foreground shrink-0"
                   onClick={() => setIsEditLeadOpen(true)}
                 >
                   <Edit3 className="h-4 w-4" />
                 </Button>
               </div>
-              <div className="text-sm text-muted-foreground mt-0.5 font-medium">
+              <div className="text-sm text-muted-foreground mt-0.5 font-medium flex items-center gap-1.5">
+                <Phone className="h-3.5 w-3.5" />
                 {lead.phone}
               </div>
             </div>
+            {/* Prominent Assignment Badge */}
+            <div className="text-right shrink-0 flex flex-col items-end gap-1">
+              <Badge variant="secondary" className="bg-muted/50 border-border shadow-sm text-xs py-1 px-2.5">
+                {assignmentLabel === "Unassigned" ? "Unassigned" : assignmentLabel}
+              </Badge>
+              {actualPropertyName && (
+                <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider max-w-[120px] truncate" title={actualPropertyName}>
+                  {actualPropertyName}
+                </div>
+              )}
+            </div>
           </div>
+
+          {/* Status Tags */}
           <div className="flex items-center gap-1.5 flex-wrap">
             <StageBadge stage={lead.stage} />
             <IntentChip intent={lead.intent} />
             <ObjectionTag leadId={lead.id} />
           </div>
-          <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-            <span>
-              <CalendarIcon className="mr-1 inline h-3 w-3" />
-              Move-in:{" "}
-              <b className="font-medium text-foreground">
-                {formatSafeDate(lead.moveInDate, "MMM d", "TBD")}
-              </b>
-            </span>
-            <span>
-              <Wallet className="mr-1 inline h-3 w-3" />
-              Budget: <b className="font-medium text-foreground">{formatBudget(lead.budget)}</b>
-            </span>
-            <span>
-              <MapPin className="mr-1 inline h-3 w-3" />
-              Area: <b className="font-medium text-foreground">{leadLocation.area}</b>
-            </span>
+
+          {/* Compact Lead Info */}
+          <div className="flex flex-wrap gap-x-4 gap-y-2 text-[11px] bg-muted/20 rounded-md p-2.5 border border-border/50">
+            <div className="flex items-center gap-1.5" title="Move-in Date">
+              <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="font-semibold text-foreground">{formatSafeDate(lead.moveInDate, "MMM d", "TBD")}</span>
+            </div>
+            <div className="flex items-center gap-1.5" title="Budget">
+              <Wallet className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="font-semibold text-foreground">{formatBudget(lead.budget)}</span>
+            </div>
+            <div className="flex items-center gap-1.5" title="Area">
+              <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="font-semibold text-foreground truncate max-w-[150px]">
+                {leadLocation.area || "—"}
+              </span>
+            </div>
+
             {lead.email && (
-              <span>
-                Email: <b className="font-medium text-foreground">{lead.email}</b>
-              </span>
+              <div className="w-full font-medium text-muted-foreground truncate" title={lead.email}>
+                {lead.email}
+              </div>
             )}
-            {lead.type && (
-              <span>
-                Type: <b className="font-medium text-foreground capitalize">{lead.type}</b>
-              </span>
+
+            {(lead.type || lead.need || lead.room || lead.quality || (lead.inBLR !== null && lead.inBLR !== undefined)) && (
+              <div className="w-full h-px bg-border/50 my-0.5" />
             )}
-            {lead.need && (
-              <span>
-                Need: <b className="font-medium text-foreground capitalize">{lead.need}</b>
-              </span>
-            )}
-            {lead.room && (
-              <span>
-                Room: <b className="font-medium text-foreground capitalize">{lead.room}</b>
-              </span>
-            )}
-            {lead.quality && (
-              <span>
-                Quality: <b className="font-medium text-foreground capitalize">{lead.quality}</b>
-              </span>
-            )}
-            {lead.inBLR !== null && lead.inBLR !== undefined && (
-              <span>
-                In BLR: <b className="font-medium text-foreground">{lead.inBLR ? "Yes" : "No"}</b>
-              </span>
-            )}
-          </div>
-          <div className="truncate text-[11px] text-muted-foreground">
-            {actualPropertyName ? <>{actualPropertyName} · </> : null}
-            {assignmentLabel === "Unassigned"
-              ? "Not assigned yet"
-              : `Assigned · ${assignmentLabel}`}
+
+            <div className="flex flex-wrap gap-x-4 gap-y-1.5 w-full">
+              {lead.type && (
+                <div className="flex gap-1"><span className="text-muted-foreground">Type:</span><span className="font-medium text-foreground capitalize">{lead.type}</span></div>
+              )}
+              {lead.need && (
+                <div className="flex gap-1"><span className="text-muted-foreground">Need:</span><span className="font-medium text-foreground capitalize">{lead.need}</span></div>
+              )}
+              {lead.room && (
+                <div className="flex gap-1"><span className="text-muted-foreground">Room:</span><span className="font-medium text-foreground capitalize">{lead.room}</span></div>
+              )}
+              {lead.quality && (
+                <div className="flex gap-1"><span className="text-muted-foreground">Quality:</span><span className="font-medium text-foreground capitalize">{lead.quality}</span></div>
+              )}
+              {lead.inBLR !== null && lead.inBLR !== undefined && (
+                <div className="flex gap-1"><span className="text-muted-foreground">In BLR:</span><span className="font-medium text-foreground">{lead.inBLR ? "Yes" : "No"}</span></div>
+              )}
+            </div>
           </div>
         </SheetHeader>
 
@@ -1423,6 +1469,10 @@ export function LeadControlPanel() {
             {/* POST-TOUR */}
             <TabsContent value="post" className="space-y-4 pt-4">
               {(() => {
+                const canEditPostTour = 
+                  authUser?.role === "tcm" || 
+                  authUser?.role === "super_admin" ||
+                  authUser?.role === "manager";
                 const target = pendingPostTour ?? leadTours.find((t) => t.status === "completed");
                 if (!target) {
                   return (
@@ -1550,8 +1600,10 @@ export function LeadControlPanel() {
                 };
                 return (
                   <div className="space-y-4">
-                    <Section title="Post-tour">
-                      <div className="mb-3 grid grid-cols-3 gap-2 text-xs">
+                    {canEditPostTour ? (
+                      <>
+                        <Section title="Post-tour">
+                          <div className="mb-3 grid grid-cols-3 gap-2 text-xs">
                         <div className="rounded-md bg-muted/50 px-3 py-2">
                           <div className="text-muted-foreground">Property</div>
                           <div className="truncate font-medium" title={postTourPropertyName}>
@@ -1781,6 +1833,57 @@ export function LeadControlPanel() {
                         <CheckCircle2 className="h-5 w-5 text-success" />
                         <span className="font-semibold text-success">Booked.</span>
                         <span className="text-muted-foreground">Bed blocked, lead closed.</span>
+                      </div>
+                    )}
+                      </>
+                    ) : (
+                      <div className="space-y-3">
+                        {target?.postTour?.filledAt ? (
+                          <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-3">
+                            <div className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                              TCM Post-Tour Response
+                            </div>
+                            <div className="grid grid-cols-2 gap-3 text-sm">
+                              <div>
+                                <div className="text-[10px] text-muted-foreground uppercase">Outcome</div>
+                                <div className="font-semibold capitalize">{target.postTour.outcome ?? "—"}</div>
+                              </div>
+                              <div>
+                                <div className="text-[10px] text-muted-foreground uppercase">Confidence</div>
+                                <div className="font-semibold">{target.postTour.confidence ?? "—"}%</div>
+                              </div>
+                              <div>
+                                <div className="text-[10px] text-muted-foreground uppercase">Objection</div>
+                                <div className="font-semibold">{target.postTour.objection ?? "None"}</div>
+                              </div>
+                              <div>
+                                <div className="text-[10px] text-muted-foreground uppercase">Follow-up</div>
+                                <div className="font-semibold">
+                                  {target.postTour.nextFollowUpAt
+                                    ? new Date(target.postTour.nextFollowUpAt).toLocaleDateString()
+                                    : "—"}
+                                </div>
+                              </div>
+                            </div>
+                            {target.postTour.objectionNote && (
+                              <div>
+                                <div className="text-[10px] text-muted-foreground uppercase">TCM Notes</div>
+                                <div className="text-sm mt-1 text-foreground/80">{target.postTour.objectionNote}</div>
+                              </div>
+                            )}
+                            <div className="text-[10px] text-muted-foreground">
+                              Filled by TCM on {new Date(target.postTour.filledAt).toLocaleString()}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-4 text-center space-y-1">
+                            <AlertCircle className="h-5 w-5 text-amber-500 mx-auto" />
+                            <div className="text-sm font-medium">Awaiting TCM response</div>
+                            <div className="text-xs text-muted-foreground">
+                              TCM will fill this after the tour is completed
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
