@@ -26,6 +26,7 @@ import { registerSequencesRoutes } from "./modules/sequences/routes.js";
 import { registerBookingsRoutes } from "./modules/bookings/routes.js";
 import { registerTenantsRoutes } from "./modules/tenants/routes.js";
 import { registerOwnerRoutes } from "./modules/owner/routes.js";
+import { registerAiRoutes } from "./modules/ai/routes.js";
 import { ensureDefaultSuperAdmin } from "./auth/auth.js";
 
 async function main() {
@@ -113,6 +114,7 @@ h1{margin:0 0 .5rem;font-size:1.5rem;color:#34d399}p{margin:.25rem 0;color:#94a3
   registerBookingsRoutes(app);
   registerTenantsRoutes(app);
   registerOwnerRoutes(app);
+  registerAiRoutes(app);
 
   // Idempotent — bootstraps the canonical Super Admin if missing.
   await ensureDefaultSuperAdmin().catch((err) => app.log.warn({ err }, "ensureDefaultSuperAdmin failed"));
