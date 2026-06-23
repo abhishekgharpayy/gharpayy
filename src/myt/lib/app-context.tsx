@@ -74,6 +74,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         // Now regenerate rooms and blocks with the real zones
         setRooms(generateRooms());
         setBlocks(generateInitialBlocks());
+
+        // Sync tours with Flow-Ops live data
+        try {
+          const toursRes = await api.tours.list();
+          if (toursRes?.items) {
+            setTours(toursRes.items as any[]);
+          }
+        } catch (err) {
+          console.warn('[AppProvider] Failed to fetch live tours:', err);
+        }
       } catch (e) {
         console.warn('[AppProvider] Failed to fetch zones from API:', (e as Error).message);
         // Set empty rooms/blocks if zones couldn't be fetched

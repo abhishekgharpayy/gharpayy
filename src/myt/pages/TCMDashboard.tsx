@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAppState } from '@/myt/lib/app-context';
 import { useAuthUser } from '@/lib/auth-store';
 import { MetricCard } from '@/myt/components/MetricCard';
@@ -22,11 +22,46 @@ export default function TCMDashboard() {
     return () => clearInterval(interval);
   }, []);
 
-  const today = new Date().toISOString().split('T')[0];
-  const myTours = (actorId
-    ? tours.filter((t) => t.assignedTo === actorId)
-    : []
-  ).filter((t) => t.tourDate === today);
+  const today = (() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  })();
+
+  const myTours = useMemo(() => {
+    if (!actorId) return [];
+    return tours.filter((t: any) => {
+      const isAssignedToMe = 
+        t.assignedTo === actorId || 
+        t.assignedTo === authUser?.id;
+      if (!isAssignedToMe) return false;
+      // tourDate is "2026-06-24" format — use local date not UTC
+      const tourDateStr = t.tourDate || t.scheduledAt?.slice(0, 10) || "";
+      return tourDateStr === today;
+    });
+  }, [tours, actorId, authUser?.id, today]);
+
+  const allMyTours = useMemo(() => {
+    if (!actorId) return [];
+    return tours
+      .filter((t) => t.assignedTo === actorId || t.assignedTo === authUser?.id)
+      .sort((a, b) => {
+        const dateA = (a as any).scheduledAt || (a as any).tourDate || "";
+        const dateB = (b as any).scheduledAt || (b as any).tourDate || "";
+        return dateB.localeCompare(dateA); // newest first
+      });
+  }, [tours, actorId, authUser?.id]);
+
+  console.log("[TCM Debug]", {
+    actorId,
+    authUserId: authUser?.id,
+    totalTours: tours.length,
+    myToursCount: myTours.length,
+    allMyToursCount: allMyTours.length,
+    sampleTour: tours[0],
+  });
 
   // Sort: hard first, then by time
   const sortedTours = [...myTours].sort((a, b) => {
@@ -35,8 +70,15 @@ export default function TCMDashboard() {
   });
 
   const completed = myTours.filter(t => t.status === 'completed').length;
+  const noShows = myTours.filter(t => t.showUp === false).length;
   const showUps = myTours.filter(t => t.showUp === true).length;
-  const drafts = myTours.filter(t => t.outcome === 'draft' || t.outcome === 'booked').length;
+  const bookings = myTours.filter(t => 
+    (t as any).postTour?.outcome === 'booked' || (t as any).postTour?.outcome === 'draft'
+  ).length;
+
+  const pendingPostTours = allMyTours.filter(t => 
+    t.status === 'completed' && !(t as any).postTour?.filledAt
+  ).length;
   const dailyTarget = 10;
   const targetPct = Math.min(100, Math.round((myTours.length / dailyTarget) * 100));
 
@@ -47,6 +89,24 @@ export default function TCMDashboard() {
   return (
     <div className="space-y-4 md:space-y-6 animate-slide-up">
       <CoachInline page="tcm" />
+      {pendingPostTours > 0 && (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 flex items-center justify-between">
+          <div>
+            <div className="text-sm font-semibold text-amber-600">
+              {pendingPostTours} post-tour{pendingPostTours > 1 ? "s" : ""} pending
+            </div>
+            <div className="text-xs text-muted-foreground">
+              Fill post-tour outcomes to unlock next steps
+            </div>
+          </div>
+          <a
+            href="/myt/post-tours"
+            className="text-xs font-medium text-amber-600 underline underline-offset-2"
+          >
+            Fill now →
+          </a>
+        </div>
+      )}
       <div>
         <h1 className="text-xl md:text-2xl font-heading font-bold text-foreground">Today's Tours</h1>
         <p className="text-xs text-muted-foreground">
@@ -55,10 +115,29 @@ export default function TCMDashboard() {
       </div>
 
       <div className="grid grid-cols-2 gap-2 md:grid-cols-4 md:gap-3">
-        <MetricCard label="My Tours" value={myTours.length} color="green" icon={<CalendarCheck className="h-4 w-4" />} />
-        <MetricCard label="Completed" value={completed} color="green" icon={<TrendingUp className="h-4 w-4" />} />
-        <MetricCard label="Show-Up %" value={myTours.length > 0 ? `${Math.round((showUps / myTours.length) * 100)}%` : '0%'} color={showUps / Math.max(1, myTours.length) >= 0.7 ? 'green' : 'red'} />
-        <MetricCard label="Bookings" value={drafts} color="amber" icon={<FileText className="h-4 w-4" />} />
+        <MetricCard 
+          label="All My Tours" 
+          value={allMyTours.length} 
+          color="green" 
+          icon={<CalendarCheck className="h-4 w-4" />} 
+        />
+        <MetricCard 
+          label="Today" 
+          value={myTours.length} 
+          color={myTours.length > 0 ? "green" : "amber"} 
+          icon={<TrendingUp className="h-4 w-4" />} 
+        />
+        <MetricCard 
+          label="Completed" 
+          value={allMyTours.filter(t => t.status === "completed").length} 
+          color="green" 
+        />
+        <MetricCard 
+          label="Pending Post-tours" 
+          value={allMyTours.filter(t => t.status === "completed" && !(t as any).postTour?.filledAt).length} 
+          color="red" 
+          icon={<FileText className="h-4 w-4" />} 
+        />
       </div>
 
       <div className="glass-card p-3 md:p-4 space-y-3">
@@ -102,13 +181,34 @@ export default function TCMDashboard() {
         </div>
       </div>
 
+      {/* Today's tours */}
       {sortedTours.length === 0 ? (
-        <div className="glass-card p-8 text-center text-muted-foreground text-sm">No tours today</div>
+        <div className="glass-card p-6 text-center text-muted-foreground text-sm">
+          No tours scheduled for today
+        </div>
       ) : (
         <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
           {sortedTours.map(t => (
-            <TourCard key={t.id} tour={t} onUpdate={updateTour} />
+            <TourCard key={t.id || (t as any)._id} tour={t} onUpdate={updateTour} />
           ))}
+        </div>
+      )}
+
+      {/* All tours history */}
+      {allMyTours.length > myTours.length && (
+        <div className="space-y-2">
+          <h3 className="text-sm font-semibold text-foreground">All Tours ({allMyTours.length})</h3>
+          <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
+            {allMyTours
+              .filter(t => {
+                const rawDate = (t as any).scheduledAt || (t as any).tourDate || "";
+                return rawDate.slice(0, 10) !== today; // exclude today — already shown above
+              })
+              .map(t => (
+                <TourCard key={t.id || (t as any)._id} tour={t} onUpdate={updateTour} />
+              ))
+            }
+          </div>
         </div>
       )}
       <GlueFeed limit={20} title="Closed-loop activity · TCM" />
