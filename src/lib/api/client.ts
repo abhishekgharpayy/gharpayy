@@ -7,7 +7,11 @@
 // real network mode kicks in automatically.
 import { localAdapter, isLocalMode } from "./local-adapter";
 
-const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
+let rawApiUrl = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
+if (rawApiUrl && !rawApiUrl.startsWith("http://") && !rawApiUrl.startsWith("https://")) {
+  rawApiUrl = "https://" + rawApiUrl;
+}
+const API_URL = rawApiUrl;
 
 export class ApiError extends Error {
   constructor(
