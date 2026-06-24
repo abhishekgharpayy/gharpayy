@@ -4,7 +4,7 @@ import {
   Building2, Search, Sun, Command, Trophy, Sparkles, MessageSquare,
   IndianRupee, MapPin, Zap, Users, Home, Calendar, Store, Swords, Settings, AlertTriangle,
   ShieldCheck, Inbox, Camera, HelpCircle, Layers, HeartPulse, ListTodo, Gauge, Radio,
-  BarChart3, Radar, Menu, X,
+  BarChart3, Radar, Menu, X, FileText,
 } from "lucide-react";
 import { MemberDailyReminderPopup } from "@/components/stats/MemberDailyReminderPopup";
 import { NotificationCenter } from "./NotificationCenter";
@@ -215,6 +215,9 @@ export function AppShell({ children }: { children: ReactNode }) {
       { to: "/admin/visits", label: "Master Visits", icon: CalendarPlus },
       { to: "/admin/bookings", label: "Bookings", icon: IndianRupee },
       { to: "/admin/rents", label: "Rent Collection", icon: IndianRupee },
+      { to: "/admin/property-gallery", label: "Photo Gallery", icon: Camera },
+      { to: "/admin/whatsapp", label: "WhatsApp", icon: MessageSquare },
+      { to: "/admin/agreements", label: "Agreements", icon: FileText },
       { to: "/admin/owner-bookings", label: "Owner Console", icon: Boxes },
       { to: "/admin/tenants", label: "Tenants", icon: Users },
       { to: "/admin/calendar", label: "Master Calendar", icon: Calendar },

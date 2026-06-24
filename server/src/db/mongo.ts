@@ -268,6 +268,47 @@ async function ensureIndexes(db: Db) {
         ]),
     },
     {
+      name: "property_media",
+      run: () =>
+        db.collection("property_media").createIndexes([
+          { key: { tenantId: 1, propertyId: 1, createdAt: -1 } },
+          { key: { tenantId: 1, propertyId: 1, isPrimary: 1 } },
+        ]),
+    },
+    {
+      name: "whatsapp_conversations",
+      run: () =>
+        db.collection("whatsapp_conversations").createIndexes([
+          { key: { tenantId: 1, status: 1, lastMessageAt: -1 } },
+          { key: { tenantId: 1, phone: 1 }, unique: true, name: "uniq_conv_phone" },
+        ]),
+    },
+    {
+      name: "whatsapp_messages",
+      run: () =>
+        db.collection("whatsapp_messages").createIndexes([
+          { key: { tenantId: 1, conversationId: 1, createdAt: -1 } },
+        ]),
+    },
+    {
+      name: "agreements",
+      run: () =>
+        db.collection("agreements").createIndexes([
+          { key: { tenantId: 1, createdAt: -1 } },
+          { key: { tenantId: 1, status: 1 } },
+          { key: { tenantId: 1, bookingId: 1 } },
+        ]),
+    },
+    {
+      name: "alerts",
+      run: () =>
+        db.collection("alerts").createIndexes([
+          { key: { tenantId: 1, createdAt: -1 } },
+          { key: { tenantId: 1, read: 1, dismissed: 1, expiresAt: 1 } },
+          { key: { tenantId: 1, severity: 1, createdAt: -1 } },
+        ]),
+    },
+    {
       name: "payments",
       run: () =>
         db.collection("payments").createIndexes([

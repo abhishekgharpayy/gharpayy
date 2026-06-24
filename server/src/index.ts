@@ -11,6 +11,11 @@ import { connectMongo, disconnectMongo } from "./db/mongo.js";
 import { redis, redisPub, redisSub } from "./db/redis.js";
 import { attachSocketIO, io } from "./realtime/socket.js";
 import { startOutboxPublisher, stopOutboxPublisher } from "./realtime/event-bus.js";
+import { startAlertGenerator, stopAlertGenerator } from "./workers/alert-generator.js";
+import fastifyStatic from "@fastify/static";
+import { existsSync, mkdirSync } from "fs";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
 import { registerAuthRoutes } from "./routes/auth.js";
 import { registerHealthRoutes } from "./routes/health.js";
 import { registerWebhookRoutes } from "./routes/webhooks.js";
@@ -33,6 +38,10 @@ import { registerPaymentsRoutes } from "./modules/payments/routes.js";
 import { registerOwnerRoutes } from "./modules/owner/routes.js";
 import { registerAdminSupremeRoutes } from "./modules/admin/supreme.js";
 import { registerAdminPerformanceRoutes } from "./modules/admin/performance.js";
+import { registerMediaRoutes } from "./modules/properties/media-routes.js";
+import { registerWhatsAppRoutes } from "./modules/whatsapp/routes.js";
+import { registerAgreementsRoutes } from "./modules/agreements/routes.js";
+import { registerAlertsRoutes } from "./modules/alerts/routes.js";
 import { ensureDefaultSuperAdmin } from "./auth/auth.js";
 
 async function main() {
@@ -130,6 +139,20 @@ h1{margin:0 0 .5rem;font-size:1.5rem;color:#34d399}p{margin:.25rem 0;color:#94a3
   registerOwnerRoutes(app);
   registerAdminSupremeRoutes(app);
   registerAdminPerformanceRoutes(app);
+  registerMediaRoutes(app);
+  registerWhatsAppRoutes(app);
+  registerAgreementsRoutes(app);
+  registerAlertsRoutes(app);
+
+  // Static file serving for uploaded images
+  const __dirname = dirname(fileURLToPath(import.meta.url));
+  const uploadDir = join(__dirname, "../uploads");
+  if (!existsSync(uploadDir)) mkdirSync(uploadDir, { recursive: true });
+  await app.register(fastifyStatic, {
+    root: uploadDir,
+    prefix: "/uploads/",
+    decorateReply: false,
+  });
 
   // Idempotent — bootstraps the canonical Super Admin if missing.
   await ensureDefaultSuperAdmin().catch((err) => app.log.warn({ err }, "ensureDefaultSuperAdmin failed"));
@@ -139,6 +162,9 @@ h1{margin:0 0 .5rem;font-size:1.5rem;color:#34d399}p{margin:.25rem 0;color:#94a3
   // Outbox publisher: turns durable events into pub/sub broadcasts.
   // Multiple replicas can run; per-row lease prevents double-publish.
   startOutboxPublisher(app.log);
+
+  // Alert generator: periodic checks for overdue rents, pending approvals, etc.
+  startAlertGenerator();
 
   await app.listen({ port: env.PORT, host: env.HOST });
   app.log.info(`✓ Gharpayy server listening on ${env.HOST}:${env.PORT}`);
@@ -158,6 +184,7 @@ h1{margin:0 0 .5rem;font-size:1.5rem;color:#34d399}p{margin:.25rem 0;color:#94a3
       await app.close();                // 1 + 2
       if (io) await new Promise<void>((res) => io!.close(() => res()));
       await stopOutboxPublisher();      // 3
+      stopAlertGenerator();
       await disconnectMongo();
       await Promise.allSettled([redis.quit(), redisPub.quit(), redisSub.quit()]);
       app.log.info("shutdown clean");

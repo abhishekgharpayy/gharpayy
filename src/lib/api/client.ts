@@ -583,6 +583,66 @@ export const api = {
         () => ({ items: [] }),
       ),
   },
+  media: {
+    list: (propertyId: string) =>
+      request<{
+        id: string; propertyId: string; roomId: string; url: string; thumbUrl: string;
+        caption: string; isPrimary: boolean; size: number; mimeType: string; createdAt: string;
+      }[]>(`/api/media/${propertyId}`),
+    upload: (input: { propertyId: string; roomId?: string; image: string; caption?: string; isPrimary?: boolean }) =>
+      request<any>("/api/media/upload", { method: "POST", body: JSON.stringify(input) }),
+    remove: (id: string) =>
+      request<{ ok: true }>(`/api/media/${id}`, { method: "DELETE" }),
+    setPrimary: (id: string) =>
+      request<{ ok: true }>(`/api/media/${id}/primary`, { method: "PATCH" }),
+  },
+
+  whatsapp: {
+    conversations: (q: { status?: string; search?: string; limit?: number; cursor?: string } = {}) => {
+      const qs = new URLSearchParams(Object.entries(q).filter(([_, v]) => v != null).map(([k, v]) => [k, String(v)])).toString();
+      return request<{ items: any[]; nextCursor: string | null }>(`/api/whatsapp/conversations${qs ? `?${qs}` : ""}`);
+    },
+    messages: (conversationId: string, q: { limit?: number; cursor?: string } = {}) => {
+      const qs = new URLSearchParams(Object.entries(q).filter(([_, v]) => v != null).map(([k, v]) => [k, String(v)])).toString();
+      return request<{ items: any[]; nextCursor: string | null }>(`/api/whatsapp/conversations/${conversationId}/messages${qs ? `?${qs}` : ""}`);
+    },
+    send: (conversationId: string, text: string, mediaUrl?: string) =>
+      request<any>("/api/whatsapp/send", { method: "POST", body: JSON.stringify({ conversationId, text, mediaUrl: mediaUrl || "" }) }),
+    archive: (id: string, archived: boolean) =>
+      request<{ ok: true }>(`/api/whatsapp/conversations/${id}/archive`, { method: "PATCH", body: JSON.stringify({ archived }) }),
+  },
+
+  agreements: {
+    list: (q: { status?: string; search?: string; limit?: number; cursor?: string } = {}) => {
+      const qs = new URLSearchParams(Object.entries(q).filter(([_, v]) => v != null).map(([k, v]) => [k, String(v)])).toString();
+      return request<{ items: any[]; nextCursor: string | null }>(`/api/agreements${qs ? `?${qs}` : ""}`);
+    },
+    get: (id: string) => request<any>(`/api/agreements/${id}`),
+    create: (input: {
+      bookingId: string; leadId: string; tenantName: string; tenantPhone: string;
+      propertyName: string; propertyAddress: string; roomNumber?: string;
+      rent: number; deposit: number; moveInDate: string; duration?: number; noticePeriod?: number;
+    }) => request<any>("/api/agreements", { method: "POST", body: JSON.stringify(input) }),
+    update: (id: string, patch: Record<string, unknown>) =>
+      request<{ ok: true }>(`/api/agreements/${id}`, { method: "PUT", body: JSON.stringify(patch) }),
+    savePdf: (id: string, pdfData: string) =>
+      request<{ ok: true }>(`/api/agreements/${id}/pdf`, { method: "PATCH", body: JSON.stringify({ pdfData }) }),
+    sign: (id: string, role: "tenant" | "owner") =>
+      request<{ ok: true; status: string }>(`/api/agreements/${id}/sign`, { method: "PATCH", body: JSON.stringify({ role }) }),
+    remove: (id: string) => request<{ ok: true }>(`/api/agreements/${id}`, { method: "DELETE" }),
+  },
+
+  alerts: {
+    list: (q: { type?: string; severity?: string; includeDismissed?: boolean; limit?: number } = {}) => {
+      const qs = new URLSearchParams(Object.entries(q).filter(([_, v]) => v != null).map(([k, v]) => [k, String(v)])).toString();
+      return request<{ items: any[]; unreadCount: number }>(`/api/alerts${qs ? `?${qs}` : ""}`);
+    },
+    markRead: (id: string) => request<{ ok: true }>(`/api/alerts/${id}/read`, { method: "PATCH" }),
+    markAllRead: () => request<{ ok: true }>("/api/alerts/mark-all-read", { method: "POST" }),
+    dismiss: (id: string) => request<{ ok: true }>(`/api/alerts/${id}/dismiss`, { method: "PATCH" }),
+    unreadCount: () => request<{ unreadCount: number }>("/api/alerts/unread-count"),
+  },
+
   performance: {
     tcm: (q?: { startDate?: string; endDate?: string }) => {
       if (typeof window !== 'undefined' && window.localStorage.getItem('MOCK_PERF') === 'true') {
