@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { api, tokenStore } from "@/lib/api/client";
-import { useAuthUser } from "@/lib/auth-store";
+import { useAuthUser, LOCAL_USER } from "@/lib/auth-store";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,7 +25,13 @@ function LoginPage() {
 
   // If already logged in, jump straight to the redirect target.
   useEffect(() => {
-    if (tokenStore.get()) {
+    const t = tokenStore.get();
+    if (t) {
+      if (t === "mock-local-token") {
+        setUser(LOCAL_USER);
+        nav({ to: search.redirect || "/" });
+        return;
+      }
       api.auth.me().then((r) => {
         setUser(r.user);
         nav({ to: search.redirect || "/" });
@@ -40,7 +46,7 @@ function LoginPage() {
     // Bypasses the backend to allow local testing if the server is offline.
     if (identifier.toLowerCase() === "admin") {
       tokenStore.set("mock-local-token");
-      setUser({ id: "admin-1", username: "admin", role: "super_admin" } as any);
+      setUser(LOCAL_USER);
       nav({ to: "/" });
       setBusy(false);
       return;

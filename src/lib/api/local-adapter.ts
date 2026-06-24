@@ -10,11 +10,86 @@ const TODOS_KEY = "gharpayy.local.todos";
 const ACTS_KEY = "gharpayy.local.activities";
 const LEADS_KEY = "gharpayy.local.leads";
 const TOURS_KEY = "myt:tours";
+const MEDIA_KEY = "gharpayy.local.media";
+const WHATSAPP_CONV_KEY = "gharpayy.local.whatsapp_conversations";
+const WHATSAPP_MSG_KEY = "gharpayy.local.whatsapp_messages";
+const AGREEMENTS_KEY = "gharpayy.local.agreements";
+const ALERTS_KEY = "gharpayy.local.alerts";
 const TENANT = "local";
 const USER = "local-user";
 
-// No seed leads - the live-leads UI shows empty state until the user adds one.
-const SEED_LEADS: Lead[] = [];
+const SEED_LEADS: Lead[] = [
+  {
+    _id: "lead-1",
+    name: "Rahul Sharma",
+    phone: "+919876543210",
+    source: "whatsapp",
+    budget: 25000,
+    budgetText: "₹25,000",
+    moveInDate: "2026-07-01",
+    preferredArea: "Koramangala",
+    zoneId: "Bangalore East",
+    assignedTcmId: USER,
+    stage: "tour-scheduled",
+    intent: "hot",
+    confidence: 75,
+    tags: ["urgent"],
+    nextFollowUpAt: null,
+    responseSpeedMins: 5,
+    email: "rahul@example.com",
+    areas: ["Koramangala", "HSR Layout"],
+    fullAddress: "MG Road, Bangalore",
+    type: "working",
+    room: "single",
+    need: "boys",
+    inBLR: true,
+    quality: "good",
+    specialReqs: "High speed internet, desk space",
+    notes: "Requires quick move-in",
+    zoneCategory: "East",
+    assigneeId: USER,
+    stageLabel: "Tour Scheduled",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    createdBy: USER,
+    tenantId: TENANT,
+  },
+  {
+    _id: "lead-2",
+    name: "Priya Singh",
+    phone: "+919876543211",
+    source: "facebook",
+    budget: 18000,
+    budgetText: "₹18,000",
+    moveInDate: "2026-07-15",
+    preferredArea: "HSR Layout",
+    zoneId: "Bangalore South",
+    assignedTcmId: USER,
+    stage: "new",
+    intent: "warm",
+    confidence: 50,
+    tags: ["co-living"],
+    nextFollowUpAt: null,
+    responseSpeedMins: 12,
+    email: "priya@example.com",
+    areas: ["HSR Layout", "Bellandur"],
+    fullAddress: "Bellandur, Bangalore",
+    type: "working",
+    room: "single",
+    need: "girls",
+    inBLR: true,
+    quality: "good",
+    specialReqs: "Gym access preferred",
+    notes: "Moving from Delhi",
+    zoneCategory: "South",
+    assigneeId: USER,
+    stageLabel: "New Lead",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    createdBy: USER,
+    tenantId: TENANT,
+  }
+];
 
 // One-time cleanup: if the user previously ran in local mode, the old demo leads
 // are still sitting in localStorage. Wipe them once VITE_API_URL is configured.
@@ -39,6 +114,93 @@ const read = <T,>(k: string): T[] => {
   try { return JSON.parse(localStorage.getItem(k) || "[]") as T[]; } catch { return []; }
 };
 const write = <T,>(k: string, v: T[]) => { if (typeof window !== "undefined") localStorage.setItem(k, JSON.stringify(v)); };
+
+const seedMedia = () => {
+  const existing = read(MEDIA_KEY);
+  if (existing.length > 0) return;
+  const sample = [
+    { _id: ulid(), propertyId: "prop-1", roomId: "", fileName: "https://picsum.photos/seed/prop1-room1/800/600.jpg", originalName: "living-room.jpg", mimeType: "image/jpeg", size: 120000, caption: "Main living area", isPrimary: true, createdAt: new Date().toISOString() },
+    { _id: ulid(), propertyId: "prop-1", roomId: "room-1", fileName: "https://picsum.photos/seed/prop1-room2/800/600.jpg", originalName: "bedroom.jpg", mimeType: "image/jpeg", size: 95000, caption: "Bedroom 1", isPrimary: false, createdAt: new Date().toISOString() },
+    { _id: ulid(), propertyId: "prop-2", roomId: "", fileName: "https://picsum.photos/seed/prop2-main/800/600.jpg", originalName: "exterior.jpg", mimeType: "image/jpeg", size: 150000, caption: "Building exterior", isPrimary: true, createdAt: new Date().toISOString() },
+  ];
+  write(MEDIA_KEY, sample);
+};
+
+const seedWhatsApp = () => {
+  const convs = read(WHATSAPP_CONV_KEY);
+  if (convs.length > 0) return;
+  const now = new Date().toISOString();
+  const sampleConvs = [
+    { _id: "conv-1", tenantId: TENANT, leadId: "lead-1", leadName: "Rahul Sharma", phone: "+919876543210", assignedTo: USER, lastMessage: "Hi, I'm interested in the 2BHK", lastMessageAt: now, unreadCount: 2, status: "active", tags: [], createdAt: now, updatedAt: now },
+    { _id: "conv-2", tenantId: TENANT, leadId: "lead-2", leadName: "Priya Singh", phone: "+919876543211", assignedTo: USER, lastMessage: "When can I visit?", lastMessageAt: now, unreadCount: 0, status: "active", tags: [], createdAt: now, updatedAt: now },
+  ];
+  write(WHATSAPP_CONV_KEY, sampleConvs);
+  const sampleMsgs = [
+    { _id: ulid(), tenantId: TENANT, conversationId: "conv-1", direction: "inbound", text: "Hi, I'm interested in the 2BHK", mediaUrl: "", status: "read", sentById: "", sentByName: "Rahul Sharma", createdAt: now },
+    { _id: ulid(), tenantId: TENANT, conversationId: "conv-1", direction: "outbound", text: "Great! We have a few options available. When would you like to schedule a tour?", mediaUrl: "", status: "read", sentById: USER, sentByName: "You", createdAt: now },
+    { _id: ulid(), tenantId: TENANT, conversationId: "conv-2", direction: "inbound", text: "When can I visit?", mediaUrl: "", status: "read", sentById: "", sentByName: "Priya Singh", createdAt: now },
+    { _id: ulid(), tenantId: TENANT, conversationId: "conv-2", direction: "outbound", text: "Available tomorrow 10am-2pm. What works?", mediaUrl: "", status: "delivered", sentById: USER, sentByName: "You", createdAt: now },
+  ];
+  write(WHATSAPP_MSG_KEY, sampleMsgs);
+};
+
+const seedAgreements = () => {
+  const existing = read(AGREEMENTS_KEY);
+  if (existing.length > 0) return;
+  const now = new Date().toISOString();
+  const sample = [
+    { _id: ulid(), tenantId: TENANT, bookingId: "booking-1", leadId: "lead-1", tenantName: "Rahul Sharma", tenantPhone: "+919876543210", propertyName: "Sunrise Apartments", propertyAddress: "123 MG Road, Bangalore", roomNumber: "A-201", rent: 25000, deposit: 50000, moveInDate: "2026-07-01", duration: 11, noticePeriod: 30, status: "draft", signedByTenantAt: "", signedByOwnerAt: "", pdfData: "", createdBy: USER, createdAt: now, updatedAt: now },
+    { _id: ulid(), tenantId: TENANT, bookingId: "booking-2", leadId: "lead-2", tenantName: "Priya Singh", tenantPhone: "+919876543211", propertyName: "Green Valley PG", propertyAddress: "456 Koramangala, Bangalore", roomNumber: "B-102", rent: 18000, deposit: 36000, moveInDate: "2026-07-15", duration: 12, noticePeriod: 30, status: "sent", signedByTenantAt: now, signedByOwnerAt: "", pdfData: "", createdBy: USER, createdAt: now, updatedAt: now },
+  ];
+  write(AGREEMENTS_KEY, sample);
+};
+
+const seedAlerts = () => {
+  const existing = read(ALERTS_KEY);
+  if (existing.length > 0) return;
+  const now = new Date().toISOString();
+  const sample = [
+    { _id: ulid(), tenantId: TENANT, type: "rent_overdue", title: "Rent overdue: Rahul Sharma", body: "Rahul Sharma's rent of ₹25,000 for 2026-06 is 5d overdue.", severity: "warning", link: "/admin/rents", read: false, dismissed: false, expiresAt: new Date(Date.now() + 7*86400000).toISOString(), createdAt: now },
+    { _id: ulid(), tenantId: TENANT, type: "booking_approval", title: "Booking pending approval: Priya Singh", body: "Priya Singh's booking at Green Valley PG needs owner approval.", severity: "warning", link: "/admin/bookings", read: false, dismissed: false, expiresAt: new Date(Date.now() + 7*86400000).toISOString(), createdAt: now },
+    { _id: ulid(), tenantId: TENANT, type: "tenant_exited", title: "Tenant exited: Amit Kumar", body: "Amit Kumar has vacated. Update room availability and finalize deposit return.", severity: "info", link: "/admin/tenants", read: true, dismissed: false, expiresAt: new Date(Date.now() + 7*86400000).toISOString(), createdAt: now },
+  ];
+  write(ALERTS_KEY, sample);
+};
+
+const seedTours = () => {
+  const existing = read(TOURS_KEY);
+  if (existing.length > 0) return;
+  const now = new Date().toISOString();
+  const sample = [
+    {
+      _id: "tour-1",
+      leadId: "lead-1",
+      propertyId: "prop-1",
+      assignedTo: USER,
+      scheduledBy: USER,
+      scheduledAt: new Date(Date.now() + 86400000).toISOString(),
+      status: "scheduled",
+      showUp: null,
+      customPropertyName: "Sunrise Apartments",
+      bookingSource: "whatsapp",
+      tourType: "physical",
+      postTour: { outcome: null, confidence: 0, objection: null, objectionNote: "", expectedDecisionAt: null, nextFollowUpAt: null, filledAt: null },
+      createdAt: now,
+      updatedAt: now,
+      tenantId: TENANT,
+    }
+  ];
+  write(TOURS_KEY, sample);
+};
+
+if (typeof window !== "undefined") {
+  localStorage.setItem("gharpayy.force_local", "1");
+  seedMedia();
+  seedWhatsApp();
+  seedAgreements();
+  seedAlerts();
+  seedTours();
+}
 
 const nowISO = () => new Date().toISOString();
 const env = (correlationId: string) => ({
@@ -80,12 +242,79 @@ export const localAdapter = {
   },
 
   listTours() {
-    const items = read<Tour>(TOURS_KEY);
-    return { items: items.sort((a, b) => b._id.localeCompare(a._id)), nextCursor: null as string | null };
+    const items = read<any>(TOURS_KEY);
+    return { items: items.sort((a: any, b: any) => (b._id || b.id || "").localeCompare(a._id || a.id || "")), nextCursor: null as string | null };
+  },
+
+  // ---------- Media ----------
+  listMedia(propertyId: string) {
+    const items = read<any>(MEDIA_KEY).filter((m) => m.propertyId === propertyId);
+    return items.map((m) => ({
+      id: m._id,
+      propertyId: m.propertyId,
+      roomId: m.roomId,
+      url: m.fileName,
+      thumbUrl: m.fileName,
+      caption: m.caption,
+      isPrimary: m.isPrimary,
+      size: m.size,
+      mimeType: m.mimeType,
+      createdAt: m.createdAt,
+    }));
+  },
+
+  // ---------- WhatsApp ----------
+  listWhatsAppConversations(q: { status?: string; search?: string; limit?: number; cursor?: string } = {}) {
+    let items = read<any>(WHATSAPP_CONV_KEY).filter((c) => c.tenantId === TENANT);
+    if (q.status) items = items.filter((c) => c.status === q.status);
+    if (q.search) {
+      const s = q.search.toLowerCase();
+      items = items.filter((c) => c.leadName.toLowerCase().includes(s) || c.phone.includes(s));
+    }
+    items.sort((a, b) => b.lastMessageAt.localeCompare(a.lastMessageAt));
+    const limit = q.limit ?? 100;
+    return { items: items.slice(0, limit), nextCursor: items.length > limit ? items[limit - 1]._id : null };
+  },
+
+  listWhatsAppMessages(conversationId: string, q: { limit?: number; cursor?: string } = {}) {
+    let items = read<any>(WHATSAPP_MSG_KEY).filter((m) => m.tenantId === TENANT && m.conversationId === conversationId);
+    items.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    const limit = q.limit ?? 100;
+    return { items: items.slice(0, limit), nextCursor: items.length > limit ? items[limit - 1]._id : null };
+  },
+
+  // ---------- Agreements ----------
+  listAgreements(q: { status?: string; search?: string; limit?: number; cursor?: string } = {}) {
+    let items = read<any>(AGREEMENTS_KEY).filter((a) => a.tenantId === TENANT);
+    if (q.status) items = items.filter((a) => a.status === q.status);
+    if (q.search) {
+      const s = q.search.toLowerCase();
+      items = items.filter((a) => a.tenantName.toLowerCase().includes(s) || a.propertyName.toLowerCase().includes(s));
+    }
+    items.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    const limit = q.limit ?? 100;
+    return { items: items.slice(0, limit), nextCursor: items.length > limit ? items[limit - 1]._id : null };
+  },
+
+  getAgreement(id: string) {
+    const items = read<any>(AGREEMENTS_KEY);
+    return items.find((a) => a._id === id && a.tenantId === TENANT);
+  },
+
+  // ---------- Alerts ----------
+  listAlerts(q: { type?: string; severity?: string; includeDismissed?: boolean; limit?: number } = {}) {
+    let items = read<any>(ALERTS_KEY).filter((a) => a.tenantId === TENANT && a.expiresAt > new Date().toISOString());
+    if (!q.includeDismissed) items = items.filter((a) => !a.dismissed);
+    if (q.type) items = items.filter((a) => a.type === q.type);
+    if (q.severity) items = items.filter((a) => a.severity === q.severity);
+    items.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    const limit = q.limit ?? 50;
+    const unreadCount = items.filter((a) => !a.read && !a.dismissed).length;
+    return { items: items.slice(0, limit), unreadCount };
   },
 
   // ---------- Commands ----------
-  command(cmd: CmdIn): { ok: true; eventIds: string[]; data?: unknown } | { ok: false; error: string } {
+  command(cmd: CmdIn): any {
     try {
       const correlationId = cmd._id;
       const t = cmd.type;
@@ -375,10 +604,377 @@ export const localAdapter = {
         return { ok: true, eventIds: [evt._id], data: { tour: next } };
       }
 
+      // ----- Media commands -----
+      if (t === "cmd.media.upload") {
+        const p = cmd.payload as { propertyId: string; roomId?: string; image: string; caption?: string; isPrimary?: boolean };
+        const item = {
+          _id: ulid(),
+          propertyId: p.propertyId,
+          roomId: p.roomId ?? "",
+          fileName: p.image,
+          originalName: "upload.jpg",
+          mimeType: "image/jpeg",
+          size: 0,
+          caption: p.caption ?? "",
+          isPrimary: p.isPrimary ?? false,
+          createdAt: nowISO(),
+        };
+        const list = read<any>(MEDIA_KEY);
+        if (p.isPrimary) {
+          list.forEach((m: any) => { if (m.propertyId === p.propertyId) m.isPrimary = false; });
+        }
+        list.unshift(item);
+        write(MEDIA_KEY, list);
+        return { ok: true, eventIds: [item._id], data: { id: item._id, url: p.image, caption: p.caption, isPrimary: p.isPrimary } };
+      }
+
+      if (t === "cmd.media.delete") {
+        const mediaId = (cmd.payload as { id: string }).id;
+        write(MEDIA_KEY, read<any>(MEDIA_KEY).filter((m: any) => m._id !== mediaId));
+        return { ok: true, eventIds: [] };
+      }
+
+      if (t === "cmd.media.setPrimary") {
+        const mediaId = (cmd.payload as { id: string }).id;
+        const list = read<any>(MEDIA_KEY);
+        const item = list.find((m: any) => m._id === mediaId);
+        if (item) {
+          list.forEach((m: any) => { if (m.propertyId === item.propertyId) m.isPrimary = false; });
+          item.isPrimary = true;
+          write(MEDIA_KEY, list);
+        }
+        return { ok: true, eventIds: [] };
+      }
+
+      // ----- WhatsApp commands -----
+      if (t === "cmd.whatsapp.send") {
+        const p = cmd.payload as { conversationId: string; text: string; mediaUrl?: string };
+        const msg = {
+          _id: ulid(),
+          tenantId: TENANT,
+          conversationId: p.conversationId,
+          direction: "outbound",
+          text: p.text,
+          mediaUrl: p.mediaUrl ?? "",
+          status: "sent",
+          sentById: USER,
+          sentByName: "You",
+          createdAt: nowISO(),
+        };
+        const msgs = read<any>(WHATSAPP_MSG_KEY);
+        msgs.push(msg);
+        write(WHATSAPP_MSG_KEY, msgs);
+        // Update conversation last message
+        const convs = read<any>(WHATSAPP_CONV_KEY);
+        const convIdx = convs.findIndex((c: any) => c._id === p.conversationId);
+        if (convIdx >= 0) {
+          convs[convIdx] = { ...convs[convIdx], lastMessage: p.text, lastMessageAt: nowISO(), updatedAt: nowISO() };
+          write(WHATSAPP_CONV_KEY, convs);
+        }
+        return { ok: true, eventIds: [msg._id], data: msg };
+      }
+
+      if (t === "cmd.whatsapp.archive") {
+        const p = cmd.payload as { id: string; archived: boolean };
+        const convs = read<any>(WHATSAPP_CONV_KEY);
+        const idx = convs.findIndex((c: any) => c._id === p.id);
+        if (idx >= 0) {
+          convs[idx] = { ...convs[idx], status: p.archived ? "archived" : "active", updatedAt: nowISO() };
+          write(WHATSAPP_CONV_KEY, convs);
+        }
+        return { ok: true, eventIds: [] };
+      }
+
+      // ----- Agreement commands -----
+      if (t === "cmd.agreement.create") {
+        const p = cmd.payload as Record<string, unknown>;
+        const agr = {
+          _id: ulid(),
+          tenantId: TENANT,
+          bookingId: String(p.bookingId ?? ""),
+          leadId: String(p.leadId ?? ""),
+          tenantName: String(p.tenantName ?? ""),
+          tenantPhone: String(p.tenantPhone ?? ""),
+          propertyName: String(p.propertyName ?? ""),
+          propertyAddress: String(p.propertyAddress ?? ""),
+          roomNumber: String(p.roomNumber ?? ""),
+          rent: Number(p.rent ?? 0),
+          deposit: Number(p.deposit ?? 0),
+          moveInDate: String(p.moveInDate ?? ""),
+          duration: Number(p.duration ?? 11),
+          noticePeriod: Number(p.noticePeriod ?? 30),
+          status: "draft",
+          signedByTenantAt: "",
+          signedByOwnerAt: "",
+          pdfData: "",
+          createdBy: USER,
+          createdAt: nowISO(),
+          updatedAt: nowISO(),
+        };
+        const list = read<any>(AGREEMENTS_KEY);
+        list.unshift(agr);
+        write(AGREEMENTS_KEY, list);
+        return { ok: true, eventIds: [agr._id], data: { id: agr._id, bookingId: agr.bookingId, tenantName: agr.tenantName, status: agr.status, createdAt: agr.createdAt } };
+      }
+
+      if (t === "cmd.agreement.update") {
+        const p = cmd.payload as { id: string; patch: Record<string, unknown> };
+        const list = read<any>(AGREEMENTS_KEY);
+        const idx = list.findIndex((a: any) => a._id === p.id && a.tenantId === TENANT);
+        if (idx < 0) return { ok: false, error: "Agreement not found" };
+        list[idx] = { ...list[idx], ...p.patch, updatedAt: nowISO() };
+        write(AGREEMENTS_KEY, list);
+        return { ok: true, eventIds: [] };
+      }
+
+      if (t === "cmd.agreement.sign") {
+        const p = cmd.payload as { id: string; role: "tenant" | "owner" };
+        const list = read<any>(AGREEMENTS_KEY);
+        const idx = list.findIndex((a: any) => a._id === p.id && a.tenantId === TENANT);
+        if (idx < 0) return { ok: false, error: "Agreement not found" };
+        const now = nowISO();
+        if (p.role === "tenant") {
+          list[idx] = { ...list[idx], status: "signed", signedByTenantAt: now, updatedAt: now };
+        } else {
+          list[idx] = { ...list[idx], status: "signed", signedByOwnerAt: now, updatedAt: now };
+        }
+        write(AGREEMENTS_KEY, list);
+        return { ok: true, eventIds: [], data: { ok: true, status: "signed" } };
+      }
+
+      if (t === "cmd.agreement.savePdf") {
+        const p = cmd.payload as { id: string; pdfData: string };
+        const list = read<any>(AGREEMENTS_KEY);
+        const idx = list.findIndex((a: any) => a._id === p.id && a.tenantId === TENANT);
+        if (idx >= 0) {
+          list[idx] = { ...list[idx], pdfData: p.pdfData, updatedAt: nowISO() };
+          write(AGREEMENTS_KEY, list);
+        }
+        return { ok: true, eventIds: [] };
+      }
+
+      if (t === "cmd.agreement.delete") {
+        const id = (cmd.payload as { id: string }).id;
+        write(AGREEMENTS_KEY, read<any>(AGREEMENTS_KEY).filter((a: any) => a._id !== id));
+        return { ok: true, eventIds: [] };
+      }
+
+      // ----- Alert commands -----
+      if (t === "cmd.alert.markRead") {
+        const id = (cmd.payload as { id: string }).id;
+        const list = read<any>(ALERTS_KEY);
+        const idx = list.findIndex((a: any) => a._id === id);
+        if (idx >= 0) { list[idx] = { ...list[idx], read: true }; write(ALERTS_KEY, list); }
+        return { ok: true, eventIds: [] };
+      }
+
+      if (t === "cmd.alert.markAllRead") {
+        const list = read<any>(ALERTS_KEY);
+        list.forEach((a: any) => { if (!a.dismissed) a.read = true; });
+        write(ALERTS_KEY, list);
+        return { ok: true, eventIds: [] };
+      }
+
+      if (t === "cmd.alert.dismiss") {
+        const id = (cmd.payload as { id: string }).id;
+        const list = read<any>(ALERTS_KEY);
+        const idx = list.findIndex((a: any) => a._id === id);
+        if (idx >= 0) { list[idx] = { ...list[idx], dismissed: true }; write(ALERTS_KEY, list); }
+        return { ok: true, eventIds: [] };
+      }
+
       return { ok: true, eventIds: [] };
     } catch (e) {
       return { ok: false, error: (e as Error).message };
     }
+  },
+
+  // ---------- Funnel Analytics (local) ----------
+  processFunnel(input: { tours: any[]; bookings: any[] }) {
+    const { tours = [], bookings = [] } = input;
+
+    // 1. Revenue Waterfall
+    const avgBudget = tours.length > 0 ? tours.reduce((s: number, t: any) => s + t.budget, 0) / tours.length : 0;
+    const scheduled = tours.length;
+    const showed = tours.filter((t: any) => t.showUp === true).length;
+    const completed = tours.filter((t: any) => t.status === "completed").length;
+    const drafts = tours.filter((t: any) => t.outcome === "draft").length;
+    const booked = tours.filter((t: any) => t.outcome === "booked" || t.outcome === "token-paid").length;
+    const scheduledValue = scheduled * avgBudget;
+    const showValue = showed * avgBudget;
+    const draftValue = drafts * avgBudget;
+    const bookedValue = bookings.reduce((s: number, b: any) => s + b.rentValue, 0);
+    const noShowLeak = scheduledValue - showValue;
+    const noDraftLeak = showValue - draftValue;
+    const draftToBookLeak = draftValue - bookedValue;
+    const biggestLeak = Math.max(noShowLeak, noDraftLeak, draftToBookLeak);
+    const leakLabel = biggestLeak === noShowLeak ? "No-shows"
+      : biggestLeak === noDraftLeak ? "Show but no draft" : "Draft but no booking";
+    const waterfall = {
+      stages: [
+        { label: "Scheduled", value: Math.round(scheduledValue), count: scheduled, color: "#3b82f6" },
+        { label: "Show-Ups", value: Math.round(showValue), count: showed, leak: Math.round(noShowLeak), color: "#8b5cf6" },
+        { label: "Drafts", value: Math.round(draftValue), count: drafts, leak: Math.round(noDraftLeak), color: "#f59e0b" },
+        { label: "Booked", value: Math.round(bookedValue), count: booked + bookings.filter((b: any) => !b.viaTour).length, leak: Math.round(draftToBookLeak), color: "#22c55e" },
+      ],
+      totalLeak: Math.round(noShowLeak + noDraftLeak + draftToBookLeak),
+      leakLabel,
+      conversionValue: Math.round(bookedValue),
+      avgBudget: Math.round(avgBudget),
+    };
+
+    // 2. Tour Time Heatmap
+    const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    const hours = ["9am", "10am", "11am", "12pm", "1pm", "2pm", "3pm", "4pm", "5pm", "6pm", "7pm", "8pm"];
+    const timeHeatmap = [];
+    for (const day of days) {
+      for (const hour of hours) {
+        const matching = tours.filter((t: any) => {
+          const d = new Date(t.tourDate);
+          const dayOfWeek = (d.getDay() + 6) % 7;
+          const tourHour = parseInt(t.tourTime?.split(":")[0] || "0", 10);
+          const hourLabel = tourHour <= 12 ? `${tourHour}am` : `${tourHour - 12}pm`;
+          return days[dayOfWeek] === day && hourLabel === hour;
+        });
+        const showUps = matching.filter((t: any) => t.showUp === true).length;
+        const booked2 = matching.filter((t: any) => t.outcome === "booked" || t.outcome === "token-paid").length;
+        timeHeatmap.push({
+          day, hour,
+          tours: matching.length,
+          showUps,
+          booked: booked2,
+          rate: matching.length > 0 ? Math.round((booked2 / matching.length) * 100) : 0,
+        });
+      }
+    }
+
+    // 3. Loss Reason Intelligence
+    const lost = tours.filter((t: any) => t.whyLost && t.whyLost !== "null");
+    const totalLost = lost.length;
+    const reasonCounts: Record<string, number> = {};
+    for (const t of lost) { const r = t.whyLost!; reasonCounts[r] = (reasonCounts[r] || 0) + 1; }
+    const recommendations: Record<string, string> = {
+      price: "Consider offering flexible payment plans or a lower-floor unit",
+      location: "Show properties in adjacent areas; highlight commute advantages",
+      food: "Partner with nearby food courts; highlight pantry/kitchen options",
+      delay: "Implement same-day tour scheduling; reduce wait time",
+      comparing: "Create a comparison sheet vs competitors; offer limited-time perks",
+      other: "Schedule a follow-up call to uncover the real objection",
+    };
+    const lossReasons = Object.entries(reasonCounts).map(([reason, count]) => ({
+      reason, count,
+      percentage: totalLost > 0 ? Math.round((count / totalLost) * 100) : 0,
+      recommendation: recommendations[reason] || "Investigate further",
+    })).sort((a, b) => b.count - a.count);
+
+    // 4. Budget vs Actual Rent
+    const linked = bookings
+      .filter((b: any) => b.viaTour && b.tourId)
+      .map((b: any) => {
+        const tour = tours.find((t: any) => t.id === b.tourId || t._id === b.tourId);
+        if (!tour) return null;
+        return {
+          leadName: b.leadName, area: b.area,
+          budget: tour.budget, actualRent: b.rentValue,
+          gap: b.rentValue - tour.budget,
+          gapPct: tour.budget > 0 ? Math.round(((b.rentValue - tour.budget) / tour.budget) * 100) : 0,
+          tcmName: tour.assignedToName,
+        };
+      }).filter(Boolean);
+    const avgGap = linked.length > 0 ? linked.reduce((s: number, d: any) => s + d!.gapPct, 0) / linked.length : 0;
+    const budgetVsActual = {
+      points: linked,
+      avgGapPct: Math.round(avgGap),
+      totalLinked: linked.length,
+      overBudget: linked.filter((d: any) => d!.gap > 0).length,
+      underBudget: linked.filter((d: any) => d!.gap < 0).length,
+    };
+
+    // 5. TCM × Area Matrix
+    const tcmMap = new Map<string, Map<string, { tours: number; booked: number }>>();
+    for (const t of tours) {
+      if (!tcmMap.has(t.assignedTo)) tcmMap.set(t.assignedTo, new Map());
+      const areaMap = tcmMap.get(t.assignedTo)!;
+      const area = t.area || t.zoneId;
+      if (!areaMap.has(area)) areaMap.set(area, { tours: 0, booked: 0 });
+      areaMap.get(area)!.tours++;
+      if (t.outcome === "booked" || t.outcome === "token-paid") areaMap.get(area)!.booked++;
+    }
+    const allAreas = new Set<string>();
+    const allTcms = new Set<string>();
+    for (const t of tours) { allAreas.add(t.area || t.zoneId); allTcms.add(t.assignedTo); }
+    const tcmNames: Record<string, string> = {};
+    for (const t of tours) tcmNames[t.assignedTo] = t.assignedToName;
+    const tcmAreaMatrix = {
+      areas: [...allAreas],
+      tcmIds: [...allTcms].map((id) => ({
+        id, name: tcmNames[id],
+        areas: [...allAreas].map((area) => {
+          const data = tcmMap.get(id)?.get(area);
+          return { area, tours: data?.tours || 0, booked: data?.booked || 0, rate: data && data.tours > 0 ? Math.round((data.booked / data.tours) * 100) : -1 };
+        }),
+      })),
+    };
+
+    // 6. Stale Tour Radar
+    const now = Date.now();
+    const active = tours.filter((t: any) => t.status !== "completed" && t.status !== "cancelled" && t.status !== "no-show");
+    const staleTours = active.map((t: any) => {
+      const createdAt = new Date(t.createdAt).getTime();
+      const ageDays = Math.floor((now - createdAt) / 86_400_000);
+      const tourDate = new Date(t.tourDate).getTime();
+      const daysUntilTour = Math.floor((tourDate - now) / 86_400_000);
+      let urgency: "critical" | "warning" | "info" = "info";
+      if (ageDays >= 7 || daysUntilTour < 0) urgency = "critical";
+      else if (ageDays >= 3) urgency = "warning";
+      return {
+        id: t.id || t._id, leadName: t.leadName, area: t.area,
+        assignedToName: t.assignedToName, tourDate: t.tourDate, tourTime: t.tourTime,
+        status: t.status, ageDays, daysUntilTour, urgency,
+      };
+    }).sort((a: any, b: any) => {
+      const order = { critical: 0, warning: 1, info: 2 };
+      return order[a.urgency as keyof typeof order] - order[b.urgency as keyof typeof order] || a.daysUntilTour - b.daysUntilTour;
+    });
+
+    // 7. Conversion Velocity
+    const dayMs = 86_400_000;
+    const toTourDays = tours
+      .filter((t: any) => t.tourDate && t.createdAt)
+      .map((t: any) => (new Date(t.tourDate).getTime() - new Date(t.createdAt).getTime()) / dayMs)
+      .filter((d: number) => d >= 0 && d < 90);
+    const toBookingDays = bookings
+      .filter((b: any) => b.viaTour && b.tourId)
+      .map((b: any) => {
+        const tour = tours.find((t: any) => t.id === b.tourId || t._id === b.tourId);
+        if (!tour) return null;
+        return (new Date(b.createdAt).getTime() - new Date(tour.tourDate).getTime()) / dayMs;
+      }).filter((d: number | null): d is number => d !== null && d >= 0 && d < 90);
+    const fullCycleDays = bookings
+      .filter((b: any) => b.viaTour && b.tourId)
+      .map((b: any) => {
+        const tour = tours.find((t: any) => t.id === b.tourId || t._id === b.tourId);
+        if (!tour) return null;
+        return (new Date(b.createdAt).getTime() - new Date(tour.createdAt).getTime()) / dayMs;
+      }).filter((d: number | null): d is number => d !== null && d >= 0 && d < 90);
+    const avg = (arr: number[]) => arr.length > 0 ? Math.round((arr.reduce((s, d) => s + d, 0) / arr.length) * 10) / 10 : 0;
+    const median = (arr: number[]) => {
+      if (arr.length === 0) return 0;
+      const sorted = [...arr].sort((a, b) => a - b);
+      return Math.round(sorted[Math.floor(sorted.length / 2)] * 10) / 10;
+    };
+    const conversionVelocity = {
+      schedulingToTour: { avg: avg(toTourDays), median: median(toTourDays) },
+      tourToBooking: { avg: avg(toBookingDays), median: median(toBookingDays) },
+      fullCycle: { avg: avg(fullCycleDays), median: median(fullCycleDays) },
+      sampleSize: fullCycleDays.length,
+    };
+
+    return {
+      waterfall, timeHeatmap, lossReasons, budgetVsActual,
+      tcmAreaMatrix, staleTours, conversionVelocity,
+      processedAt: new Date().toISOString(),
+    };
   },
 };
 

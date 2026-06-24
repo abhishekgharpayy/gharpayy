@@ -79,13 +79,16 @@ import { Route as MytDraftsRouteImport } from './routes/myt/drafts'
 import { Route as MytCalendarRouteImport } from './routes/myt/calendar'
 import { Route as MytBookingsRouteImport } from './routes/myt/bookings'
 import { Route as LeadsAddRouteImport } from './routes/leads.add'
+import { Route as AdminWhatsappRouteImport } from './routes/admin.whatsapp'
 import { Route as AdminWarroomRouteImport } from './routes/admin.warroom'
 import { Route as AdminVisitsRouteImport } from './routes/admin.visits'
 import { Route as AdminTenantsRouteImport } from './routes/admin.tenants'
 import { Route as AdminSupremeRouteImport } from './routes/admin.supreme'
 import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
 import { Route as AdminRevenueRouteImport } from './routes/admin.revenue'
+import { Route as AdminRentsRouteImport } from './routes/admin.rents'
 import { Route as AdminRadarRouteImport } from './routes/admin.radar'
+import { Route as AdminPropertyGalleryRouteImport } from './routes/admin.property-gallery'
 import { Route as AdminPropertyRouteImport } from './routes/admin.property'
 import { Route as AdminPerformanceRouteImport } from './routes/admin.performance'
 import { Route as AdminPeopleRouteImport } from './routes/admin.people'
@@ -102,12 +105,15 @@ import { Route as AdminCommandRouteImport } from './routes/admin.command'
 import { Route as AdminCalendarRouteImport } from './routes/admin.calendar'
 import { Route as AdminBookingsRouteImport } from './routes/admin.bookings'
 import { Route as AdminAuditRouteImport } from './routes/admin.audit'
+import { Route as AdminAgreementsRouteImport } from './routes/admin.agreements'
 import { Route as PropertyOwnerPropertiesNewRouteImport } from './routes/property-owner.properties.new'
 import { Route as MytTourIdRouteImport } from './routes/myt/tour.$id'
 import { Route as MytTcmPerformanceRouteImport } from './routes/myt/tcm.performance'
 import { Route as MytTcmActionsRouteImport } from './routes/myt/tcm.actions'
 import { Route as MytFeedbackIdRouteImport } from './routes/myt/feedback.$id'
 import { Route as AdminTenantsIdRouteImport } from './routes/admin.tenants.$id'
+import { Route as AdminPropertyGalleryIdRouteImport } from './routes/admin.property-gallery.$id'
+import { Route as AdminAgreementsIdRouteImport } from './routes/admin.agreements.$id'
 import { Route as PropertyOwnerPropertiesIdRoomsRouteImport } from './routes/property-owner.properties.$id.rooms'
 import { Route as MytTourIdReportRouteImport } from './routes/myt/tour.$id.report'
 import { Route as AdminPerformanceTcmUserIdRouteImport } from './routes/admin.performance.tcm.$userId'
@@ -466,6 +472,11 @@ const LeadsAddRoute = LeadsAddRouteImport.update({
   path: '/add',
   getParentRoute: () => LeadsRoute,
 } as any)
+const AdminWhatsappRoute = AdminWhatsappRouteImport.update({
+  id: '/whatsapp',
+  path: '/whatsapp',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminWarroomRoute = AdminWarroomRouteImport.update({
   id: '/warroom',
   path: '/warroom',
@@ -496,9 +507,19 @@ const AdminRevenueRoute = AdminRevenueRouteImport.update({
   path: '/revenue',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminRentsRoute = AdminRentsRouteImport.update({
+  id: '/rents',
+  path: '/rents',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminRadarRoute = AdminRadarRouteImport.update({
   id: '/radar',
   path: '/radar',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminPropertyGalleryRoute = AdminPropertyGalleryRouteImport.update({
+  id: '/property-gallery',
+  path: '/property-gallery',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminPropertyRoute = AdminPropertyRouteImport.update({
@@ -581,6 +602,11 @@ const AdminAuditRoute = AdminAuditRouteImport.update({
   path: '/audit',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminAgreementsRoute = AdminAgreementsRouteImport.update({
+  id: '/agreements',
+  path: '/agreements',
+  getParentRoute: () => AdminRoute,
+} as any)
 const PropertyOwnerPropertiesNewRoute =
   PropertyOwnerPropertiesNewRouteImport.update({
     id: '/new',
@@ -611,6 +637,16 @@ const AdminTenantsIdRoute = AdminTenantsIdRouteImport.update({
   id: '/$id',
   path: '/$id',
   getParentRoute: () => AdminTenantsRoute,
+} as any)
+const AdminPropertyGalleryIdRoute = AdminPropertyGalleryIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => AdminPropertyGalleryRoute,
+} as any)
+const AdminAgreementsIdRoute = AdminAgreementsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => AdminAgreementsRoute,
 } as any)
 const PropertyOwnerPropertiesIdRoomsRoute =
   PropertyOwnerPropertiesIdRoomsRouteImport.update({
@@ -683,6 +719,7 @@ export interface FileRoutesByFullPath {
   '/visit-war': typeof VisitWarRoute
   '/zone-brain': typeof ZoneBrainRoute
   '/zones': typeof ZonesRoute
+  '/admin/agreements': typeof AdminAgreementsRouteWithChildren
   '/admin/audit': typeof AdminAuditRoute
   '/admin/bookings': typeof AdminBookingsRoute
   '/admin/calendar': typeof AdminCalendarRoute
@@ -699,13 +736,16 @@ export interface FileRoutesByFullPath {
   '/admin/people': typeof AdminPeopleRoute
   '/admin/performance': typeof AdminPerformanceRouteWithChildren
   '/admin/property': typeof AdminPropertyRoute
+  '/admin/property-gallery': typeof AdminPropertyGalleryRouteWithChildren
   '/admin/radar': typeof AdminRadarRoute
+  '/admin/rents': typeof AdminRentsRoute
   '/admin/revenue': typeof AdminRevenueRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/supreme': typeof AdminSupremeRoute
   '/admin/tenants': typeof AdminTenantsRouteWithChildren
   '/admin/visits': typeof AdminVisitsRoute
   '/admin/warroom': typeof AdminWarroomRoute
+  '/admin/whatsapp': typeof AdminWhatsappRoute
   '/leads/add': typeof LeadsAddRoute
   '/myt/bookings': typeof MytBookingsRoute
   '/myt/calendar': typeof MytCalendarRoute
@@ -742,6 +782,8 @@ export interface FileRoutesByFullPath {
   '/admin/': typeof AdminIndexRoute
   '/myt/': typeof MytIndexRoute
   '/supply-hub/': typeof SupplyHubIndexRoute
+  '/admin/agreements/$id': typeof AdminAgreementsIdRoute
+  '/admin/property-gallery/$id': typeof AdminPropertyGalleryIdRoute
   '/admin/tenants/$id': typeof AdminTenantsIdRoute
   '/myt/feedback/$id': typeof MytFeedbackIdRoute
   '/myt/tcm/actions': typeof MytTcmActionsRoute
@@ -789,6 +831,7 @@ export interface FileRoutesByTo {
   '/visit-war': typeof VisitWarRoute
   '/zone-brain': typeof ZoneBrainRoute
   '/zones': typeof ZonesRoute
+  '/admin/agreements': typeof AdminAgreementsRouteWithChildren
   '/admin/audit': typeof AdminAuditRoute
   '/admin/bookings': typeof AdminBookingsRoute
   '/admin/calendar': typeof AdminCalendarRoute
@@ -805,13 +848,16 @@ export interface FileRoutesByTo {
   '/admin/people': typeof AdminPeopleRoute
   '/admin/performance': typeof AdminPerformanceRouteWithChildren
   '/admin/property': typeof AdminPropertyRoute
+  '/admin/property-gallery': typeof AdminPropertyGalleryRouteWithChildren
   '/admin/radar': typeof AdminRadarRoute
+  '/admin/rents': typeof AdminRentsRoute
   '/admin/revenue': typeof AdminRevenueRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/supreme': typeof AdminSupremeRoute
   '/admin/tenants': typeof AdminTenantsRouteWithChildren
   '/admin/visits': typeof AdminVisitsRoute
   '/admin/warroom': typeof AdminWarroomRoute
+  '/admin/whatsapp': typeof AdminWhatsappRoute
   '/leads/add': typeof LeadsAddRoute
   '/myt/bookings': typeof MytBookingsRoute
   '/myt/calendar': typeof MytCalendarRoute
@@ -848,6 +894,8 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminIndexRoute
   '/myt': typeof MytIndexRoute
   '/supply-hub': typeof SupplyHubIndexRoute
+  '/admin/agreements/$id': typeof AdminAgreementsIdRoute
+  '/admin/property-gallery/$id': typeof AdminPropertyGalleryIdRoute
   '/admin/tenants/$id': typeof AdminTenantsIdRoute
   '/myt/feedback/$id': typeof MytFeedbackIdRoute
   '/myt/tcm/actions': typeof MytTcmActionsRoute
@@ -897,6 +945,7 @@ export interface FileRoutesById {
   '/visit-war': typeof VisitWarRoute
   '/zone-brain': typeof ZoneBrainRoute
   '/zones': typeof ZonesRoute
+  '/admin/agreements': typeof AdminAgreementsRouteWithChildren
   '/admin/audit': typeof AdminAuditRoute
   '/admin/bookings': typeof AdminBookingsRoute
   '/admin/calendar': typeof AdminCalendarRoute
@@ -913,13 +962,16 @@ export interface FileRoutesById {
   '/admin/people': typeof AdminPeopleRoute
   '/admin/performance': typeof AdminPerformanceRouteWithChildren
   '/admin/property': typeof AdminPropertyRoute
+  '/admin/property-gallery': typeof AdminPropertyGalleryRouteWithChildren
   '/admin/radar': typeof AdminRadarRoute
+  '/admin/rents': typeof AdminRentsRoute
   '/admin/revenue': typeof AdminRevenueRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/supreme': typeof AdminSupremeRoute
   '/admin/tenants': typeof AdminTenantsRouteWithChildren
   '/admin/visits': typeof AdminVisitsRoute
   '/admin/warroom': typeof AdminWarroomRoute
+  '/admin/whatsapp': typeof AdminWhatsappRoute
   '/leads/add': typeof LeadsAddRoute
   '/myt/bookings': typeof MytBookingsRoute
   '/myt/calendar': typeof MytCalendarRoute
@@ -956,6 +1008,8 @@ export interface FileRoutesById {
   '/admin/': typeof AdminIndexRoute
   '/myt/': typeof MytIndexRoute
   '/supply-hub/': typeof SupplyHubIndexRoute
+  '/admin/agreements/$id': typeof AdminAgreementsIdRoute
+  '/admin/property-gallery/$id': typeof AdminPropertyGalleryIdRoute
   '/admin/tenants/$id': typeof AdminTenantsIdRoute
   '/myt/feedback/$id': typeof MytFeedbackIdRoute
   '/myt/tcm/actions': typeof MytTcmActionsRoute
@@ -1006,6 +1060,7 @@ export interface FileRouteTypes {
     | '/visit-war'
     | '/zone-brain'
     | '/zones'
+    | '/admin/agreements'
     | '/admin/audit'
     | '/admin/bookings'
     | '/admin/calendar'
@@ -1022,13 +1077,16 @@ export interface FileRouteTypes {
     | '/admin/people'
     | '/admin/performance'
     | '/admin/property'
+    | '/admin/property-gallery'
     | '/admin/radar'
+    | '/admin/rents'
     | '/admin/revenue'
     | '/admin/settings'
     | '/admin/supreme'
     | '/admin/tenants'
     | '/admin/visits'
     | '/admin/warroom'
+    | '/admin/whatsapp'
     | '/leads/add'
     | '/myt/bookings'
     | '/myt/calendar'
@@ -1065,6 +1123,8 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/myt/'
     | '/supply-hub/'
+    | '/admin/agreements/$id'
+    | '/admin/property-gallery/$id'
     | '/admin/tenants/$id'
     | '/myt/feedback/$id'
     | '/myt/tcm/actions'
@@ -1112,6 +1172,7 @@ export interface FileRouteTypes {
     | '/visit-war'
     | '/zone-brain'
     | '/zones'
+    | '/admin/agreements'
     | '/admin/audit'
     | '/admin/bookings'
     | '/admin/calendar'
@@ -1128,13 +1189,16 @@ export interface FileRouteTypes {
     | '/admin/people'
     | '/admin/performance'
     | '/admin/property'
+    | '/admin/property-gallery'
     | '/admin/radar'
+    | '/admin/rents'
     | '/admin/revenue'
     | '/admin/settings'
     | '/admin/supreme'
     | '/admin/tenants'
     | '/admin/visits'
     | '/admin/warroom'
+    | '/admin/whatsapp'
     | '/leads/add'
     | '/myt/bookings'
     | '/myt/calendar'
@@ -1171,6 +1235,8 @@ export interface FileRouteTypes {
     | '/admin'
     | '/myt'
     | '/supply-hub'
+    | '/admin/agreements/$id'
+    | '/admin/property-gallery/$id'
     | '/admin/tenants/$id'
     | '/myt/feedback/$id'
     | '/myt/tcm/actions'
@@ -1219,6 +1285,7 @@ export interface FileRouteTypes {
     | '/visit-war'
     | '/zone-brain'
     | '/zones'
+    | '/admin/agreements'
     | '/admin/audit'
     | '/admin/bookings'
     | '/admin/calendar'
@@ -1235,13 +1302,16 @@ export interface FileRouteTypes {
     | '/admin/people'
     | '/admin/performance'
     | '/admin/property'
+    | '/admin/property-gallery'
     | '/admin/radar'
+    | '/admin/rents'
     | '/admin/revenue'
     | '/admin/settings'
     | '/admin/supreme'
     | '/admin/tenants'
     | '/admin/visits'
     | '/admin/warroom'
+    | '/admin/whatsapp'
     | '/leads/add'
     | '/myt/bookings'
     | '/myt/calendar'
@@ -1278,6 +1348,8 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/myt/'
     | '/supply-hub/'
+    | '/admin/agreements/$id'
+    | '/admin/property-gallery/$id'
     | '/admin/tenants/$id'
     | '/myt/feedback/$id'
     | '/myt/tcm/actions'
@@ -1848,6 +1920,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LeadsAddRouteImport
       parentRoute: typeof LeadsRoute
     }
+    '/admin/whatsapp': {
+      id: '/admin/whatsapp'
+      path: '/whatsapp'
+      fullPath: '/admin/whatsapp'
+      preLoaderRoute: typeof AdminWhatsappRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/warroom': {
       id: '/admin/warroom'
       path: '/warroom'
@@ -1890,11 +1969,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminRevenueRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/rents': {
+      id: '/admin/rents'
+      path: '/rents'
+      fullPath: '/admin/rents'
+      preLoaderRoute: typeof AdminRentsRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/radar': {
       id: '/admin/radar'
       path: '/radar'
       fullPath: '/admin/radar'
       preLoaderRoute: typeof AdminRadarRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/property-gallery': {
+      id: '/admin/property-gallery'
+      path: '/property-gallery'
+      fullPath: '/admin/property-gallery'
+      preLoaderRoute: typeof AdminPropertyGalleryRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/property': {
@@ -2009,6 +2102,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAuditRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/agreements': {
+      id: '/admin/agreements'
+      path: '/agreements'
+      fullPath: '/admin/agreements'
+      preLoaderRoute: typeof AdminAgreementsRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/property-owner/properties/new': {
       id: '/property-owner/properties/new'
       path: '/new'
@@ -2050,6 +2150,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/tenants/$id'
       preLoaderRoute: typeof AdminTenantsIdRouteImport
       parentRoute: typeof AdminTenantsRoute
+    }
+    '/admin/property-gallery/$id': {
+      id: '/admin/property-gallery/$id'
+      path: '/$id'
+      fullPath: '/admin/property-gallery/$id'
+      preLoaderRoute: typeof AdminPropertyGalleryIdRouteImport
+      parentRoute: typeof AdminPropertyGalleryRoute
+    }
+    '/admin/agreements/$id': {
+      id: '/admin/agreements/$id'
+      path: '/$id'
+      fullPath: '/admin/agreements/$id'
+      preLoaderRoute: typeof AdminAgreementsIdRouteImport
+      parentRoute: typeof AdminAgreementsRoute
     }
     '/property-owner/properties/$id/rooms': {
       id: '/property-owner/properties/$id/rooms'
@@ -2096,6 +2210,18 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AdminAgreementsRouteChildren {
+  AdminAgreementsIdRoute: typeof AdminAgreementsIdRoute
+}
+
+const AdminAgreementsRouteChildren: AdminAgreementsRouteChildren = {
+  AdminAgreementsIdRoute: AdminAgreementsIdRoute,
+}
+
+const AdminAgreementsRouteWithChildren = AdminAgreementsRoute._addFileChildren(
+  AdminAgreementsRouteChildren,
+)
+
 interface AdminPerformanceRouteChildren {
   AdminPerformanceFlowopsUserIdRoute: typeof AdminPerformanceFlowopsUserIdRoute
   AdminPerformancePropertyownerUserIdRoute: typeof AdminPerformancePropertyownerUserIdRoute
@@ -2112,6 +2238,17 @@ const AdminPerformanceRouteChildren: AdminPerformanceRouteChildren = {
 const AdminPerformanceRouteWithChildren =
   AdminPerformanceRoute._addFileChildren(AdminPerformanceRouteChildren)
 
+interface AdminPropertyGalleryRouteChildren {
+  AdminPropertyGalleryIdRoute: typeof AdminPropertyGalleryIdRoute
+}
+
+const AdminPropertyGalleryRouteChildren: AdminPropertyGalleryRouteChildren = {
+  AdminPropertyGalleryIdRoute: AdminPropertyGalleryIdRoute,
+}
+
+const AdminPropertyGalleryRouteWithChildren =
+  AdminPropertyGalleryRoute._addFileChildren(AdminPropertyGalleryRouteChildren)
+
 interface AdminTenantsRouteChildren {
   AdminTenantsIdRoute: typeof AdminTenantsIdRoute
 }
@@ -2125,6 +2262,7 @@ const AdminTenantsRouteWithChildren = AdminTenantsRoute._addFileChildren(
 )
 
 interface AdminRouteChildren {
+  AdminAgreementsRoute: typeof AdminAgreementsRouteWithChildren
   AdminAuditRoute: typeof AdminAuditRoute
   AdminBookingsRoute: typeof AdminBookingsRoute
   AdminCalendarRoute: typeof AdminCalendarRoute
@@ -2141,17 +2279,21 @@ interface AdminRouteChildren {
   AdminPeopleRoute: typeof AdminPeopleRoute
   AdminPerformanceRoute: typeof AdminPerformanceRouteWithChildren
   AdminPropertyRoute: typeof AdminPropertyRoute
+  AdminPropertyGalleryRoute: typeof AdminPropertyGalleryRouteWithChildren
   AdminRadarRoute: typeof AdminRadarRoute
+  AdminRentsRoute: typeof AdminRentsRoute
   AdminRevenueRoute: typeof AdminRevenueRoute
   AdminSettingsRoute: typeof AdminSettingsRoute
   AdminSupremeRoute: typeof AdminSupremeRoute
   AdminTenantsRoute: typeof AdminTenantsRouteWithChildren
   AdminVisitsRoute: typeof AdminVisitsRoute
   AdminWarroomRoute: typeof AdminWarroomRoute
+  AdminWhatsappRoute: typeof AdminWhatsappRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
+  AdminAgreementsRoute: AdminAgreementsRouteWithChildren,
   AdminAuditRoute: AdminAuditRoute,
   AdminBookingsRoute: AdminBookingsRoute,
   AdminCalendarRoute: AdminCalendarRoute,
@@ -2168,13 +2310,16 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminPeopleRoute: AdminPeopleRoute,
   AdminPerformanceRoute: AdminPerformanceRouteWithChildren,
   AdminPropertyRoute: AdminPropertyRoute,
+  AdminPropertyGalleryRoute: AdminPropertyGalleryRouteWithChildren,
   AdminRadarRoute: AdminRadarRoute,
+  AdminRentsRoute: AdminRentsRoute,
   AdminRevenueRoute: AdminRevenueRoute,
   AdminSettingsRoute: AdminSettingsRoute,
   AdminSupremeRoute: AdminSupremeRoute,
   AdminTenantsRoute: AdminTenantsRouteWithChildren,
   AdminVisitsRoute: AdminVisitsRoute,
   AdminWarroomRoute: AdminWarroomRoute,
+  AdminWhatsappRoute: AdminWhatsappRoute,
   AdminIndexRoute: AdminIndexRoute,
 }
 

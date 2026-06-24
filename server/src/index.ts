@@ -42,6 +42,7 @@ import { registerMediaRoutes } from "./modules/properties/media-routes.js";
 import { registerWhatsAppRoutes } from "./modules/whatsapp/routes.js";
 import { registerAgreementsRoutes } from "./modules/agreements/routes.js";
 import { registerAlertsRoutes } from "./modules/alerts/routes.js";
+import { registerFunnelRoutes } from "./modules/funnel/routes.js";
 import { ensureDefaultSuperAdmin } from "./auth/auth.js";
 
 async function main() {
@@ -143,6 +144,7 @@ h1{margin:0 0 .5rem;font-size:1.5rem;color:#34d399}p{margin:.25rem 0;color:#94a3
   registerWhatsAppRoutes(app);
   registerAgreementsRoutes(app);
   registerAlertsRoutes(app);
+  registerFunnelRoutes(app);
 
   // Static file serving for uploaded images
   const __dirname = dirname(fileURLToPath(import.meta.url));

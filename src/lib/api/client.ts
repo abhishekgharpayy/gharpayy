@@ -6,6 +6,7 @@
 // the VPS is provisioned. As soon as VITE_API_URL is set and reachable,
 // real network mode kicks in automatically.
 import { localAdapter, isLocalMode } from "./local-adapter";
+import { ulid } from "@/contracts";
 import { mockTcmList, mockTcmDetail, mockFlowOpsList, mockFlowOpsDetail, mockOwnersList, mockOwnerDetail, mockSummary } from "./mockPerformanceData";
 
 export const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
@@ -337,7 +338,15 @@ export const api = {
     list: () => request<ManagedUser[]>("/api/members"),
   },
   tcms: {
-    list: () => request<ManagedUser[]>("/api/tcms"),
+    list: () =>
+      safe<ManagedUser[]>(
+        () => request<ManagedUser[]>("/api/tcms"),
+        () => [
+          { id: "tcm-1", fullName: "Alice Johnson", email: "alice@local", phone: "", username: "alice", role: "tcm", status: "active", zones: ["Bangalore East"], createdAt: "" },
+          { id: "tcm-2", fullName: "Bob Smith", email: "bob@local", phone: "", username: "bob", role: "tcm", status: "active", zones: ["Bangalore South"], createdAt: "" },
+          { id: "tcm-3", fullName: "Charlie Davis", email: "charlie@local", phone: "", username: "charlie", role: "tcm", status: "active", zones: ["Bangalore East"], createdAt: "" },
+        ] as any[],
+      ),
   },
   owners: {
     list: () => request<ManagedUser[]>("/api/owners"),
@@ -351,7 +360,14 @@ export const api = {
     remove: (id: string) => request<{ ok: true }>(`/api/myt/zones/${id}`, { method: "DELETE" }),
   },
   properties: {
-    list: () => request<import("@/lib/types").Property[]>("/api/properties"),
+    list: () =>
+      safe<import("@/lib/types").Property[]>(
+        () => request<import("@/lib/types").Property[]>("/api/properties"),
+        () => [
+          { id: "prop-1", name: "Sunrise Apartments", zoneId: "Bangalore East", area: "Koramangala", address: "123 MG Road, Bangalore", totalBeds: 10, vacantBeds: 5, daysSinceLastBooking: 2, pricePerBed: 25000 },
+          { id: "prop-2", name: "Green Valley PG", zoneId: "Bangalore South", area: "HSR Layout", address: "456 Koramangala, Bangalore", totalBeds: 20, vacantBeds: 8, daysSinceLastBooking: 5, pricePerBed: 18000 },
+        ],
+      ),
     create: (input: any) =>
       request<import("@/lib/types").Property>("/api/properties", {
         method: "POST",
@@ -585,62 +601,141 @@ export const api = {
   },
   media: {
     list: (propertyId: string) =>
-      request<{
+      safe<{
         id: string; propertyId: string; roomId: string; url: string; thumbUrl: string;
         caption: string; isPrimary: boolean; size: number; mimeType: string; createdAt: string;
-      }[]>(`/api/media/${propertyId}`),
+      }[]>(
+        () => request<any[]>(`/api/media/${propertyId}`),
+        () => localAdapter.listMedia(propertyId),
+      ),
     upload: (input: { propertyId: string; roomId?: string; image: string; caption?: string; isPrimary?: boolean }) =>
-      request<any>("/api/media/upload", { method: "POST", body: JSON.stringify(input) }),
+      safe<any>(
+        () => request<any>("/api/media/upload", { method: "POST", body: JSON.stringify(input) }),
+        () => localAdapter.command({ _id: ulid(), type: "cmd.media.upload", payload: input }),
+      ),
     remove: (id: string) =>
-      request<{ ok: true }>(`/api/media/${id}`, { method: "DELETE" }),
+      safe<{ ok: true }>(
+        () => request<{ ok: true }>(`/api/media/${id}`, { method: "DELETE" }),
+        () => localAdapter.command({ _id: ulid(), type: "cmd.media.delete", payload: { id } }),
+      ),
     setPrimary: (id: string) =>
-      request<{ ok: true }>(`/api/media/${id}/primary`, { method: "PATCH" }),
+      safe<{ ok: true }>(
+        () => request<{ ok: true }>(`/api/media/${id}/primary`, { method: "PATCH" }),
+        () => localAdapter.command({ _id: ulid(), type: "cmd.media.setPrimary", payload: { id } }),
+      ),
   },
 
   whatsapp: {
-    conversations: (q: { status?: string; search?: string; limit?: number; cursor?: string } = {}) => {
-      const qs = new URLSearchParams(Object.entries(q).filter(([_, v]) => v != null).map(([k, v]) => [k, String(v)])).toString();
-      return request<{ items: any[]; nextCursor: string | null }>(`/api/whatsapp/conversations${qs ? `?${qs}` : ""}`);
-    },
-    messages: (conversationId: string, q: { limit?: number; cursor?: string } = {}) => {
-      const qs = new URLSearchParams(Object.entries(q).filter(([_, v]) => v != null).map(([k, v]) => [k, String(v)])).toString();
-      return request<{ items: any[]; nextCursor: string | null }>(`/api/whatsapp/conversations/${conversationId}/messages${qs ? `?${qs}` : ""}`);
-    },
+    conversations: (q: { status?: string; search?: string; limit?: number; cursor?: string } = {}) =>
+      safe<{ items: any[]; nextCursor: string | null }>(
+        () => {
+          const qs = new URLSearchParams(Object.entries(q).filter(([_, v]) => v != null).map(([k, v]) => [k, String(v)])).toString();
+          return request<{ items: any[]; nextCursor: string | null }>(`/api/whatsapp/conversations${qs ? `?${qs}` : ""}`);
+        },
+        () => localAdapter.listWhatsAppConversations(q),
+      ),
+    messages: (conversationId: string, q: { limit?: number; cursor?: string } = {}) =>
+      safe<{ items: any[]; nextCursor: string | null }>(
+        () => {
+          const qs = new URLSearchParams(Object.entries(q).filter(([_, v]) => v != null).map(([k, v]) => [k, String(v)])).toString();
+          return request<{ items: any[]; nextCursor: string | null }>(`/api/whatsapp/conversations/${conversationId}/messages${qs ? `?${qs}` : ""}`);
+        },
+        () => localAdapter.listWhatsAppMessages(conversationId, q),
+      ),
     send: (conversationId: string, text: string, mediaUrl?: string) =>
-      request<any>("/api/whatsapp/send", { method: "POST", body: JSON.stringify({ conversationId, text, mediaUrl: mediaUrl || "" }) }),
+      safe<any>(
+        () => request<any>("/api/whatsapp/send", { method: "POST", body: JSON.stringify({ conversationId, text, mediaUrl: mediaUrl || "" }) }),
+        () => localAdapter.command({ _id: ulid(), type: "cmd.whatsapp.send", payload: { conversationId, text, mediaUrl } }),
+      ),
     archive: (id: string, archived: boolean) =>
-      request<{ ok: true }>(`/api/whatsapp/conversations/${id}/archive`, { method: "PATCH", body: JSON.stringify({ archived }) }),
+      safe<{ ok: true }>(
+        () => request<{ ok: true }>(`/api/whatsapp/conversations/${id}/archive`, { method: "PATCH", body: JSON.stringify({ archived }) }),
+        () => localAdapter.command({ _id: ulid(), type: "cmd.whatsapp.archive", payload: { id, archived } }),
+      ),
   },
 
   agreements: {
-    list: (q: { status?: string; search?: string; limit?: number; cursor?: string } = {}) => {
-      const qs = new URLSearchParams(Object.entries(q).filter(([_, v]) => v != null).map(([k, v]) => [k, String(v)])).toString();
-      return request<{ items: any[]; nextCursor: string | null }>(`/api/agreements${qs ? `?${qs}` : ""}`);
-    },
-    get: (id: string) => request<any>(`/api/agreements/${id}`),
+    list: (q: { status?: string; search?: string; limit?: number; cursor?: string } = {}) =>
+      safe<{ items: any[]; nextCursor: string | null }>(
+        () => {
+          const qs = new URLSearchParams(Object.entries(q).filter(([_, v]) => v != null).map(([k, v]) => [k, String(v)])).toString();
+          return request<{ items: any[]; nextCursor: string | null }>(`/api/agreements${qs ? `?${qs}` : ""}`);
+        },
+        () => localAdapter.listAgreements(q),
+      ),
+    get: (id: string) =>
+      safe<any>(
+        () => request<any>(`/api/agreements/${id}`),
+        () => localAdapter.getAgreement(id),
+      ),
     create: (input: {
       bookingId: string; leadId: string; tenantName: string; tenantPhone: string;
       propertyName: string; propertyAddress: string; roomNumber?: string;
       rent: number; deposit: number; moveInDate: string; duration?: number; noticePeriod?: number;
-    }) => request<any>("/api/agreements", { method: "POST", body: JSON.stringify(input) }),
+    }) =>
+      safe<any>(
+        () => request<any>("/api/agreements", { method: "POST", body: JSON.stringify(input) }),
+        () => localAdapter.command({ _id: ulid(), type: "cmd.agreement.create", payload: input }),
+      ),
     update: (id: string, patch: Record<string, unknown>) =>
-      request<{ ok: true }>(`/api/agreements/${id}`, { method: "PUT", body: JSON.stringify(patch) }),
+      safe<{ ok: true }>(
+        () => request<{ ok: true }>(`/api/agreements/${id}`, { method: "PUT", body: JSON.stringify(patch) }),
+        () => localAdapter.command({ _id: ulid(), type: "cmd.agreement.update", payload: { id, patch } }),
+      ),
     savePdf: (id: string, pdfData: string) =>
-      request<{ ok: true }>(`/api/agreements/${id}/pdf`, { method: "PATCH", body: JSON.stringify({ pdfData }) }),
+      safe<{ ok: true }>(
+        () => request<{ ok: true }>(`/api/agreements/${id}/pdf`, { method: "PATCH", body: JSON.stringify({ pdfData }) }),
+        () => localAdapter.command({ _id: ulid(), type: "cmd.agreement.savePdf", payload: { id, pdfData } }),
+      ),
     sign: (id: string, role: "tenant" | "owner") =>
-      request<{ ok: true; status: string }>(`/api/agreements/${id}/sign`, { method: "PATCH", body: JSON.stringify({ role }) }),
-    remove: (id: string) => request<{ ok: true }>(`/api/agreements/${id}`, { method: "DELETE" }),
+      safe<{ ok: true; status: string }>(
+        () => request<{ ok: true; status: string }>(`/api/agreements/${id}/sign`, { method: "PATCH", body: JSON.stringify({ role }) }),
+        () => localAdapter.command({ _id: ulid(), type: "cmd.agreement.sign", payload: { id, role } }),
+      ),
+    remove: (id: string) =>
+      safe<{ ok: true }>(
+        () => request<{ ok: true }>(`/api/agreements/${id}`, { method: "DELETE" }),
+        () => localAdapter.command({ _id: ulid(), type: "cmd.agreement.delete", payload: { id } }),
+      ),
   },
 
   alerts: {
-    list: (q: { type?: string; severity?: string; includeDismissed?: boolean; limit?: number } = {}) => {
-      const qs = new URLSearchParams(Object.entries(q).filter(([_, v]) => v != null).map(([k, v]) => [k, String(v)])).toString();
-      return request<{ items: any[]; unreadCount: number }>(`/api/alerts${qs ? `?${qs}` : ""}`);
-    },
-    markRead: (id: string) => request<{ ok: true }>(`/api/alerts/${id}/read`, { method: "PATCH" }),
-    markAllRead: () => request<{ ok: true }>("/api/alerts/mark-all-read", { method: "POST" }),
-    dismiss: (id: string) => request<{ ok: true }>(`/api/alerts/${id}/dismiss`, { method: "PATCH" }),
-    unreadCount: () => request<{ unreadCount: number }>("/api/alerts/unread-count"),
+    list: (q: { type?: string; severity?: string; includeDismissed?: boolean; limit?: number } = {}) =>
+      safe<{ items: any[]; unreadCount: number }>(
+        () => {
+          const qs = new URLSearchParams(Object.entries(q).filter(([_, v]) => v != null).map(([k, v]) => [k, String(v)])).toString();
+          return request<{ items: any[]; unreadCount: number }>(`/api/alerts${qs ? `?${qs}` : ""}`);
+        },
+        () => localAdapter.listAlerts(q),
+      ),
+    markRead: (id: string) =>
+      safe<{ ok: true }>(
+        () => request<{ ok: true }>(`/api/alerts/${id}/read`, { method: "PATCH" }),
+        () => localAdapter.command({ _id: ulid(), type: "cmd.alert.markRead", payload: { id } }),
+      ),
+    markAllRead: () =>
+      safe<{ ok: true }>(
+        () => request<{ ok: true }>("/api/alerts/mark-all-read", { method: "POST" }),
+        () => localAdapter.command({ _id: ulid(), type: "cmd.alert.markAllRead", payload: {} }),
+      ),
+    dismiss: (id: string) =>
+      safe<{ ok: true }>(
+        () => request<{ ok: true }>(`/api/alerts/${id}/dismiss`, { method: "PATCH" }),
+        () => localAdapter.command({ _id: ulid(), type: "cmd.alert.dismiss", payload: { id } }),
+      ),
+    unreadCount: () =>
+      safe<{ unreadCount: number }>(
+        () => request<{ unreadCount: number }>("/api/alerts/unread-count"),
+        () => { const r = localAdapter.listAlerts({}); return { unreadCount: r.unreadCount }; },
+      ),
+  },
+
+  funnel: {
+    process: (input: { tours: any[]; bookings: any[] }) =>
+      safe<any>(
+        () => request<any>("/api/myt/funnel/process", { method: "POST", body: JSON.stringify(input) }),
+        () => localAdapter.processFunnel(input),
+      ),
   },
 
   performance: {
