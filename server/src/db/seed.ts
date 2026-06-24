@@ -302,7 +302,7 @@ async function runSeed() {
       phone: lead.phone,
       assignedTo: lead.assignedTcmId,
       lastMessage: lastMsgText,
-      lastMessageAt,
+      lastMessageAt: lastMsgAt,
       unreadCount: idx % 3 === 0 ? 1 : 0,
       status: "active",
       tags: [],
