@@ -213,7 +213,7 @@ export function SmartWaLayer({ lead }: { lead: Lead }) {
                     onClick={() => setStage(k)}
                     className={`text-[10px] px-2 py-1 rounded-md border transition-colors ${
                       stage === k
-                        ? "border-accent bg-accent text-accent-foreground"
+                        ? "border-accent bg-primary text-primary-foreground shadow-sm"
                         : "border-border hover:border-accent/50"
                     }`}
                   >

@@ -104,7 +104,7 @@ function AdminTenantDetail() {
                 />
                 <button
                   onClick={() => { useApp.getState().updateTenant(tenant.id, { notes: notes || undefined }); setEditNotes(false); }}
-                  className="text-[10px] px-3 py-1 rounded-md bg-accent text-accent-foreground"
+                  className="text-[10px] px-3 py-1 rounded-md bg-primary text-primary-foreground shadow-sm"
                 >
                   Save
                 </button>

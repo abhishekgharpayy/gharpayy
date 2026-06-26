@@ -233,7 +233,7 @@ function WhatsAppInbox() {
                       <div className={cn(
                         "max-w-[75%] rounded-xl px-3 py-2 text-xs",
                         msg.direction === "outbound"
-                          ? "bg-accent text-accent-foreground rounded-br-sm"
+                          ? "bg-primary text-primary-foreground shadow-sm rounded-br-sm"
                           : "bg-muted text-foreground rounded-bl-sm",
                       )}>
                         <p className="whitespace-pre-wrap">{msg.text}</p>

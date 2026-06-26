@@ -121,7 +121,7 @@ function PropertyGalleryDetail() {
               </div>
               {m.isPrimary && (
                 <div className="absolute top-2 left-2">
-                  <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-accent text-accent-foreground font-semibold">
+                  <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground shadow-sm font-semibold">
                     Primary
                   </span>
                 </div>

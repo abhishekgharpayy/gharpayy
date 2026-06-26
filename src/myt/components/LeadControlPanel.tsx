@@ -308,7 +308,7 @@ export function LeadControlPanel({ subject, trigger, defaultTab = "overview" }: 
                     key={t}
                     onClick={() => setTags((s) => s.includes(t) ? s.filter((x) => x !== t) : [...s, t])}
                     className={cn(
-                      "text-[10px] px-2 py-0.5 rounded-full border transition-colors",
+                      "text-[11px] font-medium rounded-full px-3 py-1 transition-colors",
                       tags.includes(t)
                         ? "bg-primary/15 border-primary/40 text-primary"
                         : "bg-surface-2 border-border text-muted-foreground hover:bg-surface-3"

@@ -607,10 +607,10 @@ function WhyPanel({
           <button
             key={t.key}
             onClick={() => onWhyTabChange(t.key)}
-            className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+            className={`text-[11px] font-medium rounded-full px-3 py-1 transition-colors ${
               whyTab === t.key
-                ? "bg-accent text-accent-foreground border-accent"
-                : "border-border text-muted-foreground hover:border-foreground/30"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "bg-card text-muted-foreground border border-border hover:bg-muted/50 hover:text-foreground"
             }`}
           >
             {t.label}
@@ -623,10 +623,10 @@ function WhyPanel({
           <div className="flex flex-wrap gap-1 mb-2">
             <button
               onClick={() => setWhyTcmFilter("all")}
-              className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+              className={`text-[11px] font-medium rounded-full px-3 py-1 transition-colors ${
                 whyTcmFilter === "all"
-                  ? "bg-accent text-accent-foreground border-accent"
-                  : "border-border text-muted-foreground hover:border-foreground/30"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-card text-muted-foreground border border-border hover:bg-muted/50 hover:text-foreground"
               }`}
             >
               All
@@ -635,10 +635,10 @@ function WhyPanel({
               <button
                 key={t.id}
                 onClick={() => setWhyTcmFilter(t.id)}
-                className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+                className={`text-[11px] font-medium rounded-full px-3 py-1 transition-colors ${
                   whyTcmFilter === t.id
-                    ? "bg-accent text-accent-foreground border-accent"
-                    : "border-border text-muted-foreground hover:border-foreground/30"
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "bg-card text-muted-foreground border border-border hover:bg-muted/50 hover:text-foreground"
                 }`}
               >
                 {t.name}
@@ -767,10 +767,10 @@ function ObjPanel({
           <button
             key={t.key}
             onClick={() => onObjTabChange(t.key)}
-            className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+            className={`text-[11px] font-medium rounded-full px-3 py-1 transition-colors ${
               objTab === t.key
-                ? "bg-accent text-accent-foreground border-accent"
-                : "border-border text-muted-foreground hover:border-foreground/30"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "bg-card text-muted-foreground border border-border hover:bg-muted/50 hover:text-foreground"
             }`}
           >
             {t.label}
@@ -782,10 +782,10 @@ function ObjPanel({
         <div className="flex flex-wrap gap-1 mb-2">
           <button
             onClick={() => onObjTcmChange("all")}
-            className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+            className={`text-[11px] font-medium rounded-full px-3 py-1 transition-colors ${
               objTcmFilter === "all"
-                ? "bg-accent text-accent-foreground border-accent"
-                : "border-border text-muted-foreground hover:border-foreground/30"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "bg-card text-muted-foreground border border-border hover:bg-muted/50 hover:text-foreground"
             }`}
           >
             All
@@ -794,10 +794,10 @@ function ObjPanel({
             <button
               key={t.id}
               onClick={() => onObjTcmChange(t.id)}
-              className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+              className={`text-[11px] font-medium rounded-full px-3 py-1 transition-colors ${
                 objTcmFilter === t.id
-                  ? "bg-accent text-accent-foreground border-accent"
-                  : "border-border text-muted-foreground hover:border-foreground/30"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-card text-muted-foreground border border-border hover:bg-muted/50 hover:text-foreground"
               }`}
             >
               {t.name}
@@ -865,10 +865,10 @@ function ClosePanel({
       <div className="flex flex-wrap gap-1 mb-2">
         <button
           onClick={() => onTcmChange("all")}
-          className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+          className={`text-[11px] font-medium rounded-full px-3 py-1 transition-colors ${
             tcmFilter === "all"
-              ? "bg-accent text-accent-foreground border-accent"
-              : "border-border text-muted-foreground hover:border-foreground/30"
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "bg-card text-muted-foreground border border-border hover:bg-muted/50 hover:text-foreground"
           }`}
         >
           All TCMs
@@ -877,10 +877,10 @@ function ClosePanel({
           <button
             key={t.id}
             onClick={() => onTcmChange(t.id)}
-            className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+            className={`text-[11px] font-medium rounded-full px-3 py-1 transition-colors ${
               tcmFilter === t.id
-                ? "bg-accent text-accent-foreground border-accent"
-                : "border-border text-muted-foreground hover:border-foreground/30"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "bg-card text-muted-foreground border border-border hover:bg-muted/50 hover:text-foreground"
             }`}
           >
             {t.name}
@@ -1002,7 +1002,7 @@ function LeadDetailPanel({ row }: { row: AdminLeadRow }) {
 
         <div className="flex gap-2 mt-4">
           <Button size="sm" variant="outline" className="flex-1 text-xs h-8" onClick={() => alert("Re-assign prompt opened.")}>Re-assign Lead</Button>
-          <Button size="sm" variant="default" className="flex-1 text-xs h-8 bg-accent text-accent-foreground hover:bg-accent/80" onClick={() => alert("Nudge sent to TCM.")}>Nudge TCM</Button>
+          <Button size="sm" variant="default" className="flex-1 text-xs h-8 bg-primary text-primary-foreground shadow-sm hover:bg-accent/80" onClick={() => alert("Nudge sent to TCM.")}>Nudge TCM</Button>
         </div>
 
         {row.calls.length > 0 && (

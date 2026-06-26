@@ -156,10 +156,10 @@ function AdminBookings() {
             <button
               key={s}
               onClick={() => setStatusFilter(s)}
-              className={`text-[10px] px-2.5 py-1 rounded-full border transition-colors ${
+              className={`text-[11px] font-medium rounded-full px-3 py-1 transition-colors ${
                 statusFilter === s
-                  ? "bg-accent text-accent-foreground border-accent"
-                  : "border-border text-muted-foreground hover:border-foreground/30"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-card text-muted-foreground border border-border hover:bg-muted/50 hover:text-foreground"
               }`}
             >
               {s.charAt(0).toUpperCase() + s.slice(1)}

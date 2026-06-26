@@ -81,7 +81,7 @@ function HandoffsPage() {
                         {hasUrgent && <AlertTriangle className="h-3.5 w-3.5 text-destructive" />}
                         <span className="font-medium text-sm">{lead.name}</span>
                         {unread > 0 && (
-                          <span className="inline-flex items-center rounded-full bg-accent text-accent-foreground px-1.5 py-0 text-[10px] font-mono">
+                          <span className="inline-flex items-center rounded-full bg-primary text-primary-foreground shadow-sm px-1.5 py-0 text-[10px] font-mono">
                             {unread} new
                           </span>
                         )}

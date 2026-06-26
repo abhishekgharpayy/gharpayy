@@ -351,7 +351,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   <span className={cn(
                     "ml-auto text-[10px] rounded-full px-1.5 py-0.5 font-mono",
                     it.accent
-                      ? "bg-accent text-accent-foreground"
+                      ? "bg-primary text-primary-foreground shadow-sm"
                       : "bg-destructive text-destructive-foreground",
                   )}>
                     {it.badge}

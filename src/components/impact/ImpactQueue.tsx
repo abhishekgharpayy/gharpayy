@@ -975,13 +975,13 @@ export function ImpactQueue() {
             )}
             <div className="flex rounded-md border border-border overflow-hidden bg-background">
               <button
-                className={`h-8 px-2 text-[9px] uppercase tracking-wider font-semibold flex items-center gap-1 ${view === "stack" ? "bg-accent text-accent-foreground" : "text-muted-foreground"}`}
+                className={`h-8 px-2 text-[9px] uppercase tracking-wider font-semibold flex items-center gap-1 ${view === "stack" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground"}`}
                 onClick={() => setView("stack")}
               >
                 <ListOrdered className="h-3 w-3" /> Stack
               </button>
               <button
-                className={`h-8 px-2 text-[9px] uppercase tracking-wider font-semibold flex items-center gap-1 ${view === "board" ? "bg-accent text-accent-foreground" : "text-muted-foreground"}`}
+                className={`h-8 px-2 text-[9px] uppercase tracking-wider font-semibold flex items-center gap-1 ${view === "board" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground"}`}
                 onClick={() => setView("board")}
               >
                 <LayoutGrid className="h-3 w-3" /> Board
@@ -2692,7 +2692,7 @@ function TemplateMessenger({
           <button
             key={v.id}
             onClick={() => apply(scenario, v.id)}
-            className={`h-6 px-2 rounded text-[10px] uppercase tracking-wider font-semibold border ${tpl.id === v.id ? "bg-accent text-accent-foreground border-accent" : "bg-card text-muted-foreground border-border hover:border-foreground/40"}`}
+            className={`h-6 px-2 rounded text-[10px] uppercase tracking-wider font-semibold border ${tpl.id === v.id ? "bg-primary text-primary-foreground shadow-sm" : "bg-card text-muted-foreground border-border hover:border-foreground/40"}`}
           >
             {v.label}
           </button>

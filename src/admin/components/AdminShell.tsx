@@ -58,7 +58,7 @@ export function AdminShell({ children, title, sub, actions }: { children: ReactN
                 className={cn(
                   "px-2.5 py-1 rounded-md transition-colors",
                   active
-                    ? "bg-accent text-accent-foreground"
+                    ? "bg-primary text-primary-foreground shadow-sm"
                     : "text-muted-foreground hover:bg-muted/60",
                 )}
               >

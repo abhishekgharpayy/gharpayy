@@ -213,7 +213,7 @@ function CommandBridge() {
             <button
               onClick={handleBroadcast}
               disabled={!broadcast.trim() || sendBroadcast.isPending}
-              className="text-xs bg-accent text-accent-foreground rounded px-3 py-1.5 font-medium disabled:opacity-40"
+              className="text-xs bg-primary text-primary-foreground shadow-sm rounded px-3 py-1.5 font-medium disabled:opacity-40"
             >
               {sendBroadcast.isPending ? "Sending…" : "Send + copy"}
             </button>

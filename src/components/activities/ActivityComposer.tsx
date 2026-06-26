@@ -93,7 +93,7 @@ function KindForm({ kind, onLog }: { kind: ActivityKind; onLog: Props["onLog"] }
       <div className="flex flex-wrap gap-1">
         {templates.map((t) => (
           <button key={t} type="button" onClick={() => setSubject(t)}
-            className={`text-[11px] px-2 py-1 rounded-full border transition-colors ${subject === t ? "bg-primary text-primary-foreground border-primary" : "hover:bg-muted"}`}>
+            className={`text-[11px] font-medium rounded-full px-3 py-1 transition-colors ${subject === t ? "bg-primary text-primary-foreground border-primary" : "hover:bg-muted"}`}>
             {t}
           </button>
         ))}
