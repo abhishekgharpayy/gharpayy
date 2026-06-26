@@ -69,7 +69,7 @@ function TenantControlTower() {
     enabled: !localMode,
   });
 
-  const { data: supremeData } = useLiveSupremeMetrics();
+  const supremeData = useLiveSupremeMetrics();
 
   const isLoading = !localMode && (loadingTenants || loadingPayments);
 
@@ -85,7 +85,7 @@ function TenantControlTower() {
         name: l.name || l.fullName || "Impact Queue Lead",
         phone: l.phone || "N/A",
         status: "active",
-        rent: l.bookings?.[0]?.amount || 0,
+        rent: (l.bookings && l.bookings.length > 0) ? l.bookings[0].amount : 0,
         propertyName: l.propertyName || "Unassigned",
         propertyId: "impact_queue",
         createdAt: new Date().toISOString(),

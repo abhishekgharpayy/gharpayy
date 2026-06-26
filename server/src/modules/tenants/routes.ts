@@ -27,6 +27,24 @@ export function registerTenantsRoutes(app: FastifyInstance) {
     return reply.send({ items, nextCursor: items.length === q.limit ? items[items.length - 1]._id : null });
   });
 
+  app.post("/api/tenants", { preHandler: [requireAuth] }, async (req, reply) => {
+    const payload = req.body as Partial<TenantEntity>;
+    const tenant: TenantEntity = {
+      _id: "tnt_" + Date.now() + Math.random().toString(36).substring(2, 6),
+      tenantId: req.user!.tenantId,
+      name: payload.name || "Unknown",
+      phone: payload.phone || "N/A",
+      rent: payload.rent || 0,
+      propertyName: payload.propertyName || "Unassigned",
+      propertyId: payload.propertyId || "unassigned",
+      status: "active",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    await col<TenantEntity>("tenants").insertOne(tenant);
+    return reply.send(tenant);
+  });
+
   app.get("/api/tenants/:id", { preHandler: [requireAuth, requireScope("tenant.read")] }, async (req, reply) => {
     const { id } = req.params as { id: string };
     const tenant = await col<TenantEntity>("tenants").findOne({ _id: id, tenantId: req.user!.tenantId });
