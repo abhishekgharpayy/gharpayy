@@ -7,6 +7,7 @@ import { api } from "@/lib/api/client";
 import { useAuthUser, isLocalMode } from "@/lib/auth-store";
 import { useApp } from "@/lib/store";
 import { useLiveSupremeMetrics } from "@/admin/lib/use-live-supreme";
+import { dispatch } from "@/lib/api/command-bus";
 import { Users, AlertTriangle, TrendingDown, Clock, Building2, CheckCircle2, ShieldAlert, ArrowUpRight, Search, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -79,17 +80,22 @@ function TenantControlTower() {
   const impactTenants = useMemo(() => {
     if (!supremeData?.rawData?.leads) return [];
     return supremeData.rawData.leads
-      .filter((l: any) => l.stage === "booked" || l.status === "won")
-      .map((l: any) => ({
-        id: l._id || l.id,
-        name: l.name || l.fullName || "Impact Queue Lead",
-        phone: l.phone || "N/A",
-        status: "active",
-        rent: (l.bookings && l.bookings.length > 0) ? l.bookings[0].amount : 0,
-        propertyName: l.propertyName || "Unassigned",
-        propertyId: "impact_queue",
-        createdAt: new Date().toISOString(),
-      }));
+      .filter((l: any) => l.stage === "booked")
+      .map((l: any) => {
+        const booking = supremeData.rawData.bookings?.find((b: any) => b.leadId === (l._id || l.id));
+        const prop = supremeData.rawData.properties?.find((p: any) => p._id === booking?.propertyId || p.id === booking?.propertyId);
+        
+        return {
+          id: l._id || l.id,
+          name: l.name || l.fullName || "Impact Queue Lead",
+          phone: l.phone || "N/A",
+          status: "active",
+          rent: booking?.amount || l.budget || 0,
+          propertyName: prop?.name || l.preferredArea || "Unassigned",
+          propertyId: "impact_queue",
+          createdAt: l.createdAt || new Date().toISOString(),
+        };
+      });
   }, [supremeData]);
 
   const rawTenants = [...impactTenants, ...rawTenantsBase];
@@ -127,6 +133,7 @@ function TenantControlTower() {
         openRentAmount,
         moveOutDate: t.moveOutDate,
         createdAt: t.createdAt,
+        isImpactLead: t.propertyId === "impact_queue",
       };
     });
   }, [rawTenants, rawPayments, rawProperties]);
@@ -315,7 +322,16 @@ function TenantControlTower() {
                   </td>
 
                   <td className="px-4 py-4">
-                    <button className="p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-md transition-colors">
+                    <button 
+                      onClick={() => {
+                        if (s.isImpactLead) {
+                          dispatch({ type: "cmd.ui.dossier.open", payload: { leadId: s.id } });
+                        } else {
+                          toast.info("Full tenant profiles coming soon!");
+                        }
+                      }}
+                      className="p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-md transition-colors"
+                    >
                       <ArrowUpRight className="w-4 h-4" />
                     </button>
                   </td>
