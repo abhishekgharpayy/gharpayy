@@ -18,6 +18,7 @@ function PropertyGalleryDetail() {
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadCaption, setUploadCaption] = useState("");
+  const [viewerImage, setViewerImage] = useState<any | null>(null);
 
   const { data: property } = useQuery({
     queryKey: ["properties", id],
@@ -94,7 +95,7 @@ function PropertyGalleryDetail() {
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
           {media.map((m: any) => (
             <div key={m.id} className="group relative rounded-xl border border-border bg-card overflow-hidden">
-              <div className="aspect-[4/3] bg-muted/20">
+              <div className="aspect-[4/3] bg-muted/20 cursor-zoom-in" onClick={() => setViewerImage(m)}>
                 <img src={m.url} alt={m.caption || "Property photo"} className="w-full h-full object-cover" />
               </div>
               <div className="p-2">
@@ -153,6 +154,73 @@ function PropertyGalleryDetail() {
               {uploadMutation.isPending ? "Uploading..." : "Upload"}
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Lightbox Viewer Dialog */}
+      <Dialog open={!!viewerImage} onOpenChange={(o) => { if (!o) setViewerImage(null); }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Photo Details</DialogTitle>
+            <DialogDescription>Information about the uploaded property image</DialogDescription>
+          </DialogHeader>
+          {viewerImage && (
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="aspect-[4/3] bg-muted/20 rounded-lg overflow-hidden flex items-center justify-center">
+                <img src={viewerImage.url} alt={viewerImage.caption || "Full resolution"} className="w-full h-full object-cover" />
+              </div>
+              <div className="space-y-4 text-xs flex flex-col justify-between">
+                <div className="space-y-2">
+                  <div>
+                    <span className="text-muted-foreground block uppercase text-[9px] tracking-wider font-semibold">Caption</span>
+                    <span className="text-sm font-medium">{viewerImage.caption || "No caption provided"}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground block uppercase text-[9px] tracking-wider font-semibold">Type</span>
+                    <span className="font-mono">{viewerImage.isPrimary ? "Primary Cover Photo" : "Standard Photo"}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground block uppercase text-[9px] tracking-wider font-semibold">Size</span>
+                    <span className="font-mono">{(viewerImage.size ? (viewerImage.size / 1024).toFixed(1) : "0.0")} KB</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground block uppercase text-[9px] tracking-wider font-semibold">Format</span>
+                    <span className="font-mono">{viewerImage.mimeType || "image/jpeg"}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground block uppercase text-[9px] tracking-wider font-semibold">Uploaded At</span>
+                    <span>{viewerImage.createdAt ? new Date(viewerImage.createdAt).toLocaleString("en-IN") : "Unknown"}</span>
+                  </div>
+                </div>
+                <div className="flex gap-2 pt-2 border-t border-border">
+                  {!viewerImage.isPrimary && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1 gap-1"
+                      onClick={() => {
+                        setPrimaryMutation.mutate(viewerImage.id);
+                        setViewerImage(null);
+                      }}
+                    >
+                      <Star size={12} /> Set Primary
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="flex-1 gap-1"
+                    onClick={() => {
+                      deleteMutation.mutate(viewerImage.id);
+                      setViewerImage(null);
+                    }}
+                  >
+                    <Trash2 size={12} /> Delete
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

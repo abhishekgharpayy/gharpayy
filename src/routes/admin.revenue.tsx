@@ -93,7 +93,7 @@ function AdminRevenue() {
     // Calculate Monthly Trend (Mocked based on leads creation date for demo)
     const months: Record<string, { name: string, expected: number, realized: number }> = {};
     leads.forEach(l => {
-       const d = new Date(l.createdAt);
+       const d = l.createdAt ? new Date(l.createdAt) : new Date(l.updatedAt || Date.now());
        const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2, '0')}`;
        if (!months[key]) months[key] = { name: key, expected: 0, realized: 0 };
        

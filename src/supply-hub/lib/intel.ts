@@ -239,7 +239,8 @@ const NIGHTLIFE_HIGH = ["koramangala", "indiranagar", "hsr", "mg road"];
 const NIGHTLIFE_MID = ["bellandur", "marathahalli", "btm", "whitefield"];
 
 export function areaMood(area: string): AreaMood | null {
-  const intel = AREAS.find((a) => a.area.toLowerCase() === area.toLowerCase());
+  if (!area) return null;
+  const intel = AREAS.find((a) => (a.area || "").toLowerCase() === area.toLowerCase());
   if (!intel) return null;
   const a = area.toLowerCase();
   const nightlife: AreaMood["nightlife"] =
@@ -281,7 +282,7 @@ export function findAlternatives(pg: PG, objection: Objection, all: PG[]): PG[] 
     case "no_ac":
       return sameArea.filter((p) => p.amenities.some((a) => /\bac\b|air-?con/i.test(a))).sort((a, b) => b.iq - a.iq).slice(0, 3);
     case "wrong_food":
-      return sameArea.filter((p) => p.foodType?.toLowerCase().includes("both") || p.foodType?.toLowerCase().includes("non")).sort((a, b) => b.iq - a.iq).slice(0, 3);
+      return sameArea.filter((p) => (p.foodType || "").toLowerCase().includes("both") || (p.foodType || "").toLowerCase().includes("non")).sort((a, b) => b.iq - a.iq).slice(0, 3);
     default:
       return sameArea.slice(0, 3);
   }

@@ -1,16 +1,22 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 
 import { useApp } from "@/lib/store";
 import { useAuthUser } from "@/lib/auth-store";
-import { Link } from "@tanstack/react-router";
+
+function TenantsLayout() {
+  const { location } = useRouterState();
+  const isExact = location.pathname === "/admin/tenants";
+  if (isExact) return <AdminTenants />;
+  return <Outlet />;
+}
 
 export const Route = createFileRoute("/admin/tenants")({
   beforeLoad: () => {
     const role = useAuthUser.getState().user?.role;
     if (role !== "super_admin") throw new Error("Unauthorized");
   },
-  component: AdminTenants,
+  component: TenantsLayout,
 });
 
 const STATUS_STYLES: Record<string, string> = {
@@ -42,7 +48,7 @@ function AdminTenants() {
   const filtered = useMemo(() => {
     return tenants
       .filter((t) => statusFilter === "all" || t.status === statusFilter)
-      .filter((t) => !search || t.name.toLowerCase().includes(search.toLowerCase()) || t.phone.includes(search))
+      .filter((t) => !search || (t.name || '').toLowerCase().includes(search.toLowerCase()) || (t.phone || '').includes(search))
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [tenants, statusFilter, search]);
 
@@ -77,11 +83,12 @@ function AdminTenants() {
             <button
               key={s}
               onClick={() => setStatusFilter(s)}
-              className={`text-[10px] px-2.5 py-1 rounded-full border transition-colors ${
+              className={cn(
+                "text-[11px] font-medium rounded-full px-3 py-1 transition-colors",
                 statusFilter === s
-                  ? "bg-accent text-accent-foreground border-accent"
-                  : "border-border text-muted-foreground hover:border-foreground/30"
-              }`}
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-card text-muted-foreground border border-border hover:bg-muted/50 hover:text-foreground"
+              )}
             >
               {s.charAt(0).toUpperCase() + s.slice(1)}
             </button>

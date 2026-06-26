@@ -116,7 +116,10 @@ export function registerWhatsAppRoutes(app: FastifyInstance) {
   });
 
   const SendMessageBody = z.object({
-    conversationId: z.string().min(1),
+    conversationId: z.string().optional(),
+    phone: z.string().optional(),
+    leadName: z.string().optional(),
+    leadId: z.string().optional(),
     text: z.string().min(1).max(5000),
     mediaUrl: z.string().optional().default(""),
   });
@@ -125,34 +128,87 @@ export function registerWhatsAppRoutes(app: FastifyInstance) {
     try {
       const body = SendMessageBody.parse(req.body);
       const now = new Date().toISOString();
+      const tenantId = req.user!.tenantId;
 
-      const conv = await conversations().findOne({
-        _id: body.conversationId,
-        tenantId: req.user!.tenantId,
-      });
-      if (!conv) return reply.code(404).send({ code: "NOT_FOUND", message: "Conversation not found" });
+      let convId = body.conversationId;
+
+      if (!convId) {
+        if (!body.phone) {
+          return reply.code(400).send({ code: "BAD_REQUEST", message: "Either conversationId or phone is required" });
+        }
+
+        let conv = await conversations().findOne({
+          phone: body.phone,
+          tenantId,
+        });
+
+        if (!conv) {
+          convId = ulid();
+          const newConv: ConversationDoc = {
+            _id: convId,
+            tenantId,
+            leadId: body.leadId || "",
+            leadName: body.leadName || body.phone,
+            phone: body.phone,
+            assignedTo: req.user!.sub,
+            lastMessage: body.text,
+            lastMessageAt: now,
+            unreadCount: 0,
+            status: "active",
+            tags: [],
+            createdAt: now,
+            updatedAt: now,
+          };
+          try {
+            await conversations().insertOne(newConv);
+          } catch (err: any) {
+            if (err.code === 11000) {
+              const existingConv = await conversations().findOne({
+                phone: body.phone,
+                tenantId,
+              });
+              if (existingConv) {
+                convId = existingConv._id;
+              } else {
+                throw err;
+              }
+            } else {
+              throw err;
+            }
+          }
+        } else {
+          convId = conv._id;
+        }
+      } else {
+        const conv = await conversations().findOne({
+          _id: convId,
+          tenantId,
+        });
+        if (!conv) return reply.code(404).send({ code: "NOT_FOUND", message: "Conversation not found" });
+      }
 
       const msgDoc: MessageDoc = {
         _id: ulid(),
-        tenantId: req.user!.tenantId,
-        conversationId: body.conversationId,
+        tenantId,
+        conversationId: convId,
         direction: "outbound",
         text: body.text,
         mediaUrl: body.mediaUrl,
         status: "sent",
         sentById: req.user!.sub,
-        sentByName: req.user!.fullName,
+        sentByName: req.user!.fullName || req.user!.username || "You",
         createdAt: now,
       };
       await messages().insertOne(msgDoc);
 
       await conversations().updateOne(
-        { _id: body.conversationId },
+        { _id: convId },
         { $set: { lastMessage: body.text, lastMessageAt: now, updatedAt: now } },
       );
 
       return reply.code(201).send({
         id: msgDoc._id,
+        conversationId: convId,
         direction: "outbound",
         text: msgDoc.text,
         status: msgDoc.status,

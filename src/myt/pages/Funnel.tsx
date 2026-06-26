@@ -1,21 +1,73 @@
-import { useEffect, useState } from 'react';
-import { useAppState } from '@/myt/lib/app-context';
+import { useEffect, useState, useMemo } from 'react';
+import { useApp } from '@/lib/store';
 import { api } from '@/lib/api/client';
 import { AlertTriangle, Activity, Target, BarChart3, UserCheck, Clock, Zap, DollarSign, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export default function Funnel() {
-  const { tours, bookings } = useAppState();
+  const { tours: dbTours, bookings: dbBookings, leads, properties, tcms } = useApp();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
+  const mappedTours = useMemo(() => {
+    return dbTours.map((t) => {
+      const lead = leads.find((l) => l.id === t.leadId);
+      const property = properties.find((p) => p.id === t.propertyId);
+      const tcm = tcms.find((u) => u.id === t.tcmId);
+      
+      const tourDateStr = t.scheduledAt ? new Date(t.scheduledAt).toISOString().split('T')[0] : '';
+      const tourTimeStr = t.scheduledAt ? new Date(t.scheduledAt).toTimeString().split(' ')[0].slice(0, 5) : '';
+
+      return {
+        id: t.id,
+        leadName: lead?.name || "Unknown",
+        assignedTo: t.tcmId || "",
+        assignedToName: tcm?.name || "Unknown",
+        propertyName: property?.name || t.customPropertyName || "Unknown",
+        area: property?.area || "",
+        zoneId: lead?.zoneCategory || "",
+        tourDate: tourDateStr,
+        tourTime: tourTimeStr,
+        status: t.status || "",
+        showUp: t.showUp,
+        outcome: t.decision || t.postTour?.outcome || null,
+        budget: lead?.budget || 0,
+        createdAt: t.createdAt || new Date().toISOString(),
+        whyLost: t.postTour?.objection || null,
+        intent: lead?.intent || "warm",
+        confirmationStrength: t.postTour?.confidence ? String(t.postTour.confidence) : "50",
+      };
+    });
+  }, [dbTours, leads, properties, tcms]);
+
+  const mappedBookings = useMemo(() => {
+    return dbBookings.map((b) => {
+      const lead = leads.find((l) => l.id === b.leadId);
+      const property = properties.find((p) => p.id === b.propertyId);
+      const tcm = tcms.find((u) => u.id === b.tcmId);
+
+      return {
+        id: b.id,
+        leadName: lead?.name || b.tenantName || "Unknown",
+        propertyName: property?.name || "Unknown",
+        area: property?.area || "",
+        rentValue: b.amount || 0,
+        viaTour: !!b.tourId,
+        tourId: b.tourId || null,
+        closedBy: b.tcmId || "",
+        closedByName: tcm?.name || "Unknown",
+        createdAt: b.ts || b.updatedAt || new Date().toISOString(),
+      };
+    });
+  }, [dbBookings, leads, properties, tcms]);
+
   useEffect(() => {
     setLoading(true);
-    api.funnel.process({ tours, bookings }).then((result) => {
+    api.funnel.process({ tours: mappedTours, bookings: mappedBookings }).then((result) => {
       setData(result);
       setLoading(false);
     });
-  }, [tours, bookings]);
+  }, [mappedTours, mappedBookings]);
 
   if (loading) {
     return (

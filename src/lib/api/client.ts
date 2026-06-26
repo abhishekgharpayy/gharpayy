@@ -7,7 +7,7 @@
 // real network mode kicks in automatically.
 import { localAdapter, isLocalMode } from "./local-adapter";
 import { ulid } from "@/contracts";
-import { mockTcmList, mockTcmDetail, mockFlowOpsList, mockFlowOpsDetail, mockOwnersList, mockOwnerDetail, mockSummary } from "./mockPerformanceData";
+
 
 export const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 
@@ -122,6 +122,33 @@ async function safe<T>(networkFn: () => Promise<T>, localFn: () => T): Promise<T
   if (isLocalMode()) return localFn();
   return await networkFn();
 }
+
+export const apiClient = {
+  get: <T>(path: string, opts?: { params?: Record<string, any> }) => {
+    const qs = opts?.params
+      ? `?${new URLSearchParams(Object.entries(opts.params).map(([k, v]) => [k, String(v)])).toString()}`
+      : "";
+    return request<T>(`${path}${qs}`);
+  },
+  post: <T>(path: string, body?: unknown) =>
+    request<T>(path, {
+      method: "POST",
+      body: body != null ? JSON.stringify(body) : undefined,
+    }),
+  put: <T>(path: string, body?: unknown) =>
+    request<T>(path, {
+      method: "PUT",
+      body: body != null ? JSON.stringify(body) : undefined,
+    }),
+  patch: <T>(path: string, body?: unknown) =>
+    request<T>(path, {
+      method: "PATCH",
+      body: body != null ? JSON.stringify(body) : undefined,
+    }),
+  delete: <T>(path: string) =>
+    request<T>(path, { method: "DELETE" }),
+};
+
 
 // ---------- Types shared with Settings UI ----------
 export type ManagedRole = "manager" | "admin" | "member" | "owner" | "tcm";
@@ -341,11 +368,7 @@ export const api = {
     list: () =>
       safe<ManagedUser[]>(
         () => request<ManagedUser[]>("/api/tcms"),
-        () => [
-          { id: "tcm-1", fullName: "Alice Johnson", email: "alice@local", phone: "", username: "alice", role: "tcm", status: "active", zones: ["Bangalore East"], createdAt: "" },
-          { id: "tcm-2", fullName: "Bob Smith", email: "bob@local", phone: "", username: "bob", role: "tcm", status: "active", zones: ["Bangalore South"], createdAt: "" },
-          { id: "tcm-3", fullName: "Charlie Davis", email: "charlie@local", phone: "", username: "charlie", role: "tcm", status: "active", zones: ["Bangalore East"], createdAt: "" },
-        ] as any[],
+        () => [],
       ),
   },
   owners: {
@@ -363,10 +386,7 @@ export const api = {
     list: () =>
       safe<import("@/lib/types").Property[]>(
         () => request<import("@/lib/types").Property[]>("/api/properties"),
-        () => [
-          { id: "prop-1", name: "Sunrise Apartments", zoneId: "Bangalore East", area: "Koramangala", address: "123 MG Road, Bangalore", totalBeds: 10, vacantBeds: 5, daysSinceLastBooking: 2, pricePerBed: 25000 },
-          { id: "prop-2", name: "Green Valley PG", zoneId: "Bangalore South", area: "HSR Layout", address: "456 Koramangala, Bangalore", totalBeds: 20, vacantBeds: 8, daysSinceLastBooking: 5, pricePerBed: 18000 },
-        ],
+        () => [],
       ),
     create: (input: any) =>
       request<import("@/lib/types").Property>("/api/properties", {
@@ -642,10 +662,10 @@ export const api = {
         },
         () => localAdapter.listWhatsAppMessages(conversationId, q),
       ),
-    send: (conversationId: string, text: string, mediaUrl?: string) =>
+    send: (conversationId?: string, text: string, mediaUrl?: string, phone?: string, leadName?: string, leadId?: string) =>
       safe<any>(
-        () => request<any>("/api/whatsapp/send", { method: "POST", body: JSON.stringify({ conversationId, text, mediaUrl: mediaUrl || "" }) }),
-        () => localAdapter.command({ _id: ulid(), type: "cmd.whatsapp.send", payload: { conversationId, text, mediaUrl } }),
+        () => request<any>("/api/whatsapp/send", { method: "POST", body: JSON.stringify({ conversationId, text, mediaUrl: mediaUrl || "", phone, leadName, leadId }) }),
+        () => localAdapter.command({ _id: ulid(), type: "cmd.whatsapp.send", payload: { conversationId, text, mediaUrl, phone, leadName, leadId } }),
       ),
     archive: (id: string, archived: boolean) =>
       safe<{ ok: true }>(
@@ -740,51 +760,30 @@ export const api = {
 
   performance: {
     tcm: (q?: { startDate?: string; endDate?: string }) => {
-      if (typeof window !== 'undefined' && window.localStorage.getItem('MOCK_PERF') === 'true') {
-        return Promise.resolve(mockTcmList);
-      }
       const qs = new URLSearchParams(q as Record<string, string>).toString();
       return request<any[]>(`/api/v1/admin/performance/tcm${qs ? `?${qs}` : ""}`);
     },
     tcmDetail: (userId: string, q?: { startDate?: string; endDate?: string }) => {
-      if (typeof window !== 'undefined' && window.localStorage.getItem('MOCK_PERF') === 'true') {
-        return Promise.resolve(mockTcmDetail(userId));
-      }
       const qs = new URLSearchParams(q as Record<string, string>).toString();
       return request<any>(`/api/v1/admin/performance/tcm/${userId}${qs ? `?${qs}` : ""}`);
     },
     flowops: (q?: { startDate?: string; endDate?: string }) => {
-      if (typeof window !== 'undefined' && window.localStorage.getItem('MOCK_PERF') === 'true') {
-        return Promise.resolve(mockFlowOpsList);
-      }
       const qs = new URLSearchParams(q as Record<string, string>).toString();
       return request<any[]>(`/api/v1/admin/performance/flowops${qs ? `?${qs}` : ""}`);
     },
     flowopsDetail: (userId: string, q?: { startDate?: string; endDate?: string }) => {
-      if (typeof window !== 'undefined' && window.localStorage.getItem('MOCK_PERF') === 'true') {
-        return Promise.resolve(mockFlowOpsDetail(userId));
-      }
       const qs = new URLSearchParams(q as Record<string, string>).toString();
       return request<any>(`/api/v1/admin/performance/flowops/${userId}${qs ? `?${qs}` : ""}`);
     },
     propertyowners: (q?: { startDate?: string; endDate?: string }) => {
-      if (typeof window !== 'undefined' && window.localStorage.getItem('MOCK_PERF') === 'true') {
-        return Promise.resolve(mockOwnersList);
-      }
       const qs = new URLSearchParams(q as Record<string, string>).toString();
       return request<any[]>(`/api/v1/admin/performance/propertyowners${qs ? `?${qs}` : ""}`);
     },
     propertyownerDetail: (userId: string, q?: { startDate?: string; endDate?: string }) => {
-      if (typeof window !== 'undefined' && window.localStorage.getItem('MOCK_PERF') === 'true') {
-        return Promise.resolve(mockOwnerDetail(userId));
-      }
       const qs = new URLSearchParams(q as Record<string, string>).toString();
       return request<any>(`/api/v1/admin/performance/propertyowner/${userId}${qs ? `?${qs}` : ""}`);
     },
     summary: (q?: { startDate?: string; endDate?: string }) => {
-      if (typeof window !== 'undefined' && window.localStorage.getItem('MOCK_PERF') === 'true') {
-        return Promise.resolve(mockSummary);
-      }
       const qs = new URLSearchParams(q as Record<string, string>).toString();
       return request<{
         totalTours: number;
@@ -797,6 +796,19 @@ export const api = {
         activePropertyOwners: number;
       }>(`/api/v1/admin/performance/summary${qs ? `?${qs}` : ""}`);
     },
+  },
+
+  people360: {
+    workload: () =>
+      request<{ items: any[] }>("/api/v1/admin/people360/workload"),
+    pulse: (q?: { limit?: number; kind?: string }) => {
+      const qs = new URLSearchParams(
+        Object.entries(q ?? {}).filter(([, v]) => v != null).map(([k, v]) => [k, String(v)])
+      ).toString();
+      return request<{ items: any[] }>(`/api/v1/admin/people360/pulse${qs ? `?${qs}` : ""}`);
+    },
+    risk: () =>
+      request<{ items: any[] }>("/api/v1/admin/people360/risk"),
   },
 };
 

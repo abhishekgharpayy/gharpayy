@@ -26,7 +26,7 @@ export function ExecutionQueue() {
   }).filter((x) => x.action), [leads, nowDate]);
 
   const filtered = q
-    ? enriched.filter((e) => e.lead.name.toLowerCase().includes(q.toLowerCase()))
+    ? enriched.filter((e) => (e.lead.name || "").toLowerCase().includes(q.toLowerCase()))
     : enriched;
 
   const dueNow = filtered.filter((e) => e.breach !== "ok");

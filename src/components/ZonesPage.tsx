@@ -249,10 +249,10 @@ export function ZonesPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {zones
             .filter((z) => {
-              const term = searchTerm.toLowerCase();
+              const term = (searchTerm || "").toLowerCase();
               return (
-                z.name.toLowerCase().includes(term) ||
-                (z.city && z.city.toLowerCase().includes(term))
+                (z.name || "").toLowerCase().includes(term) ||
+                ((z.city || "").toLowerCase().includes(term))
               );
             })
             .map((zone) => (

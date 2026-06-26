@@ -223,6 +223,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       { to: "/admin/calendar", label: "Master Calendar", icon: Calendar },
       { to: "/admin/owners", label: "Master Owners", icon: ShieldCheck },
       { to: "/admin/people", label: "People 360", icon: Users },
+      { to: "/admin/people360", label: "People 360 Pro", icon: Sparkles },
       { to: "/admin/radar", label: "Radar", icon: Radar },
       { to: "/admin/intelligence", label: "Intelligence", icon: Activity },
       { to: "/admin/health-score", label: "⚡ Health Score", icon: HeartPulse },

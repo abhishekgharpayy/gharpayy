@@ -94,7 +94,7 @@ function pickBedPrice(pg: PG, occupancy: string | undefined): { price: number | 
 }
 
 function audienceTag(lead: AppLead): "Student" | "Working" | "Both" {
-  const tags = lead.tags.map((t) => t.toLowerCase());
+  const tags = (lead.tags || []).map((t) => (t || '').toLowerCase());
   if (tags.includes("student")) return "Student";
   if (tags.includes("working")) return "Working";
   return "Both";

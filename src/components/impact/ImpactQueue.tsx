@@ -628,8 +628,8 @@ export function ImpactQueue() {
     const tFilter = (lead: Lead) =>
       inScope(lead) &&
       (!query.trim() ||
-        lead.name.toLowerCase().includes(query.toLowerCase()) ||
-        lead.phone.includes(query));
+        (lead.name || "").toLowerCase().includes((query || "").toLowerCase()) ||
+        (lead.phone || "").includes(query));
 
     return leads
       .filter((lead) => shouldShowInImpactQueue(lead, tours, quotes))
@@ -715,17 +715,17 @@ export function ImpactQueue() {
       if (chipFilter === "quote-pending" && e.lastQuote?.status !== "sent") return false;
       if (e.lead.stage === "dropped") return false;
 
-      if (
-        areaFilter !== "all" &&
-        e.lead.preferredArea?.toLowerCase() !== areaFilter.toLowerCase() &&
-        !e.lead.areas?.map((a) => a.toLowerCase()).includes(areaFilter.toLowerCase())
-      )
+      if (areaFilter !== "all") {
+        const lowerAreaFilter = (areaFilter || "").toLowerCase();
+        const preferredAreaMatch = (e.lead.preferredArea || "").toLowerCase() === lowerAreaFilter;
+        const areasMatch = (e.lead.areas || []).map((a) => (a || "").toLowerCase()).includes(lowerAreaFilter);
+        if (!preferredAreaMatch && !areasMatch) return false;
+      }
+      if (typeFilter !== "all" && (e.lead.type || "").toLowerCase() !== (typeFilter || "").toLowerCase())
         return false;
-      if (typeFilter !== "all" && e.lead.type?.toLowerCase() !== typeFilter.toLowerCase())
+      if (roomFilter !== "all" && (e.lead.room || "").toLowerCase() !== (roomFilter || "").toLowerCase())
         return false;
-      if (roomFilter !== "all" && e.lead.room?.toLowerCase() !== roomFilter.toLowerCase())
-        return false;
-      if (needFilter !== "all" && e.lead.need?.toLowerCase() !== needFilter.toLowerCase())
+      if (needFilter !== "all" && (e.lead.need || "").toLowerCase() !== (needFilter || "").toLowerCase())
         return false;
 
       return true;
@@ -2997,7 +2997,7 @@ function ScheduleTourDialog({
   useEffect(() => {
     if (open && prefillPg) {
       setSelectedProperty(prefillPg);
-      setPropertySearch(prefillPg.name);
+      setPropertySearch(prefillPg.name || "");
     }
   }, [open, prefillPg]);
 
@@ -3016,15 +3016,15 @@ function ScheduleTourDialog({
   }, [date, open, time]);
 
   const filteredProperties = useMemo(() => {
-    const q = propertySearch.trim().toLowerCase();
+    const q = (propertySearch || "").trim().toLowerCase();
     let list = PGS;
     if (q) {
       list = PGS.filter(
-        (p) => p.name.toLowerCase().includes(q) || p.area?.toLowerCase().includes(q),
+        (p) => (p.name || "").toLowerCase().includes(q) || (p.area || "").toLowerCase().includes(q),
       );
     } else if (lead.preferredArea) {
       const byArea = PGS.filter((p) =>
-        p.area.toLowerCase().includes(lead.preferredArea.toLowerCase()),
+        (p.area || "").toLowerCase().includes((lead.preferredArea || "").toLowerCase()),
       );
       if (byArea.length > 0) list = byArea;
     }

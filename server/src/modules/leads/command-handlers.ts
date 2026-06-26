@@ -7,6 +7,7 @@ import {
   AssignLeadCmd,
   ChangeStageCmd,
   DeleteLeadCmd,
+  FlagInterventionCmd,
   type Command,
 } from "../../../../src/contracts/commands.js";
 import { emit, newEventId } from "../../realtime/event-bus.js";
@@ -445,6 +446,42 @@ async function applyCommand(cmd: Command, user: JwtClaims): Promise<LedgerDoc["r
         actor: user.sub, tenantId: user.tenantId, correlationId, causationId: null, version: 1,
         payload: { leadId: p.leadId },
       });
+      return { ok: true, eventIds: [evtId] };
+    }
+
+    case "cmd.lead.flag_intervention": {
+      const p = FlagInterventionCmd.parse(cmd).payload;
+      const intervention = p.isFlagged
+        ? {
+            isFlagged: true,
+            category: p.category ?? "other",
+            note: p.note ?? "",
+            flaggedAt: now,
+            flaggedBy: user.sub,
+          }
+        : null;
+
+      const r = await col(LEADS).updateOne(
+        { _id: p.leadId, tenantId: user.tenantId },
+        { $set: { intervention, updatedAt: now }, $inc: { __v: 1 } },
+      );
+      if (r.matchedCount === 0) throw Object.assign(new Error("Lead not found"), { code: "NOT_FOUND" });
+
+      const evtId = newEventId();
+      await emit({
+        _id: evtId, type: "evt.lead.updated", occurredAt: now,
+        actor: user.sub, tenantId: user.tenantId, correlationId, causationId: null, version: 1,
+        payload: { leadId: p.leadId, patch: { intervention } },
+      });
+
+      await autoLogActivity({
+        entityType: "lead", entityId: p.leadId,
+        kind: p.isFlagged ? "coaching_note" : "status_changed",
+        subject: p.isFlagged ? `Admin flagged lead: ${p.category ?? "other"}` : "Admin resolved intervention flag",
+        body: p.isFlagged ? (p.note ?? "") : "Intervention resolved",
+        user, correlationId,
+      });
+
       return { ok: true, eventIds: [evtId] };
     }
   }

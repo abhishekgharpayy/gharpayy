@@ -120,7 +120,7 @@ export function CheckInPanel({ lead }: { lead: Lead }) {
     return (
       properties.find((property) => property.id === paidQuote.propertyId) ??
       properties.find(
-        (property) => property.name.toLowerCase() === paidQuote.propertyName.toLowerCase(),
+        (property) => (property.name || "").toLowerCase() === (paidQuote.propertyName || "").toLowerCase(),
       ) ??
       null
     );
@@ -182,7 +182,7 @@ export function CheckInPanel({ lead }: { lead: Lead }) {
         price: property.pricePerBed,
       }),
     );
-    const query = propertySearch.trim().toLowerCase();
+    const query = (propertySearch || "").trim().toLowerCase();
     return Array.from(map.values()).filter((property) =>
       query
         ? [property.name, property.area]

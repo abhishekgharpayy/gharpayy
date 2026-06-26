@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { joinAdmin, type AdminLeadRow, type JoinSources } from "./selectors";
 import { API_URL } from "@/lib/api/client";
+import { useApp } from "@/lib/store";
+import { isLocalMode } from "@/lib/auth-store";
 
 export async function authedFetch(path: string, opts?: RequestInit) {
   const token =
@@ -24,11 +26,49 @@ export async function authedFetch(path: string, opts?: RequestInit) {
 
 // ── Supreme Metrics ──────────────────────────────────────────────────────────
 export function useLiveSupremeMetrics() {
+  const localMode = isLocalMode();
+
   const query = useQuery({
     queryKey: ["admin", "supreme", "metrics"],
     queryFn: () => authedFetch("/api/v1/admin/supreme/metrics") as Promise<Partial<JoinSources> & { properties?: any[] }>,
-    refetchInterval: 60_000,
+    refetchInterval: localMode ? undefined : 60_000,
+    enabled: !localMode,
   });
+
+  if (localMode) {
+    const appState = useApp.getState();
+    const rows = joinAdmin({
+      leads: appState.leads || [],
+      tours: appState.tours || [],
+      tcms: (appState.tcms || []).map(t => ({ id: t.id, name: t.name, role: "tcm", email: "", phone: "", zones: [t.zone] })) as any[],
+      bookings: appState.bookings || [],
+      followUps: appState.followUps || [],
+      profiles: {},
+      objections: [],
+      calls: [],
+      visits: {},
+      assignments: [],
+      coachingNotes: [],
+      messageOutcomes: [],
+    });
+    return {
+      rows,
+      properties: appState.properties || [],
+      rawData: {
+        leads: appState.leads || [],
+        tours: appState.tours || [],
+        tcms: appState.tcms || [],
+        bookings: appState.bookings || [],
+        followUps: appState.followUps || [],
+        properties: appState.properties || [],
+        activities: [],
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: () => Promise.resolve(),
+    };
+  }
 
   const rows: AdminLeadRow[] = query.data
     ? joinAdmin({
@@ -73,7 +113,9 @@ export function useAddCoachingNote() {
 
 // ── Server-Side Audit Log ─────────────────────────────────────────────────────
 export function useLiveAuditLog(search = "") {
-  return useQuery({
+  const localMode = isLocalMode();
+
+  const query = useQuery({
     queryKey: ["admin", "audit", search],
     queryFn: () => {
       const params = new URLSearchParams({ limit: "300", q: search });
@@ -82,8 +124,22 @@ export function useLiveAuditLog(search = "") {
         total: number;
       }>;
     },
-    refetchInterval: 30_000,
+    refetchInterval: localMode ? undefined : 30_000,
+    enabled: !localMode,
   });
+
+  if (localMode) {
+    return {
+      data: { entries: [], total: 0 },
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: () => Promise.resolve(),
+      isFetching: false,
+    } as any;
+  }
+
+  return query;
 }
 
 export interface AuditEntry {
@@ -130,9 +186,40 @@ export interface DiagnosticsData {
 }
 
 export function useSystemDiagnostics() {
-  return useQuery({
+  const localMode = isLocalMode();
+
+  const query = useQuery({
     queryKey: ["admin", "diagnostics"],
     queryFn: () => authedFetch("/api/v1/admin/diagnostics") as Promise<DiagnosticsData>,
-    refetchInterval: 30_000,
+    refetchInterval: localMode ? undefined : 30_000,
+    enabled: !localMode,
   });
+
+  if (localMode) {
+    const appState = useApp.getState();
+    const mockData: DiagnosticsData = {
+      counts: {
+        leads: appState.leads?.length ?? 0,
+        tours: appState.tours?.length ?? 0,
+        bookings: appState.bookings?.length ?? 0,
+        users: (appState.tcms?.length ?? 0) + 1,
+        activities: appState.activities?.length ?? 0,
+      },
+      sequencesPaused: false,
+      pausedAt: null,
+      recentErrors: [],
+      serverTime: new Date().toISOString(),
+      uptime: Math.round(performance.now() / 1000),
+    };
+    return {
+      data: mockData,
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: () => Promise.resolve(),
+      isFetching: false,
+    } as any;
+  }
+
+  return query;
 }

@@ -71,27 +71,27 @@ export function UsersTab() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div className="flex gap-1 bg-secondary/50 rounded-lg p-1">
+        <div className="flex flex-wrap items-center gap-1.5">
           {(["active", "inactive", "invited", "deleted"] as UserStatus[]).map((s) => (
             <button
               key={s}
               onClick={() => setTab(s)}
               className={
-                "px-3 py-1.5 rounded-md text-xs font-medium capitalize flex items-center gap-1.5 " +
+                "text-[11px] font-medium rounded-full px-3 py-1 transition-colors capitalize flex items-center gap-1.5 " +
                 (tab === s
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground")
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-card text-muted-foreground border border-border hover:bg-muted/50 hover:text-foreground")
               }
             >
               {s}
               {counts[s] > 0 && (
                 <span
                   className={
-                    "text-[10px] px-1.5 py-0.5 rounded-full " +
-                    (tab === s ? "bg-accent/20 text-accent" : "bg-muted text-muted-foreground")
+                    "text-[10px] font-mono opacity-70 " +
+                    (tab === s ? "opacity-100 font-bold" : "")
                   }
                 >
-                  {counts[s]}
+                  ({counts[s]})
                 </span>
               )}
             </button>

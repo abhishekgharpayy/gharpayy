@@ -82,7 +82,7 @@ export function PGDetail({ pg, onClose }: Props) {
           )}
 
           {/* Sticky tab strip — stays at the top of the scroll area when scrolling content. */}
-          <div className="sticky top-0 z-10 flex border-b border-border bg-surface-1/95 backdrop-blur overflow-x-auto scrollbar-none">
+          <div className="sticky top-0 z-10 flex gap-1.5 border-b border-border bg-surface-1/95 backdrop-blur overflow-x-auto scrollbar-none p-3">
             {([
               { k: "details", l: "Details", I: Sparkles },
               { k: "ops", l: "Live Ops", I: Activity },
@@ -95,10 +95,12 @@ export function PGDetail({ pg, onClose }: Props) {
             ] as const).map(({ k, l, I }) => (
               <button key={k} onClick={() => setTab(k)}
                 className={cn(
-                  "flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-3 text-xs font-medium transition-smooth sm:px-4 sm:text-sm",
-                  tab === k ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
+                  "flex shrink-0 items-center gap-1.5 text-[11px] font-medium rounded-full px-3 py-1 transition-colors",
+                  tab === k
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "bg-card text-muted-foreground border border-border hover:bg-muted/50 hover:text-foreground"
                 )}>
-                <I className="h-4 w-4" /> {l}
+                <I className="h-3 w-3" /> {l}
               </button>
             ))}
           </div>

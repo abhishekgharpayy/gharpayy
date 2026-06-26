@@ -10,7 +10,7 @@ import { defaultAdminFilters } from "@/admin/lib/filter-schema";
 interface Props {
   filters: AdminFilters;
   onChange: (f: AdminFilters) => void;
-  tcms: Array<{ id: string; name: string; zone: string }>;
+  tcms: Array<{ id: string; name: string; zone?: string; zones?: string[] }>;
   sources?: string[];
   stages?: string[];
   addedByOptions?: string[];
@@ -22,7 +22,14 @@ const BUCKETS: Array<"cold" | "warm" | "hot"> = ["cold", "warm", "hot"];
 
 export function AdminFilterBar({ filters, onChange, tcms, sources = [], stages = STAGES, addedByOptions = [] }: Props) {
   const [savedViewName, setSavedViewName] = useState("");
-  const zones = useMemo(() => Array.from(new Set(tcms.map((t) => t.zone))), [tcms]);
+  const zones = useMemo(() => {
+    const allZones = new Set<string>();
+    tcms.forEach(t => {
+      if (t.zone) allZones.add(t.zone);
+      if (t.zones) t.zones.forEach(z => allZones.add(z));
+    });
+    return Array.from(allZones);
+  }, [tcms]);
 
   const toggle = <K extends keyof AdminFilters>(key: K, value: string) => {
     const cur = filters[key] as unknown as string[];

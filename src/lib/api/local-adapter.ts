@@ -18,78 +18,7 @@ const ALERTS_KEY = "gharpayy.local.alerts";
 const TENANT = "local";
 const USER = "local-user";
 
-const SEED_LEADS: Lead[] = [
-  {
-    _id: "lead-1",
-    name: "Rahul Sharma",
-    phone: "+919876543210",
-    source: "whatsapp",
-    budget: 25000,
-    budgetText: "₹25,000",
-    moveInDate: "2026-07-01",
-    preferredArea: "Koramangala",
-    zoneId: "Bangalore East",
-    assignedTcmId: USER,
-    stage: "tour-scheduled",
-    intent: "hot",
-    confidence: 75,
-    tags: ["urgent"],
-    nextFollowUpAt: null,
-    responseSpeedMins: 5,
-    email: "rahul@example.com",
-    areas: ["Koramangala", "HSR Layout"],
-    fullAddress: "MG Road, Bangalore",
-    type: "working",
-    room: "single",
-    need: "boys",
-    inBLR: true,
-    quality: "good",
-    specialReqs: "High speed internet, desk space",
-    notes: "Requires quick move-in",
-    zoneCategory: "East",
-    assigneeId: USER,
-    stageLabel: "Tour Scheduled",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    createdBy: USER,
-    tenantId: TENANT,
-  },
-  {
-    _id: "lead-2",
-    name: "Priya Singh",
-    phone: "+919876543211",
-    source: "facebook",
-    budget: 18000,
-    budgetText: "₹18,000",
-    moveInDate: "2026-07-15",
-    preferredArea: "HSR Layout",
-    zoneId: "Bangalore South",
-    assignedTcmId: USER,
-    stage: "new",
-    intent: "warm",
-    confidence: 50,
-    tags: ["co-living"],
-    nextFollowUpAt: null,
-    responseSpeedMins: 12,
-    email: "priya@example.com",
-    areas: ["HSR Layout", "Bellandur"],
-    fullAddress: "Bellandur, Bangalore",
-    type: "working",
-    room: "single",
-    need: "girls",
-    inBLR: true,
-    quality: "good",
-    specialReqs: "Gym access preferred",
-    notes: "Moving from Delhi",
-    zoneCategory: "South",
-    assigneeId: USER,
-    stageLabel: "New Lead",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    createdBy: USER,
-    tenantId: TENANT,
-  }
-];
+const SEED_LEADS: Lead[] = [];
 
 // One-time cleanup: if the user previously ran in local mode, the old demo leads
 // are still sitting in localStorage. Wipe them once VITE_API_URL is configured.
@@ -118,83 +47,41 @@ const write = <T,>(k: string, v: T[]) => { if (typeof window !== "undefined") lo
 const seedMedia = () => {
   const existing = read(MEDIA_KEY);
   if (existing.length > 0) return;
-  const sample = [
-    { _id: ulid(), propertyId: "prop-1", roomId: "", fileName: "https://picsum.photos/seed/prop1-room1/800/600.jpg", originalName: "living-room.jpg", mimeType: "image/jpeg", size: 120000, caption: "Main living area", isPrimary: true, createdAt: new Date().toISOString() },
-    { _id: ulid(), propertyId: "prop-1", roomId: "room-1", fileName: "https://picsum.photos/seed/prop1-room2/800/600.jpg", originalName: "bedroom.jpg", mimeType: "image/jpeg", size: 95000, caption: "Bedroom 1", isPrimary: false, createdAt: new Date().toISOString() },
-    { _id: ulid(), propertyId: "prop-2", roomId: "", fileName: "https://picsum.photos/seed/prop2-main/800/600.jpg", originalName: "exterior.jpg", mimeType: "image/jpeg", size: 150000, caption: "Building exterior", isPrimary: true, createdAt: new Date().toISOString() },
-  ];
-  write(MEDIA_KEY, sample);
+  write(MEDIA_KEY, []);
 };
 
 const seedWhatsApp = () => {
   const convs = read(WHATSAPP_CONV_KEY);
   if (convs.length > 0) return;
-  const now = new Date().toISOString();
-  const sampleConvs = [
-    { _id: "conv-1", tenantId: TENANT, leadId: "lead-1", leadName: "Rahul Sharma", phone: "+919876543210", assignedTo: USER, lastMessage: "Hi, I'm interested in the 2BHK", lastMessageAt: now, unreadCount: 2, status: "active", tags: [], createdAt: now, updatedAt: now },
-    { _id: "conv-2", tenantId: TENANT, leadId: "lead-2", leadName: "Priya Singh", phone: "+919876543211", assignedTo: USER, lastMessage: "When can I visit?", lastMessageAt: now, unreadCount: 0, status: "active", tags: [], createdAt: now, updatedAt: now },
-  ];
-  write(WHATSAPP_CONV_KEY, sampleConvs);
-  const sampleMsgs = [
-    { _id: ulid(), tenantId: TENANT, conversationId: "conv-1", direction: "inbound", text: "Hi, I'm interested in the 2BHK", mediaUrl: "", status: "read", sentById: "", sentByName: "Rahul Sharma", createdAt: now },
-    { _id: ulid(), tenantId: TENANT, conversationId: "conv-1", direction: "outbound", text: "Great! We have a few options available. When would you like to schedule a tour?", mediaUrl: "", status: "read", sentById: USER, sentByName: "You", createdAt: now },
-    { _id: ulid(), tenantId: TENANT, conversationId: "conv-2", direction: "inbound", text: "When can I visit?", mediaUrl: "", status: "read", sentById: "", sentByName: "Priya Singh", createdAt: now },
-    { _id: ulid(), tenantId: TENANT, conversationId: "conv-2", direction: "outbound", text: "Available tomorrow 10am-2pm. What works?", mediaUrl: "", status: "delivered", sentById: USER, sentByName: "You", createdAt: now },
-  ];
-  write(WHATSAPP_MSG_KEY, sampleMsgs);
+  write(WHATSAPP_CONV_KEY, []);
+  write(WHATSAPP_MSG_KEY, []);
 };
 
 const seedAgreements = () => {
   const existing = read(AGREEMENTS_KEY);
   if (existing.length > 0) return;
-  const now = new Date().toISOString();
-  const sample = [
-    { _id: ulid(), tenantId: TENANT, bookingId: "booking-1", leadId: "lead-1", tenantName: "Rahul Sharma", tenantPhone: "+919876543210", propertyName: "Sunrise Apartments", propertyAddress: "123 MG Road, Bangalore", roomNumber: "A-201", rent: 25000, deposit: 50000, moveInDate: "2026-07-01", duration: 11, noticePeriod: 30, status: "draft", signedByTenantAt: "", signedByOwnerAt: "", pdfData: "", createdBy: USER, createdAt: now, updatedAt: now },
-    { _id: ulid(), tenantId: TENANT, bookingId: "booking-2", leadId: "lead-2", tenantName: "Priya Singh", tenantPhone: "+919876543211", propertyName: "Green Valley PG", propertyAddress: "456 Koramangala, Bangalore", roomNumber: "B-102", rent: 18000, deposit: 36000, moveInDate: "2026-07-15", duration: 12, noticePeriod: 30, status: "sent", signedByTenantAt: now, signedByOwnerAt: "", pdfData: "", createdBy: USER, createdAt: now, updatedAt: now },
-  ];
-  write(AGREEMENTS_KEY, sample);
+  write(AGREEMENTS_KEY, []);
 };
 
 const seedAlerts = () => {
   const existing = read(ALERTS_KEY);
   if (existing.length > 0) return;
-  const now = new Date().toISOString();
-  const sample = [
-    { _id: ulid(), tenantId: TENANT, type: "rent_overdue", title: "Rent overdue: Rahul Sharma", body: "Rahul Sharma's rent of ₹25,000 for 2026-06 is 5d overdue.", severity: "warning", link: "/admin/rents", read: false, dismissed: false, expiresAt: new Date(Date.now() + 7*86400000).toISOString(), createdAt: now },
-    { _id: ulid(), tenantId: TENANT, type: "booking_approval", title: "Booking pending approval: Priya Singh", body: "Priya Singh's booking at Green Valley PG needs owner approval.", severity: "warning", link: "/admin/bookings", read: false, dismissed: false, expiresAt: new Date(Date.now() + 7*86400000).toISOString(), createdAt: now },
-    { _id: ulid(), tenantId: TENANT, type: "tenant_exited", title: "Tenant exited: Amit Kumar", body: "Amit Kumar has vacated. Update room availability and finalize deposit return.", severity: "info", link: "/admin/tenants", read: true, dismissed: false, expiresAt: new Date(Date.now() + 7*86400000).toISOString(), createdAt: now },
-  ];
-  write(ALERTS_KEY, sample);
+  write(ALERTS_KEY, []);
 };
 
 const seedTours = () => {
   const existing = read(TOURS_KEY);
   if (existing.length > 0) return;
-  const now = new Date().toISOString();
-  const sample = [
-    {
-      _id: "tour-1",
-      leadId: "lead-1",
-      propertyId: "prop-1",
-      assignedTo: USER,
-      scheduledBy: USER,
-      scheduledAt: new Date(Date.now() + 86400000).toISOString(),
-      status: "scheduled",
-      showUp: null,
-      customPropertyName: "Sunrise Apartments",
-      bookingSource: "whatsapp",
-      tourType: "physical",
-      postTour: { outcome: null, confidence: 0, objection: null, objectionNote: "", expectedDecisionAt: null, nextFollowUpAt: null, filledAt: null },
-      createdAt: now,
-      updatedAt: now,
-      tenantId: TENANT,
-    }
-  ];
-  write(TOURS_KEY, sample);
+  write(TOURS_KEY, []);
 };
 
 if (typeof window !== "undefined") {
-  localStorage.setItem("gharpayy.force_local", "1");
+  const apiPreset = import.meta.env.VITE_API_URL as string | undefined;
+  if (apiPreset) {
+    localStorage.removeItem("gharpayy.force_local");
+  } else {
+    localStorage.setItem("gharpayy.force_local", "1");
+  }
   seedMedia();
   seedWhatsApp();
   seedAgreements();
@@ -273,14 +160,16 @@ export const localAdapter = {
     }
     items.sort((a, b) => b.lastMessageAt.localeCompare(a.lastMessageAt));
     const limit = q.limit ?? 100;
-    return { items: items.slice(0, limit), nextCursor: items.length > limit ? items[limit - 1]._id : null };
+    const mapped = items.slice(0, limit).map((c: any) => ({ ...c, id: c._id }));
+    return { items: mapped, nextCursor: items.length > limit ? items[limit - 1]._id : null };
   },
 
   listWhatsAppMessages(conversationId: string, q: { limit?: number; cursor?: string } = {}) {
     let items = read<any>(WHATSAPP_MSG_KEY).filter((m) => m.tenantId === TENANT && m.conversationId === conversationId);
     items.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
     const limit = q.limit ?? 100;
-    return { items: items.slice(0, limit), nextCursor: items.length > limit ? items[limit - 1]._id : null };
+    const mapped = items.slice(0, limit).map((m: any) => ({ ...m, id: m._id }));
+    return { items: mapped, nextCursor: items.length > limit ? items[limit - 1]._id : null };
   },
 
   // ---------- Agreements ----------
@@ -293,12 +182,14 @@ export const localAdapter = {
     }
     items.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     const limit = q.limit ?? 100;
-    return { items: items.slice(0, limit), nextCursor: items.length > limit ? items[limit - 1]._id : null };
+    const mapped = items.slice(0, limit).map((a: any) => ({ ...a, id: a._id }));
+    return { items: mapped, nextCursor: items.length > limit ? items[limit - 1]._id : null };
   },
 
   getAgreement(id: string) {
     const items = read<any>(AGREEMENTS_KEY);
-    return items.find((a) => a._id === id && a.tenantId === TENANT);
+    const found = items.find((a) => a._id === id && a.tenantId === TENANT);
+    return found ? { ...found, id: found._id } : undefined;
   },
 
   // ---------- Alerts ----------
@@ -648,11 +539,38 @@ export const localAdapter = {
 
       // ----- WhatsApp commands -----
       if (t === "cmd.whatsapp.send") {
-        const p = cmd.payload as { conversationId: string; text: string; mediaUrl?: string };
+        const p = cmd.payload as { conversationId?: string; text: string; mediaUrl?: string; phone?: string; leadName?: string; leadId?: string };
+        let convId = p.conversationId;
+        const convs = read<any>(WHATSAPP_CONV_KEY);
+        if (!convId) {
+          const existing = convs.find((c: any) => c.phone === p.phone && c.tenantId === TENANT);
+          if (existing) {
+            convId = existing._id;
+          } else {
+            convId = ulid();
+            const newConv = {
+              _id: convId,
+              tenantId: TENANT,
+              leadId: p.leadId || "",
+              leadName: p.leadName || p.phone,
+              phone: p.phone,
+              assignedTo: USER,
+              lastMessage: p.text,
+              lastMessageAt: nowISO(),
+              unreadCount: 0,
+              status: "active",
+              tags: [],
+              createdAt: nowISO(),
+              updatedAt: nowISO(),
+            };
+            convs.push(newConv);
+            write(WHATSAPP_CONV_KEY, convs);
+          }
+        }
         const msg = {
           _id: ulid(),
           tenantId: TENANT,
-          conversationId: p.conversationId,
+          conversationId: convId,
           direction: "outbound",
           text: p.text,
           mediaUrl: p.mediaUrl ?? "",
@@ -665,13 +583,12 @@ export const localAdapter = {
         msgs.push(msg);
         write(WHATSAPP_MSG_KEY, msgs);
         // Update conversation last message
-        const convs = read<any>(WHATSAPP_CONV_KEY);
-        const convIdx = convs.findIndex((c: any) => c._id === p.conversationId);
+        const convIdx = convs.findIndex((c: any) => c._id === convId);
         if (convIdx >= 0) {
           convs[convIdx] = { ...convs[convIdx], lastMessage: p.text, lastMessageAt: nowISO(), updatedAt: nowISO() };
           write(WHATSAPP_CONV_KEY, convs);
         }
-        return { ok: true, eventIds: [msg._id], data: msg };
+        return { ok: true, eventIds: [msg._id], data: { ...msg, id: msg._id, conversationId: convId } };
       }
 
       if (t === "cmd.whatsapp.archive") {

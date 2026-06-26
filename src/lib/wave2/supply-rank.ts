@@ -40,7 +40,7 @@ export function rankSupplyForLead(lead: Lead, pgs: PG[]): FitResult[] {
     }
 
     // Gender / audience match
-    const tags = new Set(lead.tags.map((t) => t.toLowerCase()));
+    const tags = new Set((lead.tags || []).map((t) => (t || '').toLowerCase()));
     const g = pg.gender?.toLowerCase() ?? "";
     if (tags.has("girls") && g.includes("girl")) { score += 6; signals.push("Girls-only match"); }
     if (tags.has("boys")  && g.includes("boy"))  { score += 6; signals.push("Boys-only match"); }

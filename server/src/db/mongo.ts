@@ -39,7 +39,6 @@ export function getDb(): Db {
 export function col<T extends Document = Document>(name: string): Collection<T & { _id?: string }> {
   return getDb().collection<T & { _id?: string }>(name);
 }
-
 async function ensureIndexes(db: Db) {
   // NOTE: do NOT manually create an index on `_id` — MongoDB creates a
   // unique `_id` index automatically and rejects any attempt to redefine it.

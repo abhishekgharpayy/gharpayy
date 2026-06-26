@@ -24,7 +24,7 @@ const ZoneFields = {
 const CreateBody = z.object(ZoneFields);
 const UpdateBody = z.object(ZoneFields);
 
-const SEED_ZONES = ["Zone1", "Zone2", "Zone3", "Zone4", "Zone5"];
+const SEED_ZONES: string[] = [];
 
 export async function ensureSeedZones(tenantId: string): Promise<void> {
   const zones = col<ZoneDoc>("zones");

@@ -119,7 +119,7 @@ export default function ScheduleTour() {
         </div>
       </header>
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-1.5">
         {([
           ["all", "All tours", counts.all],
           ["assigned", "Assigned to me", counts.assigned],
@@ -130,14 +130,14 @@ export default function ScheduleTour() {
             type="button"
             onClick={() => setTab(value)}
             className={cn(
-              "inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm transition-colors",
+              "text-[11px] font-medium rounded-full px-3 py-1 transition-colors inline-flex items-center gap-1.5",
               tab === value
-                ? "border-accent/40 bg-accent/10 text-accent"
-                : "border-border text-muted-foreground hover:bg-muted hover:text-foreground",
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "bg-card text-muted-foreground border border-border hover:bg-muted/50 hover:text-foreground"
             )}
           >
             <span>{label}</span>
-            <span className="text-[10px] font-mono">({count})</span>
+            <span className="font-mono text-[10px] opacity-70">({count})</span>
           </button>
         ))}
       </div>

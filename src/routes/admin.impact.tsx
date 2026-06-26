@@ -51,7 +51,11 @@ function AdminImpact() {
           api.followUps.list({ limit: 2000 })
         ]);
         setLeads((lRes.items as any[]).map(l => normalizeLeadRecord(l)));
-        setTcms(tRes.map(t => ({ id: t.id, name: t.fullName, initials: t.fullName.substring(0, 2).toUpperCase(), totalLeads: 0, conversionRate: 0, totalTasks: 0, completionRate: 0, avgResponseMins: 0 })));
+        setTcms(tRes.map(t => {
+          const initials = (t.fullName || t.name || t.username || "TC").substring(0, 2).toUpperCase();
+          const name = t.fullName || t.name || t.username || "TCM";
+          return { id: t.id, name, initials, totalLeads: 0, conversionRate: 0, totalTasks: 0, completionRate: 0, avgResponseMins: 0 };
+        }));
         setFollowUps(fRes.items as FollowUp[]);
       } catch (err) {
         console.error("Failed to load impact data", err);

@@ -6,7 +6,7 @@
 export interface IndexedDoc<T> { id: string; doc: T; tokens: Set<string>; raw: string; }
 
 const trigrams = (s: string): Set<string> => {
-  const norm = s.toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
+  const norm = (s || "").toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
   const out = new Set<string>();
   if (!norm) return out;
   for (const word of norm.split(" ")) {
@@ -35,8 +35,9 @@ export class SearchIndex<T> {
     for (const d of this.docs) {
       let score = 0;
       for (const t of qTok) if (d.tokens.has(t)) score += 1;
-      if (d.raw.toLowerCase().includes(qLower)) score += 5;          // substring bonus
-      if (d.raw.toLowerCase().startsWith(qLower)) score += 8;        // prefix bonus
+      const rawLower = (d.raw || "").toLowerCase();
+      if (rawLower.includes(qLower)) score += 5;          // substring bonus
+      if (rawLower.startsWith(qLower)) score += 8;        // prefix bonus
       if (score > 0) out.push({ id: d.id, doc: d.doc, score });
     }
     return out.sort((a, b) => b.score - a.score).slice(0, limit);

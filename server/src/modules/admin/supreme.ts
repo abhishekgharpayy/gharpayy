@@ -232,6 +232,127 @@ export function registerAdminSupremeRoutes(app: FastifyInstance) {
     return reply.send({ success: true, sequencesPaused: paused });
   });
 
+  // ── Admin Leads (pre-joined) ──────────────────────────────────────────────
+  app.get("/api/v1/admin/leads", { preHandler: [requireAuth] }, async (req, reply) => {
+    const role = req.user!.role;
+    if (!STAFF_ROLES.includes(role as (typeof STAFF_ROLES)[number])) {
+      return reply.code(403).send({ code: "FORBIDDEN", message: "Forbidden: Super Admin/Manager only" });
+    }
+
+    const tenantId = req.user!.tenantId;
+    const DAY = 86_400_000;
+    const now = Date.now();
+
+    const [leads, tours, tcms, bookings, followUps, activities] = await Promise.all([
+      col<Lead>("leads").find({ tenantId }).toArray(),
+      col<Tour>("tours").find({ tenantId }).toArray(),
+      col<UserDoc>("users").find({ tenantId, role: { $in: ["tcm", "member"] } }).toArray(),
+      col<BookingEntity>("bookings").find({ tenantId }).toArray(),
+      col("follow_ups").find({ tenantId }).toArray(),
+      col("activities").find({ tenantId }).toArray(),
+    ]);
+
+    const mappedTcms = tcms.map(u => ({
+      id: u._id,
+      name: u.fullName || u.username || "Unknown",
+      role: u.role,
+      zones: u.zones || [],
+      phone: u.phone,
+      email: u.email,
+    }));
+
+    // Build lookup maps
+    const toursByLead = new Map<string, Tour[]>();
+    tours.forEach(t => { const arr = toursByLead.get(t.leadId) || []; arr.push(t); toursByLead.set(t.leadId, arr); });
+    const bookingsByLead = new Map<string, BookingEntity[]>();
+    bookings.forEach(b => { const leadId = (b as any).leadId; if (leadId) { const arr = bookingsByLead.get(leadId) || []; arr.push(b); bookingsByLead.set(leadId, arr); } });
+    const fuByLead = new Map<string, any[]>();
+    followUps.forEach((f: any) => { if (f.leadId) { const arr = fuByLead.get(f.leadId) || []; arr.push(f); fuByLead.set(f.leadId, arr); } });
+    const activitiesByLead = new Map<string, any[]>();
+    activities.forEach((a: any) => { if (a.leadId) { const arr = activitiesByLead.get(a.leadId) || []; arr.push(a); activitiesByLead.set(a.leadId, arr); } });
+
+    // Compute derived fields per lead
+    const rows = leads.map(lead => {
+      const leadTours = toursByLead.get(lead._id) || [];
+      const leadBookings = bookingsByLead.get(lead._id) || [];
+      const leadFollowUps = fuByLead.get(lead._id) || [];
+      const leadActivities = activitiesByLead.get(lead._id) || [];
+      const tcm = mappedTcms.find(t => t.id === lead.assignedTcmId);
+
+      // Compute probability
+      let probability = (lead as any).confidence ?? 0;
+      if (lead.stage === "booked") probability = 100;
+      else if (lead.stage === "dropped") probability = 0;
+      else {
+        if (lead.stage === "negotiation") probability = Math.max(probability, 70);
+        if (lead.stage === "tour-done") probability = Math.max(probability, 55);
+        if (lead.stage === "tour-scheduled") probability = Math.max(probability, 40);
+        if (leadTours.some((t: any) => t.decision === "booked")) probability = 100;
+        if (leadTours.some((t: any) => t.postTour?.outcome === "thinking")) probability = Math.max(probability, 60);
+        if (leadTours.some((t: any) => t.postTour?.outcome === "not-interested")) probability = 5;
+      }
+      probability = Math.max(0, Math.min(100, Math.round(probability)));
+
+      // Expected value (12-month revenue weighted by probability)
+      const expectedValue = Math.round(((lead as any).budget || 0) * 12 * (probability / 100));
+
+      // Status
+      const booked = lead.stage === "booked" || leadBookings.length > 0;
+      const lastTouchTs = Math.max(
+        +new Date((lead as any).updatedAt || (lead as any).createdAt),
+        ...leadTours.map((t: any) => +new Date(t.updatedAt || t.createdAt)),
+        ...leadActivities.map((a: any) => +new Date(a.occurredAt || a.createdAt)),
+      );
+      const ageDays = Math.floor((now - lastTouchTs) / DAY);
+      const dormantBucket: "30d" | "60d" | "90d" | null =
+        ageDays >= 90 ? "90d" : ageDays >= 60 ? "60d" : ageDays >= 30 ? "30d" : null;
+      const status = booked ? "booked" : lead.stage === "dropped" ? "lost" : dormantBucket ? "dormant" : "open";
+
+      // Why not closed
+      let whyNotClosed = "";
+      if (booked) whyNotClosed = "—";
+      else if (lead.stage === "dropped") whyNotClosed = "Dropped";
+      else if (lead.stage === "negotiation") whyNotClosed = "Stuck in negotiation";
+      else if (lead.stage === "tour-done") whyNotClosed = "Post-tour follow-up overdue";
+      else if (lead.stage === "tour-scheduled") whyNotClosed = "Awaiting tour";
+      else if (lead.stage === "new" && ageDays > 1) whyNotClosed = `New for ${ageDays}d — never contacted`;
+      else whyNotClosed = "Active — keep nurturing";
+
+      return {
+        lead: { ...lead, id: (lead as any)._id },
+        tcm,
+        tours: leadTours,
+        bookings: leadBookings,
+        followUps: leadFollowUps,
+        lastTouchTs,
+        probability,
+        expectedValue,
+        status,
+        whyNotClosed,
+        dormantBucket,
+        hasVisit: leadTours.length > 0,
+        booked,
+        // ── New: Stage aging & intervention ──
+        intervention: (lead as any).intervention ?? null,
+        currentStageAgeDays: (() => {
+          const stageTs = +new Date((lead as any).updatedAt || (lead as any).createdAt);
+          return Math.floor((now - stageTs) / DAY);
+        })(),
+        isStuck: (() => {
+          const stageTs = +new Date((lead as any).updatedAt || (lead as any).createdAt);
+          const days = Math.floor((now - stageTs) / DAY);
+          const thresholds: Record<string, number> = {
+            new: 1, contacted: 3, "tour-scheduled": 5, "tour-done": 3, negotiation: 3,
+          };
+          const threshold = thresholds[lead.stage] ?? 999;
+          return days > threshold && !booked && lead.stage !== "dropped";
+        })(),
+      };
+    });
+
+    return reply.send({ rows, tcms: mappedTcms });
+  });
+
   // ── System Diagnostics ────────────────────────────────────────────────────
   app.get("/api/v1/admin/diagnostics", { preHandler: [requireAuth] }, async (req, reply) => {
     const role = req.user!.role;

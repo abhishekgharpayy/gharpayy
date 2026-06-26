@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api/client";
 import { useState } from "react";
@@ -12,8 +12,15 @@ import { FileText, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 
+function AgreementsLayout() {
+  const { location } = useRouterState();
+  const isExact = location.pathname === "/admin/agreements";
+  if (isExact) return <AgreementsList />;
+  return <Outlet />;
+}
+
 export const Route = createFileRoute("/admin/agreements")({
-  component: AgreementsList,
+  component: AgreementsLayout,
 });
 
 function AgreementsList() {

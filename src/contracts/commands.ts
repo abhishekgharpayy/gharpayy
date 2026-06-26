@@ -416,6 +416,16 @@ export const GenerateRentsCmd = Base.extend({
   }),
 });
 
+export const FlagInterventionCmd = Base.extend({
+  type: z.literal("cmd.lead.flag_intervention"),
+  payload: z.object({
+    leadId: z.string(),
+    isFlagged: z.boolean(),
+    category: z.enum(["pricing_dispute", "tcm_unresponsive", "special_reqs", "bad_experience", "other"]).optional(),
+    note: z.string().max(2000).optional(),
+  }),
+});
+
 export const Command = z.discriminatedUnion("type", [
   CreateLeadCmd,
   UpdateLeadCmd,
@@ -454,5 +464,6 @@ export const Command = z.discriminatedUnion("type", [
   UpdatePaymentCmd,
   DeletePaymentCmd,
   GenerateRentsCmd,
+  FlagInterventionCmd,
 ]);
 export type Command = z.infer<typeof Command>;

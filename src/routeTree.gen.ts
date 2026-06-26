@@ -91,6 +91,7 @@ import { Route as AdminRadarRouteImport } from './routes/admin.radar'
 import { Route as AdminPropertyGalleryRouteImport } from './routes/admin.property-gallery'
 import { Route as AdminPropertyRouteImport } from './routes/admin.property'
 import { Route as AdminPerformanceRouteImport } from './routes/admin.performance'
+import { Route as AdminPeople360RouteImport } from './routes/admin.people360'
 import { Route as AdminPeopleRouteImport } from './routes/admin.people'
 import { Route as AdminOwnersRouteImport } from './routes/admin.owners'
 import { Route as AdminOwnerBookingsRouteImport } from './routes/admin.owner-bookings'
@@ -532,6 +533,11 @@ const AdminPerformanceRoute = AdminPerformanceRouteImport.update({
   path: '/performance',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminPeople360Route = AdminPeople360RouteImport.update({
+  id: '/people360',
+  path: '/people360',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminPeopleRoute = AdminPeopleRouteImport.update({
   id: '/people',
   path: '/people',
@@ -734,6 +740,7 @@ export interface FileRoutesByFullPath {
   '/admin/owner-bookings': typeof AdminOwnerBookingsRoute
   '/admin/owners': typeof AdminOwnersRoute
   '/admin/people': typeof AdminPeopleRoute
+  '/admin/people360': typeof AdminPeople360Route
   '/admin/performance': typeof AdminPerformanceRouteWithChildren
   '/admin/property': typeof AdminPropertyRoute
   '/admin/property-gallery': typeof AdminPropertyGalleryRouteWithChildren
@@ -846,6 +853,7 @@ export interface FileRoutesByTo {
   '/admin/owner-bookings': typeof AdminOwnerBookingsRoute
   '/admin/owners': typeof AdminOwnersRoute
   '/admin/people': typeof AdminPeopleRoute
+  '/admin/people360': typeof AdminPeople360Route
   '/admin/performance': typeof AdminPerformanceRouteWithChildren
   '/admin/property': typeof AdminPropertyRoute
   '/admin/property-gallery': typeof AdminPropertyGalleryRouteWithChildren
@@ -960,6 +968,7 @@ export interface FileRoutesById {
   '/admin/owner-bookings': typeof AdminOwnerBookingsRoute
   '/admin/owners': typeof AdminOwnersRoute
   '/admin/people': typeof AdminPeopleRoute
+  '/admin/people360': typeof AdminPeople360Route
   '/admin/performance': typeof AdminPerformanceRouteWithChildren
   '/admin/property': typeof AdminPropertyRoute
   '/admin/property-gallery': typeof AdminPropertyGalleryRouteWithChildren
@@ -1075,6 +1084,7 @@ export interface FileRouteTypes {
     | '/admin/owner-bookings'
     | '/admin/owners'
     | '/admin/people'
+    | '/admin/people360'
     | '/admin/performance'
     | '/admin/property'
     | '/admin/property-gallery'
@@ -1187,6 +1197,7 @@ export interface FileRouteTypes {
     | '/admin/owner-bookings'
     | '/admin/owners'
     | '/admin/people'
+    | '/admin/people360'
     | '/admin/performance'
     | '/admin/property'
     | '/admin/property-gallery'
@@ -1300,6 +1311,7 @@ export interface FileRouteTypes {
     | '/admin/owner-bookings'
     | '/admin/owners'
     | '/admin/people'
+    | '/admin/people360'
     | '/admin/performance'
     | '/admin/property'
     | '/admin/property-gallery'
@@ -2004,6 +2016,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminPerformanceRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/people360': {
+      id: '/admin/people360'
+      path: '/people360'
+      fullPath: '/admin/people360'
+      preLoaderRoute: typeof AdminPeople360RouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/people': {
       id: '/admin/people'
       path: '/people'
@@ -2277,6 +2296,7 @@ interface AdminRouteChildren {
   AdminOwnerBookingsRoute: typeof AdminOwnerBookingsRoute
   AdminOwnersRoute: typeof AdminOwnersRoute
   AdminPeopleRoute: typeof AdminPeopleRoute
+  AdminPeople360Route: typeof AdminPeople360Route
   AdminPerformanceRoute: typeof AdminPerformanceRouteWithChildren
   AdminPropertyRoute: typeof AdminPropertyRoute
   AdminPropertyGalleryRoute: typeof AdminPropertyGalleryRouteWithChildren
@@ -2308,6 +2328,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminOwnerBookingsRoute: AdminOwnerBookingsRoute,
   AdminOwnersRoute: AdminOwnersRoute,
   AdminPeopleRoute: AdminPeopleRoute,
+  AdminPeople360Route: AdminPeople360Route,
   AdminPerformanceRoute: AdminPerformanceRouteWithChildren,
   AdminPropertyRoute: AdminPropertyRoute,
   AdminPropertyGalleryRoute: AdminPropertyGalleryRouteWithChildren,

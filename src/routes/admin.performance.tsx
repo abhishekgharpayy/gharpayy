@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api/client";
 import { useState, useMemo } from "react";
@@ -13,8 +13,15 @@ import { Download, TrendingUp, Users, MapPin, Search, Calendar, ChevronDown, Che
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
+function PerformanceLayout() {
+  const { location } = useRouterState();
+  const isExact = location.pathname === "/admin/performance";
+  if (isExact) return <AdminPerformancePage />;
+  return <Outlet />;
+}
+
 export const Route = createFileRoute("/admin/performance")({
-  component: AdminPerformancePage,
+  component: PerformanceLayout,
 });
 
 function getDateRange(preset: string) {
@@ -138,7 +145,7 @@ function AdminPerformancePage() {
     if (!data) return [];
     if (!search) return data;
     const lower = search.toLowerCase();
-    return data.filter(d => d.name?.toLowerCase().includes(lower));
+    return data.filter(d => (d.name || '').toLowerCase().includes(lower));
   };
 
   const filteredTCM = getFilteredData(tcmData);

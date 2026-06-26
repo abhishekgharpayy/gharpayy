@@ -161,19 +161,17 @@ function InboxPage() {
               key={k}
               onClick={() => setTab(k as Tab)}
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5",
+                "text-[11px] font-medium rounded-full px-3 py-1 transition-colors inline-flex items-center gap-1.5",
                 tab === k
-                  ? k === "assignments" && n > 0
-                    ? "border-accent bg-accent/15 text-accent"
-                    : "border-accent/40 bg-accent/10 text-accent"
-                  : "border-border text-muted-foreground hover:bg-muted",
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-card text-muted-foreground border border-border hover:bg-muted/50 hover:text-foreground",
               )}
             >
               <Icon className="h-3 w-3" />
               {label}
               <span className={cn(
                 "font-mono text-[10px] opacity-70",
-                k === "assignments" && n > 0 && tab !== k && "opacity-100 text-accent font-bold",
+                k === "assignments" && n > 0 && tab !== k && "opacity-100 font-bold",
               )}>({n})</span>
             </button>
           ))}

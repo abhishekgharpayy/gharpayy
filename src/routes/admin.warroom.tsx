@@ -13,6 +13,13 @@ import type { Lead as LegacyLead, LeadStage, Intent } from "@/lib/types";
 import type { Lead as WireLead } from "@/contracts";
 import type { CreatorLeaderboardEntry } from "@/lib/stats-types";
 
+import { LiveLeadsBridge } from "@/components/LiveLeadsBridge";
+import { LiveBookingsBridge } from "@/components/LiveBookingsBridge";
+import { LiveToursAppBridge } from "@/components/LiveToursAppBridge";
+import { LiveFollowUpsBridge } from "@/components/LiveFollowUpsBridge";
+import { LiveTcMsBridge } from "@/components/LiveTcMsBridge";
+import { LivePropertiesBridge } from "@/components/LivePropertiesBridge";
+
 export const Route = createFileRoute("/admin/warroom")({
   beforeLoad: () => {
     const role = useAuthUser.getState().user?.role;
@@ -142,6 +149,12 @@ function WarRoomTV() {
 
   return (
     <div className="fixed inset-0 bg-slate-950 text-slate-50 overflow-auto p-6 font-display">
+      <LiveLeadsBridge />
+      <LiveBookingsBridge />
+      <LiveToursAppBridge />
+      <LiveFollowUpsBridge />
+      <LiveTcMsBridge />
+      <LivePropertiesBridge />
     <div className="space-y-4 bg-slate-950 p-4 rounded-xl text-slate-50 font-mono relative overflow-hidden">
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-900/20 via-slate-950/80 to-slate-950 pointer-events-none" />
       

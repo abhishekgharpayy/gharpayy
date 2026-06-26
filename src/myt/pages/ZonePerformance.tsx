@@ -140,11 +140,11 @@ export default function ZonePerformance() {
   };
 
   const filteredZones = zones.filter(z => {
-    const term = searchTerm.toLowerCase();
+    const term = (searchTerm || '').toLowerCase();
     return (
-      z.name.toLowerCase().includes(term) ||
-      (z.city && z.city.toLowerCase().includes(term)) ||
-      (z.areas || []).some(a => a.toLowerCase().includes(term))
+      (z.name || '').toLowerCase().includes(term) ||
+      ((z.city || '').toLowerCase().includes(term)) ||
+      (z.areas || []).some(a => (a || '').toLowerCase().includes(term))
     );
   });
 

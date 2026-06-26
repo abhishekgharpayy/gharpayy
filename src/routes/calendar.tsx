@@ -181,7 +181,7 @@ function CalendarPage() {
         if (filter !== "all" && e.kind !== filter) return false;
         if (!q) return true;
         return (
-          e.title.toLowerCase().includes(q) ||
+          (e.title || "").toLowerCase().includes(q) ||
           (e.location ?? "").toLowerCase().includes(q) ||
           (e.description ?? "").toLowerCase().includes(q)
         );

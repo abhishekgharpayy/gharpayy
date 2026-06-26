@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, Outlet, useRouterState } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api/client";
 import { useState } from "react";
@@ -10,8 +10,15 @@ import { Camera, Plus, Image, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthUser } from "@/lib/auth-store";
 
+function PropertyGalleryLayout() {
+  const { location } = useRouterState();
+  const isExact = location.pathname === "/admin/property-gallery";
+  if (isExact) return <PropertyGallery />;
+  return <Outlet />;
+}
+
 export const Route = createFileRoute("/admin/property-gallery")({
-  component: PropertyGallery,
+  component: PropertyGalleryLayout,
 });
 
 function PropertyGallery() {

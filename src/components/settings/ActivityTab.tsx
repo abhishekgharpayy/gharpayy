@@ -28,14 +28,16 @@ export function ActivityTab() {
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-1 bg-secondary/50 rounded-lg p-1 w-fit">
+      <div className="flex flex-wrap items-center gap-1.5 w-fit">
         {(["login", "all"] as Sub[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
             className={
-              "px-4 py-1.5 rounded-md text-xs font-medium capitalize " +
-              (tab === t ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")
+              "text-[11px] font-medium rounded-full px-3 py-1 transition-colors capitalize " +
+              (tab === t
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "bg-card text-muted-foreground border border-border hover:bg-muted/50 hover:text-foreground")
             }
           >{t === "login" ? "Logins" : "All events"}</button>
         ))}

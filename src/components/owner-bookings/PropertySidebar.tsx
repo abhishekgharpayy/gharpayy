@@ -24,8 +24,8 @@ export function PropertySidebar({ properties, selectedPropertyId, onSelect }: Pr
     if (!q) return properties;
     return properties.filter(
       (p) =>
-        p.name.toLowerCase().includes(q) ||
-        p.area.toLowerCase().includes(q),
+        (p.name || "").toLowerCase().includes(q) ||
+        (p.area || "").toLowerCase().includes(q),
     );
   }, [properties, query]);
 

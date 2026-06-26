@@ -1,10 +1,12 @@
 /**
  * Admin actions — destructive operations.
- * Writes flow through existing stores with audit + undo.
+ * All mutations flow through the backend command bus via api.command()
+ * and invalidate react-query caches so the UI stays in sync.
  */
 import { useApp } from "@/lib/store";
 import { useAuditLog } from "@/lib/crm10x/audit-log";
 import { toast } from "sonner";
+import { api } from "@/lib/api/client";
 
 type Inverse = () => void;
 const undoStack = new Map<string, Inverse>();
@@ -101,16 +103,40 @@ export function bulkReassign(leadIds: string[], newTcmId: string) {
   leadIds.forEach((id) => reassignLead(id, newTcmId, "Bulk admin reassignment"));
 }
 
-export function flagIntervention(leadId: string, note: string) {
-  const lead = useApp.getState().leads.find((l) => l.id === leadId);
-  if (!lead) return;
-  useAuditLog.getState().log({
-    actorId: "admin",
-    actorName: "Admin",
-    entityType: "lead",
-    entityId: leadId,
-    action: "admin.intervention.flag",
-    summary: `Flagged ${lead.name}: ${note}`,
-  });
-  toast.success("Intervention flagged");
+/** Flag a lead for admin intervention — persisted to MongoDB */
+export async function flagIntervention(
+  leadId: string,
+  category: "pricing_dispute" | "tcm_unresponsive" | "special_reqs" | "bad_experience" | "other",
+  note: string,
+) {
+  const cmdId = `fi_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+  try {
+    await api.command({
+      _id: cmdId,
+      type: "cmd.lead.flag_intervention",
+      issuedAt: new Date().toISOString(),
+      payload: { leadId, isFlagged: true, category, note },
+    });
+    toast.success("Lead flagged for intervention");
+  } catch (err) {
+    console.error("[flagIntervention]", err);
+    toast.error("Failed to flag lead");
+  }
+}
+
+/** Resolve an intervention flag — clears it from MongoDB */
+export async function resolveIntervention(leadId: string) {
+  const cmdId = `ri_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+  try {
+    await api.command({
+      _id: cmdId,
+      type: "cmd.lead.flag_intervention",
+      issuedAt: new Date().toISOString(),
+      payload: { leadId, isFlagged: false },
+    });
+    toast.success("Intervention resolved");
+  } catch (err) {
+    console.error("[resolveIntervention]", err);
+    toast.error("Failed to resolve intervention");
+  }
 }

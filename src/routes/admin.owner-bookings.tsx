@@ -41,10 +41,10 @@ function AdminOwnerBookings() {
     return bookings.filter((b) =>
       f(b) &&
       (term === "" ||
-        b.customer.name.toLowerCase().includes(term) ||
-        b.customer.phone.toLowerCase().includes(term) ||
-        b.inventory.propertyName.toLowerCase().includes(term) ||
-        b.inventory.roomNumber.toLowerCase().includes(term))
+        (b.customer?.name || "").toLowerCase().includes(term) ||
+        (b.customer?.phone || "").toLowerCase().includes(term) ||
+        (b.inventory?.propertyName || "").toLowerCase().includes(term) ||
+        (b.inventory?.roomNumber || "").toLowerCase().includes(term))
     );
   }, [bookings, tab, q]);
 

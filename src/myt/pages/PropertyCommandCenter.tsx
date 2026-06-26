@@ -46,7 +46,7 @@ export default function PropertyCommandCenter() {
     return managedProperties
       .map(p => ({ p, s: scoreProperty(p, managedRooms, tours, leads, blocks) }))
       .filter(({ p }) => !globalZoneFilter || p.zoneId === globalZoneFilter)
-      .filter(({ p }) => !search || p.name.toLowerCase().includes(search.toLowerCase()) || p.area.toLowerCase().includes(search.toLowerCase()))
+      .filter(({ p }) => !search || (p.name || '').toLowerCase().includes(search.toLowerCase()) || (p.area || '').toLowerCase().includes(search.toLowerCase()))
       .filter(({ s }) => signalFilter === 'all' || s.signal === signalFilter)
       .sort((a, b) => b.s.demandScore - a.s.demandScore);
   }, [managedProperties, managedRooms, tours, leads, blocks, globalZoneFilter, search, signalFilter]);

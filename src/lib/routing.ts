@@ -25,7 +25,7 @@ export function autoAssign(
     let score = 0;
 
     // Zone match - biggest signal
-    if (t.zone.toLowerCase() === lead.preferredArea.toLowerCase()) {
+    if ((t.zone || '').toLowerCase() === (lead.preferredArea || '').toLowerCase()) {
       score += 40;
       reasons.push(`Zone match · ${t.zone}`);
     }

@@ -334,8 +334,8 @@ function AdminCockpit() {
     droppedByArea.forEach((droppedCount, area) => {
       if (droppedCount >= 2) { // 2 or more dropped leads in this area
         const availableInArea = properties.filter(p => 
-          (p.address?.toLowerCase().includes(area.toLowerCase()) || 
-           p.name?.toLowerCase().includes(area.toLowerCase())) &&
+          ((p.address || '').toLowerCase().includes(area.toLowerCase()) || 
+           (p.name || '').toLowerCase().includes(area.toLowerCase())) &&
           p.status === "vacant"
         ).length;
         
