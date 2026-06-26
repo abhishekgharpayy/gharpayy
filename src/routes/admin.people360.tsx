@@ -169,7 +169,7 @@ function WorkloadTab() {
                 <td className="px-3 py-2.5">
                   <div className="flex items-center gap-2">
                     <img src={row.avatar} alt="" className="w-6 h-6 rounded-full bg-muted" />
-                    <span className="font-medium">{row.name}</span>
+                    <span className="font-medium text-foreground">{row.name || "Unknown"}</span>
                   </div>
                 </td>
                 <td className="px-3 py-2.5"><HeatCell value={row.openLeads} thresholds={[5, 15, 25]} /></td>
@@ -460,7 +460,7 @@ function RiskCard({ row }: { row: RiskRow }) {
       <div className="flex items-center gap-3">
         <img src={row.avatar} alt="" className="w-8 h-8 rounded-full bg-muted" />
         <div className="flex-1 min-w-0">
-          <div className="font-semibold text-sm truncate">{row.name}</div>
+          <div className="font-semibold text-sm text-foreground truncate">{row.name || "Unknown"}</div>
           <div className="flex items-center gap-1.5 mt-0.5">
             <span className={cn(
               "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold",
