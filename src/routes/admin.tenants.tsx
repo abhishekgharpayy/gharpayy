@@ -7,8 +7,6 @@ import { api } from "@/lib/api/client";
 import { useAuthUser, isLocalMode } from "@/lib/auth-store";
 import { useApp } from "@/lib/store";
 import { useLiveSupremeMetrics } from "@/admin/lib/use-live-supreme";
-import { dispatch } from "@/lib/api/command-bus";
-import { SmartDossier } from "@/components/crm10x/SmartDossier";
 import { Users, AlertTriangle, TrendingDown, Clock, Building2, CheckCircle2, ShieldAlert, ArrowUpRight, Search, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -326,7 +324,7 @@ function TenantControlTower() {
                     <button 
                       onClick={() => {
                         if (s.isImpactLead) {
-                          dispatch({ type: "cmd.ui.dossier.open", payload: { leadId: s.id } });
+                          useApp.getState().selectLead(s.id);
                         } else {
                           toast.info("Full tenant profiles coming soon!");
                         }
@@ -349,8 +347,6 @@ function TenantControlTower() {
           </table>
         </div>
       </div>
-
-      <SmartDossier />
     </div>
   );
 }
