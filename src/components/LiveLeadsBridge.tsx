@@ -61,30 +61,12 @@ export function LiveLeadsBridge() {
 
   useEffect(() => {
     let cancelled = false;
+    let isHydrating = true;
+    let eventBuffer: DomainEvent[] = [];
 
     useLeadsSync.getState().setLoading();
 
-    const load = async () => {
-      try {
-        const r = await api.leads.list({ limit: 200 });
-        if (cancelled) return;
-        const fallbackTcm = tcmsRef.current[0]?.id ?? "";
-        setLeads((r.items as WireLead[]).map((l) => toLegacy(l, fallbackTcm)));
-        useLeadsSync.getState().setReady();
-      } catch (e) {
-        const msg = (e as Error).message;
-        console.warn("[LiveLeadsBridge] load failed:", msg);
-        if (!cancelled) {
-          setLeads([]);
-          useLeadsSync.getState().setError(msg);
-        }
-      }
-    };
-
-    void load();
-
-    getSocket();
-    const off = onEvent((e: DomainEvent) => {
+    const processEvent = (e: DomainEvent) => {
       const cur = useApp.getState().leads;
       const fallbackTcm = tcmsRef.current[0]?.id ?? "";
       if (e.type === "evt.lead.created") {
@@ -160,9 +142,47 @@ export function LiveLeadsBridge() {
           });
         }
       }
+    };
+
+    const load = async () => {
+      try {
+        const r = await api.leads.list({ limit: 200 });
+        if (cancelled) return;
+        const fallbackTcm = tcmsRef.current[0]?.id ?? "";
+        setLeads((r.items as WireLead[]).map((l) => toLegacy(l, fallbackTcm)));
+        
+        isHydrating = false;
+        eventBuffer.forEach(processEvent);
+        eventBuffer = [];
+
+        useLeadsSync.getState().setReady();
+      } catch (e) {
+        const msg = (e as Error).message;
+        console.warn("[LiveLeadsBridge] load failed:", msg);
+        if (!cancelled) {
+          setLeads([]);
+          useLeadsSync.getState().setError(msg);
+          isHydrating = false;
+          eventBuffer = [];
+        }
+      }
+    };
+
+    void load();
+
+    getSocket();
+    const off = onEvent((e: DomainEvent) => {
+      if (isHydrating) {
+        eventBuffer.push(e);
+      } else {
+        processEvent(e);
+      }
     });
 
-    const interval = setInterval(load, 5 * 60_000);
+    const interval = setInterval(() => {
+      isHydrating = true;
+      void load();
+    }, 5 * 60_000);
     return () => { cancelled = true; off(); clearInterval(interval); };
   }, [setLeads]);
 
