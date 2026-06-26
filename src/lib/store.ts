@@ -301,10 +301,11 @@ export const useApp = create<AppState>()(
         text: `Status changed to ${stage}`,
       });
     } catch (err) {
+      console.error("[store] setLeadStage failed:", err);
       // Roll back optimistic state if server persistence fails.
       set((s) => ({
         leads: s.leads.map((l) =>
-          l.id === leadId ? { ...l, stage: prevLead.stage, updatedAt: prevLead.updatedAt } : l,
+          l.id === leadId && l.stage === stage ? { ...l, stage: prevLead.stage, updatedAt: prevLead.updatedAt, stageEnteredAt: prevLead.stageEnteredAt } : l,
         ),
       }));
       throw err;
@@ -350,16 +351,22 @@ export const useApp = create<AppState>()(
         l.id === leadId ? { ...l, tags: nextTags, updatedAt: new Date().toISOString() } : l,
       ),
     }));
-    void api
+    api
       .command({
         _id: uid("c"),
         type: "cmd.lead.update",
         issuedAt: new Date().toISOString(),
         payload: { leadId, patch: { tags: nextTags } },
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error("[store] addLeadTag failed:", err);
         set((s) => ({
-          leads: s.leads.map((l) => (l.id === leadId ? prevLead : l)),
+          leads: s.leads.map((l) => {
+            if (l.id === leadId && l.tags.join(",") === nextTags.join(",")) {
+              return { ...l, tags: prevLead.tags, updatedAt: prevLead.updatedAt };
+            }
+            return l;
+          }),
         }));
       });
   },
@@ -373,16 +380,22 @@ export const useApp = create<AppState>()(
         l.id === leadId ? { ...l, tags: nextTags, updatedAt: new Date().toISOString() } : l,
       ),
     }));
-    void api
+    api
       .command({
         _id: uid("c"),
         type: "cmd.lead.update",
         issuedAt: new Date().toISOString(),
         payload: { leadId, patch: { tags: nextTags } },
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error("[store] removeLeadTag failed:", err);
         set((s) => ({
-          leads: s.leads.map((l) => (l.id === leadId ? prevLead : l)),
+          leads: s.leads.map((l) => {
+            if (l.id === leadId && l.tags.join(",") === nextTags.join(",")) {
+              return { ...l, tags: prevLead.tags, updatedAt: prevLead.updatedAt };
+            }
+            return l;
+          }),
         }));
       });
   },
@@ -627,6 +640,8 @@ export const useApp = create<AppState>()(
   },
 
   updateTourDetails: async (tourId, patch) => {
+    const t_init = get().tours.find((x) => x.id === tourId);
+    const previousLead = t_init ? get().leads.find((l) => l.id === t_init.leadId) : undefined;
     await api.command({
       _id: uid("c"),
       type: "cmd.tour.update",
@@ -648,21 +663,34 @@ export const useApp = create<AppState>()(
           : s.leads,
     }));
     if (t && patch.status === "no-show") {
-      void api
+      api
         .command({
           _id: uid("c"),
           type: "cmd.lead.change_stage",
           issuedAt: new Date().toISOString(),
           payload: { leadId: t.leadId, to: "contacted", tourId },
         })
-        .catch(() => {});
-      pushActivity(set, get, {
-        kind: "tour_cancelled",
-        actor: t.tcmId,
-        leadId: t.leadId,
-        tourId,
-        text: "Tour marked no-show",
-      });
+        .then(() => {
+          pushActivity(set, get, {
+            kind: "tour_cancelled",
+            actor: t.tcmId,
+            leadId: t.leadId,
+            tourId,
+            text: "Tour marked no-show",
+          });
+        })
+        .catch((err) => {
+          console.error("[store] updateTourDetails secondary stage change failed:", err);
+          if (previousLead) {
+            set((s) => ({
+              leads: s.leads.map((l) =>
+                l.id === t.leadId && l.stage === "contacted"
+                  ? { ...l, stage: previousLead.stage, updatedAt: previousLead.updatedAt }
+                  : l
+              ),
+            }));
+          }
+        });
     }
   },
 
@@ -692,9 +720,10 @@ export const useApp = create<AppState>()(
         text: "Tour marked live",
       });
     } catch (err) {
+      console.error("[store] markTourStarted failed:", err);
       if (previousLead) {
         set((s) => ({
-          leads: s.leads.map((l) => (l.id === previousLead.id ? previousLead : l)),
+          leads: s.leads.map((l) => (l.id === previousLead.id && l.stage === "on-tour" ? { ...l, stage: previousLead.stage, tourDate: previousLead.tourDate, updatedAt: previousLead.updatedAt } : l)),
         }));
       }
       throw err;
@@ -704,8 +733,14 @@ export const useApp = create<AppState>()(
   setDecision: (tourId, decision) => {
     const t = get().tours.find((x) => x.id === tourId);
     if (!t) return;
+    
+    const prevTour = t;
+    const prevLead = get().leads.find((l) => l.id === t.leadId);
+    if (!prevLead) return;
+
     const nextStage: LeadStage =
       decision === "booked" ? "booked" : decision === "dropped" ? "dropped" : "negotiation";
+      
     set((s) => ({
       tours: s.tours.map((x) =>
         x.id === tourId ? { ...x, decision, updatedAt: new Date().toISOString() } : x,
@@ -720,21 +755,38 @@ export const useApp = create<AppState>()(
           : l,
       ),
     }));
-    void api
+
+    api
       .command({
         _id: uid("c"),
         type: "cmd.lead.change_stage",
         issuedAt: new Date().toISOString(),
         payload: { leadId: t.leadId, to: nextStage },
       })
-      .catch(() => {});
-    pushActivity(set, get, {
-      kind: "decision_logged",
-      actor: t.tcmId,
-      leadId: t.leadId,
-      tourId,
-      text: `Decision: ${decision ?? "-"}`,
-    });
+      .then(() => {
+        pushActivity(set, get, {
+          kind: "decision_logged",
+          actor: t.tcmId,
+          leadId: t.leadId,
+          tourId,
+          text: `Decision: ${decision ?? "-"}`,
+        });
+      })
+      .catch((err) => {
+        console.error("[store] setDecision failed on server:", err);
+        set((s) => ({
+          tours: s.tours.map((x) =>
+            x.id === tourId && x.decision === decision
+              ? { ...x, decision: prevTour.decision, updatedAt: prevTour.updatedAt }
+              : x
+          ),
+          leads: s.leads.map((l) =>
+            l.id === t.leadId && l.stage === nextStage
+              ? { ...l, stage: prevLead.stage, updatedAt: prevLead.updatedAt }
+              : l
+          ),
+        }));
+      });
   },
 
   updatePostTour: async (tourId, patch) => {
@@ -855,6 +907,12 @@ export const useApp = create<AppState>()(
 
   reassignLead: (leadId, tcmId, reason) => {
     const tcm = get().tcms.find((t) => t.id === tcmId);
+    const prevLead = get().leads.find((l) => l.id === leadId);
+    if (!prevLead) return;
+    
+    const role = get().role;
+    const currentTcmId = get().currentTcmId;
+
     set((s) => ({
       leads: s.leads.map((l) =>
         l.id === leadId ? { ...l, assignedTcmId: tcmId, updatedAt: new Date().toISOString() } : l,
@@ -868,25 +926,36 @@ export const useApp = create<AppState>()(
         issuedAt: new Date().toISOString(),
         payload: { leadId, tcmId },
       })
-      .catch((err) => console.error("[store] Failed to reassign lead on server:", err));
-
-    pushActivity(set, get, {
-      kind: "status_changed",
-      actor: get().role,
-      leadId,
-      text: `Reassigned to ${tcm?.name ?? tcmId} · ${reason}`,
-    });
-    // auto-handoff
-    const lead = get().leads.find((l) => l.id === leadId);
-    if (lead) {
-      get().sendHandoff({
-        leadId,
-        from: get().role,
-        fromId: get().role === "tcm" ? get().currentTcmId : get().role,
-        text: `Reassigned to ${tcm?.name ?? tcmId}. Reason: ${reason}`,
-        priority: lead.intent === "hot" ? "urgent" : "normal",
+      .then(() => {
+        pushActivity(set, get, {
+          kind: "status_changed",
+          actor: role,
+          leadId,
+          text: `Reassigned to ${tcm?.name ?? tcmId} · ${reason}`,
+        });
+        
+        const currentLead = get().leads.find((l) => l.id === leadId);
+        if (currentLead) {
+          get().sendHandoff({
+            leadId,
+            from: role,
+            fromId: role === "tcm" ? currentTcmId : role,
+            text: `Reassigned to ${tcm?.name ?? tcmId}. Reason: ${reason}`,
+            priority: currentLead.intent === "hot" ? "urgent" : "normal",
+          });
+        }
+      })
+      .catch((err) => {
+        console.error("[store] Failed to reassign lead on server:", err);
+        set((s) => ({
+          leads: s.leads.map((l) => {
+            if (l.id === leadId && l.assignedTcmId === tcmId) {
+              return { ...l, assignedTcmId: prevLead.assignedTcmId, updatedAt: prevLead.updatedAt };
+            }
+            return l;
+          }),
+        }));
       });
-    }
   },
 
   autoAssignLead: (leadId) => {
@@ -976,6 +1045,13 @@ export const useApp = create<AppState>()(
     const existing = get().bookings.find((b) => b.leadId === leadId);
     if (existing) return existing;
     const lead = get().leads.find((l) => l.id === leadId);
+    
+    // Capture snapshots for targeted rollback
+    const prevLead = lead;
+    const prevProperty = get().properties.find((p) => p.id === propertyId);
+    const prevTour = get().tours.find((t) => t.id === tourId);
+    const prevSequence = get().sequences.find((s) => s.leadId === leadId && !s.stoppedReason);
+
     const now = new Date().toISOString();
     const booking: Booking = {
       id: uid("b"),
@@ -992,6 +1068,7 @@ export const useApp = create<AppState>()(
       ts: now,
       updatedAt: now,
     };
+    
     set((s) => ({
       bookings: [booking, ...s.bookings],
       properties: s.properties.map((p) =>
@@ -1011,16 +1088,15 @@ export const useApp = create<AppState>()(
         seq.leadId === leadId && !seq.stoppedReason ? { ...seq, stoppedReason: "Booked" } : seq,
       ),
     }));
-    void api
-      .command({
+
+    Promise.all([
+      api.command({
         _id: uid("c"),
         type: "cmd.lead.change_stage",
         issuedAt: new Date().toISOString(),
         payload: { leadId, to: "booked" },
-      })
-      .catch(() => {});
-    void api
-      .command({
+      }),
+      api.command({
         _id: uid("c"),
         type: "cmd.booking.create",
         issuedAt: new Date().toISOString(),
@@ -1036,33 +1112,62 @@ export const useApp = create<AppState>()(
           moveInDate: lead?.moveInDate ?? now.slice(0, 10),
         },
       })
-      .catch(() => {});
-    pushActivity(set, get, {
-      kind: "booking_confirmed",
-      actor: tcmId,
-      leadId,
-      tourId,
-      propertyId,
-      text: `Deal closed · ₹${amount.toLocaleString("en-IN")}/mo`,
-    });
-    // Connector - find which Flop scheduled this lead's tour, give them assist XP.
-    const sched = get().activities.find(
-      (a) => a.kind === "tour_scheduled" && a.leadId === leadId && a.tourId === tourId,
-    );
-    const ownerEvt = get().properties.find((p) => p.id === propertyId);
-    emitConnector({
-      kind: "booking.closed",
-      actorRole: "tcm",
-      actorId: tcmId,
-      leadId,
-      tourId,
-      propertyId,
-      bookingId: booking.id,
-      text: `${personName(tcmId, "TCM")} booked ${lead?.name ?? "lead"} at ${ownerEvt?.name ?? "property"} · ₹${Math.round(amount).toLocaleString("en-IN")}/mo`,
-      assists:
-        sched && sched.actor !== tcmId
-          ? [{ role: sched.actor === "flow-ops" ? "flow-ops" : "tcm", id: sched.actor }]
-          : undefined,
+    ])
+    .then(() => {
+      pushActivity(set, get, {
+        kind: "booking_confirmed",
+        actor: tcmId,
+        leadId,
+        tourId,
+        propertyId,
+        text: `Deal closed · ₹${amount.toLocaleString("en-IN")}/mo`,
+      });
+      
+      const sched = get().activities.find(
+        (a) => a.kind === "tour_scheduled" && a.leadId === leadId && a.tourId === tourId,
+      );
+      const ownerEvt = get().properties.find((p) => p.id === propertyId);
+      
+      emitConnector({
+        kind: "booking.closed",
+        actorRole: "tcm",
+        actorId: tcmId,
+        leadId,
+        tourId,
+        propertyId,
+        bookingId: booking.id,
+        text: `${personName(tcmId, "TCM")} booked ${lead?.name ?? "lead"} at ${ownerEvt?.name ?? "property"} · ₹${Math.round(amount).toLocaleString("en-IN")}/mo`,
+        assists:
+          sched && sched.actor !== tcmId
+            ? [{ role: sched.actor === "flow-ops" ? "flow-ops" : "tcm", id: sched.actor }]
+            : undefined,
+      });
+    })
+    .catch((err) => {
+      console.error("[store] closeDeal failed on server:", err);
+      set((s) => ({
+        bookings: s.bookings.filter((b) => b.id !== booking.id),
+        properties: s.properties.map((p) =>
+          p.id === propertyId && prevProperty
+            ? { ...p, vacantBeds: prevProperty.vacantBeds, daysSinceLastBooking: prevProperty.daysSinceLastBooking }
+            : p
+        ),
+        leads: s.leads.map((l) =>
+          l.id === leadId && l.stage === "booked" && prevLead
+            ? { ...l, stage: prevLead.stage, confidence: prevLead.confidence, updatedAt: prevLead.updatedAt }
+            : l
+        ),
+        tours: s.tours.map((t) =>
+          t.id === tourId && prevTour
+            ? { ...t, decision: prevTour.decision, status: prevTour.status }
+            : t
+        ),
+        sequences: s.sequences.map((seq) =>
+          seq.id === prevSequence?.id
+            ? { ...seq, stoppedReason: prevSequence.stoppedReason }
+            : seq
+        ),
+      }));
     });
     return booking;
   },
@@ -1135,7 +1240,7 @@ export const useApp = create<AppState>()(
     const existingTenant = get().tenants.find((t) => t.bookingId === bookingId);
     if (!existingTenant) {
       const lead = get().leads.find((l) => l.id === booking.leadId);
-      get().addTenant({
+      const newTenant = get().addTenant({
         bookingId,
         leadId: booking.leadId,
         propertyId: booking.propertyId,
@@ -1148,7 +1253,7 @@ export const useApp = create<AppState>()(
         status: "active",
         roomNumber: lead?.propertyName ?? undefined,
       });
-      void api
+      api
         .command({
           _id: uid("c"),
           type: "cmd.tenant.create",
@@ -1165,7 +1270,15 @@ export const useApp = create<AppState>()(
             deposit: booking.deposit,
           },
         })
-        .catch(() => {});
+        .catch((err) => {
+          console.error("[store] markBookingPaid failed:", err);
+          set((s) => ({
+            bookings: s.bookings.map((b) =>
+              b.id === bookingId && b.status === "active" ? { ...b, status: booking.status, paidRef: booking.paidRef, updatedAt: booking.updatedAt } : b
+            ),
+            tenants: s.tenants.filter((t) => t.id !== newTenant.id)
+          }));
+        });
     }
   },
 
