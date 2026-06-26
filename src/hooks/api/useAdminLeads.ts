@@ -42,6 +42,14 @@ export interface AdminLeadRow {
   } | null;
   currentStageAgeDays: number;
   isStuck: boolean;
+  visits: any[];
+  calls: any[];
+  objections: any[];
+  messages: any[];
+  assignments: any[];
+  coachNotes: any[];
+  lastObjection?: any;
+  reassignedCount: number;
 }
 
 export interface AdminLeadsResponse {

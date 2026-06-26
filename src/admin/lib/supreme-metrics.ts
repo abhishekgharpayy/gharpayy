@@ -1,4 +1,4 @@
-import type { AdminLeadRow } from "./selectors";
+import type { AdminLeadRow } from "@/hooks/api/useAdminLeads";
 
 const DAY = 86_400_000;
 

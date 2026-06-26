@@ -33,9 +33,9 @@ function AdminLeaderboard() {
         setTcms(tRes.map(t => {
           const initials = (t.fullName || t.name || t.username || "TC").substring(0, 2).toUpperCase();
           const name = t.fullName || t.name || t.username || "TCM";
-          return { id: t.id, name, initials, totalLeads: 0, conversionRate: 0, totalTasks: 0, completionRate: 0, avgResponseMins: 0 };
+          return { id: t.id, name, initials, zone: t.zones?.[0] || "All", totalLeads: 0, conversionRate: 0, totalTasks: 0, completionRate: 0, avgResponseMins: 0 };
         }));
-        setFollowUps(fRes.items as FollowUp[]);
+        setFollowUps(fRes.items as unknown as FollowUp[]);
       } catch (err) {
         console.error("Failed to fetch leaderboard data", err);
       } finally {

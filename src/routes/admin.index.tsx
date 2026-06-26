@@ -557,6 +557,7 @@ function WhyPanel({
   whyTab,
   onWhyTabChange,
   whyByTcm,
+  tcmHealthMap,
   open,
   rows,
   tcms,
