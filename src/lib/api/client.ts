@@ -555,6 +555,17 @@ export const api = {
       ),
     get: (id: string) =>
       request<import("@/contracts").TenantEntity>(`/api/tenants/${id}`),
+    create: (input: any) =>
+      safe<import("@/contracts").TenantEntity>(
+        () => request<import("@/contracts").TenantEntity>("/api/tenants", {
+          method: "POST",
+          body: JSON.stringify(input)
+        }),
+        () => {
+          // Mock local implementation
+          return { id: "mock_" + Date.now(), ...input } as any;
+        }
+      ),
   },
 
   payments: {

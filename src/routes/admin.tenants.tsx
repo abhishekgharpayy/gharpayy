@@ -6,8 +6,12 @@ import { formatDistanceToNow } from "date-fns";
 import { api } from "@/lib/api/client";
 import { useAuthUser, isLocalMode } from "@/lib/auth-store";
 import { useApp } from "@/lib/store";
-import { Users, AlertTriangle, TrendingDown, Clock, Building2, CheckCircle2, ShieldAlert, ArrowUpRight, Search } from "lucide-react";
+import { Users, AlertTriangle, TrendingDown, Clock, Building2, CheckCircle2, ShieldAlert, ArrowUpRight, Search, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 
 function TenantsLayout() {
@@ -39,6 +43,7 @@ function calculateHealthScore(tenant: any, payments: any[]): number {
 function TenantControlTower() {
   const localMode = isLocalMode();
   const appState = useApp(); // fallback for local mock mode
+  const queryClient = useQueryClient();
 
   const [search, setSearch] = useState("");
   const [viewMode, setViewMode] = useState<"all" | "notice" | "risk">("all");
@@ -138,14 +143,17 @@ function TenantControlTower() {
           </h1>
           <p className="text-muted-foreground">Monitor tenant health, catch delinquencies, and manage move-outs.</p>
         </div>
-        <div className="relative w-full md:w-72">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input 
-            placeholder="Search name, phone, or property..." 
-            className="pl-9 bg-card border-border"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+        <div className="relative w-full md:w-auto flex items-center gap-3">
+          <div className="relative w-full md:w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input 
+              placeholder="Search name, phone, or property..." 
+              className="pl-9 bg-card border-border"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <AddTenantModal onAdded={() => queryClient.invalidateQueries({ queryKey: ["admin", "tenants"] })} />
         </div>
       </div>
 
@@ -302,5 +310,95 @@ function TenantControlTower() {
         </div>
       </div>
     </div>
+  );
+}
+
+function AddTenantModal({ onAdded }: { onAdded: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({ name: "", phone: "", rent: "", propertyName: "" });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.name || !formData.phone) return toast.error("Name and Phone are required.");
+    setLoading(true);
+    try {
+      const payload = {
+        name: formData.name,
+        phone: formData.phone,
+        rent: Number(formData.rent) || 0,
+        propertyId: "unassigned",
+        propertyName: formData.propertyName || "Unassigned",
+        status: "active",
+        createdAt: new Date().toISOString(),
+      };
+      await api.tenants.create(payload);
+      toast.success("Tenant added successfully!");
+      setOpen(false);
+      setFormData({ name: "", phone: "", rent: "", propertyName: "" });
+      onAdded();
+    } catch (err) {
+      toast.error("Failed to add tenant.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" className="h-9">
+          <Plus className="w-4 h-4 mr-2" />
+          Add Tenant
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Add New Tenant</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-muted-foreground">Full Name</label>
+            <Input
+              required
+              placeholder="e.g. Rahul Sharma"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-muted-foreground">Phone Number</label>
+            <Input
+              required
+              placeholder="e.g. +91 9876543210"
+              value={formData.phone}
+              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-muted-foreground">Monthly Rent (₹)</label>
+            <Input
+              type="number"
+              placeholder="e.g. 15000"
+              value={formData.rent}
+              onChange={(e) => setFormData({ ...formData, rent: e.target.value })}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-muted-foreground">Property Name</label>
+            <Input
+              placeholder="e.g. Gharpayy Villa"
+              value={formData.propertyName}
+              onChange={(e) => setFormData({ ...formData, propertyName: e.target.value })}
+            />
+          </div>
+          <div className="pt-2">
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? "Adding..." : "Add Tenant"}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

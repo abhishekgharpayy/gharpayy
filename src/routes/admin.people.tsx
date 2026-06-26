@@ -132,7 +132,7 @@ function AdminPeople() {
         ].map(({ label, value }) => (
           <div key={label} className="rounded-xl border border-border bg-card p-3">
             <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
-            <div className="text-xl font-display font-semibold text-accent">{value}</div>
+            <div className="text-xl font-display font-semibold text-foreground">{value}</div>
           </div>
         ))}
       </div>
@@ -155,7 +155,7 @@ function AdminPeople() {
                   <Link
                     to="/admin/leads"
                     search={{ tcm: row.id }}
-                    className="text-accent hover:underline font-medium"
+                    className="text-foreground hover:text-primary hover:underline font-medium"
                   >
                     {row.name}
                   </Link>
@@ -163,7 +163,7 @@ function AdminPeople() {
                 <td className="px-3 py-2 text-muted-foreground">{row.zone}</td>
                 <td className="px-3 py-2 font-mono">{row.leads}</td>
                 <td className="px-3 py-2">
-                  <span className={row.hot > 0 ? "text-accent font-mono" : "text-muted-foreground font-mono"}>
+                  <span className={row.hot > 0 ? "text-primary font-mono" : "text-muted-foreground font-mono"}>
                     {row.hot}
                   </span>
                 </td>
