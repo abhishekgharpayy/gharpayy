@@ -77,10 +77,10 @@ function TenantControlTower() {
   
   // Inject Impact Queue (booked leads)
   const impactTenants = useMemo(() => {
-    if (!supremeData?.leads) return [];
-    return supremeData.leads
-      .filter((l) => l.stage === "booked" || l.status === "won")
-      .map((l) => ({
+    if (!supremeData?.rawData?.leads) return [];
+    return supremeData.rawData.leads
+      .filter((l: any) => l.stage === "booked" || l.status === "won")
+      .map((l: any) => ({
         id: l._id || l.id,
         name: l.name || l.fullName || "Impact Queue Lead",
         phone: l.phone || "N/A",
