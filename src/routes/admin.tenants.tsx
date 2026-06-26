@@ -6,6 +6,7 @@ import { formatDistanceToNow } from "date-fns";
 import { api } from "@/lib/api/client";
 import { useAuthUser, isLocalMode } from "@/lib/auth-store";
 import { useApp } from "@/lib/store";
+import { useLiveSupremeMetrics } from "@/admin/lib/use-live-supreme";
 import { Users, AlertTriangle, TrendingDown, Clock, Building2, CheckCircle2, ShieldAlert, ArrowUpRight, Search, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -68,16 +69,38 @@ function TenantControlTower() {
     enabled: !localMode,
   });
 
+  const { data: supremeData } = useLiveSupremeMetrics();
+
   const isLoading = !localMode && (loadingTenants || loadingPayments);
 
-  const rawTenants = localMode ? appState.tenants : (tenantsData?.items ?? []);
+  const rawTenantsBase = localMode ? appState.tenants : (tenantsData?.items ?? []);
+  
+  // Inject Impact Queue (booked leads)
+  const impactTenants = useMemo(() => {
+    if (!supremeData?.leads) return [];
+    return supremeData.leads
+      .filter((l) => l.stage === "booked" || l.status === "won")
+      .map((l) => ({
+        id: l._id || l.id,
+        name: l.name || l.fullName || "Impact Queue Lead",
+        phone: l.phone || "N/A",
+        status: "active",
+        rent: l.bookings?.[0]?.amount || 0,
+        propertyName: l.propertyName || "Unassigned",
+        propertyId: "impact_queue",
+        createdAt: new Date().toISOString(),
+      }));
+  }, [supremeData]);
+
+  const rawTenants = [...impactTenants, ...rawTenantsBase];
   const rawPayments = localMode ? appState.payments : (paymentsData?.items ?? []);
   const rawProperties = localMode ? appState.properties : (propertiesData?.items ?? []);
 
   const stats = useMemo(() => {
     return rawTenants.map((t) => {
       const prop = rawProperties.find(p => p.id === t.propertyId || p._id === t.propertyId);
-      const healthScore = calculateHealthScore(t, rawPayments);
+      // Give Impact Queue tenants a perfect score since they just arrived
+      const healthScore = t.propertyId === "impact_queue" ? 100 : calculateHealthScore(t, rawPayments);
       
       // Calculate unpaid rent
       // (For real app, this should check `rents` collection, but we will mock it based on last payment date for now, or use live API if available)
@@ -96,7 +119,7 @@ function TenantControlTower() {
         phone: t.phone || t.contactNumber || "N/A",
         status: t.status || "active",
         rent: t.rent || t.baseRent || 0,
-        propertyName: prop?.name || "Unassigned",
+        propertyName: t.propertyId === "impact_queue" ? t.propertyName : (prop?.name || "Unassigned"),
         healthScore,
         healthGrade,
         healthColor,
@@ -133,7 +156,7 @@ function TenantControlTower() {
   }
 
   return (
-    <div className="space-y-6 max-w-[1400px] mx-auto pb-12">
+    <div className="space-y-6 w-full px-4 pb-12">
       {/* Header */}
       <div className="flex flex-col gap-2 md:flex-row md:items-center justify-between">
         <div>
