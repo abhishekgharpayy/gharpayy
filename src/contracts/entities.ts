@@ -55,6 +55,14 @@ export const Lead = z.object({
   // Audit
   createdBy: z.string(),
   tenantId: z.string(),
+  // Overhaul additions
+  intervention: z.object({
+    isFlagged: z.boolean(),
+    category: z.string(),
+    note: z.string(),
+    flaggedAt: z.string(),
+    flaggedBy: z.string(),
+  }).nullable().optional(),
 });
 export type Lead = z.infer<typeof Lead>;
 
@@ -114,6 +122,8 @@ export const ActivityKind = z.enum([
   "field_changed",
   "todo_linked",
   "tour_scheduled",
+  "status_changed",
+  "coaching_note",
   // User-logged
   "call",
   "email",
