@@ -39,3 +39,7 @@ gharpayy-dashboard/
 # Database schema documentation (auto-generated)
 DATABASE_SCHEMA.md
 .vercel/
+
+# Internal Engineering Docs
+docs/
+docs/*
