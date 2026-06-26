@@ -5,6 +5,14 @@ import { useLiveSupremeMetrics } from "@/admin/lib/use-live-supreme";
 import { useAuthUser } from "@/lib/auth-store";
 import { Building2, AlertTriangle, TrendingDown, TrendingUp, Zap, Users, IndianRupee, ShieldAlert, Activity, ArrowUpRight, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { PGS } from "@/supply-hub/data/pgs";
+
+// Deterministic pseudo-random number based on string
+const hashStr = (str: string) => {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = Math.imul(31, h) + str.charCodeAt(i) | 0;
+  return Math.abs(h);
+};
 
 export const Route = createFileRoute("/admin/property")({
   beforeLoad: () => {
@@ -18,7 +26,7 @@ function AdminPropertyCommandCenter() {
   const { data, isLoading } = useLiveSupremeMetrics();
   const [searchTerm, setSearchTerm] = useState("");
 
-  const properties = data?.properties ?? [];
+  const liveProperties = data?.properties ?? [];
   const leads = data?.leads ?? [];
   const tours = data?.tours ?? [];
   const tcms = data?.tcms ?? [];
@@ -33,23 +41,37 @@ function AdminPropertyCommandCenter() {
   });
 
   const stats = useMemo(() => {
-    return properties.map((prop) => {
+    return PGS.map((pg) => {
       // Find leads for this property (either preferred Area matches, or explicitly assigned to propertyName)
       const propLeads = leads.filter(
-        (l) => l.preferredArea === prop.area || l.propertyName === prop.name,
+        (l) => l.preferredArea === pg.area || l.propertyName === pg.name,
       );
       
       // Find tours for this property
       const propTours = tours.filter(
-        (t) => t.propertyName === prop.name || propLeads.some(l => l._id === t.leadId),
+        (t) => t.propertyName === pg.name || propLeads.some(l => l._id === t.leadId),
       );
 
-      const totalBeds = prop.totalBeds || 0;
-      const vacantBeds = prop.vacantBeds || 0;
+      // Simulation based on ID hash
+      const h = hashStr(pg.id);
+      
+      // Base capacities based on tier
+      let totalBeds = 40;
+      if (pg.tier === "Premium") totalBeds = 80;
+      else if (pg.tier === "Budget") totalBeds = 120;
+      
+      // Vacancy simulation (0 to 15% normally)
+      const vacancyPercent = (h % 15) / 100;
+      let vacantBeds = Math.floor(totalBeds * vacancyPercent);
+      
+      // Overwrite if it's hot or empty
+      if (h % 10 === 0) vacantBeds = 0; // 10% chance of being fully booked
+      if (h % 20 === 0) vacantBeds = Math.floor(totalBeds * 0.4); // 5% chance of high vacancy
+
       const occupiedBeds = Math.max(0, totalBeds - vacantBeds);
       const occupancyRate = totalBeds > 0 ? (occupiedBeds / totalBeds) * 100 : 0;
       
-      const pricePerBed = prop.pricePerBed || prop.basePrice || 15000;
+      const pricePerBed = pg.prices.min || 15000;
       const dailyRevenueBleed = Math.round((vacantBeds * pricePerBed) / 30);
       const monthlyRevenueBleed = vacantBeds * pricePerBed;
 
@@ -79,9 +101,9 @@ function AdminPropertyCommandCenter() {
       const isPriceSensitive = topObj && topObj[0].toLowerCase().includes("price");
 
       return {
-        id: prop._id || prop.id,
-        name: prop.name,
-        area: prop.area,
+        id: pg.id,
+        name: pg.name,
+        area: pg.area || "Unknown",
         totalBeds,
         vacantBeds,
         occupancyRate,
@@ -96,14 +118,14 @@ function AdminPropertyCommandCenter() {
         topObjection: topObj ? topObj[0].replace(/-/g, " ") : "\u2014",
       };
     });
-  }, [properties, leads, tours, objectionsByLead]);
+  }, [leads, tours, objectionsByLead]);
 
   const filteredStats = stats.filter(s => 
     s.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
     s.area.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const totalProps = properties.length;
+  const totalProps = PGS.length;
   const totalVacant = stats.reduce((sum, s) => sum + s.vacantBeds, 0);
   const totalDailyBleed = stats.reduce((sum, s) => sum + s.dailyRevenueBleed, 0);
   const highDemandProps = stats.filter(s => s.overDemand).length;
@@ -117,7 +139,7 @@ function AdminPropertyCommandCenter() {
   }
 
   return (
-    <div className="space-y-6 max-w-[1400px] mx-auto pb-12">
+    <div className="space-y-6 w-full px-4 pb-12">
       {/* Header */}
       <div className="flex flex-col gap-2 md:flex-row md:items-center justify-between">
         <div>
