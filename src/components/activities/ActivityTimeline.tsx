@@ -28,6 +28,8 @@ const KIND_META: Record<ActivityKind, { icon: typeof Phone; label: string; tone:
   quote_sent:        { icon: Receipt,       label: "Quote sent",      tone: "bg-teal-500/10 text-teal-600 dark:text-teal-400" },
   document_shared:   { icon: FileText,      label: "Document",        tone: "bg-slate-500/10 text-slate-600 dark:text-slate-400" },
   payment_recorded:  { icon: Receipt,       label: "Payment",         tone: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" },
+  status_changed:    { icon: ArrowRightLeft,label: "Status Changed",  tone: "bg-violet-500/10 text-violet-600 dark:text-violet-400" },
+  coaching_note:     { icon: StickyNote,    label: "Coaching Note",   tone: "bg-amber-500/10 text-amber-600 dark:text-amber-400" },
 };
 
 interface Props {
