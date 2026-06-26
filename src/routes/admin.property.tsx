@@ -1,142 +1,285 @@
-import { createFileRoute, redirect, Link } from "@tanstack/react-router";
-import { useMemo } from "react";
+import { createFileRoute, redirect } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
 
-import { useApp } from "@/lib/store";
-import { useVisitWar } from "@/lib/visits/war-store";
-import { useCRM10x } from "@/lib/crm10x/store";
+import { useLiveSupremeMetrics } from "@/admin/lib/use-live-supreme";
 import { useAuthUser } from "@/lib/auth-store";
+import { Building2, AlertTriangle, TrendingDown, TrendingUp, Zap, Users, IndianRupee, ShieldAlert, Activity, ArrowUpRight, Search } from "lucide-react";
+import { Input } from "@/components/ui/input";
 
-export const Route = createFileRoute("/admin/property")(
-  {
-    beforeLoad: () => {
-      const role = useAuthUser.getState().user?.role;
-      if (role !== "super_admin") throw redirect({ to: "/" });
-    },
-    component: AdminProperty,
-  }
-);
+export const Route = createFileRoute("/admin/property")({
+  beforeLoad: () => {
+    const role = useAuthUser.getState().user?.role;
+    if (role !== "super_admin") throw redirect({ to: "/" });
+  },
+  component: AdminPropertyCommandCenter,
+});
 
-function AdminProperty() {
-  const { tcms, leads, properties } = useApp();
-  const visitsMap = useVisitWar((s) => s.records);
-  const objections = useCRM10x((s) => s.objections);
-  const visits = useMemo(() => Object.values(visitsMap), [visitsMap]);
+function AdminPropertyCommandCenter() {
+  const { data, isLoading } = useLiveSupremeMetrics();
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const properties = data?.properties ?? [];
+  const leads = data?.leads ?? [];
+  const tours = data?.tours ?? [];
+  const tcms = data?.tcms ?? [];
+  const activities = data?.activities ?? [];
+
+  // Objections lookup
+  const objectionsByLead = new Map<string, string>();
+  activities.forEach(a => {
+    if (a.kind === "post_tour_feedback" && a.metadata?.objection && a.metadata.objection !== "none") {
+      objectionsByLead.set(a.leadId, a.metadata.objection);
+    }
+  });
 
   const stats = useMemo(() => {
     return properties.map((prop) => {
+      // Find leads for this property (either preferred Area matches, or explicitly assigned to propertyName)
       const propLeads = leads.filter(
         (l) => l.preferredArea === prop.area || l.propertyName === prop.name,
       );
-      const propVisits = visits.filter(
-        (v) => v.propertyId === prop.id || v.propertyName === prop.name,
+      
+      // Find tours for this property
+      const propTours = tours.filter(
+        (t) => t.propertyName === prop.name || propLeads.some(l => l._id === t.leadId),
       );
-      const hotCount = propLeads.filter((l) => l.confidence >= 70).length;
-      const visitsScheduled = propVisits.filter((v) => v.stage === "scheduled").length;
-      const visitsDone = propVisits.filter((v) => v.stage === "completed").length;
+
+      const totalBeds = prop.totalBeds || 0;
+      const vacantBeds = prop.vacantBeds || 0;
+      const occupiedBeds = Math.max(0, totalBeds - vacantBeds);
+      const occupancyRate = totalBeds > 0 ? (occupiedBeds / totalBeds) * 100 : 0;
+      
+      const pricePerBed = prop.pricePerBed || prop.basePrice || 15000;
+      const dailyRevenueBleed = Math.round((vacantBeds * pricePerBed) / 30);
+      const monthlyRevenueBleed = vacantBeds * pricePerBed;
+
+      // Demand vs Supply
+      const hotCount = propLeads.filter((l) => (l.confidence ?? 0) >= 70).length;
       const bookedCount = propLeads.filter((l) => l.stage === "booked").length;
+      const overDemand = hotCount > vacantBeds && vacantBeds > 0;
 
-      const tcmCounts = new Map<string, number>();
-      propLeads.forEach((l) => {
-        if (l.assignedTcmId) tcmCounts.set(l.assignedTcmId, (tcmCounts.get(l.assignedTcmId) ?? 0) + 1);
-      });
-      const topTcmId = [...tcmCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
-      const topTcm = tcms.find((t) => t.id === topTcmId);
+      // Conversion & Health Score
+      const toursDone = propTours.filter(t => t.status === "completed" || t.decision).length;
+      const conversionRate = toursDone > 0 ? (bookedCount / toursDone) * 100 : 0;
+      
+      let healthScore = "F";
+      let healthColor = "text-rose-500 bg-rose-500/10";
+      if (occupancyRate >= 90) { healthScore = "A+"; healthColor = "text-emerald-500 bg-emerald-500/10"; }
+      else if (occupancyRate >= 75) { healthScore = "A"; healthColor = "text-emerald-500 bg-emerald-500/10"; }
+      else if (occupancyRate >= 60 || conversionRate >= 30) { healthScore = "B"; healthColor = "text-blue-500 bg-blue-500/10"; }
+      else if (occupancyRate >= 40 || conversionRate >= 15) { healthScore = "C"; healthColor = "text-amber-500 bg-amber-500/10"; }
 
+      // Top Objection
       const objCounts = new Map<string, number>();
       propLeads.forEach((l) => {
-        objections
-          .filter((o) => o.leadId === l.id && o.code !== "none")
-          .forEach((o) => objCounts.set(o.code, (objCounts.get(o.code) ?? 0) + 1));
+        const obj = objectionsByLead.get(l._id);
+        if (obj) objCounts.set(obj, (objCounts.get(obj) ?? 0) + 1);
       });
-      const topObj = [...objCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+      const topObj = [...objCounts.entries()].sort((a, b) => b[1] - a[1])[0];
+      const isPriceSensitive = topObj && topObj[0].toLowerCase().includes("price");
 
       return {
-        id: prop.id,
+        id: prop._id || prop.id,
         name: prop.name,
         area: prop.area,
-        vacantBeds: prop.vacantBeds,
-        totalLeads: propLeads.length,
+        totalBeds,
+        vacantBeds,
+        occupancyRate,
         hotCount,
-        visitsScheduled,
-        visitsDone,
-        bookedCount,
-        topTcmName: topTcm?.name ?? "\u2014",
-        topObj: topObj ? topObj.replace(/-/g, " ") : "\u2014",
+        overDemand,
+        dailyRevenueBleed,
+        monthlyRevenueBleed,
+        conversionRate,
+        healthScore,
+        healthColor,
+        isPriceSensitive,
+        topObjection: topObj ? topObj[0].replace(/-/g, " ") : "\u2014",
       };
     });
-  }, [properties, leads, visits, tcms, objections]);
+  }, [properties, leads, tours, objectionsByLead]);
+
+  const filteredStats = stats.filter(s => 
+    s.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    s.area.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   const totalProps = properties.length;
-  const withHot = stats.filter((s) => s.hotCount > 0).length;
-  const noLeads = stats.filter((s) => s.totalLeads === 0).length;
+  const totalVacant = stats.reduce((sum, s) => sum + s.vacantBeds, 0);
+  const totalDailyBleed = stats.reduce((sum, s) => sum + s.dailyRevenueBleed, 0);
+  const highDemandProps = stats.filter(s => s.overDemand).length;
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64 text-muted-foreground">
+        <Activity className="w-6 h-6 mr-2 animate-pulse" /> Loading Live Property Data...
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-4">
-        <div className="grid grid-cols-3 gap-3 mb-4">
-          <div className="rounded-xl border border-border bg-card p-3">
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Total Properties</div>
-            <div className="text-xl font-display font-semibold">{totalProps}</div>
+    <div className="space-y-6 max-w-[1400px] mx-auto pb-12">
+      {/* Header */}
+      <div className="flex flex-col gap-2 md:flex-row md:items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-display font-semibold flex items-center gap-2">
+            <Building2 className="w-8 h-8 text-primary" />
+            Property Command Center
+          </h1>
+          <p className="text-muted-foreground">Real-time supply, demand, and revenue intelligence.</p>
+        </div>
+        <div className="relative w-full md:w-72">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input 
+            placeholder="Search properties or areas..." 
+            className="pl-9 bg-card border-border"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+      </div>
+
+      {/* Hero KPIs */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="rounded-xl border border-border bg-card p-5 relative overflow-hidden group">
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+          <div className="flex justify-between items-start mb-2">
+            <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Network Portfolio</div>
+            <div className="p-2 bg-primary/10 rounded-lg"><Building2 className="w-4 h-4 text-primary" /></div>
           </div>
-          <div className="rounded-xl border border-border bg-card p-3">
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Properties with Hot Leads</div>
-            <div className="text-xl font-display font-semibold text-accent">{withHot}</div>
+          <div className="text-3xl font-display font-bold">{totalProps}</div>
+          <div className="text-xs text-muted-foreground mt-1">Active properties monitored</div>
+        </div>
+
+        <div className="rounded-xl border border-border bg-card p-5 relative overflow-hidden group">
+          <div className="absolute inset-0 bg-gradient-to-br from-rose-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+          <div className="flex justify-between items-start mb-2">
+            <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Network Vacancy</div>
+            <div className="p-2 bg-rose-500/10 rounded-lg"><Users className="w-4 h-4 text-rose-500" /></div>
           </div>
-          <div className="rounded-xl border border-border bg-card p-3">
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Properties with No Leads</div>
-            <div className={`text-xl font-display font-semibold ${noLeads > 0 ? "text-destructive" : ""}`}>{noLeads}</div>
+          <div className="text-3xl font-display font-bold text-rose-500">{totalVacant}</div>
+          <div className="text-xs text-rose-500/80 mt-1 flex items-center gap-1">
+            <TrendingDown className="w-3 h-3" /> Beds currently empty
           </div>
         </div>
 
-        <div className="rounded-xl border border-border bg-card overflow-auto">
-          <table className="w-full text-xs">
+        <div className="rounded-xl border border-border bg-card p-5 relative overflow-hidden group">
+          <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+          <div className="flex justify-between items-start mb-2">
+            <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Daily Revenue Bleed</div>
+            <div className="p-2 bg-amber-500/10 rounded-lg"><IndianRupee className="w-4 h-4 text-amber-500" /></div>
+          </div>
+          <div className="text-3xl font-display font-bold text-amber-500">₹{totalDailyBleed.toLocaleString()}</div>
+          <div className="text-xs text-amber-500/80 mt-1">Lost every 24 hours of vacancy</div>
+        </div>
+
+        <div className="rounded-xl border border-border bg-card p-5 relative overflow-hidden group">
+          <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+          <div className="flex justify-between items-start mb-2">
+            <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">High Demand Zones</div>
+            <div className="p-2 bg-emerald-500/10 rounded-lg"><Zap className="w-4 h-4 text-emerald-500" /></div>
+          </div>
+          <div className="text-3xl font-display font-bold text-emerald-500">{highDemandProps}</div>
+          <div className="text-xs text-emerald-500/80 mt-1 flex items-center gap-1">
+            <TrendingUp className="w-3 h-3" /> Hot leads &gt; Vacant beds
+          </div>
+        </div>
+      </div>
+
+      {/* Main Table View */}
+      <div className="rounded-xl border border-border bg-card overflow-hidden shadow-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left">
             <thead>
-              <tr className="border-b border-border bg-muted/50">
-                <th className="text-left px-3 py-2 font-medium text-muted-foreground uppercase tracking-wider">Property</th>
-                <th className="text-left px-3 py-2 font-medium text-muted-foreground uppercase tracking-wider">Area</th>
-                <th className="text-right px-3 py-2 font-medium text-muted-foreground uppercase tracking-wider">Leads</th>
-                <th className="text-right px-3 py-2 font-medium text-muted-foreground uppercase tracking-wider">Hot</th>
-                <th className="text-right px-3 py-2 font-medium text-muted-foreground uppercase tracking-wider">Visits Sched.</th>
-                <th className="text-right px-3 py-2 font-medium text-muted-foreground uppercase tracking-wider">Visits Done</th>
-                <th className="text-right px-3 py-2 font-medium text-muted-foreground uppercase tracking-wider">Booked</th>
-                <th className="text-right px-3 py-2 font-medium text-muted-foreground uppercase tracking-wider">Vacant Beds</th>
-                <th className="text-left px-3 py-2 font-medium text-muted-foreground uppercase tracking-wider">Top TCM</th>
-                <th className="text-left px-3 py-2 font-medium text-muted-foreground uppercase tracking-wider">Top Objection</th>
-                <th className="text-left px-3 py-2 font-medium text-muted-foreground uppercase tracking-wider">Action</th>
+              <tr className="border-b border-border bg-muted/30">
+                <th className="px-4 py-3 font-semibold text-muted-foreground">Property & Area</th>
+                <th className="px-4 py-3 font-semibold text-muted-foreground text-center">Health</th>
+                <th className="px-4 py-3 font-semibold text-muted-foreground">Occupancy Radar</th>
+                <th className="px-4 py-3 font-semibold text-muted-foreground">Demand Gap</th>
+                <th className="px-4 py-3 font-semibold text-muted-foreground text-right">Revenue at Risk</th>
+                <th className="px-4 py-3 font-semibold text-muted-foreground">Pricing Intel</th>
               </tr>
             </thead>
-            <tbody>
-              {stats.map((s) => (
-                <tr
-                  key={s.id}
-                  className={`border-b border-border/50 hover:bg-muted/20 transition-colors ${
-                    s.totalLeads === 0 ? "bg-amber-50 dark:bg-amber-950/10" : ""
-                  }`}
-                >
-                  <td className="px-3 py-2 font-medium">{s.name}</td>
-                  <td className="px-3 py-2 text-muted-foreground">{s.area}</td>
-                  <td className={`px-3 py-2 text-right font-mono ${s.totalLeads === 0 ? "text-destructive" : ""}`}>{s.totalLeads}</td>
-                  <td className="px-3 py-2 text-right font-mono text-accent">{s.hotCount}</td>
-                  <td className="px-3 py-2 text-right font-mono">{s.visitsScheduled}</td>
-                  <td className="px-3 py-2 text-right font-mono">{s.visitsDone}</td>
-                  <td className="px-3 py-2 text-right font-mono text-success">{s.bookedCount}</td>
-                  <td className="px-3 py-2 text-right font-mono">{s.vacantBeds}</td>
-                  <td className="px-3 py-2">{s.topTcmName}</td>
-                  <td className="px-3 py-2 text-muted-foreground truncate max-w-[120px]">{s.topObj}</td>
-                  <td className="px-3 py-2">
-                    <Link
-                      to="/admin/leads"
-                      search={{ area: s.area }}
-                      className="text-accent hover:underline text-[10px]"
-                    >
-                      View Leads &rarr;
-                    </Link>
+            <tbody className="divide-y divide-border">
+              {filteredStats.map((s) => (
+                <tr key={s.id} className="hover:bg-muted/10 transition-colors group">
+                  <td className="px-4 py-4">
+                    <div className="font-semibold flex items-center gap-2">
+                      {s.name}
+                      {s.overDemand && <Zap className="w-3.5 h-3.5 text-emerald-500" />}
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-0.5">{s.area}</div>
+                  </td>
+                  
+                  <td className="px-4 py-4 text-center">
+                    <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full font-bold text-sm ${s.healthColor}`}>
+                      {s.healthScore}
+                    </span>
+                  </td>
+
+                  <td className="px-4 py-4">
+                    <div className="flex items-center justify-between text-xs mb-1.5">
+                      <span className="font-medium">{s.occupancyRate.toFixed(0)}% Full</span>
+                      <span className="text-muted-foreground">{s.totalBeds - s.vacantBeds} / {s.totalBeds} Beds</span>
+                    </div>
+                    <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                      <div 
+                        className={`h-full rounded-full transition-all duration-1000 ${
+                          s.occupancyRate >= 90 ? 'bg-emerald-500' : 
+                          s.occupancyRate >= 70 ? 'bg-blue-500' : 
+                          s.occupancyRate >= 50 ? 'bg-amber-500' : 'bg-rose-500'
+                        }`} 
+                        style={{ width: `${Math.min(100, s.occupancyRate)}%` }} 
+                      />
+                    </div>
+                  </td>
+
+                  <td className="px-4 py-4">
+                    <div className="flex items-center gap-3">
+                      <div className="flex flex-col">
+                        <span className="text-xs text-muted-foreground">Vacant</span>
+                        <span className="font-medium text-rose-500">{s.vacantBeds}</span>
+                      </div>
+                      <div className="text-muted-foreground/30 text-lg">vs</div>
+                      <div className="flex flex-col">
+                        <span className="text-xs text-muted-foreground">Hot Leads</span>
+                        <span className="font-medium text-emerald-500">{s.hotCount}</span>
+                      </div>
+                      {s.overDemand && (
+                        <span className="ml-auto bg-emerald-500/10 text-emerald-500 text-[10px] uppercase font-bold px-2 py-0.5 rounded-sm">
+                          Over Demand
+                        </span>
+                      )}
+                    </div>
+                  </td>
+
+                  <td className="px-4 py-4 text-right">
+                    <div className="font-medium text-amber-500 group-hover:hidden">
+                      ₹{s.monthlyRevenueBleed.toLocaleString()}/mo
+                    </div>
+                    <div className="font-medium text-rose-500 hidden group-hover:block transition-all">
+                      Bleeding ₹{s.dailyRevenueBleed.toLocaleString()}/day
+                    </div>
+                  </td>
+
+                  <td className="px-4 py-4">
+                    {s.isPriceSensitive ? (
+                      <div className="flex items-center gap-1.5 text-rose-500 bg-rose-500/10 px-2.5 py-1 rounded-md w-max">
+                        <ShieldAlert className="w-3.5 h-3.5" />
+                        <span className="text-xs font-medium">Price Sensitive</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5 text-muted-foreground bg-muted/30 px-2.5 py-1 rounded-md w-max">
+                        <Activity className="w-3.5 h-3.5" />
+                        <span className="text-xs capitalize">{s.topObjection}</span>
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}
-              {!stats.length && (
+              {filteredStats.length === 0 && (
                 <tr>
-                  <td colSpan={11} className="px-3 py-8 text-center text-muted-foreground">
-                    No properties loaded.
+                  <td colSpan={6} className="px-4 py-12 text-center text-muted-foreground">
+                    No properties match your search.
                   </td>
                 </tr>
               )}
@@ -144,5 +287,6 @@ function AdminProperty() {
           </table>
         </div>
       </div>
+    </div>
   );
 }

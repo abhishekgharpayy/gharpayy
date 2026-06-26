@@ -64,7 +64,7 @@ export const adminLeadsKeys = {
 export function useAdminLeads() {
   return useQuery({
     queryKey: adminLeadsKeys.all,
-    queryFn: () => apiClient.get<AdminLeadsResponse>("/api/v1/admin/leads"),
+    queryFn: () => apiClient.get<AdminLeadsResponse>("/admin/leads"),
     staleTime: 30_000,
   });
 }
