@@ -77,7 +77,7 @@ function AdminRents() {
   const tenants = tenantsData?.items ?? [];
 
   const filtered = useMemo(() => {
-    return payments.sort((a: any, b: any) => {
+    return [...payments].sort((a: any, b: any) => {
       if (a.status === "overdue" && b.status !== "overdue") return -1;
       if (b.status === "overdue" && a.status !== "overdue") return 1;
       if (a.status === "pending" && b.status === "paid") return -1;
