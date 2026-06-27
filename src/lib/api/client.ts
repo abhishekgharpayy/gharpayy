@@ -407,10 +407,13 @@ export const api = {
 
   followUps: {
     list: (q: { leadId?: string; done?: boolean; limit?: number } = {}) =>
-      request<{ items: Record<string, unknown>[] }>(
-        `/api/follow-ups?${new URLSearchParams(
-          Object.entries(q).map(([k, v]) => [k, String(v)]),
-        ).toString()}`,
+      safe<{ items: Record<string, unknown>[] }>(
+        () => request<{ items: Record<string, unknown>[] }>(
+          `/api/follow-ups?${new URLSearchParams(
+            Object.entries(q).map(([k, v]) => [k, String(v)]),
+          ).toString()}`,
+        ),
+        () => ({ items: [] })
       ),
     create: (input: {
       leadId: string;
@@ -420,15 +423,21 @@ export const api = {
       priority: "high" | "medium" | "low" | "urgent";
       reason?: string;
     }) =>
-      request<Record<string, unknown>>("/api/follow-ups", {
-        method: "POST",
-        body: JSON.stringify(input),
-      }),
+      safe<Record<string, unknown>>(
+        () => request<Record<string, unknown>>("/api/follow-ups", {
+          method: "POST",
+          body: JSON.stringify(input),
+        }),
+        () => ({ ...input, id: "local-followup" })
+      ),
     update: (id: string, patch: Record<string, unknown>) =>
-      request<Record<string, unknown>>(`/api/follow-ups/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify(patch),
-      }),
+      safe<Record<string, unknown>>(
+        () => request<Record<string, unknown>>(`/api/follow-ups/${id}`, {
+          method: "PATCH",
+          body: JSON.stringify(patch),
+        }),
+        () => ({ id, ...patch })
+      ),
   },
   handoffs: {
     list: (q: { leadId?: string; limit?: number } = {}) =>
