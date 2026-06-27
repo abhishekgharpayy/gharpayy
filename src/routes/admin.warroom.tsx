@@ -1,5 +1,5 @@
 import { createFileRoute, redirect, Link } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 import { useAdminRows } from "@/admin/lib/use-admin-rows";
@@ -7,10 +7,7 @@ import { computeMoneyMap, computeSlaBreaches } from "@/admin/lib/supreme-metrics
 import { useVisitWar } from "@/lib/visits/war-store";
 import { useAuthUser } from "@/lib/auth-store";
 import { api } from "@/lib/api/client";
-import { useApp } from "@/lib/store";
-import { normalizeLeadRecord } from "@/lib/lead-helpers";
-import type { Lead as LegacyLead, LeadStage, Intent } from "@/lib/types";
-import type { Lead as WireLead } from "@/contracts";
+import type { CreatorLeaderboardEntry } from "@/lib/stats-types";
 import type { CreatorLeaderboardEntry } from "@/lib/stats-types";
 
 import { LiveLeadsBridge } from "@/components/LiveLeadsBridge";
@@ -29,41 +26,7 @@ export const Route = createFileRoute("/admin/warroom")({
   component: WarRoomTV,
 });
 
-function toLegacyLead(w: WireLead, fallbackTcmId = ""): LegacyLead {
-  return normalizeLeadRecord({
-    id: w._id,
-    name: w.name,
-    phone: w.phone,
-    source: w.source ?? "manual",
-    budget: w.budget ?? 0,
-    budgetText: w.budgetText ?? "",
-    moveInDate: w.moveInDate ?? new Date().toISOString().slice(0, 10),
-    preferredArea: w.preferredArea ?? "",
-    assignedTcmId: w.assignedTcmId ?? fallbackTcmId,
-    assigneeId: w.assigneeId ?? w.assignedTcmId ?? null,
-    createdBy: w.createdBy ?? null,
-    stage: (w.stage as LeadStage) ?? "new",
-    intent: (w.intent as Intent) ?? "warm",
-    confidence: w.confidence ?? 50,
-    tags: w.tags ?? [],
-    nextFollowUpAt: w.nextFollowUpAt ?? null,
-    responseSpeedMins: w.responseSpeedMins ?? 0,
-    createdAt: w.createdAt,
-    updatedAt: w.updatedAt,
-    email: w.email,
-    areas: w.areas,
-    fullAddress: w.fullAddress,
-    type: w.type,
-    room: w.room,
-    need: w.need,
-    inBLR: w.inBLR,
-    quality: w.quality,
-    specialReqs: w.specialReqs,
-    notes: w.notes,
-    zoneCategory: w.zoneCategory,
-    stageLabel: w.stageLabel,
-  });
-}
+
 
 function inrL(n: number) {
   if (n >= 10_000_000) return `₹${(n / 10_000_000).toFixed(2)}Cr`;
@@ -73,8 +36,6 @@ function inrL(n: number) {
 
 function WarRoomTV() {
   const rows = useAdminRows();
-  const setLeads = useApp((s) => s.setLeads);
-  const tcms = useApp((s) => s.tcms);
   const localAlerts = useVisitWar((s) => s.alerts).slice(0, 8);
   const [leaderboard, setLeaderboard] = useState<CreatorLeaderboardEntry[]>([]);
   const [backendAlerts, setBackendAlerts] = useState<{ id: string; ts: string; message: string }[]>([]);
@@ -82,49 +43,71 @@ function WarRoomTV() {
   const [dataTick, setDataTick] = useState(0);
   const [bigWin, setBigWin] = useState<{ leadName: string, amount: number, tcmName: string } | null>(null);
   const [pingPulse, setPingPulse] = useState(false);
+  
+  const lastProcessedActivityId = useRef<string | null>(null);
+  const pingTimeout = useRef<NodeJS.Timeout | null>(null);
+  const bigWinTimeout = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (pingTimeout.current) clearTimeout(pingTimeout.current);
+      if (bigWinTimeout.current) clearTimeout(bigWinTimeout.current);
+    };
+  }, []);
 
   const refreshData = useCallback(async () => {
-    const fallbackTcm = tcms[0]?.id ?? "";
-    const [leadResult, boardResult, activityResult] = await Promise.allSettled([
-      api.leads.list({ limit: 200 }),
+    const [boardResult, activityResult] = await Promise.allSettled([
       api.stats.leaderboard("today"),
       api.activity.all(8),
     ]);
 
-    if (leadResult.status === "fulfilled") {
-      setLeads((leadResult.value.items as WireLead[]).map((lead) => toLegacyLead(lead, fallbackTcm)));
-    }
     if (boardResult.status === "fulfilled") {
       setLeaderboard(boardResult.value.rankings.slice(0, 8));
     }
     if (activityResult.status === "fulfilled") {
       const newItems = activityResult.value.items.slice(0, 8);
-      setBackendAlerts(
-        newItems.map((item) => ({
-          id: item._id,
-          ts: item.occurredAt,
-          message: String(item.payload.message ?? item.payload.text ?? item.type),
-        })),
-      );
+      
       if (newItems.length > 0) {
-        setPingPulse(true);
-        setTimeout(() => setPingPulse(false), 2000);
+        const latestId = newItems[0]._id;
         
-        // Check for real booking activities instead of faking it
-        const newBookings = newItems.filter(item => item.type === "deal_won" || item.type === "booking_created");
-        if (newBookings.length > 0) {
-            const latest = newBookings[0];
-            setBigWin({ 
-              leadName: String(latest.payload.leadName || "Client"), 
-              amount: Number(latest.payload.amount || 0), 
-              tcmName: String(latest.payload.tcmName || "TCM") 
-            });
-            setTimeout(() => setBigWin(null), 8000);
+        if (latestId !== lastProcessedActivityId.current) {
+          setBackendAlerts(
+            newItems.map((item: any) => ({
+              id: item._id,
+              ts: item.occurredAt,
+              message: String(item.payload.message ?? item.payload.text ?? item.type),
+            })),
+          );
+
+          const lastIndex = lastProcessedActivityId.current 
+            ? newItems.findIndex((item: any) => item._id === lastProcessedActivityId.current)
+            : -1;
+            
+          const actualNewItems = lastIndex !== -1 ? newItems.slice(0, lastIndex) : newItems;
+
+          if (actualNewItems.length > 0) {
+            setPingPulse(true);
+            if (pingTimeout.current) clearTimeout(pingTimeout.current);
+            pingTimeout.current = setTimeout(() => setPingPulse(false), 2000);
+            
+            const newBookings = actualNewItems.filter((item: any) => item.type === "deal_won" || item.type === "booking_created");
+            if (newBookings.length > 0) {
+                const latest = newBookings[0];
+                setBigWin({ 
+                  leadName: String(latest.payload.leadName || "Client"), 
+                  amount: Number(latest.payload.amount || 0), 
+                  tcmName: String(latest.payload.tcmName || "TCM") 
+                });
+                if (bigWinTimeout.current) clearTimeout(bigWinTimeout.current);
+                bigWinTimeout.current = setTimeout(() => setBigWin(null), 8000);
+            }
+          }
+          lastProcessedActivityId.current = latestId;
         }
       }
     }
     setDataTick((value) => value + 1);
-  }, [setLeads, tcms]);
+  }, []);
 
   const alerts = backendAlerts.length ? backendAlerts : localAlerts.map((a) => ({
     id: a.id,
