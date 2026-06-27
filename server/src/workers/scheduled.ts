@@ -2,8 +2,8 @@ import { Worker, Queue, type Job } from "bullmq";
 import { redis } from "../db/redis.js";
 import { col } from "../db/mongo.js";
 import type { Lead, Todo } from "../../../src/contracts/entities.js";
-import { newId } from "../platform/id.js";
-import { emit } from "../platform/bus.js";
+import { ulid as newId } from "../../../src/contracts/ids.js";
+import { emit } from "../realtime/event-bus.js";
 
 export const SCHEDULED_QUEUE = "scheduled-tasks";
 export const SCHEDULED_CONSUMER = "scheduled-worker";
@@ -51,27 +51,32 @@ export async function startScheduledWorker() {
         // Find leads that haven't been updated in 7 days
         const sevenDaysAgo = now - 7 * 24 * 3600 * 1000;
         const coldLeads = await col<Lead>("leads").find({
-          stage: { $nin: ["booked", "lost", "dormant"] },
-          updatedAt: { $lt: sevenDaysAgo }
+          stage: { $nin: ["booked", "dropped"] },
+          updatedAt: { $lt: new Date(sevenDaysAgo).toISOString() }
         }).toArray();
         
         let flagged = 0;
         for (const lead of coldLeads) {
-          if (!lead.assignedTo) continue;
+          if (!lead.assigneeId) continue;
           
           // Check if there is already a pending follow-up
-          const existing = await col<Todo>("todos").findOne({ leadId: lead._id, done: false });
+          const existing = await col<Todo>("todos").findOne({ entityId: lead._id, status: "open" });
           if (!existing) {
             const todo: Todo = {
               _id: newId(),
-              leadId: lead._id,
-              tcmId: lead.assignedTo,
-              type: "call",
-              dueAt: now + 3600 * 1000, // due in 1 hour
-              done: false,
-              note: "Automated Re-engagement: Lead has been inactive for 7 days.",
-              createdAt: now,
-              updatedAt: now,
+              title: "Call - Automated Re-engagement",
+              notes: "Automated Re-engagement: Lead has been inactive for 7 days.",
+              entityType: "lead",
+              entityId: lead._id,
+              createdBy: "system",
+              assignedTo: lead.assigneeId,
+              status: "open",
+              priority: "med",
+              dueAt: new Date(now + 3600 * 1000).toISOString(),
+              completedAt: null,
+              tenantId: lead.tenantId,
+              createdAt: new Date(now).toISOString(),
+              updatedAt: new Date(now).toISOString(),
             };
             await col<Todo>("todos").insertOne(todo);
             await emit({
@@ -96,8 +101,8 @@ export async function startScheduledWorker() {
         const startOfDay = new Date();
         startOfDay.setHours(0, 0, 0, 0);
         
-        const booked = await col<Lead>("leads").countDocuments({ stage: "booked", updatedAt: { $gte: startOfDay.getTime() } });
-        const tours = await col("tours").countDocuments({ status: "completed", updatedAt: { $gte: startOfDay.getTime() } });
+        const booked = await col<Lead>("leads").countDocuments({ stage: "booked", updatedAt: { $gte: startOfDay.toISOString() } });
+        const tours = await col("tours").countDocuments({ status: "completed", updatedAt: { $gte: startOfDay.toISOString() } });
         
         await emit({
           _id: newId(),

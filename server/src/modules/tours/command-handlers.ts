@@ -47,6 +47,7 @@ export async function applyTourCommand(cmd: Command, user: JwtClaims) {
         scheduledAt: p.scheduledAt,
         status: "scheduled",
         showUp: null,
+        location: null,
         customPropertyName: "",
         bookingSource: p.bookingSource ?? "whatsapp",
         tourType: p.tourType ?? "physical",
