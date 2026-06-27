@@ -50,7 +50,6 @@ import { Route as SupplyHubMatchRouteImport } from './routes/supply-hub/match'
 import { Route as SupplyHubAreasRouteImport } from './routes/supply-hub/areas'
 import { Route as SupplyHubIdRouteImport } from './routes/supply-hub/$id'
 import { Route as PropertyOwnerVisitsRouteImport } from './routes/property-owner.visits'
-import { Route as PropertyOwnerRoomsRouteImport } from './routes/property-owner.rooms'
 import { Route as PropertyOwnerPropertiesRouteImport } from './routes/property-owner.properties'
 import { Route as PropertyOwnerProfileRouteImport } from './routes/property-owner.profile'
 import { Route as PropertyOwnerNotificationsRouteImport } from './routes/property-owner.notifications'
@@ -97,6 +96,7 @@ import { Route as AdminOwnerBookingsRouteImport } from './routes/admin.owner-boo
 import { Route as AdminLeadsRouteImport } from './routes/admin.leads'
 import { Route as AdminLeaderboardRouteImport } from './routes/admin.leaderboard'
 import { Route as AdminIntelligenceRouteImport } from './routes/admin.intelligence'
+import { Route as AdminImpactCommandRouteImport } from './routes/admin.impact-command'
 import { Route as AdminImpactRouteImport } from './routes/admin.impact'
 import { Route as AdminHealthScoreRouteImport } from './routes/admin.health-score'
 import { Route as AdminExportsRouteImport } from './routes/admin.exports'
@@ -322,11 +322,6 @@ const SupplyHubIdRoute = SupplyHubIdRouteImport.update({
 const PropertyOwnerVisitsRoute = PropertyOwnerVisitsRouteImport.update({
   id: '/visits',
   path: '/visits',
-  getParentRoute: () => PropertyOwnerRoute,
-} as any)
-const PropertyOwnerRoomsRoute = PropertyOwnerRoomsRouteImport.update({
-  id: '/rooms',
-  path: '/rooms',
   getParentRoute: () => PropertyOwnerRoute,
 } as any)
 const PropertyOwnerPropertiesRoute = PropertyOwnerPropertiesRouteImport.update({
@@ -560,6 +555,11 @@ const AdminIntelligenceRoute = AdminIntelligenceRouteImport.update({
   path: '/intelligence',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminImpactCommandRoute = AdminImpactCommandRouteImport.update({
+  id: '/impact-command',
+  path: '/impact-command',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminImpactRoute = AdminImpactRouteImport.update({
   id: '/impact',
   path: '/impact',
@@ -714,6 +714,7 @@ export interface FileRoutesByFullPath {
   '/admin/exports': typeof AdminExportsRoute
   '/admin/health-score': typeof AdminHealthScoreRoute
   '/admin/impact': typeof AdminImpactRoute
+  '/admin/impact-command': typeof AdminImpactCommandRoute
   '/admin/intelligence': typeof AdminIntelligenceRoute
   '/admin/leaderboard': typeof AdminLeaderboardRoute
   '/admin/leads': typeof AdminLeadsRoute
@@ -760,7 +761,6 @@ export interface FileRoutesByFullPath {
   '/property-owner/notifications': typeof PropertyOwnerNotificationsRoute
   '/property-owner/profile': typeof PropertyOwnerProfileRoute
   '/property-owner/properties': typeof PropertyOwnerPropertiesRouteWithChildren
-  '/property-owner/rooms': typeof PropertyOwnerRoomsRoute
   '/property-owner/visits': typeof PropertyOwnerVisitsRoute
   '/supply-hub/$id': typeof SupplyHubIdRoute
   '/supply-hub/areas': typeof SupplyHubAreasRoute
@@ -824,6 +824,7 @@ export interface FileRoutesByTo {
   '/admin/exports': typeof AdminExportsRoute
   '/admin/health-score': typeof AdminHealthScoreRoute
   '/admin/impact': typeof AdminImpactRoute
+  '/admin/impact-command': typeof AdminImpactCommandRoute
   '/admin/intelligence': typeof AdminIntelligenceRoute
   '/admin/leaderboard': typeof AdminLeaderboardRoute
   '/admin/leads': typeof AdminLeadsRoute
@@ -870,7 +871,6 @@ export interface FileRoutesByTo {
   '/property-owner/notifications': typeof PropertyOwnerNotificationsRoute
   '/property-owner/profile': typeof PropertyOwnerProfileRoute
   '/property-owner/properties': typeof PropertyOwnerPropertiesRouteWithChildren
-  '/property-owner/rooms': typeof PropertyOwnerRoomsRoute
   '/property-owner/visits': typeof PropertyOwnerVisitsRoute
   '/supply-hub/$id': typeof SupplyHubIdRoute
   '/supply-hub/areas': typeof SupplyHubAreasRoute
@@ -936,6 +936,7 @@ export interface FileRoutesById {
   '/admin/exports': typeof AdminExportsRoute
   '/admin/health-score': typeof AdminHealthScoreRoute
   '/admin/impact': typeof AdminImpactRoute
+  '/admin/impact-command': typeof AdminImpactCommandRoute
   '/admin/intelligence': typeof AdminIntelligenceRoute
   '/admin/leaderboard': typeof AdminLeaderboardRoute
   '/admin/leads': typeof AdminLeadsRoute
@@ -982,7 +983,6 @@ export interface FileRoutesById {
   '/property-owner/notifications': typeof PropertyOwnerNotificationsRoute
   '/property-owner/profile': typeof PropertyOwnerProfileRoute
   '/property-owner/properties': typeof PropertyOwnerPropertiesRouteWithChildren
-  '/property-owner/rooms': typeof PropertyOwnerRoomsRoute
   '/property-owner/visits': typeof PropertyOwnerVisitsRoute
   '/supply-hub/$id': typeof SupplyHubIdRoute
   '/supply-hub/areas': typeof SupplyHubAreasRoute
@@ -1049,6 +1049,7 @@ export interface FileRouteTypes {
     | '/admin/exports'
     | '/admin/health-score'
     | '/admin/impact'
+    | '/admin/impact-command'
     | '/admin/intelligence'
     | '/admin/leaderboard'
     | '/admin/leads'
@@ -1095,7 +1096,6 @@ export interface FileRouteTypes {
     | '/property-owner/notifications'
     | '/property-owner/profile'
     | '/property-owner/properties'
-    | '/property-owner/rooms'
     | '/property-owner/visits'
     | '/supply-hub/$id'
     | '/supply-hub/areas'
@@ -1159,6 +1159,7 @@ export interface FileRouteTypes {
     | '/admin/exports'
     | '/admin/health-score'
     | '/admin/impact'
+    | '/admin/impact-command'
     | '/admin/intelligence'
     | '/admin/leaderboard'
     | '/admin/leads'
@@ -1205,7 +1206,6 @@ export interface FileRouteTypes {
     | '/property-owner/notifications'
     | '/property-owner/profile'
     | '/property-owner/properties'
-    | '/property-owner/rooms'
     | '/property-owner/visits'
     | '/supply-hub/$id'
     | '/supply-hub/areas'
@@ -1270,6 +1270,7 @@ export interface FileRouteTypes {
     | '/admin/exports'
     | '/admin/health-score'
     | '/admin/impact'
+    | '/admin/impact-command'
     | '/admin/intelligence'
     | '/admin/leaderboard'
     | '/admin/leads'
@@ -1316,7 +1317,6 @@ export interface FileRouteTypes {
     | '/property-owner/notifications'
     | '/property-owner/profile'
     | '/property-owner/properties'
-    | '/property-owner/rooms'
     | '/property-owner/visits'
     | '/supply-hub/$id'
     | '/supply-hub/areas'
@@ -1693,13 +1693,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PropertyOwnerVisitsRouteImport
       parentRoute: typeof PropertyOwnerRoute
     }
-    '/property-owner/rooms': {
-      id: '/property-owner/rooms'
-      path: '/rooms'
-      fullPath: '/property-owner/rooms'
-      preLoaderRoute: typeof PropertyOwnerRoomsRouteImport
-      parentRoute: typeof PropertyOwnerRoute
-    }
     '/property-owner/properties': {
       id: '/property-owner/properties'
       path: '/properties'
@@ -2022,6 +2015,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminIntelligenceRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/impact-command': {
+      id: '/admin/impact-command'
+      path: '/impact-command'
+      fullPath: '/admin/impact-command'
+      preLoaderRoute: typeof AdminImpactCommandRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/impact': {
       id: '/admin/impact'
       path: '/impact'
@@ -2231,6 +2231,7 @@ interface AdminRouteChildren {
   AdminExportsRoute: typeof AdminExportsRoute
   AdminHealthScoreRoute: typeof AdminHealthScoreRoute
   AdminImpactRoute: typeof AdminImpactRoute
+  AdminImpactCommandRoute: typeof AdminImpactCommandRoute
   AdminIntelligenceRoute: typeof AdminIntelligenceRoute
   AdminLeaderboardRoute: typeof AdminLeaderboardRoute
   AdminLeadsRoute: typeof AdminLeadsRoute
@@ -2260,6 +2261,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminExportsRoute: AdminExportsRoute,
   AdminHealthScoreRoute: AdminHealthScoreRoute,
   AdminImpactRoute: AdminImpactRoute,
+  AdminImpactCommandRoute: AdminImpactCommandRoute,
   AdminIntelligenceRoute: AdminIntelligenceRoute,
   AdminLeaderboardRoute: AdminLeaderboardRoute,
   AdminLeadsRoute: AdminLeadsRoute,
@@ -2333,7 +2335,6 @@ interface PropertyOwnerRouteChildren {
   PropertyOwnerNotificationsRoute: typeof PropertyOwnerNotificationsRoute
   PropertyOwnerProfileRoute: typeof PropertyOwnerProfileRoute
   PropertyOwnerPropertiesRoute: typeof PropertyOwnerPropertiesRouteWithChildren
-  PropertyOwnerRoomsRoute: typeof PropertyOwnerRoomsRoute
   PropertyOwnerVisitsRoute: typeof PropertyOwnerVisitsRoute
 }
 
@@ -2345,7 +2346,6 @@ const PropertyOwnerRouteChildren: PropertyOwnerRouteChildren = {
   PropertyOwnerNotificationsRoute: PropertyOwnerNotificationsRoute,
   PropertyOwnerProfileRoute: PropertyOwnerProfileRoute,
   PropertyOwnerPropertiesRoute: PropertyOwnerPropertiesRouteWithChildren,
-  PropertyOwnerRoomsRoute: PropertyOwnerRoomsRoute,
   PropertyOwnerVisitsRoute: PropertyOwnerVisitsRoute,
 }
 

@@ -8,7 +8,6 @@ import { useVisitWar } from "@/lib/visits/war-store";
 import { useAuthUser } from "@/lib/auth-store";
 import { api } from "@/lib/api/client";
 import type { CreatorLeaderboardEntry } from "@/lib/stats-types";
-import type { CreatorLeaderboardEntry } from "@/lib/stats-types";
 
 import { LiveLeadsBridge } from "@/components/LiveLeadsBridge";
 import { LiveBookingsBridge } from "@/components/LiveBookingsBridge";
