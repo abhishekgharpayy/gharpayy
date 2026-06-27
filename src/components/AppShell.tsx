@@ -42,6 +42,7 @@ import { LiveToursAppBridge } from "./LiveToursAppBridge";
 import { LiveToursBridge } from "./LiveToursBridge";
 import { useAuthUser } from "@/lib/auth-store";
 import { useAppState } from "@/myt/lib/app-context";
+import { useTrackAction } from "@/lib/useTrackAction";
 
 function PipRouteSyncBridge() {
   const { active } = usePip();
@@ -102,6 +103,52 @@ export function AppShell({ children }: { children: ReactNode }) {
       setCurrentMemberId(null);
     }
   }, [authUser, setCurrentMemberId]);
+
+  const track = useTrackAction();
+
+  useEffect(() => {
+    const handleGlobalClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      
+      // Find closest clickable element (button, link, interactive element)
+      const clickable = target.closest("button, a, [role='button'], [data-track]");
+      if (!clickable) return;
+      
+      // Get descriptor for the clicked item
+      const textContent = (clickable.textContent ?? "").trim().slice(0, 50);
+      const id = clickable.id;
+      const dataTrack = clickable.getAttribute("data-track");
+      const roleAttr = clickable.getAttribute("role");
+      
+      // Build a friendly label
+      let label = dataTrack || id || textContent || clickable.tagName.toLowerCase();
+      
+      // Clean up label if it contains newlines or extra spaces
+      label = label.replace(/\s+/g, " ").trim();
+      if (!label || label === " ") return;
+      
+      // Determine the type of element/action
+      let actionType = "click";
+      if (clickable.tagName.toLowerCase() === "a") {
+        actionType = "link.click";
+      } else if (clickable.tagName.toLowerCase() === "button" || roleAttr === "button") {
+        actionType = "btn.click";
+      }
+      
+      track({
+        action: `${actionType}:${label}`,
+        entityType: "ui-interaction",
+        entityId: id || undefined,
+        detail: `Path: ${window.location.pathname}`,
+      });
+    };
+
+    document.addEventListener("click", handleGlobalClick, { capture: true });
+    return () => {
+      document.removeEventListener("click", handleGlobalClick, { capture: true });
+    };
+  }, [track]);
+
   const router = useRouterState();
   const path = router.location.pathname;
   const [now, mounted] = useMountedNow();
@@ -175,6 +222,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       { to: "/myt/team", label: "Team", icon: Users },
       { to: "/revenue", label: "Revenue", icon: IndianRupee },
       { to: "/myt/funnel", label: "Funnel", icon: Activity },
+      { to: "/admin/execution-report", label: "Execution Monitor", icon: Activity },
       { to: "/myt/zones", label: "Zones", icon: MapPin },
       { to: "/myt/owners-compare", label: "Owners", icon: ShieldCheck },
       { to: "/supply-hub", label: "Supply Hub", icon: Layers },
@@ -231,6 +279,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       { to: "/admin/impact", label: "Impact Analytics", icon: HeartPulse },
       { to: "/admin/revenue", label: "Revenue Forecast", icon: IndianRupee },
       { to: "/admin/leaderboard", label: "TCM Leaderboard", icon: Trophy },
+      { to: "/admin/execution-report", label: "Execution Monitor", icon: Activity },
       { to: "/admin/audit", label: "Audit Log", icon: ClipboardList },
       { to: "/admin/exports", label: "Export Center", icon: ListTodo },
       { to: "/admin/settings", label: "Admin Settings", icon: Settings },
