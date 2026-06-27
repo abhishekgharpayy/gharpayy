@@ -88,11 +88,11 @@ export function registerLeadsRoutes(app: FastifyInstance) {
     if (q.search) {
       const s = q.search.trim();
       const numS = s.replace(/\D/g, '');
-      const searchOr = [ { name: { $regex: s, $options: "i" } } ];
+      const searchOr: any[] = [ { name: { $regex: s, $options: "i" } } ];
       if (numS.length > 0) searchOr.push({ phone: { $regex: numS, $options: "i" } });
       
-      filter.$and = filter.$and || [];
-      filter.$and.push({ $or: searchOr });
+      (filter as any).$and = (filter as any).$and || [];
+      (filter as any).$and.push({ $or: searchOr });
     }
 
     // Role-based visibility:
@@ -164,8 +164,8 @@ export function registerLeadsRoutes(app: FastifyInstance) {
     // super_admin and manager fall through with no extra filter.
     
     if (roleOr.length > 0) {
-      filter.$and = filter.$and || [];
-      filter.$and.push({ $or: roleOr });
+      (filter as any).$and = (filter as any).$and || [];
+      (filter as any).$and.push({ $or: roleOr });
     }
 
     const items = await col<Lead>("leads")
