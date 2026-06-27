@@ -27,6 +27,22 @@ import { registerBookingsRoutes } from "./modules/bookings/routes.js";
 import { registerTenantsRoutes } from "./modules/tenants/routes.js";
 import { registerOwnerRoutes } from "./modules/owner/routes.js";
 import { registerAiRoutes } from "./modules/ai/routes.js";
+import { registerAdminSupremeRoutes } from "./modules/admin/supreme.js";
+import { registerAdminPerformanceRoutes } from "./modules/admin/performance.js";
+import { registerAdminImpactCommandRoutes } from "./modules/admin/impact-command.js";
+import { registerAdminWatchdogRoutes } from "./modules/admin/watchdog.js";
+import { registerAdminRevenueRoutes } from "./modules/admin/revenue.js";
+import { registerMediaRoutes } from "./modules/properties/media-routes.js";
+import { registerWhatsAppRoutes } from "./modules/whatsapp/routes.js";
+import { registerAgreementsRoutes } from "./modules/agreements/routes.js";
+import { registerAlertsRoutes } from "./modules/alerts/routes.js";
+import { registerFunnelRoutes } from "./modules/funnel/routes.js";
+import { registerPeople360Routes } from "./modules/admin/people360.js";
+import { registerExecutionReportRoutes } from "./modules/admin/execution-report.js";
+import { dirname, join } from "path";
+import { fileURLToPath } from "url";
+import { existsSync, mkdirSync } from "fs";
+import fastifyStatic from "@fastify/static";
 import { ensureDefaultSuperAdmin } from "./auth/auth.js";
 
 async function main() {
@@ -115,6 +131,28 @@ h1{margin:0 0 .5rem;font-size:1.5rem;color:#34d399}p{margin:.25rem 0;color:#94a3
   registerTenantsRoutes(app);
   registerOwnerRoutes(app);
   registerAiRoutes(app);
+  registerAdminSupremeRoutes(app);
+  registerAdminPerformanceRoutes(app);
+  registerAdminImpactCommandRoutes(app);
+  registerAdminWatchdogRoutes(app);
+  registerAdminRevenueRoutes(app);
+  registerMediaRoutes(app);
+  registerWhatsAppRoutes(app);
+  registerAgreementsRoutes(app);
+  registerAlertsRoutes(app);
+  registerFunnelRoutes(app);
+  registerPeople360Routes(app);
+  registerExecutionReportRoutes(app);
+
+  // Static file serving for uploaded images
+  const __dirname = dirname(fileURLToPath(import.meta.url));
+  const uploadDir = join(__dirname, "../uploads");
+  if (!existsSync(uploadDir)) mkdirSync(uploadDir, { recursive: true });
+  await app.register(fastifyStatic, {
+    root: uploadDir,
+    prefix: "/uploads/",
+    decorateReply: false,
+  });
 
   // Idempotent — bootstraps the canonical Super Admin if missing.
   await ensureDefaultSuperAdmin().catch((err) => app.log.warn({ err }, "ensureDefaultSuperAdmin failed"));

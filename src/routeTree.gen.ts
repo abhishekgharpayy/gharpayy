@@ -88,11 +88,15 @@ import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
 import { Route as AdminPropertyRouteImport } from './routes/admin.property'
 import { Route as AdminPeopleRouteImport } from './routes/admin.people'
 import { Route as AdminOwnersRouteImport } from './routes/admin.owners'
+import { Route as AdminPerformanceRouteImport } from './routes/admin.performance'
+import { Route as AdminPeople360RouteImport } from './routes/admin.people360'
+import { Route as AdminPayoutsRouteImport } from './routes/admin.payouts'
 import { Route as AdminOwnerBookingsRouteImport } from './routes/admin.owner-bookings'
 import { Route as AdminLeadsRouteImport } from './routes/admin.leads'
 import { Route as AdminIntelligenceRouteImport } from './routes/admin.intelligence'
 import { Route as AdminImpactRouteImport } from './routes/admin.impact'
 import { Route as AdminExportsRouteImport } from './routes/admin.exports'
+import { Route as AdminExecutionReportRouteImport } from './routes/admin.execution-report'
 import { Route as AdminCommandRouteImport } from './routes/admin.command'
 import { Route as AdminCalendarRouteImport } from './routes/admin.calendar'
 import { Route as AdminBookingsRouteImport } from './routes/admin.bookings'
@@ -503,6 +507,21 @@ const AdminOwnersRoute = AdminOwnersRouteImport.update({
   path: '/owners',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminPerformanceRoute = AdminPerformanceRouteImport.update({
+  id: '/performance',
+  path: '/performance',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminPeople360Route = AdminPeople360RouteImport.update({
+  id: '/people360',
+  path: '/people360',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminPayoutsRoute = AdminPayoutsRouteImport.update({
+  id: '/payouts',
+  path: '/payouts',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminOwnerBookingsRoute = AdminOwnerBookingsRouteImport.update({
   id: '/owner-bookings',
   path: '/owner-bookings',
@@ -526,6 +545,11 @@ const AdminImpactRoute = AdminImpactRouteImport.update({
 const AdminExportsRoute = AdminExportsRouteImport.update({
   id: '/exports',
   path: '/exports',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminExecutionReportRoute = AdminExecutionReportRouteImport.update({
+  id: '/execution-report',
+  path: '/execution-report',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminCommandRoute = AdminCommandRouteImport.update({
@@ -636,6 +660,7 @@ export interface FileRoutesByFullPath {
   '/admin/bookings': typeof AdminBookingsRoute
   '/admin/calendar': typeof AdminCalendarRoute
   '/admin/command': typeof AdminCommandRoute
+  '/admin/execution-report': typeof AdminExecutionReportRoute
   '/admin/exports': typeof AdminExportsRoute
   '/admin/impact': typeof AdminImpactRoute
   '/admin/intelligence': typeof AdminIntelligenceRoute
@@ -643,6 +668,9 @@ export interface FileRoutesByFullPath {
   '/admin/owner-bookings': typeof AdminOwnerBookingsRoute
   '/admin/owners': typeof AdminOwnersRoute
   '/admin/people': typeof AdminPeopleRoute
+  '/admin/payouts': typeof AdminPayoutsRoute
+  '/admin/people360': typeof AdminPeople360Route
+  '/admin/performance': typeof AdminPerformanceRouteWithChildren
   '/admin/property': typeof AdminPropertyRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/supreme': typeof AdminSupremeRoute
@@ -734,6 +762,7 @@ export interface FileRoutesByTo {
   '/admin/bookings': typeof AdminBookingsRoute
   '/admin/calendar': typeof AdminCalendarRoute
   '/admin/command': typeof AdminCommandRoute
+  '/admin/execution-report': typeof AdminExecutionReportRoute
   '/admin/exports': typeof AdminExportsRoute
   '/admin/impact': typeof AdminImpactRoute
   '/admin/intelligence': typeof AdminIntelligenceRoute
@@ -741,6 +770,9 @@ export interface FileRoutesByTo {
   '/admin/owner-bookings': typeof AdminOwnerBookingsRoute
   '/admin/owners': typeof AdminOwnersRoute
   '/admin/people': typeof AdminPeopleRoute
+  '/admin/payouts': typeof AdminPayoutsRoute
+  '/admin/people360': typeof AdminPeople360Route
+  '/admin/performance': typeof AdminPerformanceRouteWithChildren
   '/admin/property': typeof AdminPropertyRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/supreme': typeof AdminSupremeRoute
@@ -834,13 +866,20 @@ export interface FileRoutesById {
   '/admin/bookings': typeof AdminBookingsRoute
   '/admin/calendar': typeof AdminCalendarRoute
   '/admin/command': typeof AdminCommandRoute
+  '/admin/execution-report': typeof AdminExecutionReportRoute
   '/admin/exports': typeof AdminExportsRoute
   '/admin/impact': typeof AdminImpactRoute
   '/admin/intelligence': typeof AdminIntelligenceRoute
   '/admin/leads': typeof AdminLeadsRoute
   '/admin/owner-bookings': typeof AdminOwnerBookingsRoute
+<<<<<<< HEAD
   '/admin/owners': typeof AdminOwnersRoute
   '/admin/people': typeof AdminPeopleRoute
+=======
+  '/admin/payouts': typeof AdminPayoutsRoute
+  '/admin/people360': typeof AdminPeople360Route
+  '/admin/performance': typeof AdminPerformanceRouteWithChildren
+>>>>>>> d1080c4 (feat(admin): add execution report panel, server route, and API command)
   '/admin/property': typeof AdminPropertyRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/supreme': typeof AdminSupremeRoute
@@ -935,13 +974,20 @@ export interface FileRouteTypes {
     | '/admin/bookings'
     | '/admin/calendar'
     | '/admin/command'
+    | '/admin/execution-report'
     | '/admin/exports'
     | '/admin/impact'
     | '/admin/intelligence'
     | '/admin/leads'
     | '/admin/owner-bookings'
+<<<<<<< HEAD
     | '/admin/owners'
     | '/admin/people'
+=======
+    | '/admin/payouts'
+    | '/admin/people360'
+    | '/admin/performance'
+>>>>>>> d1080c4 (feat(admin): add execution report panel, server route, and API command)
     | '/admin/property'
     | '/admin/settings'
     | '/admin/supreme'
@@ -1033,13 +1079,20 @@ export interface FileRouteTypes {
     | '/admin/bookings'
     | '/admin/calendar'
     | '/admin/command'
+    | '/admin/execution-report'
     | '/admin/exports'
     | '/admin/impact'
     | '/admin/intelligence'
     | '/admin/leads'
     | '/admin/owner-bookings'
+<<<<<<< HEAD
     | '/admin/owners'
     | '/admin/people'
+=======
+    | '/admin/payouts'
+    | '/admin/people360'
+    | '/admin/performance'
+>>>>>>> d1080c4 (feat(admin): add execution report panel, server route, and API command)
     | '/admin/property'
     | '/admin/settings'
     | '/admin/supreme'
@@ -1132,13 +1185,20 @@ export interface FileRouteTypes {
     | '/admin/bookings'
     | '/admin/calendar'
     | '/admin/command'
+    | '/admin/execution-report'
     | '/admin/exports'
     | '/admin/impact'
     | '/admin/intelligence'
     | '/admin/leads'
     | '/admin/owner-bookings'
+<<<<<<< HEAD
     | '/admin/owners'
     | '/admin/people'
+=======
+    | '/admin/payouts'
+    | '/admin/people360'
+    | '/admin/performance'
+>>>>>>> d1080c4 (feat(admin): add execution report panel, server route, and API command)
     | '/admin/property'
     | '/admin/settings'
     | '/admin/supreme'
@@ -1799,6 +1859,7 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminPropertyRouteImport
       parentRoute: typeof AdminRoute
     }
+<<<<<<< HEAD
     '/admin/people': {
       id: '/admin/people'
       path: '/people'
@@ -1811,6 +1872,27 @@ declare module '@tanstack/react-router' {
       path: '/owners'
       fullPath: '/admin/owners'
       preLoaderRoute: typeof AdminOwnersRouteImport
+=======
+    '/admin/performance': {
+      id: '/admin/performance'
+      path: '/performance'
+      fullPath: '/admin/performance'
+      preLoaderRoute: typeof AdminPerformanceRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/people360': {
+      id: '/admin/people360'
+      path: '/people360'
+      fullPath: '/admin/people360'
+      preLoaderRoute: typeof AdminPeople360RouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/payouts': {
+      id: '/admin/payouts'
+      path: '/payouts'
+      fullPath: '/admin/payouts'
+      preLoaderRoute: typeof AdminPayoutsRouteImport
+>>>>>>> d1080c4 (feat(admin): add execution report panel, server route, and API command)
       parentRoute: typeof AdminRoute
     }
     '/admin/owner-bookings': {
@@ -1846,6 +1928,13 @@ declare module '@tanstack/react-router' {
       path: '/exports'
       fullPath: '/admin/exports'
       preLoaderRoute: typeof AdminExportsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/execution-report': {
+      id: '/admin/execution-report'
+      path: '/execution-report'
+      fullPath: '/admin/execution-report'
+      preLoaderRoute: typeof AdminExecutionReportRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/command': {
@@ -1959,13 +2048,20 @@ interface AdminRouteChildren {
   AdminBookingsRoute: typeof AdminBookingsRoute
   AdminCalendarRoute: typeof AdminCalendarRoute
   AdminCommandRoute: typeof AdminCommandRoute
+  AdminExecutionReportRoute: typeof AdminExecutionReportRoute
   AdminExportsRoute: typeof AdminExportsRoute
   AdminImpactRoute: typeof AdminImpactRoute
   AdminIntelligenceRoute: typeof AdminIntelligenceRoute
   AdminLeadsRoute: typeof AdminLeadsRoute
   AdminOwnerBookingsRoute: typeof AdminOwnerBookingsRoute
+<<<<<<< HEAD
   AdminOwnersRoute: typeof AdminOwnersRoute
   AdminPeopleRoute: typeof AdminPeopleRoute
+=======
+  AdminPayoutsRoute: typeof AdminPayoutsRoute
+  AdminPeople360Route: typeof AdminPeople360Route
+  AdminPerformanceRoute: typeof AdminPerformanceRouteWithChildren
+>>>>>>> d1080c4 (feat(admin): add execution report panel, server route, and API command)
   AdminPropertyRoute: typeof AdminPropertyRoute
   AdminSettingsRoute: typeof AdminSettingsRoute
   AdminSupremeRoute: typeof AdminSupremeRoute
@@ -1980,13 +2076,20 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminBookingsRoute: AdminBookingsRoute,
   AdminCalendarRoute: AdminCalendarRoute,
   AdminCommandRoute: AdminCommandRoute,
+  AdminExecutionReportRoute: AdminExecutionReportRoute,
   AdminExportsRoute: AdminExportsRoute,
   AdminImpactRoute: AdminImpactRoute,
   AdminIntelligenceRoute: AdminIntelligenceRoute,
   AdminLeadsRoute: AdminLeadsRoute,
   AdminOwnerBookingsRoute: AdminOwnerBookingsRoute,
+<<<<<<< HEAD
   AdminOwnersRoute: AdminOwnersRoute,
   AdminPeopleRoute: AdminPeopleRoute,
+=======
+  AdminPayoutsRoute: AdminPayoutsRoute,
+  AdminPeople360Route: AdminPeople360Route,
+  AdminPerformanceRoute: AdminPerformanceRouteWithChildren,
+>>>>>>> d1080c4 (feat(admin): add execution report panel, server route, and API command)
   AdminPropertyRoute: AdminPropertyRoute,
   AdminSettingsRoute: AdminSettingsRoute,
   AdminSupremeRoute: AdminSupremeRoute,
