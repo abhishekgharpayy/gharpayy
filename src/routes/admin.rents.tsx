@@ -13,12 +13,8 @@ import { Label } from "@/components/ui/label";
 import { IndianRupee, CheckCircle, Clock, AlertTriangle, Plus, RefreshCw, Download } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthUser } from "@/lib/auth-store";
-
+import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/admin/rents")({
-  beforeLoad: () => {
-    const role = useAuthUser.getState().user?.role;
-    if (role !== "super_admin") throw new Error("Unauthorized");
-  },
   component: AdminRents,
 });
 
@@ -33,7 +29,8 @@ function prevMonth() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
-function formatMonth(m: string) {
+function formatMonth(m?: string) {
+  if (!m) return "Unknown";
   const [y, mo] = m.split("-");
   return new Date(Number(y), Number(mo) - 1).toLocaleDateString("en-IN", { year: "numeric", month: "short" });
 }

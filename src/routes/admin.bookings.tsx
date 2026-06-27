@@ -16,10 +16,6 @@ import { Card } from "@/components/ui/card";
 import { IndianRupee, Clock, CheckCircle2 } from "lucide-react";
 
 export const Route = createFileRoute("/admin/bookings")({
-  beforeLoad: () => {
-    const role = useAuthUser.getState().user?.role;
-    if (role !== "super_admin") throw new Error("Unauthorized");
-  },
   component: AdminBookings,
 });
 

@@ -11,10 +11,6 @@ import { IndianRupee } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/admin/tenants/$id")({
-  beforeLoad: () => {
-    const role = useAuthUser.getState().user?.role;
-    if (role !== "super_admin") throw new Error("Unauthorized");
-  },
   component: AdminTenantDetail,
 });
 

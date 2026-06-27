@@ -23,10 +23,6 @@ function TenantsLayout() {
 }
 
 export const Route = createFileRoute("/admin/tenants")({
-  beforeLoad: () => {
-    const role = useAuthUser.getState().user?.role;
-    if (role !== "super_admin") throw new Error("Unauthorized");
-  },
   component: TenantsLayout,
 });
 
