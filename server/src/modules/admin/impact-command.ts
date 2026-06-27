@@ -40,19 +40,48 @@ export function registerAdminImpactCommandRoutes(app: FastifyInstance) {
     };
 
     const zoneMap: Record<string, { pods: number, open: number, stuck: number, bookings: number }> = {};
+    const memberMap: Record<string, { id: string, name: string, zone: string, open: number, stuck: number, bookings: number }> = {};
+    const trendMap: Record<string, { month: string, leads: number, bookings: number, revenue: number }> = {};
+    let vaultBookedValue = 0;
+    let vaultLostValue = 0;
+
     leads.forEach(l => {
       const assigned = l.assignedTcmId || l.assigneeId;
       const tcm = tcms.find(t => t._id === assigned);
       const zone = tcm?.zones?.[0] || "Unknown";
-      if (!zoneMap[zone]) {
-        zoneMap[zone] = { pods: 1, open: 0, stuck: 0, bookings: 0 };
+      const memberName = tcm?.fullName || "Unassigned";
+      
+      // Zone map init
+      if (!zoneMap[zone]) zoneMap[zone] = { pods: 1, open: 0, stuck: 0, bookings: 0 };
+      // Member map init
+      if (assigned && !memberMap[assigned]) {
+        memberMap[assigned] = { id: assigned, name: memberName, zone, open: 0, stuck: 0, bookings: 0 };
       }
+
+      const isStuck = l.stage !== "booked" && l.stage !== "dropped" && (now - new Date(l.updatedAt).getTime()) / 86400000 > 3;
+
       if (l.stage === "booked") {
         zoneMap[zone].bookings++;
-      } else if (l.stage !== "dropped") {
+        if (assigned) memberMap[assigned].bookings++;
+        vaultBookedValue += l.budget || 0;
+      } else if (l.stage === "dropped") {
+        vaultLostValue += l.budget || 0;
+      } else {
         zoneMap[zone].open++;
-        const daysSinceUpdate = (now - new Date(l.updatedAt).getTime()) / 86400000;
-        if (daysSinceUpdate > 3) zoneMap[zone].stuck++;
+        if (assigned) memberMap[assigned].open++;
+        if (isStuck) {
+          zoneMap[zone].stuck++;
+          if (assigned) memberMap[assigned].stuck++;
+        }
+      }
+
+      // Trend map
+      const leadMonth = new Date(l.createdAt).toISOString().slice(0, 7); // YYYY-MM
+      if (!trendMap[leadMonth]) trendMap[leadMonth] = { month: leadMonth, leads: 0, bookings: 0, revenue: 0 };
+      trendMap[leadMonth].leads++;
+      if (l.stage === "booked") {
+        trendMap[leadMonth].bookings++;
+        trendMap[leadMonth].revenue += l.budget || 0;
       }
     });
 
@@ -61,6 +90,17 @@ export function registerAdminImpactCommandRoutes(app: FastifyInstance) {
       ...data,
       stuckPct: data.open > 0 ? Math.round((data.stuck / data.open) * 100) : 0
     }));
+
+    const members = Object.values(memberMap).map(m => ({
+      ...m,
+      totalLeads: m.open + m.bookings,
+      conversion: (m.open + m.bookings) > 0 ? Math.round((m.bookings / (m.open + m.bookings)) * 100) : 0,
+      stuckPct: m.open > 0 ? Math.round((m.stuck / m.open) * 100) : 0
+    })).sort((a, b) => b.bookings - a.bookings);
+
+    const trend = Object.values(trendMap)
+      .sort((a, b) => a.month.localeCompare(b.month))
+      .slice(-3);
 
     return reply.send({
       stats: {
@@ -71,7 +111,13 @@ export function registerAdminImpactCommandRoutes(app: FastifyInstance) {
         conversion,
         stuck,
         cohorts,
-        scoreboard
+        scoreboard,
+        members,
+        trend,
+        vault: {
+          bookedValue: vaultBookedValue,
+          lostValue: vaultLostValue
+        }
       }
     });
   });

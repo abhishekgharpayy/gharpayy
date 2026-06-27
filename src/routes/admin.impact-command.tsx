@@ -45,7 +45,10 @@ function AdminImpactCommand() {
     conversion: 0,
     stuck: 0,
     cohorts: { active: 0, awaiting: 0, noResponse: 0, future: 0, cold: 0, closed: 0 },
-    scoreboard: []
+    scoreboard: [],
+    members: [],
+    trend: [],
+    vault: { bookedValue: 0, lostValue: 0 }
   };
 
   return (
@@ -173,10 +176,93 @@ function AdminImpactCommand() {
         </div>
       )}
       
-      {activeTab !== "Overview" && (
-        <div className="rounded-xl border border-dashed border-border p-12 text-center text-muted-foreground bg-muted/10">
-          <Info className="w-8 h-8 mx-auto mb-3 opacity-20" />
-          <p className="font-medium text-sm">Module coming soon</p>
+      {activeTab === "Pods & Members" && (
+        <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden flex flex-col">
+          <div className="p-5 border-b border-border/50">
+            <h3 className="font-semibold text-sm text-foreground flex items-center gap-2">Member Scoreboard</h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <thead className="text-xs text-muted-foreground border-b border-border/50">
+                <tr>
+                  <th className="px-6 py-4 font-medium">Member</th>
+                  <th className="px-6 py-4 font-medium">Zone</th>
+                  <th className="px-6 py-4 font-medium text-center">Total Leads</th>
+                  <th className="px-6 py-4 font-medium text-center">Open</th>
+                  <th className="px-6 py-4 font-medium text-center">Stuck</th>
+                  <th className="px-6 py-4 font-medium text-center">Bookings</th>
+                  <th className="px-6 py-4 font-medium text-right">Conversion</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stats.members.map((row: any, i: number) => (
+                  <tr key={i} className="border-b border-border/50 hover:bg-muted/10 transition-colors">
+                    <td className="px-6 py-4 font-semibold text-foreground">{row.name}</td>
+                    <td className="px-6 py-4 text-muted-foreground">{row.zone}</td>
+                    <td className="px-6 py-4 text-center">{row.totalLeads}</td>
+                    <td className="px-6 py-4 text-center font-medium">{row.open}</td>
+                    <td className="px-6 py-4 text-center text-muted-foreground">{row.stuck}</td>
+                    <td className="px-6 py-4 text-center font-bold text-emerald-500">{row.bookings}</td>
+                    <td className="px-6 py-4 text-right">
+                      <span className="inline-flex font-mono text-xs font-bold">
+                        {row.conversion}%
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {activeTab === "3-Month Trend" && (
+        <div className="space-y-6">
+          <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+            <h3 className="font-semibold text-sm text-foreground mb-6">Volume & Bookings</h3>
+            <div className="flex flex-col gap-4">
+              {stats.trend.length === 0 && <div className="text-sm text-muted-foreground">No data available</div>}
+              {stats.trend.map((m: any) => {
+                const maxLeads = Math.max(...stats.trend.map((t: any) => t.leads), 1);
+                const leadWidth = `${Math.max((m.leads / maxLeads) * 100, 2)}%`;
+                
+                return (
+                  <div key={m.month} className="flex flex-col gap-1.5">
+                    <div className="text-sm font-semibold flex items-center justify-between">
+                      <span>{m.month}</span>
+                      <span className="text-muted-foreground text-xs">{m.leads} leads · {m.bookings} bookings</span>
+                    </div>
+                    <div className="h-4 w-full bg-muted rounded-full overflow-hidden flex">
+                      <div className="h-full bg-primary/40 transition-all" style={{ width: leadWidth }}>
+                        <div className="h-full bg-emerald-500 transition-all" style={{ width: `${m.leads > 0 ? (m.bookings / m.leads) * 100 : 0}%` }} />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex items-center gap-4 mt-6 text-xs text-muted-foreground">
+              <div className="flex items-center gap-1.5"><div className="w-3 h-3 bg-primary/40 rounded-sm"></div> Leads</div>
+              <div className="flex items-center gap-1.5"><div className="w-3 h-3 bg-emerald-500 rounded-sm"></div> Bookings</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === "Vault" && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="rounded-xl border border-border bg-card p-6 shadow-sm flex flex-col justify-center items-center text-center">
+            <ShieldCheck className="w-12 h-12 text-emerald-500 mb-4 opacity-80" />
+            <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider mb-2">Revenue Won</h3>
+            <div className="text-4xl font-black text-foreground">₹{(stats.vault.bookedValue || 0).toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground mt-3 max-w-xs">Total potential rent value from leads that converted into bookings.</p>
+          </div>
+          <div className="rounded-xl border border-border bg-card p-6 shadow-sm flex flex-col justify-center items-center text-center">
+            <Flame className="w-12 h-12 text-rose-500 mb-4 opacity-80" />
+            <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider mb-2">Value Lost</h3>
+            <div className="text-4xl font-black text-foreground">₹{(stats.vault.lostValue || 0).toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground mt-3 max-w-xs">Total budget from leads marked as dropped or lost.</p>
+          </div>
         </div>
       )}
     </div>
