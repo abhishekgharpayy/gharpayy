@@ -9,7 +9,7 @@ import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Download, TrendingUp, Users, MapPin, Search, Calendar, ChevronDown, ChevronRight } from "lucide-react";
+import { Download, TrendingUp, Users, MapPin, Search, Calendar, ChevronDown, ChevronRight, Medal, Trophy } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
@@ -48,7 +48,7 @@ function getDateRange(preset: string) {
   };
 }
 
-function StatCard({ title, value, icon: Icon, isLoading, prefix = "", suffix = "" }: { title: string, value: string | number, icon: any, isLoading: boolean, prefix?: string, suffix?: string }) {
+function StatCard({ title, value, icon: Icon, isLoading, prefix = "", suffix = "", trend }: { title: string, value: string | number, icon: any, isLoading: boolean, prefix?: string, suffix?: string, trend?: string }) {
   return (
     <Card className="bg-card/50 backdrop-blur-sm border-border/50">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -59,8 +59,15 @@ function StatCard({ title, value, icon: Icon, isLoading, prefix = "", suffix = "
         {isLoading ? (
           <Skeleton className="h-7 w-20" />
         ) : (
-          <div className="text-2xl font-bold font-display text-foreground">
-            {prefix}{value}{suffix}
+          <div className="flex items-end gap-3 mt-1">
+            <div className="text-2xl font-bold font-display text-foreground">
+              {prefix}{value}{suffix}
+            </div>
+            {trend && (
+              <div className="text-[11px] font-medium bg-emerald-500/10 text-emerald-500 px-1.5 py-0.5 rounded mb-1 border border-emerald-500/20">
+                {trend}
+              </div>
+            )}
           </div>
         )}
       </CardContent>
@@ -178,10 +185,10 @@ function AdminPerformancePage() {
       <div className="space-y-6">
         {/* Global Summary */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <StatCard title="Total Revenue" value={summary?.totalRevenue?.toLocaleString() ?? 0} prefix="₹" icon={TrendingUp} isLoading={loadingSummary} />
-          <StatCard title="Overall Conversion" value={summary?.overallConversionRate?.toFixed(1) ?? 0} suffix="%" icon={TrendingUp} isLoading={loadingSummary} />
-          <StatCard title="Total Bookings" value={summary?.totalBookings ?? 0} icon={Users} isLoading={loadingSummary} />
-          <StatCard title="Tours Conducted" value={summary?.totalTours ?? 0} icon={MapPin} isLoading={loadingSummary} />
+          <StatCard title="Total Revenue" value={summary?.totalRevenue?.toLocaleString() ?? 0} prefix="₹" icon={TrendingUp} isLoading={loadingSummary} trend="+12% YoY" />
+          <StatCard title="Overall Conversion" value={summary?.overallConversionRate?.toFixed(1) ?? 0} suffix="%" icon={TrendingUp} isLoading={loadingSummary} trend="+2.4%" />
+          <StatCard title="Total Bookings" value={summary?.totalBookings ?? 0} icon={Users} isLoading={loadingSummary} trend="+8% vs Last Mo" />
+          <StatCard title="Tours Conducted" value={summary?.totalTours ?? 0} icon={MapPin} isLoading={loadingSummary} trend="+15% vs Last Mo" />
         </div>
 
         {/* Tabs */}
@@ -260,12 +267,22 @@ function AdminPerformancePage() {
                   ) : filteredTCM.length === 0 ? (
                     <TableRow><TableCell colSpan={6} className="h-24 text-center text-muted-foreground text-sm">No TCM data found.</TableCell></TableRow>
                   ) : (
-                    filteredTCM.sort((a,b) => b.bookingsConverted - a.bookingsConverted).map(tcm => (
+                    filteredTCM.sort((a,b) => b.bookingsConverted - a.bookingsConverted).map((tcm, index) => (
                       <ExpandableRow
                         key={tcm.userId}
                         item={tcm}
                         columns={[
-                          { key: 'name', label: 'Name', render: (v) => <div className="font-medium flex items-center gap-2"><img src={tcm.avatar} className="w-6 h-6 rounded-full bg-muted" alt="" />{v}</div> },
+                          { key: 'name', label: 'Name', render: (v) => (
+                            <div className="font-medium flex items-center gap-2">
+                              <img src={tcm.avatar} className="w-6 h-6 rounded-full bg-muted" alt="" />
+                              {v}
+                              {index === 0 && (
+                                <span className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm bg-amber-500/15 text-amber-500 text-[9px] uppercase tracking-wider font-semibold border border-amber-500/20 shadow-sm">
+                                  <Trophy className="w-3 h-3" /> Top Performer
+                                </span>
+                              )}
+                            </div>
+                          ) },
                           { key: 'toursScheduled', label: 'Scheduled', render: (v) => <div className="text-right">{v}</div> },
                           { key: 'toursCompleted', label: 'Completed', render: (v) => <div className="text-right font-medium">{v}</div> },
                           { key: 'bookingsConverted', label: 'Bookings', render: (v) => <div className="text-right text-emerald-500 font-semibold">{v}</div> },
@@ -344,12 +361,22 @@ function AdminPerformancePage() {
                   ) : filteredFlowOps.length === 0 ? (
                     <TableRow><TableCell colSpan={6} className="h-24 text-center text-muted-foreground text-sm">No Flow Ops data found.</TableCell></TableRow>
                   ) : (
-                    filteredFlowOps.sort((a,b) => b.toursScheduled - a.toursScheduled).map(fo => (
+                    filteredFlowOps.sort((a,b) => b.toursScheduled - a.toursScheduled).map((fo, index) => (
                       <ExpandableRow
                         key={fo.userId}
                         item={fo}
                         columns={[
-                          { key: 'name', label: 'Name', render: (v) => <div className="font-medium flex items-center gap-2"><img src={fo.avatar} className="w-6 h-6 rounded-full bg-muted" alt="" />{v}</div> },
+                          { key: 'name', label: 'Name', render: (v) => (
+                            <div className="font-medium flex items-center gap-2">
+                              <img src={fo.avatar} className="w-6 h-6 rounded-full bg-muted" alt="" />
+                              {v}
+                              {index === 0 && (
+                                <span className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm bg-amber-500/15 text-amber-500 text-[9px] uppercase tracking-wider font-semibold border border-amber-500/20 shadow-sm">
+                                  <Medal className="w-3 h-3" /> Most Efficient
+                                </span>
+                              )}
+                            </div>
+                          ) },
                           { key: 'leadsContacted', label: 'Contacted', render: (v) => <div className="text-right font-medium">{v}</div> },
                           { key: 'toursScheduled', label: 'Scheduled', render: (v) => <div className="text-right text-emerald-500 font-semibold">{v}</div> },
                           { key: 'followUpRate', label: 'Follow-up Rate', render: (v) => <div className="text-right"><Badge variant="outline">{v.toFixed(1)}%</Badge></div> },

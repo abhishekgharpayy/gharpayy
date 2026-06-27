@@ -225,6 +225,9 @@ export const api = {
     tokenStore.set(r.token);
     return r;
   },
+  revenue: {
+    leakage: () => request<{ leakage: { reason: string, amount: number }[] }>("/api/v1/admin/revenue/leakage"),
+  },
 
   logout: async () => {
     await request("/api/auth/logout", { method: "POST" }).catch(() => undefined);
@@ -567,6 +570,9 @@ export const api = {
         }
       ),
   },
+
+  impactCommand: () => request<any>("/api/v1/admin/impact-command"),
+  watchdog: () => request<any>("/api/v1/admin/watchdog"),
 
   payments: {
     list: (q: Record<string, string | number> = {}) =>

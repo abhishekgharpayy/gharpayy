@@ -8,6 +8,8 @@ import {
 } from "@/admin/lib/supreme-metrics";
 import { cn } from "@/lib/utils";
 import { useAuthUser } from "@/lib/auth-store";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api/client";
 import { Button } from "@/components/ui/button";
 import type { AdminLeadRow } from "@/admin/lib/selectors";
 
@@ -36,6 +38,13 @@ type DrawerState =
 function SupremePage() {
   const { rows, isLoading, isError } = useLiveSupremeMetrics();
   const [drawer, setDrawer] = useState<DrawerState>(null);
+
+  const { data: watchdogData, isLoading: loadingWatchdog } = useQuery({
+    queryKey: ["watchdog_feed"],
+    queryFn: () => api.watchdog(),
+    refetchInterval: 60000 // Refetch every minute
+  });
+  const anomalies = watchdogData?.anomalies || [];
 
   const money = useMemo(() => computeMoneyMap(rows || []), [rows]);
   const tcms = useMemo(() => computeTcmHealth(rows || []), [rows]);
@@ -77,6 +86,35 @@ function SupremePage() {
         <Tile label="At-risk (\u22653d)" value={inrL(money.atRiskRevenue)} tone="warn" />
         <Tile label="Lost (30d)" value={inrL(money.walkingRevenue)} tone="danger" />
       </section>
+
+      {/* AI Anomaly Watchdog Feed */}
+      <Panel title="AI Anomaly Watchdog \u00B7 System Guardian" sub="Real-time operational anomaly detection" className="mt-3 border-accent/40 bg-accent/5">
+        {loadingWatchdog ? (
+          <div className="text-muted-foreground text-xs p-4 animate-pulse">Running system diagnostics...</div>
+        ) : anomalies.length === 0 ? (
+          <div className="text-success text-xs p-4 flex items-center gap-2">
+            <div className="h-2 w-2 bg-success rounded-full animate-pulse" /> All systems nominal. No anomalies detected.
+          </div>
+        ) : (
+          <div className="space-y-2 max-h-[250px] overflow-auto">
+            {anomalies.map((a: any, i: number) => (
+              <div key={i} className="flex items-start gap-3 p-2 rounded-md bg-background border border-border/50">
+                <div className={cn(
+                  "mt-0.5 w-2 h-2 rounded-full shrink-0",
+                  a.severity === "high" ? "bg-destructive animate-pulse" : a.severity === "medium" ? "bg-warning" : "bg-info"
+                )} />
+                <div>
+                  <div className="text-[11px] font-semibold flex items-center gap-2">
+                    <span className="uppercase text-muted-foreground">{a.type.replace("_", " ")}</span>
+                    <span className="text-[9px] text-muted-foreground">{new Date(a.timestamp).toLocaleString("en-IN", { hour: "numeric", minute: "numeric", hour12: true })}</span>
+                  </div>
+                  <div className="text-xs mt-0.5 text-foreground leading-relaxed">{a.message}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Panel>
 
       <div className="grid lg:grid-cols-3 gap-3 mt-3">
         <Panel title="SLA breach board" sub="Most expensive overdue work first" className="lg:col-span-2">

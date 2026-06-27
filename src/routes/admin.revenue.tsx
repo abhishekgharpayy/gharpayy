@@ -8,6 +8,7 @@ import { api } from "@/lib/api/client";
 import { normalizeLeadRecord } from "@/lib/lead-helpers";
 import { useState, useEffect } from "react";
 import type { Lead } from "@/lib/types";
+import { useQuery } from "@tanstack/react-query";
 
 export const Route = createFileRoute("/admin/revenue")({
   beforeLoad: () => {
@@ -108,8 +109,14 @@ function AdminRevenue() {
 
     const trendData = Object.values(months).sort((a,b) => a.name.localeCompare(b.name));
 
-    return { totalExpected, totalPotential, totalRealized, funnelData, trendData };
+    return { totalPotential, totalExpected, totalRealized, funnelData, trendData };
   }, [leads]);
+
+  const { data: leakageData } = useQuery({
+    queryKey: ["revenue_leakage"],
+    queryFn: () => api.revenue.leakage(),
+  });
+  const leakageMatrix = leakageData?.leakage || [];
 
   if (loading) {
     return (
@@ -212,6 +219,34 @@ function AdminRevenue() {
           </div>
         </div>
       </div>
+
+      {/* Revenue Leakage Matrix */}
+      <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden flex flex-col mt-6">
+        <div className="p-5 border-b border-destructive/20 bg-destructive/5 flex items-center justify-between">
+          <h3 className="font-semibold text-lg flex items-center gap-2 uppercase tracking-wide text-destructive">
+            <AlertCircle className="w-5 h-5" /> Revenue Leakage Matrix
+          </h3>
+          <span className="text-xs font-medium bg-destructive/10 text-destructive px-2 py-1 rounded-md">Lost Potential</span>
+        </div>
+        <div className="p-6 h-[350px]">
+          {leakageMatrix.length === 0 ? (
+            <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No revenue leakage detected.</div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={leakageMatrix} layout="vertical" margin={{ left: 100, right: 30 }}>
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={COLORS.muted} opacity={0.2} />
+                <XAxis type="number" tickFormatter={(val) => `₹${val/1000}k`} />
+                <YAxis dataKey="reason" type="category" width={120} tick={{ fill: COLORS.muted, fontSize: 12 }} />
+                <Tooltip formatter={(value: number) => formatCurrency(value)} cursor={{ fill: 'rgba(239, 68, 68, 0.05)' }} />
+                <Bar dataKey="amount" name="Lost Revenue" fill={COLORS.danger} radius={[0, 4, 4, 0]}>
+                  {/* Optional: Add custom label inside bars */}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+      </div>
+
     </div>
   );
 }
