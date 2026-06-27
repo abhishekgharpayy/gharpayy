@@ -120,11 +120,15 @@ export const localAdapter = {
     return { items: [{ _id: USER, name: "Me (local)", email: "me@local", role: "admin" }] };
   },
 
-  listLeads(q: { limit?: number } = {}) {
+  listLeads(q: { limit?: number; search?: string } = {}) {
     if (typeof window !== "undefined" && !localStorage.getItem(LEADS_KEY)) {
       write(LEADS_KEY, SEED_LEADS);
     }
-    const items = read<Lead>(LEADS_KEY).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    let items = read<Lead>(LEADS_KEY).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    if (q.search) {
+      const s = q.search.toLowerCase();
+      items = items.filter(l => l.name.toLowerCase().includes(s) || l.phone.includes(s));
+    }
     return { items: items.slice(0, q.limit ?? 100), nextCursor: null as string | null };
   },
 

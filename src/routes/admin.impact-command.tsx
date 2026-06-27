@@ -18,10 +18,11 @@ export const Route = createFileRoute("/admin/impact-command")({
 function AdminImpactCommand() {
   const [timeFilter, setTimeFilter] = useState("This Month");
   const [activeTab, setActiveTab] = useState("Overview");
+  const [zoneFilter, setZoneFilter] = useState("All zones");
 
   const { data, isLoading } = useQuery({
-    queryKey: ["impact_command"],
-    queryFn: () => api.impactCommand(),
+    queryKey: ["impact_command", timeFilter, zoneFilter],
+    queryFn: () => api.impactCommand({ timeFilter, zone: zoneFilter }),
   });
 
   if (isLoading) {
@@ -62,7 +63,11 @@ function AdminImpactCommand() {
         </div>
         
         <div className="flex items-center gap-3">
-          <select className="text-sm bg-background border border-border rounded-md px-3 py-1.5 outline-none font-medium text-foreground">
+          <select 
+            value={zoneFilter}
+            onChange={(e) => setZoneFilter(e.target.value)}
+            className="text-sm bg-background border border-border rounded-md px-3 py-1.5 outline-none font-medium text-foreground"
+          >
             <option>All zones</option>
             <option>North</option>
             <option>South</option>

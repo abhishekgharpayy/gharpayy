@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { useApp } from "@/lib/store";
 
 export const Route = createFileRoute("/admin/whatsapp")({
   component: WhatsAppInbox,
@@ -22,6 +23,7 @@ interface LeadItem {
   name: string;
   phone: string;
   stage?: string;
+  type?: string;
 }
 
 function WhatsAppInbox() {
@@ -40,20 +42,45 @@ function WhatsAppInbox() {
   const [newChatMsg, setNewChatMsg] = useState("");
   const [newChatLeadId, setNewChatLeadId] = useState("");
 
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(leadSearch), 300);
+    return () => clearTimeout(t);
+  }, [leadSearch]);
+
   const { data: leadsRes } = useQuery({
-    queryKey: ["leads", "list-for-whatsapp"],
-    queryFn: () => api.leads.list({ limit: 1000 }),
-    enabled: newChatOpen,
+    queryKey: ["leads", "list-for-whatsapp", debouncedSearch],
+    queryFn: () => api.leads.list({ search: debouncedSearch, limit: 5 }),
+    enabled: newChatOpen && debouncedSearch.trim().length > 0,
   });
+
+  const tcms = useApp(s => s.tcms) || [];
 
   const filteredLeads = useMemo(() => {
     if (!leadSearch.trim()) return [];
     const s = leadSearch.toLowerCase();
-    return (leadsRes?.items ?? []).filter((l: LeadItem) => 
-      (l.name && l.name.toLowerCase().includes(s)) ||
-      (l.phone && l.phone.includes(s))
-    ).slice(0, 5);
-  }, [leadsRes, leadSearch]);
+    
+    const filteredTcms = tcms.filter((t: any) => 
+      (t.name && t.name.toLowerCase().includes(s)) ||
+      (t.fullName && t.fullName.toLowerCase().includes(s)) ||
+      (t.phone && t.phone.includes(s))
+    ).map((t: any) => ({
+      id: t._id || t.id,
+      name: t.name || t.fullName || "TCM",
+      phone: t.phone || "",
+      type: "TCM"
+    })).slice(0, 3);
+    
+    const mappedLeads = (leadsRes?.items ?? []).map((l: any) => ({
+      id: l._id || l.id,
+      name: l.name,
+      phone: l.phone,
+      type: "Lead"
+    }));
+
+    return [...filteredTcms, ...mappedLeads].slice(0, 8);
+  }, [leadsRes, leadSearch, tcms]);
 
   const startNewChatMutation = useMutation({
     mutationFn: () => api.whatsapp.send(undefined, newChatMsg, undefined, newChatPhone, newChatName, newChatLeadId),
@@ -331,7 +358,10 @@ function WhatsAppInbox() {
                       }}
                       className="w-full text-left p-2 hover:bg-muted/40 transition-colors flex items-center justify-between text-[11px]"
                     >
-                      <span className="font-medium text-foreground">{l.name}</span>
+                      <span className="font-medium text-foreground flex items-center">
+                        {l.name}
+                        {l.type === "TCM" && <Badge variant="secondary" className="ml-2 text-[8px] px-1 py-0 h-4">TCM</Badge>}
+                      </span>
                       <span className="text-muted-foreground">{l.phone}</span>
                     </button>
                   ))}

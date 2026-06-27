@@ -266,6 +266,7 @@ export const api = {
         },
         () =>
           localAdapter.listLeads({
+            ...q,
             limit: typeof q.limit === "number" ? q.limit : Number(q.limit ?? 100),
           }),
       ),
@@ -571,7 +572,10 @@ export const api = {
       ),
   },
 
-  impactCommand: () => request<any>("/api/v1/admin/impact-command"),
+  impactCommand: (q?: { timeFilter?: string; zone?: string }) => {
+    const qs = new URLSearchParams(q as Record<string, string>).toString();
+    return request<any>(`/api/v1/admin/impact-command${qs ? `?${qs}` : ""}`);
+  },
   watchdog: () => request<any>("/api/v1/admin/watchdog"),
 
   payments: {

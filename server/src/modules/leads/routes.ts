@@ -14,6 +14,7 @@ const ListQuery = z.object({
   stage: z.string().optional(),
   assignedTcmId: z.string().optional(),
   zoneId: z.string().optional(),
+  search: z.string().optional(),
   limit: z.coerce.number().min(1).max(200).default(50),
   cursor: z.string().optional(),       // ULID cursor (createdAt-sorted)
 });
@@ -83,6 +84,16 @@ export function registerLeadsRoutes(app: FastifyInstance) {
     if (q.assignedTcmId) filter.assignedTcmId = q.assignedTcmId;
     if (q.zoneId) filter.zoneId = q.zoneId;
     if (q.cursor) filter._id = { $lt: q.cursor };
+    
+    if (q.search) {
+      const s = q.search.trim();
+      const numS = s.replace(/\D/g, '');
+      const searchOr = [ { name: { $regex: s, $options: "i" } } ];
+      if (numS.length > 0) searchOr.push({ phone: { $regex: numS, $options: "i" } });
+      
+      filter.$and = filter.$and || [];
+      filter.$and.push({ $or: searchOr });
+    }
 
     // Role-based visibility:
     //  - super_admin / manager: see everything in tenant
@@ -93,6 +104,8 @@ export function registerLeadsRoutes(app: FastifyInstance) {
     const role = req.user!.role;
     const myId = req.user!.sub;
     const myZones = req.user!.zones ?? [];
+    
+    let roleOr: any[] = [];
     if (role === "admin") {
       if (myZones.length === 0) {
         return reply.send({ items: [], nextCursor: null });
@@ -106,7 +119,7 @@ export function registerLeadsRoutes(app: FastifyInstance) {
       const subordinateIds = subordinates.map((u) => u._id);
       subordinateIds.push(myId); // include self
 
-      filter.$or = [
+      roleOr = [
         { zoneId: { $in: myZones } },
         { zoneCategory: { $in: myZones } },
         { assignedTcmId: { $in: subordinateIds } },
@@ -114,7 +127,7 @@ export function registerLeadsRoutes(app: FastifyInstance) {
         { createdBy: { $in: subordinateIds } },
       ];
     } else if (role === "member") {
-      filter.$or = [
+      roleOr = [
         { assignedTcmId: myId },
         { assigneeId: myId },
         { createdBy: myId },
@@ -141,7 +154,7 @@ export function registerLeadsRoutes(app: FastifyInstance) {
         .filter((t: any) => !pendingTourIds.has(t._id))
         .map((t: any) => t.leadId);
 
-      filter.$or = [
+      roleOr = [
         { assignedTcmId: myId },
         { assigneeId: myId },
         { createdBy: myId },
@@ -149,6 +162,11 @@ export function registerLeadsRoutes(app: FastifyInstance) {
       ];
     }
     // super_admin and manager fall through with no extra filter.
+    
+    if (roleOr.length > 0) {
+      filter.$and = filter.$and || [];
+      filter.$and.push({ $or: roleOr });
+    }
 
     const items = await col<Lead>("leads")
       .find(filter)

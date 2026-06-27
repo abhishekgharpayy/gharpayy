@@ -12,10 +12,51 @@ export function registerAdminImpactCommandRoutes(app: FastifyInstance) {
 
     const tenantId = req.user!.tenantId;
 
-    const [leads, tcms] = await Promise.all([
+    const [rawLeads, tcms] = await Promise.all([
       col<Lead>("leads").find({ tenantId }).toArray(),
       col<UserDoc>("users").find({ tenantId, role: { $in: ["tcm", "member"] } }).toArray(),
     ]);
+
+    let leads = rawLeads;
+    const q = req.query as { timeFilter?: string; zone?: string };
+
+    if (q.timeFilter && q.timeFilter !== "All Time") {
+      const now = new Date();
+      let startDate = new Date(0);
+      let endDate = new Date();
+
+      if (q.timeFilter === "This Week") {
+        const day = now.getDay();
+        const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+        startDate = new Date(now.setDate(diff));
+        startDate.setHours(0, 0, 0, 0);
+      } else if (q.timeFilter === "Last Week") {
+        const day = now.getDay();
+        const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+        endDate = new Date(now.setDate(diff));
+        endDate.setHours(0, 0, 0, -1);
+        startDate = new Date(endDate.getTime());
+        startDate.setDate(startDate.getDate() - 6);
+        startDate.setHours(0, 0, 0, 0);
+      } else if (q.timeFilter === "This Month") {
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        startDate.setHours(0, 0, 0, 0);
+      }
+
+      leads = leads.filter(l => {
+        const d = new Date(l.createdAt);
+        return d >= startDate && d <= endDate;
+      });
+    }
+
+    if (q.zone && q.zone !== "All zones") {
+      leads = leads.filter(l => {
+        const assigned = l.assignedTcmId || l.assigneeId;
+        const tcm = tcms.find(t => t._id === assigned);
+        const zone = tcm?.zones?.[0] || "Unknown";
+        return zone === q.zone;
+      });
+    }
 
     const totalLeads = leads.length;
     const toursScheduled = leads.filter(l => l.stage === "tour-scheduled" || l.stage === "on-tour" || l.stage === "tour-done").length;

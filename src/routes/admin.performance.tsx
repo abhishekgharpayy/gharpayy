@@ -236,9 +236,9 @@ function AdminPerformancePage() {
               <Card className="bg-card/50 border-border/50 p-4">
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={filteredTCM} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <BarChart data={filteredTCM} margin={{ top: 10, right: 10, left: 0, bottom: 20 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                      <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
+                      <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} interval={0} angle={-45} textAnchor="end" />
                       <YAxis type="number" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
                       <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px' }} />
                       <Bar dataKey="toursCompleted" name="Tours Completed" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} maxBarSize={32} />
@@ -331,9 +331,9 @@ function AdminPerformancePage() {
               <Card className="bg-card/50 border-border/50 p-4">
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={filteredFlowOps} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <BarChart data={filteredFlowOps} margin={{ top: 10, right: 10, left: 0, bottom: 20 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                      <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
+                      <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} interval={0} angle={-45} textAnchor="end" />
                       <YAxis type="number" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
                       <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px' }} />
                       <Bar dataKey="leadsContacted" name="Leads Contacted" fill="hsl(var(--chart-3))" radius={[4, 4, 0, 0]} maxBarSize={32} />
