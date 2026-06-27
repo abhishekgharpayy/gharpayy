@@ -158,6 +158,7 @@ export const UpdateTourCmd = Base.extend({
       customPropertyName: z.string().optional(),
       status: TourStatus.optional(),
       showUp: z.boolean().nullable().optional(),
+      location: z.object({ lat: z.number(), lng: z.number() }).optional(),
     }),
   }),
 });

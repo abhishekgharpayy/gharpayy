@@ -202,6 +202,8 @@ function VisitWarRoom() {
       vacantBeds: 0,
       daysSinceLastBooking: 0,
       pricePerBed: pg.prices?.triple || pg.prices?.double || pg.prices?.min || 0,
+      lat: pg.lat,
+      lng: pg.lng,
     }));
     setProperties(fromPgs);
     console.debug("[VisitWar] properties seeded from PGS catalog:", fromPgs.length);
@@ -232,6 +234,8 @@ function VisitWarRoom() {
             vacantBeds: apiProp.vacantBeds ?? p.vacantBeds,
             daysSinceLastBooking: apiProp.daysSinceLastBooking ?? p.daysSinceLastBooking,
             pricePerBed: apiProp.pricePerBed ?? p.pricePerBed,
+            lat: apiProp.lat ?? p.lat,
+            lng: apiProp.lng ?? p.lng,
           };
         });
         // Also add any API-only properties not in PGS
@@ -248,6 +252,8 @@ function VisitWarRoom() {
               vacantBeds: p.vacantBeds || 0,
               daysSinceLastBooking: p.daysSinceLastBooking || 0,
               pricePerBed: p.pricePerBed || 0,
+              lat: p.lat,
+              lng: p.lng,
             });
           }
         });
@@ -1991,13 +1997,52 @@ function VisitDetailPanel({
               tone="success"
               active={v.startedMode === "reached"}
               onClick={() => {
-                onPatch({
-                  stage: "at-property",
-                  startedMode: "reached",
-                  startedAt: v.startedAt ?? Date.now(),
-                  reachedAt: Date.now(),
-                });
-                onAlert("win", "reached", "Reached property");
+                const checkIn = (lat?: number, lng?: number, distWarn?: string) => {
+                  onPatch({
+                    stage: "at-property",
+                    startedMode: "reached",
+                    startedAt: v.startedAt ?? Date.now(),
+                    reachedAt: Date.now(),
+                    ...(lat && lng ? { location: { lat, lng } } : {})
+                  });
+                  onAlert("win", "reached", "Reached property" + (lat ? "" : " (No GPS)"));
+                  if (distWarn) {
+                    onAlert("risk", "delay", distWarn);
+                  }
+                };
+
+                if ("geolocation" in navigator) {
+                  navigator.geolocation.getCurrentPosition(
+                    (pos) => {
+                      const lat = pos.coords.latitude;
+                      const lng = pos.coords.longitude;
+                      let distWarn = "";
+                      
+                      if (prop?.lat && prop?.lng) {
+                        const R = 6371e3;
+                        const f1 = lat * Math.PI/180;
+                        const f2 = prop.lat * Math.PI/180;
+                        const df = (prop.lat-lat) * Math.PI/180;
+                        const dl = (prop.lng-lng) * Math.PI/180;
+                        const a = Math.sin(df/2) * Math.sin(df/2) + Math.cos(f1) * Math.cos(f2) * Math.sin(dl/2) * Math.sin(dl/2);
+                        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                        const d = R * c;
+                        
+                        if (d > 500) {
+                          distWarn = `Checked in ${Math.round(d)}m away from property!`;
+                        }
+                      }
+                      checkIn(lat, lng, distWarn);
+                    },
+                    (err) => {
+                      console.warn("Geolocation error:", err);
+                      checkIn();
+                    },
+                    { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+                  );
+                } else {
+                  checkIn();
+                }
               }}
             />
             <ActBtn

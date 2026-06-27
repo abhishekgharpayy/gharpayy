@@ -63,6 +63,7 @@ export const Lead = z.object({
     flaggedAt: z.string(),
     flaggedBy: z.string(),
   }).nullable().optional(),
+  suggestedProperties: z.array(z.string()).default([]),
 });
 export type Lead = z.infer<typeof Lead>;
 
@@ -233,6 +234,7 @@ export const Tour = z.object({
   createdAt: z.string(),
   updatedAt: z.string(),
   tenantId: z.string(),
+  location: z.object({ lat: z.number(), lng: z.number() }).optional().nullable().default(null),
 });
 export type Tour = z.infer<typeof Tour>;
 

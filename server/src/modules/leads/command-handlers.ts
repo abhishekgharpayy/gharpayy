@@ -21,6 +21,7 @@ import {
   createLeadAssignmentNotification,
   applyAssignmentCommand,
 } from "./assignment-notification-handlers.js";
+import { scheduledQueue } from "../../workers/scheduled.js";
 
 const LEADS = "leads";
 const LEDGER = "command_ledger";
@@ -241,6 +242,26 @@ async function applyCommand(cmd: Command, user: JwtClaims): Promise<LedgerDoc["r
         }
       }
 
+      const allProps = await col<any>("properties").find({ tenantId: user.tenantId }).toArray();
+      const suggestedProperties = allProps
+        .map(prop => {
+          let score = 0;
+          if (prop.pricePerBed && prop.pricePerBed <= p.budget * 1.1) score += 2;
+          if (prop.pricePerBed && prop.pricePerBed <= p.budget) score += 3;
+          if (prop.area && p.preferredArea && prop.area.toLowerCase().includes(p.preferredArea.toLowerCase())) score += 5;
+          // Gender matching if property name has 'boys' or 'girls'
+          const pName = prop.name.toLowerCase();
+          const lNeed = p.need?.toLowerCase() || "";
+          if (lNeed.includes("boy") && pName.includes("boy")) score += 4;
+          if (lNeed.includes("girl") && pName.includes("girl")) score += 4;
+          if (lNeed.includes("coliving") && pName.includes("coliving")) score += 4;
+          return { id: String(prop._id), score };
+        })
+        .filter(x => x.score > 0)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 3)
+        .map(x => x.id);
+
       const lead = Lead.parse({
         _id: leadId,
         ...p,
@@ -272,6 +293,7 @@ async function applyCommand(cmd: Command, user: JwtClaims): Promise<LedgerDoc["r
         updatedAt: now,
         createdBy: user.sub,
         tenantId: user.tenantId,
+        suggestedProperties,
       });
       // Add __v=1 — optimistic concurrency anchor. All future updates check it.
       await col(LEADS).insertOne({ ...lead, __v: 1 } as unknown as Record<string, unknown>);
@@ -349,6 +371,15 @@ async function applyCommand(cmd: Command, user: JwtClaims): Promise<LedgerDoc["r
           user, correlationId,
         });
       }
+
+      // Phase 2: SLA Breach Push Notifications
+      if (p.patch.stage) {
+        await scheduledQueue.add("sla-breach-check", 
+          { leadId: p.leadId, stage: p.patch.stage },
+          { delay: 48 * 3600 * 1000, jobId: `sla-${p.leadId}-${p.patch.stage}-${now}` }
+        );
+      }
+
       return { ok: true, eventIds: [evtId] };
     }
 

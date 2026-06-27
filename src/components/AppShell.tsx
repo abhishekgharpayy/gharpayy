@@ -215,6 +215,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       { to: "/admin/visits", label: "Master Visits", icon: CalendarPlus },
       { to: "/admin/bookings", label: "Bookings", icon: IndianRupee },
       { to: "/admin/rents", label: "Rent Collection", icon: IndianRupee },
+      { to: "/admin/payouts", label: "Owner Payouts", icon: IndianRupee },
       { to: "/admin/property-gallery", label: "Photo Gallery", icon: Camera },
       { to: "/admin/whatsapp", label: "WhatsApp", icon: MessageSquare },
       { to: "/admin/agreements", label: "Agreements", icon: FileText },

@@ -15,6 +15,7 @@ import { connectMongo, col } from "../db/mongo.js";
 import type { DomainEvent } from "../../../src/contracts/events.js";
 import { claimEvent, releaseEvent } from "../platform/dedup.js";
 import { workerJobs } from "../platform/metrics.js";
+import { startScheduledWorker } from "./scheduled.js";
 
 const QUEUE = "automation";
 const CONSUMER = "automation-worker";
@@ -119,3 +120,5 @@ new Worker<DomainEvent>(
 });
 
 console.log("✓ Automation worker started · queue=automation · consumer=", CONSUMER);
+
+await startScheduledWorker();

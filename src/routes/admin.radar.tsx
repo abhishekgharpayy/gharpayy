@@ -3,6 +3,7 @@ import { useLiveSupremeMetrics } from "@/admin/lib/use-live-supreme";
 
 import { useAuthUser } from "@/lib/auth-store";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import { useMemo } from "react";
 import type { AdminLeadRow } from "@/admin/lib/selectors";
 
@@ -205,12 +206,12 @@ function RadarPage() {
                 </div>
                 
                 <div className="mt-3 flex gap-2">
-                  <button className="flex-1 text-[10px] py-1.5 rounded bg-background border border-border hover:bg-muted transition-colors">
+                  <Button variant="outline" size="sm" className="flex-1">
                     View Lead
-                  </button>
-                  <button className="flex-1 text-[10px] py-1.5 rounded bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive/20 transition-colors">
+                  </Button>
+                  <Button variant="destructive" size="sm" className="flex-1">
                     Emergency Nudge
-                  </button>
+                  </Button>
                 </div>
               </div>
             ))}
@@ -220,18 +221,18 @@ function RadarPage() {
       </div>
 
       {/* Lead Source Intelligence Panel */}
-      <div className="mt-4 rounded-xl border border-blue-500/20 bg-card p-4">
+      <div className="mt-4 rounded-xl border border-info/20 bg-card p-4">
         <div className="flex justify-between items-end mb-4">
           <div>
-            <div className="text-sm font-semibold text-blue-400">Lead Source Quality & Conversion</div>
-            <div className="text-[10px] text-muted-foreground">Which marketing channels are actually converting into revenue</div>
+            <div className="text-sm font-semibold text-info">Lead Source Quality & Conversion</div>
+            <div className="text-[11px] text-muted-foreground">Which marketing channels are actually converting into revenue</div>
           </div>
-          <div className="text-[10px] uppercase text-blue-400 font-semibold tracking-wider">Channel ROI</div>
+          <div className="text-[11px] uppercase text-info font-semibold tracking-wider">Channel ROI</div>
         </div>
         
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {sourceQuality.map(s => (
-            <div key={s.source} className="p-3 bg-slate-900/50 rounded-lg border border-slate-800">
+            <div key={s.source} className="p-3 bg-card rounded-lg border border-border">
               <div className="flex justify-between mb-2">
                 <span className="font-semibold text-sm capitalize">{s.source}</span>
                 <span className="text-xs text-muted-foreground">{s.total} leads</span>
@@ -239,13 +240,13 @@ function RadarPage() {
               
               <div className="flex justify-between items-end mt-4">
                 <div>
-                  <div className="text-[10px] text-muted-foreground uppercase">Expected Value</div>
-                  <div className="font-mono text-sm text-emerald-400">₹{Math.round(s.value).toLocaleString("en-IN")}</div>
+                  <div className="text-[11px] text-muted-foreground uppercase">Expected Value</div>
+                  <div className="font-mono text-sm text-success">₹{Math.round(s.value).toLocaleString("en-IN")}</div>
                 </div>
                 <div className="text-right">
-                  <div className="text-[10px] text-muted-foreground uppercase">Win/Loss</div>
+                  <div className="text-[11px] text-muted-foreground uppercase">Win/Loss</div>
                   <div className="text-xs font-semibold">
-                    <span className="text-emerald-500">{Math.round(s.winRate)}%</span>
+                    <span className="text-success">{Math.round(s.winRate)}%</span>
                     <span className="text-muted-foreground mx-1">/</span>
                     <span className="text-destructive">{Math.round(s.churnRate)}%</span>
                   </div>

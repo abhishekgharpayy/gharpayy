@@ -57,6 +57,8 @@ export const EventType = z.enum([
   "evt.alert.vacant_room",
   "evt.alert.followup_due",
   "evt.alert.tour_no_show",
+  "evt.alert.sla_breach",
+  "evt.alert.daily_summary",
 ]);
 export type EventType = z.infer<typeof EventType>;
 
@@ -276,6 +278,14 @@ export const AlertTenantExitedEvt = Envelope.extend({
   type: z.literal("evt.alert.tenant_exited"),
   payload: z.object({ alertId: z.string(), title: z.string(), severity: z.string() }),
 });
+export const SlaBreachAlertEvt = Envelope.extend({
+  type: z.literal("evt.alert.sla_breach"),
+  payload: z.object({ leadId: z.string(), stage: z.string(), breachHours: z.number() }),
+});
+export const DailySummaryAlertEvt = Envelope.extend({
+  type: z.literal("evt.alert.daily_summary"),
+  payload: z.object({ date: z.string(), coldLeadsFlagged: z.number(), slaBreaches: z.number(), toursCompleted: z.number() }),
+});
 
 export const DomainEvent = z.discriminatedUnion("type", [
   LeadCreatedEvt,
@@ -318,5 +328,7 @@ export const DomainEvent = z.discriminatedUnion("type", [
   AlertRentOverdueEvt,
   AlertBookingApprovalEvt,
   AlertTenantExitedEvt,
+  SlaBreachAlertEvt,
+  DailySummaryAlertEvt,
 ]);
 export type DomainEvent = z.infer<typeof DomainEvent>;

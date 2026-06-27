@@ -50,6 +50,8 @@ export interface Property {
   vacantBeds: number;
   daysSinceLastBooking: number;
   pricePerBed: number;
+  lat?: number;
+  lng?: number;
 }
 
 export interface Lead {
@@ -95,6 +97,7 @@ export interface Lead {
   notes?: string;
   zoneCategory?: string;
   stageLabel?: string;
+  suggestedProperties?: string[];
 }
 
 export interface PostTourUpdate {

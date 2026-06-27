@@ -112,6 +112,27 @@ function AdminIntelligence() {
       .sort((a, b) => b.lossPct - a.lossPct);
   }, [objections, leads]);
 
+  const cohorts = useMemo(() => {
+    const map = new Map<string, { total: number; converted: number }>();
+    leads.forEach(l => {
+      const d = new Date(l.createdAt);
+      const week = Math.ceil(d.getDate() / 7);
+      const key = `${d.toLocaleString("en-US", { month: "short" })} W${week}`;
+      
+      const entry = map.get(key) ?? { total: 0, converted: 0 };
+      entry.total++;
+      if (l.stage === "booked") entry.converted++;
+      map.set(key, entry);
+    });
+    
+    return [...map.entries()].map(([key, data]) => ({
+      key,
+      total: data.total,
+      converted: data.converted,
+      rate: data.total > 0 ? Math.round((data.converted / data.total) * 100) : 0
+    }));
+  }, [leads]);
+
   const impactAnalytics = useMemo(() => {
     const tasks = followUps.filter((f: any) => !f.done);
     const overdue = tasks.filter((f: any) => new Date(f.dueAt).getTime() < Date.now());
@@ -247,8 +268,39 @@ function AdminIntelligence() {
         </div>
       </div>
 
+      {/* Cohort Retention & Impact */}
+      <div className="grid md:grid-cols-2 gap-4">
+        <div className="rounded-xl border border-border bg-card p-4">
+          <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-3">Cohort Retention Waterfall</div>
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-border text-muted-foreground">
+                <th className="text-left px-2 py-1.5 font-medium">Cohort (Week)</th>
+                <th className="text-right px-2 py-1.5 font-medium">Acquired</th>
+                <th className="text-right px-2 py-1.5 font-medium">Converted</th>
+                <th className="text-right px-2 py-1.5 font-medium">Retention %</th>
+              </tr>
+            </thead>
+            <tbody>
+              {cohorts.map((row, i) => (
+                <tr key={row.key} className={i < cohorts.length - 1 ? "border-b border-border/50" : ""}>
+                  <td className="px-2 py-1.5">{row.key}</td>
+                  <td className="px-2 py-1.5 text-right font-mono">{row.total}</td>
+                  <td className="px-2 py-1.5 text-right font-mono text-success">{row.converted}</td>
+                  <td className="px-2 py-1.5 text-right font-mono">{row.rate}%</td>
+                </tr>
+              ))}
+              {!cohorts.length && (
+                <tr>
+                  <td colSpan={4} className="px-2 py-4 text-center text-muted-foreground">No cohort data.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
       {/* Impact Queue Analytics */}
-      <div className="rounded-xl border border-border bg-card p-4 mt-4">
+      <div className="rounded-xl border border-border bg-card p-4">
         <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-3">Impact Queue Analytics</div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
           {[
@@ -281,6 +333,7 @@ function AdminIntelligence() {
             )}
           </ul>
         </div>
+      </div>
       </div>
     </div>
   );

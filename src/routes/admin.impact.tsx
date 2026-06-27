@@ -249,7 +249,26 @@ function AdminImpact() {
     return data;
   }, [leads, tcms, followUps]);
 
-  // Handle Audit sorting and filtering
+  const sourceROI = useMemo(() => {
+    const map = new Map<string, { source: string; leads: number; booked: number; revenue: number }>();
+    leads.forEach(l => {
+      const src = l.source || "Organic";
+      const entry = map.get(src) ?? { source: src, leads: 0, booked: 0, revenue: 0 };
+      entry.leads++;
+      if (l.stage === "booked") {
+        entry.booked++;
+        // Rough estimate if missing
+        entry.revenue += (l.quotedPrice || l.budget || 0);
+      }
+      map.set(src, entry);
+    });
+    return [...map.values()].map(e => ({
+      ...e,
+      conversionRate: e.leads > 0 ? (e.booked / e.leads * 100).toFixed(1) : "0",
+      expectedValue: e.leads > 0 ? (e.revenue / e.leads).toFixed(0) : "0"
+    })).sort((a,b) => b.revenue - a.revenue);
+  }, [leads]);
+
   const filteredAudit = useMemo(() => {
     let res = reportData.audit;
     if (auditSearch) {
@@ -534,6 +553,46 @@ function AdminImpact() {
               </table>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* LEAD SOURCE ROI CALCULATOR */}
+      <section className="bg-card rounded-2xl p-6 shadow-sm border border-border">
+        <div className="flex items-center gap-2 mb-6 border-b border-border/50 pb-4">
+          <div className="p-2 bg-primary/10 text-primary rounded-xl"><Target className="h-5 w-5" /></div>
+          <div>
+            <h2 className="text-lg font-semibold tracking-tight">Lead Source ROI</h2>
+            <p className="text-sm text-muted-foreground">Expected Value and Win/Loss by Channel</p>
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left">
+            <thead className="bg-muted/40 text-muted-foreground border-b border-border">
+              <tr>
+                <th className="p-3 font-semibold">Source Channel</th>
+                <th className="p-3 font-semibold text-right">Total Leads</th>
+                <th className="p-3 font-semibold text-right">Wins (Booked)</th>
+                <th className="p-3 font-semibold text-right">Conversion Rate</th>
+                <th className="p-3 font-semibold text-right">Total Won Revenue</th>
+                <th className="p-3 font-semibold text-right">Expected Value / Lead</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border/50">
+              {sourceROI.map((row, i) => (
+                <tr key={i} className="hover:bg-muted/20 transition-colors">
+                  <td className="p-3 font-medium capitalize">{row.source.replace(/-/g, " ")}</td>
+                  <td className="p-3 font-mono text-right text-muted-foreground">{row.leads}</td>
+                  <td className="p-3 font-mono text-right text-success font-medium">{row.booked}</td>
+                  <td className="p-3 font-mono text-right">{row.conversionRate}%</td>
+                  <td className="p-3 font-mono text-right">₹{row.revenue.toLocaleString("en-IN")}</td>
+                  <td className="p-3 font-mono text-right text-primary">₹{Number(row.expectedValue).toLocaleString("en-IN")}</td>
+                </tr>
+              ))}
+              {!sourceROI.length && (
+                <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">No source data available.</td></tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </section>
 

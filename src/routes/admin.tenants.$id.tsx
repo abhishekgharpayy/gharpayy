@@ -8,6 +8,7 @@ import { Link } from "@tanstack/react-router";
 import { api } from "@/lib/api/client";
 import { toast } from "sonner";
 import { IndianRupee } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/admin/tenants/$id")({
   beforeLoad: () => {
@@ -93,7 +94,7 @@ function AdminTenantDetail() {
 
           {/* Notes */}
           <div className="border-t border-border pt-3">
-            <div className="text-[10px] uppercase text-muted-foreground mb-1">Notes</div>
+            <div className="text-[11px] uppercase text-muted-foreground mb-1">Notes</div>
             {editNotes ? (
               <div className="flex gap-2">
                 <input
@@ -102,19 +103,19 @@ function AdminTenantDetail() {
                   className="flex-1 h-8 text-xs rounded-md border border-border bg-background px-2.5 outline-none focus:border-accent"
                   placeholder="Add a note..."
                 />
-                <button
+                <Button
+                  size="sm"
                   onClick={() => { useApp.getState().updateTenant(tenant.id, { notes: notes || undefined }); setEditNotes(false); }}
-                  className="text-[10px] px-3 py-1 rounded-md bg-primary text-primary-foreground shadow-sm"
                 >
                   Save
-                </button>
+                </Button>
               </div>
             ) : (
               <div className="flex justify-between items-start">
                 <span className="text-xs text-muted-foreground">{tenant.notes || "No notes added."}</span>
-                <button onClick={() => { setNotes(tenant.notes || ""); setEditNotes(true); }} className="text-[10px] text-accent hover:underline">
+                <Button variant="link" size="sm" onClick={() => { setNotes(tenant.notes || ""); setEditNotes(true); }}>
                   Edit
-                </button>
+                </Button>
               </div>
             )}
           </div>
@@ -122,48 +123,53 @@ function AdminTenantDetail() {
           {/* Status actions */}
           {tenant.status === "active" && (
             <div className="border-t border-border pt-3 flex gap-2 flex-wrap">
-              <button
+              <Button
+                variant="outline" size="sm"
                 onClick={() => markPaid.mutate({ method: "UPI" })}
                 disabled={markPaid.isPending}
-                className="text-[10px] px-3 py-1.5 rounded-md border border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 flex items-center gap-1"
+                className="border-success/40 text-success hover:bg-success/10"
               >
                 <IndianRupee size={10} /> Record Rent (UPI)
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="outline" size="sm"
                 onClick={() => markPaid.mutate({ method: "Cash" })}
                 disabled={markPaid.isPending}
-                className="text-[10px] px-3 py-1.5 rounded-md border border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 flex items-center gap-1"
+                className="border-success/40 text-success hover:bg-success/10"
               >
                 <IndianRupee size={10} /> Record Rent (Cash)
-              </button>
+              </Button>
               <Link
                 to="/admin/rents"
-                className="text-[10px] px-3 py-1.5 rounded-md border border-border text-muted-foreground hover:bg-muted/20"
+                className="text-[11px] px-3 py-1.5 rounded-md border border-border text-muted-foreground hover:bg-muted/20"
               >
                 View All Rents
               </Link>
-              <button
+              <Button
+                variant="outline" size="sm"
                 onClick={() => useApp.getState().updateTenantStatus(tenant.id, "notice")}
-                className="text-[10px] px-3 py-1.5 rounded-md border border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
+                className="border-warning/40 text-warning hover:bg-warning/10"
               >
                 Mark notice period
-              </button>
+              </Button>
             </div>
           )}
           {tenant.status === "notice" && (
             <div className="border-t border-border pt-3 flex gap-2">
-              <button
+              <Button
+                variant="outline" size="sm"
                 onClick={() => useApp.getState().updateTenantStatus(tenant.id, "active")}
-                className="text-[10px] px-3 py-1.5 rounded-md border border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10"
+                className="border-success/40 text-success hover:bg-success/10"
               >
                 Reactivate
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="outline" size="sm"
                 onClick={() => useApp.getState().updateTenantStatus(tenant.id, "exited", new Date().toISOString())}
-                className="text-[10px] px-3 py-1.5 rounded-md border border-destructive/40 text-destructive hover:bg-destructive/10"
+                className="border-destructive/40 text-destructive hover:bg-destructive/10"
               >
                 Mark exited
-              </button>
+              </Button>
             </div>
           )}
         </div>
@@ -171,7 +177,7 @@ function AdminTenantDetail() {
         {/* Stats sidebar */}
         <div className="space-y-3">
           <div className="rounded-xl border border-border bg-card p-3">
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Rent summary</div>
+            <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-2">Rent summary</div>
             <div className="space-y-1 text-xs">
               <div className="flex justify-between">
                 <span>Monthly rent</span>
@@ -179,7 +185,7 @@ function AdminTenantDetail() {
               </div>
               <div className="flex justify-between">
                 <span>Due rents</span>
-                <span className={`font-mono ${dueRents > 0 ? "text-destructive" : "text-emerald-400"}`}>{dueRents}</span>
+                <span className={`font-mono ${dueRents > 0 ? "text-destructive" : "text-success"}`}>{dueRents}</span>
               </div>
               <div className="flex justify-between">
                 <span>Paid months</span>
@@ -194,7 +200,7 @@ function AdminTenantDetail() {
 
           {booking && (
             <div className="rounded-xl border border-border bg-card p-3">
-              <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Booking</div>
+              <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-2">Booking</div>
               <div className="space-y-1 text-xs">
                 <div className="flex justify-between">
                   <span>Amount</span>
@@ -208,7 +214,7 @@ function AdminTenantDetail() {
                   <span>Status</span>
                   <span className="capitalize">{booking.status}</span>
                 </div>
-                <Link to="/admin/bookings" className="text-accent hover:underline text-[10px] inline-block mt-1">
+                <Link to="/admin/bookings" className="text-accent hover:underline text-[11px] inline-block mt-1">
                   View all bookings →
                 </Link>
               </div>
@@ -219,7 +225,7 @@ function AdminTenantDetail() {
 
       {/* Rent ledger */}
       <div className="rounded-xl border border-border bg-card p-3 mt-3">
-        <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Rent ledger</div>
+        <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-2">Rent ledger</div>
         <div className="overflow-auto">
           <table className="w-full text-xs">
             <thead>
@@ -236,7 +242,7 @@ function AdminTenantDetail() {
                   <td className="px-3 py-2">{new Date(r.month + "-01").toLocaleDateString("en-IN", { year: "numeric", month: "short" })}</td>
                   <td className="px-3 py-2 text-right font-mono">₹{r.amount.toLocaleString("en-IN")}</td>
                   <td className="px-3 py-2 text-right">
-                    <span className={`font-mono ${r.status === "paid" ? "text-emerald-400" : r.status === "overdue" ? "text-destructive" : "text-amber-400"}`}>
+                    <span className={`font-mono ${r.status === "paid" ? "text-success" : r.status === "overdue" ? "text-destructive" : "text-warning"}`}>
                       {r.status}
                     </span>
                   </td>
@@ -256,7 +262,7 @@ function AdminTenantDetail() {
       {/* Payment history */}
       {tenantPayments.length > 0 && (
         <div className="rounded-xl border border-border bg-card p-3 mt-3">
-          <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Payment history</div>
+          <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-2">Payment history</div>
           <div className="overflow-auto">
             <table className="w-full text-xs">
               <thead>
@@ -290,7 +296,7 @@ function AdminTenantDetail() {
 function Stat({ k, v }: { k: string; v: React.ReactNode }) {
   return (
     <div className="rounded-md border border-border p-2 bg-muted/20">
-      <div className="text-[10px] uppercase text-muted-foreground">{k}</div>
+      <div className="text-[11px] uppercase text-muted-foreground">{k}</div>
       <div className="font-medium">{v}</div>
     </div>
   );
