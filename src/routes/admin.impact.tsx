@@ -48,7 +48,7 @@ function AdminImpact() {
         const [lRes, tRes, fRes] = await Promise.all([
           api.leads.list({ limit: 2000 }),
           api.tcms.list(),
-          api.followUps.list({ limit: 2000 })
+          api.todos.list({ limit: "2000" })
         ]);
         setLeads((lRes.items as any[]).map(l => normalizeLeadRecord(l)));
         setTcms(tRes.map(t => {
@@ -56,7 +56,18 @@ function AdminImpact() {
           const name = t.fullName || t.name || t.username || "TCM";
           return { id: t.id, name, initials, zone: t.zones?.[0] || "All", totalLeads: 0, conversionRate: 0, totalTasks: 0, completionRate: 0, avgResponseMins: 0 };
         }));
-        setFollowUps(fRes.items as unknown as FollowUp[]);
+        
+        const rawTodos = fRes.items as any[];
+        const mappedFollowUps: FollowUp[] = rawTodos.map(todo => ({
+          id: todo._id || todo.id,
+          leadId: todo.entityId || "",
+          tcmId: todo.assignedTo || "",
+          dueAt: todo.dueAt || todo.createdAt || new Date().toISOString(),
+          priority: todo.priority || "medium",
+          reason: todo.title || "Task",
+          done: todo.status === "completed"
+        }));
+        setFollowUps(mappedFollowUps);
       } catch (err) {
         console.error("Failed to load impact data", err);
       } finally {
