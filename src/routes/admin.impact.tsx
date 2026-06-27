@@ -46,9 +46,9 @@ function AdminImpact() {
     async function fetchData() {
       try {
         const [lRes, tRes, fRes] = await Promise.all([
-          api.leads.list({ limit: 2000 }),
+          api.leads.list({ limit: 200 }),
           api.tcms.list(),
-          api.todos.list({ limit: "2000" })
+          api.todos.list({ limit: "200" })
         ]);
         setLeads((lRes.items as any[]).map(l => normalizeLeadRecord(l)));
         setTcms(tRes.map(t => {
