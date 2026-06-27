@@ -238,11 +238,11 @@ function AdminPerformancePage() {
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={filteredTCM} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                      <XAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
+                      <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
                       <YAxis type="number" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
                       <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px' }} />
-                      <Bar dataKey="toursCompleted" name="Tours Completed" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} barSize={16} />
-                      <Bar dataKey="bookingsConverted" name="Bookings" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} barSize={16} />
+                      <Bar dataKey="toursCompleted" name="Tours Completed" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} maxBarSize={32} />
+                      <Bar dataKey="bookingsConverted" name="Bookings" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} maxBarSize={32} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -333,11 +333,11 @@ function AdminPerformancePage() {
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={filteredFlowOps} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                      <XAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
+                      <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
                       <YAxis type="number" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
                       <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px' }} />
-                      <Bar dataKey="leadsContacted" name="Leads Contacted" fill="hsl(var(--chart-3))" radius={[4, 4, 0, 0]} barSize={16} />
-                      <Bar dataKey="toursScheduled" name="Tours Scheduled" fill="hsl(var(--chart-4))" radius={[4, 4, 0, 0]} barSize={16} />
+                      <Bar dataKey="leadsContacted" name="Leads Contacted" fill="hsl(var(--chart-3))" radius={[4, 4, 0, 0]} maxBarSize={32} />
+                      <Bar dataKey="toursScheduled" name="Tours Scheduled" fill="hsl(var(--chart-4))" radius={[4, 4, 0, 0]} maxBarSize={32} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
