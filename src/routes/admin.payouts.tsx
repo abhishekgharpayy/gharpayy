@@ -32,7 +32,7 @@ function AdminPayouts() {
         // We'll use existing endpoints
         const [propRes, payRes] = await Promise.all([
           api.properties.list(), // Needs properties API
-          api.payments.list({ limit: 10000, type: "rent", status: "paid" }),
+          api.payments.list({ limit: 500, type: "rent", status: "paid" }),
         ]);
         
         const propertiesMap = new Map();
