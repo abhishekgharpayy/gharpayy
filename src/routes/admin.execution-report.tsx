@@ -218,6 +218,85 @@ function ExecutionMonitorPage() {
     downloadCSV(`member-summary-${report.generatedAt}.csv`, csvContent);
   };
 
+  const exportLeadStageMatrix = () => {
+    if (!report) return;
+    const header = ["Employee", "New", "Contacted", "Interested", "Scheduled", "Visited", "Booked"];
+    const rows = report.members.map(m => [
+      `"${m.name}"`,
+      m.stageDistribution["new"] || 0,
+      m.stageDistribution["contacted"] || 0,
+      m.stageDistribution["interested"] || 0,
+      m.stageDistribution["scheduled"] || 0,
+      m.stageDistribution["visited"] || 0,
+      m.stageDistribution["booked"] || 0
+    ]);
+    const csvContent = [header.join(","), ...rows.map(r => r.join(","))].join("\n");
+    downloadCSV(`lead-stage-matrix-${report.generatedAt}.csv`, csvContent);
+  };
+
+  const exportEODScoreboard = () => {
+    if (!report) return;
+    const header = ["Employee", "Scheduled Target", "Scheduled Actual", "Quotations Target", "Quotations Actual", "Status"];
+    const rows = report.members.map(m => [
+      `"${m.name}"`,
+      report.successCriteria.scheduledTarget,
+      m.scheduledStageCount,
+      report.successCriteria.quotationTarget,
+      m.totalQuotations,
+      m.allCriteriaMet ? "Target Met" : "Behind"
+    ]);
+    const csvContent = [header.join(","), ...rows.map(r => r.join(","))].join("\n");
+    downloadCSV(`eod-scoreboard-${report.generatedAt}.csv`, csvContent);
+  };
+
+  const exportLowActivityAlerts = () => {
+    if (!report) return;
+    const header = ["Employee", "Inactive Status", "Stuck Leads Count", "Missing Follow-ups"];
+    const rows = report.members.map(m => [
+      `"${m.name}"`,
+      m.isInactive ? "Yes" : "No",
+      m.stuckLeads.length,
+      m.followUpsRequired.length
+    ]);
+    const csvContent = [header.join(","), ...rows.map(r => r.join(","))].join("\n");
+    downloadCSV(`low-activity-alerts-${report.generatedAt}.csv`, csvContent);
+  };
+
+  const exportFeatureUsage = () => {
+    if (!report) return;
+    const header = ["Feature", "Total Usage"];
+    const rows = report.featureUsage.map(f => [
+      f.action,
+      f.count
+    ]);
+    const csvContent = [header.join(","), ...rows.map(r => r.join(","))].join("\n");
+    downloadCSV(`feature-usage-${report.generatedAt}.csv`, csvContent);
+  };
+
+  const exportSummaryToPDF = async () => {
+    const summaryElement = document.getElementById("summary-report-container");
+    if (!summaryElement) return;
+    try {
+      const html2canvas = (await import("html2canvas")).default;
+      const { jsPDF } = await import("jspdf");
+      
+      const canvas = await html2canvas(summaryElement, { scale: 2 });
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({
+        orientation: "landscape",
+        unit: "mm",
+        format: "a4"
+      });
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`overall-summary-${report?.generatedAt}.pdf`);
+    } catch (e) {
+      console.error("Failed to generate PDF", e);
+      alert("Failed to generate PDF.");
+    }
+  };
+
   if (!report && loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[500px] text-slate-400">
@@ -282,14 +361,35 @@ function ExecutionMonitorPage() {
                 <ChevronDownIcon className="w-4 h-4 ml-2" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48 bg-slate-800 border-slate-700 text-slate-200">
+            <DropdownMenuContent align="end" className="w-64 bg-slate-800 border-slate-700 text-slate-200">
+              <DropdownMenuItem onClick={exportSummaryToPDF} className="cursor-pointer hover:bg-slate-700 font-bold text-violet-300">
+                <FileText className="w-4 h-4 mr-2" />
+                Download Summary (PDF)
+              </DropdownMenuItem>
+              <div className="h-px bg-slate-700 my-1 mx-2" />
+              <DropdownMenuItem onClick={exportMemberSummary} className="cursor-pointer hover:bg-slate-700">
+                <LayoutGrid className="w-4 h-4 mr-2 text-violet-400" />
+                30-Min Dashboard (CSV)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={exportLeadStageMatrix} className="cursor-pointer hover:bg-slate-700">
+                <BarChart2 className="w-4 h-4 mr-2 text-violet-400" />
+                Lead Stage Matrix (CSV)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={exportEODScoreboard} className="cursor-pointer hover:bg-slate-700">
+                <TrendingUp className="w-4 h-4 mr-2 text-violet-400" />
+                EOD Scoreboard (CSV)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={exportLowActivityAlerts} className="cursor-pointer hover:bg-slate-700">
+                <AlertTriangle className="w-4 h-4 mr-2 text-red-400" />
+                Low Activity Alerts (CSV)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={exportFeatureUsage} className="cursor-pointer hover:bg-slate-700">
+                <PieChart className="w-4 h-4 mr-2 text-violet-400" />
+                Feature Usage (CSV)
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={exportRawActivity} className="cursor-pointer hover:bg-slate-700">
                 <List className="w-4 h-4 mr-2 text-violet-400" />
-                Raw Activity Log
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={exportMemberSummary} className="cursor-pointer hover:bg-slate-700">
-                <BarChart2 className="w-4 h-4 mr-2 text-violet-400" />
-                Member Summary
+                Raw Activity Log (CSV)
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -356,8 +456,11 @@ function ExecutionMonitorPage() {
       </div>
 
       {/* ── Tabs for Sheets ── */}
-      <Tabs defaultValue="dashboard" className="w-full">
+      <Tabs defaultValue="summary" className="w-full">
         <TabsList className="bg-slate-800/50 border border-slate-700/50 mb-6 flex flex-wrap h-auto gap-2 p-1">
+          <TabsTrigger value="summary" className="data-[state=active]:bg-violet-600 data-[state=active]:text-white font-bold">
+            <FileText className="w-4 h-4 mr-2" /> Overall Summary
+          </TabsTrigger>
           <TabsTrigger value="dashboard" className="data-[state=active]:bg-violet-600 data-[state=active]:text-white">
             <LayoutGrid className="w-4 h-4 mr-2" /> 30-Min Dashboard
           </TabsTrigger>
@@ -377,6 +480,80 @@ function ExecutionMonitorPage() {
             <List className="w-4 h-4 mr-2" /> Raw Activity
           </TabsTrigger>
         </TabsList>
+
+        {/* ── Sheet 0: Overall Summary ── */}
+        <TabsContent value="summary">
+          <div id="summary-report-container" className="bg-slate-900 border border-slate-800 rounded-xl p-8 space-y-8">
+            <div className="border-b border-slate-800 pb-6 flex justify-between items-end">
+              <div>
+                <h2 className="text-3xl font-black text-white">Gharpayy Execution Summary</h2>
+                <p className="text-slate-400 mt-2">Generated At: {new Date(report.generatedAt).toLocaleString()}</p>
+              </div>
+              <div className="text-right">
+                <div className="text-xl font-bold text-violet-400">Total Actions: {report.members.reduce((acc, m) => acc + m.totalActions, 0)}</div>
+                <div className="text-sm text-slate-500">Active Window: {report.windowMinutes} mins</div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              <div className="bg-slate-800/40 p-4 rounded-lg">
+                <div className="text-slate-400 text-sm mb-1">Total Leads Added</div>
+                <div className="text-2xl font-bold text-white">{report.members.reduce((acc, m) => acc + m.totalLeadsAdded, 0)}</div>
+              </div>
+              <div className="bg-slate-800/40 p-4 rounded-lg">
+                <div className="text-slate-400 text-sm mb-1">Total Scheduled</div>
+                <div className="text-2xl font-bold text-white">{report.members.reduce((acc, m) => acc + (m.scheduledStageCount || 0), 0)}</div>
+              </div>
+              <div className="bg-slate-800/40 p-4 rounded-lg">
+                <div className="text-slate-400 text-sm mb-1">Total Quotations</div>
+                <div className="text-2xl font-bold text-white">{report.members.reduce((acc, m) => acc + m.totalQuotations, 0)}</div>
+              </div>
+              <div className="bg-slate-800/40 p-4 rounded-lg">
+                <div className="text-slate-400 text-sm mb-1">Active Team Members</div>
+                <div className="text-2xl font-bold text-white">{report.summary.totalMembers}</div>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-xl font-bold text-white mb-4">Top Performers (Most Actions)</h3>
+              <div className="bg-slate-800/40 rounded-lg overflow-hidden">
+                <Table>
+                  <TableHeader className="bg-slate-800/80">
+                    <TableRow>
+                      <TableHead>Employee</TableHead>
+                      <TableHead className="text-right">Total Actions</TableHead>
+                      <TableHead className="text-right">Scheduled</TableHead>
+                      <TableHead className="text-right">Quotations</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {[...report.members].sort((a, b) => b.totalActions - a.totalActions).slice(0, 5).map(m => (
+                      <TableRow key={m.userId} className="border-slate-800">
+                        <TableCell className="font-bold text-white">{m.name}</TableCell>
+                        <TableCell className="text-right text-slate-300">{m.totalActions}</TableCell>
+                        <TableCell className="text-right text-slate-300">{m.scheduledStageCount || 0}</TableCell>
+                        <TableCell className="text-right text-slate-300">{m.totalQuotations}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+            
+            {report.summary.criticalAlerts.length > 0 && (
+              <div>
+                <h3 className="text-xl font-bold text-red-400 mb-4">Critical Action Required</h3>
+                <div className="space-y-2">
+                  {report.summary.criticalAlerts.map((alert, i) => (
+                    <div key={i} className="bg-red-950/20 text-red-200 p-3 rounded border border-red-900/50 text-sm">
+                      {alert}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </TabsContent>
 
         {/* ── Sheet 1: Raw CRM Activity ── */}
         <TabsContent value="raw">
