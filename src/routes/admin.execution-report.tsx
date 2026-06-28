@@ -274,26 +274,89 @@ function ExecutionMonitorPage() {
   };
 
   const exportSummaryToPDF = async () => {
-    const summaryElement = document.getElementById("summary-report-container");
-    if (!summaryElement) return;
+    if (!report) return;
     try {
-      const html2canvas = (await import("html2canvas")).default;
       const { jsPDF } = await import("jspdf");
+      const autoTableMod = await import("jspdf-autotable");
+      const autoTable = autoTableMod.default;
+
+      const doc = new jsPDF({ unit: "pt", format: "a4" });
       
-      const canvas = await html2canvas(summaryElement, { scale: 2 });
-      const imgData = canvas.toDataURL("image/png");
-      const pdf = new jsPDF({
-        orientation: "landscape",
-        unit: "mm",
-        format: "a4"
+      // Header
+      doc.setFontSize(22);
+      doc.text("Gharpayy Execution Summary", 40, 50);
+      doc.setFontSize(10);
+      doc.text(`Generated At: ${new Date(report.generatedAt).toLocaleString()}`, 40, 68);
+      doc.text(`Active Window: ${report.windowMinutes} mins | Total Members: ${report.summary.totalMembers}`, 40, 82);
+
+      // Section 1: Global KPIs
+      const totalLeadsAdded = report.members.reduce((acc, m) => acc + m.totalLeadsAdded, 0);
+      const totalScheduled = report.members.reduce((acc, m) => acc + (m.scheduledStageCount || 0), 0);
+      const totalQuotations = report.members.reduce((acc, m) => acc + m.totalQuotations, 0);
+      const totalActions = report.members.reduce((acc, m) => acc + m.totalActions, 0);
+
+      autoTable(doc, {
+        startY: 100,
+        head: [["KPI Metric", "Value"]],
+        body: [
+          ["Total Leads Added", String(totalLeadsAdded)],
+          ["Total Scheduled", String(totalScheduled)],
+          ["Total Quotations", String(totalQuotations)],
+          ["Total Actions (Today)", String(totalActions)],
+          ["Active Team Members", String(report.summary.totalMembers)],
+          ["Inactive Team Members (Window)", String(report.summary.inactiveMembers)],
+          ["Stuck Team Members (Window)", String(report.summary.stuckMembers)],
+          ["Behind on Daily Targets", String(report.summary.behindOnTargets)],
+        ],
+        theme: "striped",
       });
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`overall-summary-${report?.generatedAt}.pdf`);
+
+      // Section 2: Top Performers
+      const topPerformers = [...report.members]
+        .sort((a, b) => b.totalActions - a.totalActions)
+        .slice(0, 5);
+
+      const performersBody = topPerformers.map((m, index) => [
+        String(index + 1),
+        m.name,
+        m.role === "tcm" ? "TCM" : "Member",
+        String(m.totalActions),
+        String(m.actionsLast30)
+      ]);
+
+      doc.setFontSize(14);
+      // @ts-ignore
+      const finalY = doc.lastAutoTable.finalY || 280;
+      doc.text("Top Performers (Most Actions)", 40, finalY + 40);
+
+      autoTable(doc, {
+        startY: finalY + 55,
+        head: [["Rank", "Employee", "Role", "Total Actions", "Actions (Last 30m)"]],
+        body: performersBody,
+        theme: "grid",
+      });
+
+      // Section 3: Critical Alerts
+      // @ts-ignore
+      const finalY2 = doc.lastAutoTable.finalY || (finalY + 180);
+      if (report.summary.criticalAlerts && report.summary.criticalAlerts.length > 0) {
+        doc.setFontSize(14);
+        doc.text("Critical Alerts & Operational Bottlenecks", 40, finalY2 + 40);
+        
+        const alertsBody = report.summary.criticalAlerts.map(alert => [alert]);
+        autoTable(doc, {
+          startY: finalY2 + 55,
+          head: [["Alert Details"]],
+          body: alertsBody,
+          theme: "striped",
+          headStyles: { fillColor: [220, 38, 38] } // Red color for alerts header
+        });
+      }
+
+      doc.save(`overall-summary-${report.generatedAt}.pdf`);
     } catch (e) {
       console.error("Failed to generate PDF", e);
-      alert("Failed to generate PDF.");
+      alert("Failed to generate PDF report.");
     }
   };
 
