@@ -11,27 +11,44 @@ import { useAuthUser } from "@/lib/auth-store";
 export function ProfileTab() {
   const user = useAuthUser((s) => s.user);
   const hydrate = useAuthUser((s) => s.hydrate);
+  const [fullName, setFullName] = useState(user?.fullName ?? "");
   const [phone, setPhone] = useState(user?.phone ?? "");
   const [pw, setPw] = useState("");
   const [pw2, setPw2] = useState("");
   const [saving, setSaving] = useState(false);
   
   // App preferences
-  const [notifications, setNotifications] = useState(true);
+  const [notifications, setNotifications] = useState(() => {
+    return localStorage.getItem("gharpayy.notifications") !== "false";
+  });
   const [theme, setTheme] = useState<"light" | "dark">("light");
 
   useEffect(() => {
-    const isDark = document.documentElement.classList.contains("dark");
-    setTheme(isDark ? "dark" : "light");
+    const savedTheme = localStorage.getItem("gharpayy.theme");
+    if (savedTheme === "dark" || savedTheme === "light") {
+      setTheme(savedTheme);
+      if (savedTheme === "dark") document.documentElement.classList.add("dark");
+      else document.documentElement.classList.remove("dark");
+    } else {
+      const isDark = document.documentElement.classList.contains("dark");
+      setTheme(isDark ? "dark" : "light");
+    }
   }, []);
 
   const toggleTheme = (checked: boolean) => {
-    setTheme(checked ? "dark" : "light");
+    const newTheme = checked ? "dark" : "light";
+    setTheme(newTheme);
+    localStorage.setItem("gharpayy.theme", newTheme);
     if (checked) {
       document.documentElement.classList.add("dark");
     } else {
       document.documentElement.classList.remove("dark");
     }
+  };
+
+  const toggleNotifications = (checked: boolean) => {
+    setNotifications(checked);
+    localStorage.setItem("gharpayy.notifications", checked ? "true" : "false");
   };
 
   if (!user) return <p className="text-sm text-muted-foreground">Not signed in.</p>;
@@ -41,6 +58,7 @@ export function ProfileTab() {
     try {
       await api.auth.update({
         phone: phone !== user.phone ? phone : undefined,
+        fullName: fullName !== user.fullName ? fullName : undefined,
       });
       toast.success("Profile updated");
       await hydrate();
@@ -76,8 +94,8 @@ export function ProfileTab() {
           
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Full Name</Label>
-              <Input value={user.fullName} disabled className="bg-muted/50" />
+              <Label className="text-xs font-medium">Full Name</Label>
+              <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Your full name" />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Role</Label>
@@ -99,7 +117,7 @@ export function ProfileTab() {
             </div>
           </div>
           
-          <Button size="sm" className="w-full gap-1.5 mt-2" disabled={saving || phone === user.phone} onClick={saveProfile}>
+          <Button size="sm" className="w-full gap-1.5 mt-2" disabled={saving || (phone === user.phone && fullName === user.fullName)} onClick={saveProfile}>
             <Save size={14} /> {saving ? "Saving…" : "Save Profile"}
           </Button>
         </div>
@@ -160,7 +178,7 @@ export function ProfileTab() {
                 <Label className="text-sm font-medium">Push Notifications</Label>
                 <p className="text-xs text-muted-foreground">Receive alerts for new tours</p>
               </div>
-              <Switch checked={notifications} onCheckedChange={setNotifications} />
+              <Switch checked={notifications} onCheckedChange={toggleNotifications} />
             </div>
           </div>
         </div>
