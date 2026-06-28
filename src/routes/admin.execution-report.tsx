@@ -282,7 +282,7 @@ function ExecutionMonitorPage() {
 
       const doc = new jsPDF({ unit: "pt", format: "a4" });
       
-      // Header
+      // Page 1: Overview Summary
       doc.setFontSize(22);
       doc.text("Gharpayy Execution Summary", 40, 50);
       doc.setFontSize(10);
@@ -299,10 +299,10 @@ function ExecutionMonitorPage() {
         startY: 100,
         head: [["KPI Metric", "Value"]],
         body: [
+          ["Total Actions (Today)", String(totalActions)],
           ["Total Leads Added", String(totalLeadsAdded)],
           ["Total Scheduled", String(totalScheduled)],
           ["Total Quotations", String(totalQuotations)],
-          ["Total Actions (Today)", String(totalActions)],
           ["Active Team Members", String(report.summary.totalMembers)],
           ["Inactive Team Members (Window)", String(report.summary.inactiveMembers)],
           ["Stuck Team Members (Window)", String(report.summary.stuckMembers)],
@@ -338,7 +338,7 @@ function ExecutionMonitorPage() {
 
       // Section 3: Critical Alerts
       // @ts-ignore
-      const finalY2 = doc.lastAutoTable.finalY || (finalY + 180);
+      let finalY2 = doc.lastAutoTable.finalY || (finalY + 180);
       if (report.summary.criticalAlerts && report.summary.criticalAlerts.length > 0) {
         doc.setFontSize(14);
         doc.text("Critical Alerts & Operational Bottlenecks", 40, finalY2 + 40);
@@ -351,7 +351,38 @@ function ExecutionMonitorPage() {
           theme: "striped",
           headStyles: { fillColor: [220, 38, 38] } // Red color for alerts header
         });
+        // @ts-ignore
+        finalY2 = doc.lastAutoTable.finalY || (finalY2 + 100);
       }
+
+      // Page 2: Detailed End-of-Day Scoreboard
+      doc.addPage();
+      doc.setFontSize(18);
+      doc.text("End-of-Day (EOD) Scoreboard Details", 40, 50);
+      doc.setFontSize(10);
+      doc.text("Daily performance, targets, and compliance breakdown by employee.", 40, 68);
+
+      const scoreboardBody = report.members.map((m) => [
+        m.name,
+        String(m.totalLeadsAdded),
+        String(m.scheduledStageCount),
+        String(m.totalQuotations),
+        String(m.visitsToday || 0),
+        String(m.bookingsToday || 0),
+        `${m.crmCompletionPct || 0}%`,
+        String(m.missingOwners),
+        String(m.missingNextActions),
+        m.allCriteriaMet ? "Target Met" : "Pending"
+      ]);
+
+      autoTable(doc, {
+        startY: 90,
+        head: [["Employee", "Leads Added", "Scheduled", "Quotations", "Visits", "Bookings", "CRM Comp. %", "Miss Owners", "Miss Actions", "Status"]],
+        body: scoreboardBody,
+        theme: "grid",
+        headStyles: { fillColor: [109, 40, 217] }, // Violet color for scoreboard header
+        styles: { fontSize: 8 }, // Smaller font size to fit columns cleanly
+      });
 
       doc.save(`overall-summary-${report.generatedAt}.pdf`);
     } catch (e) {
