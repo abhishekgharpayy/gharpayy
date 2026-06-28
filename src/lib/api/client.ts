@@ -888,9 +888,3 @@ export interface AssignmentNotificationItem {
   updatedAt: string;
 }
 
-export const apiClient = {
-  get: <T>(url: string) => request<T>(url, { method: "GET" }),
-  post: <T>(url: string, data: any) => request<T>(url, { method: "POST", body: JSON.stringify(data) }),
-  put: <T>(url: string, data: any) => request<T>(url, { method: "PUT", body: JSON.stringify(data) }),
-  delete: <T>(url: string) => request<T>(url, { method: "DELETE" }),
-};
