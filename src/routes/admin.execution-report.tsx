@@ -10,8 +10,14 @@ import {
   AlertTriangle, Clock, Users, TrendingUp, CheckCircle2, XCircle,
   Activity, RefreshCw, ChevronDown, ChevronUp, Flame, Target,
   AlertCircle, UserX, ArrowRight, Download, List, BarChart2,
-  PieChart, LayoutGrid, FileText
+  PieChart, LayoutGrid, FileText, ChevronDown as ChevronDownIcon
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -171,6 +177,47 @@ function ExecutionMonitorPage() {
     return () => clearInterval(interval);
   }, [fetchReport, windowMins]);
 
+  const downloadCSV = (filename: string, content: string) => {
+    const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const exportRawActivity = () => {
+    if (!report) return;
+    const header = ["Time", "Employee", "Action", "Remarks/Subject"];
+    const rows = report.rawActivityLog.map(log => [
+      new Date(log.time).toLocaleString(),
+      log.employee,
+      log.action,
+      `"${(log.detail || "").replace(/"/g, '""')}"`
+    ]);
+    const csvContent = [header.join(","), ...rows.map(r => r.join(","))].join("\n");
+    downloadCSV(`raw-activity-${report.generatedAt}.csv`, csvContent);
+  };
+
+  const exportMemberSummary = () => {
+    if (!report) return;
+    const header = ["Employee", "Leads Added", "Total Actions", "Scheduled", "Quotations", "Visits", "Bookings", "CRM Completion %"];
+    const rows = report.members.map(m => [
+      `"${m.name}"`,
+      m.totalLeadsAdded,
+      m.totalActions,
+      m.scheduledStageCount,
+      m.totalQuotations,
+      m.visitsToday,
+      m.bookingsToday,
+      m.crmCompletionPct
+    ]);
+    const csvContent = [header.join(","), ...rows.map(r => r.join(","))].join("\n");
+    downloadCSV(`member-summary-${report.generatedAt}.csv`, csvContent);
+  };
+
   if (!report && loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[500px] text-slate-400">
@@ -227,6 +274,25 @@ function ExecutionMonitorPage() {
             <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
             Refresh
           </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="bg-slate-800/50 border-slate-700 hover:bg-slate-700 hover:text-white">
+                <Download className="w-4 h-4 mr-2" />
+                Download
+                <ChevronDownIcon className="w-4 h-4 ml-2" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48 bg-slate-800 border-slate-700 text-slate-200">
+              <DropdownMenuItem onClick={exportRawActivity} className="cursor-pointer hover:bg-slate-700">
+                <List className="w-4 h-4 mr-2 text-violet-400" />
+                Raw Activity Log
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={exportMemberSummary} className="cursor-pointer hover:bg-slate-700">
+                <BarChart2 className="w-4 h-4 mr-2 text-violet-400" />
+                Member Summary
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
