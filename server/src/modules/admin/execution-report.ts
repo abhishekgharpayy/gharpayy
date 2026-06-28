@@ -219,7 +219,9 @@ export function registerExecutionReportRoutes(app: FastifyInstance) {
             criticalAlerts: [],
           },
           successCriteria: { scheduledTarget: 20, quotationTarget: 3 },
-        }, rawActivityLog: [], featureUsage: [] } as ExecutionReport);
+          rawActivityLog: [], 
+          featureUsage: []
+        } as ExecutionReport);
       }
 
       const memberIds = members.map((m) => m._id);
