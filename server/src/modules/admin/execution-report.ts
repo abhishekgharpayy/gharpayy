@@ -109,6 +109,20 @@ interface MemberReport {
   scheduledStageCount: number;
   quotationsMet: boolean;
   allCriteriaMet: boolean;
+
+  // ─── NEW FIELDS FOR COMMAND CENTER ─────────────────────────────────────────
+  leadsUpdatedLast30: number;
+  propertiesSharedLast30: number;
+  followUpsLast30: number;
+  scheduledLast30: number;
+  visitsLast30: number;
+  bookingsLast30: number;
+
+  bookingsToday: number;
+  visitsToday: number;
+  crmCompletionPct: number;
+  missingOwners: number;
+  missingNextActions: number;
 }
 
 interface ExecutionReport {
@@ -127,6 +141,8 @@ interface ExecutionReport {
     scheduledTarget: number;
     quotationTarget: number;
   };
+  rawActivityLog: any[];
+  featureUsage: any[];
 }
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
@@ -203,7 +219,7 @@ export function registerExecutionReportRoutes(app: FastifyInstance) {
             criticalAlerts: [],
           },
           successCriteria: { scheduledTarget: 20, quotationTarget: 3 },
-        } as ExecutionReport);
+        }, rawActivityLog: [], featureUsage: [] } as ExecutionReport);
       }
 
       const memberIds = members.map((m) => m._id);
@@ -459,6 +475,31 @@ export function registerExecutionReportRoutes(app: FastifyInstance) {
         const quotationsTarget = 3;
         const scheduledTarget = 20;
 
+        const leadsUpdatedLast30 = memberActionsWindow.filter(a => a.kind === "stage-change" || a.kind === "note").length;
+        const propertiesSharedLast30 = memberActionsWindow.filter(a => a.kind === "property-share").length;
+        const followUpsLast30 = memberActionsWindow.filter(a => a.kind === "follow-up-logged" || a.kind === "call").length;
+        
+        let scheduledLast30 = 0;
+        let visitsLast30 = 0;
+        let bookingsLast30 = 0;
+        let bookingsToday = 0;
+        let visitsToday = 0;
+        
+        for (const t of (toursByMember.get(uid) ?? [])) {
+          if (t.createdAt >= dayStart.toISOString()) visitsToday++;
+          if (t.createdAt >= windowStart.toISOString()) visitsLast30++;
+        }
+        
+        // Count bookings from stage distribution
+        bookingsToday = stageDist["booked"] || 0;
+        
+        const missingOwners = unownedLeads.length;
+        const missingNextActions = memberLeads.filter(l => !l.nextFollowUpAt && ACTIVE_STAGES.has(l.stage || "new")).length;
+        
+        const totalReq = memberLeads.filter(l => ACTIVE_STAGES.has(l.stage || "new")).length * 2;
+        const actualReq = (memberLeads.filter(l => ACTIVE_STAGES.has(l.stage || "new")).length * 2) - missingOwners - missingNextActions;
+        const crmCompletionPct = totalReq === 0 ? 100 : Math.round((actualReq / totalReq) * 100);
+
         return {
           userId: uid,
           name: member.fullName || uid,
@@ -494,6 +535,18 @@ export function registerExecutionReportRoutes(app: FastifyInstance) {
           scheduledStageCount: scheduledCount,
           quotationsMet: quotationCount >= quotationsTarget,
           allCriteriaMet: scheduledCount >= scheduledTarget && quotationCount >= quotationsTarget,
+
+          leadsUpdatedLast30,
+          propertiesSharedLast30,
+          followUpsLast30,
+          scheduledLast30,
+          visitsLast30,
+          bookingsLast30,
+          bookingsToday,
+          visitsToday,
+          crmCompletionPct,
+          missingOwners,
+          missingNextActions,
         };
       });
 
@@ -552,6 +605,26 @@ export function registerExecutionReportRoutes(app: FastifyInstance) {
           scheduledTarget: 20,
           quotationTarget: 3,
         },
+        rawActivityLog: activitiesToday.slice(0, 500).map(a => ({
+          time: a.occurredAt,
+          employee: members.find(m => m._id === a.actor)?.fullName || a.actor,
+          action: a.kind,
+          detail: a.subject,
+        })),
+        featureUsage: Object.entries(
+          activitiesToday.reduce((acc, act) => {
+            const kind = act.kind || "unknown";
+            if (!acc[kind]) acc[kind] = { count: 0, users: new Set() };
+            acc[kind].count++;
+            acc[kind].users.add(act.actor);
+            return acc;
+          }, {} as Record<string, { count: number, users: Set<string> }>)
+        ).map(([feature, data]) => ({
+          feature,
+          totalClicks: data.count,
+          uniqueUsers: data.users.size,
+          avgPerUser: (data.count / data.users.size).toFixed(1)
+        })).sort((a, b) => b.totalClicks - a.totalClicks)
       } as ExecutionReport);
     }
   );

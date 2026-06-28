@@ -4,10 +4,13 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import {
   AlertTriangle, Clock, Users, TrendingUp, CheckCircle2, XCircle,
   Activity, RefreshCw, ChevronDown, ChevronUp, Flame, Target,
-  AlertCircle, UserX, ArrowRight, Download,
+  AlertCircle, UserX, ArrowRight, Download, List, BarChart2,
+  PieChart, LayoutGrid, FileText
 } from "lucide-react";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -51,6 +54,17 @@ interface MemberReport {
   scheduledStageCount: number;
   quotationsMet: boolean;
   allCriteriaMet: boolean;
+  leadsUpdatedLast30: number;
+  propertiesSharedLast30: number;
+  followUpsLast30: number;
+  scheduledLast30: number;
+  visitsLast30: number;
+  bookingsLast30: number;
+  bookingsToday: number;
+  visitsToday: number;
+  crmCompletionPct: number;
+  missingOwners: number;
+  missingNextActions: number;
 }
 
 interface ExecutionReport {
@@ -69,6 +83,8 @@ interface ExecutionReport {
     scheduledTarget: number;
     quotationTarget: number;
   };
+  rawActivityLog: any[];
+  featureUsage: any[];
 }
 
 // ─── Route ──────────────────────────────────────────────────────────────────────
@@ -93,19 +109,19 @@ function fmtMins(mins: number | null): string {
 
 function stageColor(stage: string): string {
   const map: Record<string, string> = {
-    "new": "bg-slate-500",
-    "contacted": "bg-blue-500",
-    "tour-scheduled": "bg-violet-500",
-    "on-tour": "bg-amber-500",
-    "tour-done": "bg-teal-500",
-    "negotiation": "bg-orange-500",
-    "quote-sent": "bg-green-500",
-    "not-responding-3d": "bg-red-400",
-    "not-responding-7d": "bg-red-600",
-    "booked": "bg-emerald-600",
-    "dropped": "bg-gray-400",
+    "new": "bg-slate-500 text-white",
+    "contacted": "bg-blue-500 text-white",
+    "tour-scheduled": "bg-violet-500 text-white",
+    "on-tour": "bg-amber-500 text-amber-950",
+    "tour-done": "bg-teal-500 text-teal-950",
+    "negotiation": "bg-orange-500 text-white",
+    "quote-sent": "bg-green-500 text-white",
+    "not-responding-3d": "bg-red-400 text-red-950",
+    "not-responding-7d": "bg-red-600 text-white",
+    "booked": "bg-emerald-600 text-white",
+    "dropped": "bg-gray-400 text-gray-900",
   };
-  return map[stage] ?? "bg-slate-400";
+  return map[stage] ?? "bg-slate-400 text-white";
 }
 
 const STAGE_LABEL: Record<string, string> = {
@@ -122,630 +138,421 @@ const STAGE_LABEL: Record<string, string> = {
   "dropped": "Dropped",
 };
 
-// ─── Countdown Timer ──────────────────────────────────────────────────────────
-
-function CountdownTimer({ nextRefreshAt, windowMinutes }: { nextRefreshAt: number; windowMinutes: number }) {
-  const [secsLeft, setSecsLeft] = useState(0);
-
-  useEffect(() => {
-    const tick = () => {
-      const diff = Math.max(0, Math.round((nextRefreshAt - Date.now()) / 1000));
-      setSecsLeft(diff);
-    };
-    tick();
-    const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
-  }, [nextRefreshAt]);
-
-  const totalSecs = windowMinutes * 60;
-  const pct = Math.round(((totalSecs - secsLeft) / totalSecs) * 100);
-  const mins = Math.floor(secsLeft / 60);
-  const secs = secsLeft % 60;
-
-  return (
-    <div className="flex items-center gap-3">
-      <div className="flex items-center gap-2 text-sm text-slate-400">
-        <Clock className="w-4 h-4" />
-        <span>Next report in</span>
-        <span className="font-mono font-bold text-white text-base">
-          {String(mins).padStart(2, "0")}:{String(secs).padStart(2, "0")}
-        </span>
-      </div>
-      <div className="w-32">
-        <Progress value={pct} className="h-1.5 bg-slate-700 [&>div]:bg-violet-500" />
-      </div>
-    </div>
-  );
-}
-
-// ─── Status Badge ─────────────────────────────────────────────────────────────
-
-function StatusBadge({ member }: { member: MemberReport }) {
-  if (member.isInactive) {
-    return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-red-500/20 text-red-400 border border-red-500/30">
-        <UserX className="w-3 h-3" /> INACTIVE
-      </span>
-    );
-  }
-  if (member.allCriteriaMet) {
-    return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-        <CheckCircle2 className="w-3 h-3" /> ON TRACK
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-400 border border-amber-500/30">
-      <AlertCircle className="w-3 h-3" /> BEHIND
-    </span>
-  );
-}
-
-// ─── Member Card ──────────────────────────────────────────────────────────────
-
-function MemberCard({
-  member,
-  criteria,
-  window: win,
-}: {
-  member: MemberReport;
-  criteria: { scheduledTarget: number; quotationTarget: number };
-  window: number;
-}) {
-  const [expanded, setExpanded] = useState(member.isInactive || member.stuckLeads.length > 0);
-
-  const scheduledPct = Math.min(100, Math.round((member.scheduledStageCount / criteria.scheduledTarget) * 100));
-  const quotePct = Math.min(100, Math.round((member.totalQuotations / criteria.quotationTarget) * 100));
-
-  return (
-    <div
-      className={`rounded-xl border transition-all ${
-        member.isInactive
-          ? "border-red-500/40 bg-red-950/20"
-          : member.allCriteriaMet
-          ? "border-emerald-500/30 bg-emerald-950/10"
-          : "border-slate-700/60 bg-slate-800/40"
-      }`}
-    >
-      {/* Header row */}
-      <div
-        className="flex items-center gap-4 px-5 py-4 cursor-pointer select-none"
-        onClick={() => setExpanded((p) => !p)}
-      >
-        {/* Avatar */}
-        <div
-          className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${
-            member.isInactive ? "bg-red-700 text-red-100" : "bg-slate-700 text-slate-200"
-          }`}
-        >
-          {member.name.slice(0, 2).toUpperCase()}
-        </div>
-
-        {/* Name + status */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-semibold text-white truncate">{member.name}</span>
-            <StatusBadge member={member} />
-            {member.stuckLeads.length > 0 && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-orange-500/20 text-orange-400 border border-orange-500/30">
-                <AlertTriangle className="w-3 h-3" /> {member.stuckLeads.length} stuck
-              </span>
-            )}
-          </div>
-          <div className="text-xs text-slate-500 mt-0.5">
-            {member.role.toUpperCase()}
-            {member.zones.length > 0 && <> · {member.zones.slice(0, 2).join(", ")}</>}
-            {" · "}
-            Last action: <span className="text-slate-400">{fmtMins(member.minutesSinceLastAction)}</span>
-          </div>
-        </div>
-
-        {/* Quick stats row */}
-        <div className="hidden sm:flex items-center gap-6 text-sm shrink-0">
-          <div className="text-center">
-            <div className="font-bold text-white text-lg leading-none">{member.totalLeadsAdded}</div>
-            <div className="text-slate-500 text-xs mt-0.5">leads today</div>
-          </div>
-          <div className="text-center">
-            <div className={`font-bold text-lg leading-none ${member.scheduledStageCount >= criteria.scheduledTarget ? "text-emerald-400" : "text-white"}`}>
-              {member.scheduledStageCount}
-              <span className="text-slate-500 text-xs font-normal">/{criteria.scheduledTarget}</span>
-            </div>
-            <div className="text-slate-500 text-xs mt-0.5">scheduled</div>
-          </div>
-          <div className="text-center">
-            <div className={`font-bold text-lg leading-none ${member.quotationsMet ? "text-emerald-400" : "text-white"}`}>
-              {member.totalQuotations}
-              <span className="text-slate-500 text-xs font-normal">/{criteria.quotationTarget}</span>
-            </div>
-            <div className="text-slate-500 text-xs mt-0.5">quotes</div>
-          </div>
-          <div className="text-center">
-            <div className="font-bold text-white text-lg leading-none">{member.actionsLast30}</div>
-            <div className="text-slate-500 text-xs mt-0.5">actions/{win}m</div>
-          </div>
-        </div>
-
-        {/* Expand toggle */}
-        <div className="text-slate-500 shrink-0">
-          {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-        </div>
-      </div>
-
-      {/* Progress bars */}
-      <div className="px-5 pb-3 grid grid-cols-2 gap-3">
-        <div>
-          <div className="flex justify-between text-xs text-slate-500 mb-1">
-            <span>Leads → Scheduled</span>
-            <span className={scheduledPct >= 100 ? "text-emerald-400" : "text-slate-400"}>
-              {member.scheduledStageCount}/{criteria.scheduledTarget}
-            </span>
-          </div>
-          <Progress value={scheduledPct} className="h-1.5 bg-slate-700 [&>div]:bg-violet-500" />
-        </div>
-        <div>
-          <div className="flex justify-between text-xs text-slate-500 mb-1">
-            <span>Quotations</span>
-            <span className={quotePct >= 100 ? "text-emerald-400" : "text-slate-400"}>
-              {member.totalQuotations}/{criteria.quotationTarget}
-            </span>
-          </div>
-          <Progress value={quotePct} className="h-1.5 bg-slate-700 [&>div]:bg-green-500" />
-        </div>
-      </div>
-
-      {/* Expanded detail */}
-      {expanded && (
-        <div className="border-t border-slate-700/50 px-5 py-4 grid grid-cols-1 md:grid-cols-2 gap-5">
-          {/* Stage distribution */}
-          <div>
-            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
-              Pipeline ({member.totalActiveLeads} active leads)
-            </div>
-            <div className="space-y-2">
-              {member.leadsByStage.map(({ stage, count }) => (
-                <div key={stage} className="flex items-center gap-2 text-sm">
-                  <span className={`w-2 h-2 rounded-full shrink-0 ${stageColor(stage)}`} />
-                  <span className="text-slate-300 flex-1 truncate">{STAGE_LABEL[stage] ?? stage}</span>
-                  <span className="font-mono font-bold text-white">{count}</span>
-                  <div className="w-20 bg-slate-700 rounded-full h-1.5">
-                    <div
-                      className={`${stageColor(stage)} h-1.5 rounded-full transition-all`}
-                      style={{ width: `${Math.min(100, (count / Math.max(member.totalActiveLeads, 1)) * 100)}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Activity & Stuck leads */}
-          <div className="space-y-4">
-            {/* Most used buttons */}
-            <div>
-              <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
-                Most Used Actions Today
-              </div>
-              {member.mostUsedActions.length === 0 ? (
-                <p className="text-xs text-slate-600">No actions logged yet</p>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {member.mostUsedActions.map(({ action, count }) => (
-                    <span
-                      key={action}
-                      className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-slate-700/60 text-xs text-slate-300"
-                    >
-                      {action}
-                      <span className="font-bold text-white">{count}</span>
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Click-by-click (recent actions) */}
-            {member.recentActions.length > 0 && (
-              <div>
-                <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
-                  Recent Activity (last {win}m)
-                </div>
-                <div className="space-y-1.5">
-                  {member.recentActions.slice(0, 5).map((a, i) => (
-                    <div key={i} className="flex items-start gap-2 text-xs">
-                      <span className="text-slate-600 font-mono shrink-0 mt-0.5">{fmtTime(a.occurredAt)}</span>
-                      <ArrowRight className="w-3 h-3 text-slate-600 shrink-0 mt-0.5" />
-                      <span className="text-slate-400">
-                        <span className="text-slate-200 font-medium">{a.action}</span>
-                        {a.entityType && <> on {a.entityType}</>}
-                        {a.detail && <> — {a.detail.slice(0, 60)}</>}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Stuck leads */}
-            {member.stuckLeads.length > 0 && (
-              <div>
-                <div className="text-xs font-semibold text-orange-400 uppercase tracking-wider mb-2 flex items-center gap-1">
-                  <AlertTriangle className="w-3 h-3" />
-                  Stuck &gt;{win}m in stage ({member.stuckLeads.length})
-                </div>
-                <div className="space-y-1.5">
-                  {member.stuckLeads.slice(0, 6).map((l) => (
-                    <div
-                      key={l.leadId}
-                      className="flex items-center gap-2 text-xs bg-orange-950/30 border border-orange-800/20 rounded-md px-2.5 py-1.5"
-                    >
-                      <span className={`w-2 h-2 rounded-full shrink-0 ${stageColor(l.stage)}`} />
-                      <span className="text-slate-200 flex-1 truncate">{l.leadName}</span>
-                      <span className="text-orange-400 font-mono shrink-0">
-                        {l.minutesInStage >= 60
-                          ? `${Math.floor(l.minutesInStage / 60)}h ${l.minutesInStage % 60}m`
-                          : `${l.minutesInStage}m`}{" "}
-                        in {STAGE_LABEL[l.stage] ?? l.stage}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Follow-ups */}
-          {member.followUpsRequired.length > 0 && (
-            <div className="md:col-span-2">
-              <div className="text-xs font-semibold text-red-400 uppercase tracking-wider mb-2 flex items-center gap-1">
-                <Flame className="w-3 h-3" />
-                Follow-up Actions Required
-              </div>
-              <ul className="space-y-1">
-                {member.followUpsRequired.map((f, i) => (
-                  <li key={i} className="flex items-start gap-2 text-xs text-slate-300">
-                    <XCircle className="w-3 h-3 text-red-400 shrink-0 mt-0.5" />
-                    {f}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Main Page ────────────────────────────────────────────────────────────────
+// ─── Page ───────────────────────────────────────────────────────────────────────
 
 function ExecutionMonitorPage() {
   const [report, setReport] = useState<ExecutionReport | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [windowMinutes, setWindowMinutes] = useState(30);
-  const [nextRefreshAt, setNextRefreshAt] = useState(Date.now() + 30 * 60 * 1000);
-  const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [windowMins, setWindowMins] = useState(30);
+  const [nextRefreshAt, setNextRefreshAt] = useState<number>(Date.now() + 30000);
 
-  const fetchReport = useCallback(async (silent = false) => {
-    if (!silent) setLoading(true);
-    setError(null);
+  const fetchReport = useCallback(async () => {
     try {
-      const data = await apiClient.get<ExecutionReport>("/api/admin/execution-report", {
-        params: { window_minutes: windowMinutes },
+      setLoading(true);
+      setError(null);
+      const res = await apiClient.get<ExecutionReport>("/api/admin/execution-report", {
+        params: { window_minutes: windowMins },
       });
-      setReport(data);
-      const nextAt = Date.now() + windowMinutes * 60 * 1000;
-      setNextRefreshAt(nextAt);
+      setReport(res.data);
+      setNextRefreshAt(Date.now() + windowMins * 60000);
     } catch (e: any) {
-      setError(e?.message ?? "Failed to load report");
+      setError(e.response?.data?.message || e.message);
     } finally {
       setLoading(false);
     }
-  }, [windowMinutes]);
+  }, [windowMins]);
 
-  // Auto-refresh every windowMinutes
   useEffect(() => {
     fetchReport();
-    const schedule = () => {
-      refreshTimeoutRef.current = setTimeout(() => {
-        fetchReport(true);
-        schedule();
-      }, windowMinutes * 60 * 1000);
-    };
-    schedule();
-    return () => {
-      if (refreshTimeoutRef.current) clearTimeout(refreshTimeoutRef.current);
-    };
-  }, [fetchReport, windowMinutes]);
+    const interval = setInterval(() => {
+      fetchReport();
+    }, windowMins * 60000);
+    return () => clearInterval(interval);
+  }, [fetchReport, windowMins]);
 
-  const [downloading, setDownloading] = useState(false);
+  if (!report && loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[500px] text-slate-400">
+        <RefreshCw className="w-8 h-8 animate-spin mb-4 opacity-50" />
+        <p>Generating real-time execution report...</p>
+      </div>
+    );
+  }
 
-  const downloadActivityCsv = async () => {
-    setDownloading(true);
-    try {
-      const now = new Date();
-      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-      const data = await apiClient.get<{ items: any[] }>("/api/admin/user-actions", {
-        params: { limit: 5000, since: startOfDay },
-      });
-      
-      if (!data?.items || data.items.length === 0) {
-        alert("No activities found to download for today.");
-        return;
-      }
-      
-      const headers = ["Timestamp", "User ID", "User Name", "User Role", "Action", "Entity Type", "Entity ID", "Details"];
-      const rows = data.items.map(item => {
-        const payload = item.payload || {};
-        return [
-          item.occurredAt || "",
-          payload.userId || item.actor || "",
-          payload.userName || "",
-          payload.userRole || "",
-          payload.action || "",
-          payload.entityType || "",
-          payload.entityId || "",
-          payload.detail || ""
-        ].map(val => `"${String(val).replace(/"/g, '""')}"`);
-      });
-      
-      const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
-      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.setAttribute("href", url);
-      link.setAttribute("download", `gharpayy_activity_report_${now.toISOString().slice(0, 10)}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    } catch (err: any) {
-      alert("Failed to download CSV report: " + (err.message || err));
-    } finally {
-      setDownloading(false);
-    }
-  };
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="bg-red-500/10 border border-red-500/30 text-red-400 p-4 rounded-lg flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
+          <div>
+            <h3 className="font-bold mb-1">Failed to load report</h3>
+            <p className="text-sm opacity-90">{error}</p>
+            <Button onClick={fetchReport} variant="outline" className="mt-3 text-red-400 border-red-500/30">
+              Retry
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-  const WINDOW_OPTIONS = [15, 30, 60] as const;
+  if (!report) return null;
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 p-4 md:p-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+    <div className="max-w-[1600px] mx-auto p-4 sm:p-6 lg:p-8 space-y-6 animate-in fade-in duration-500">
+      {/* ── Header ── */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <Target className="w-5 h-5 text-violet-400" />
-            <h1 className="text-xl font-bold tracking-tight">Execution Monitor</h1>
-            <span className="text-xs text-slate-500 bg-slate-800 px-2 py-0.5 rounded-full border border-slate-700">
-              ADMIN
-            </span>
-          </div>
-          <p className="text-sm text-slate-500">
-            Floor execution report · Live team activity · Every {windowMinutes} minutes
+          <h1 className="text-3xl font-black text-white tracking-tight flex items-center gap-3">
+            <Activity className="w-8 h-8 text-violet-500" />
+            Command Center
+          </h1>
+          <p className="text-slate-400 mt-2">
+            Live Execution Monitoring • Window: <span className="font-bold text-white">{report.windowMinutes}m</span>
           </p>
         </div>
 
-        <div className="flex items-center gap-3 flex-wrap">
-          {/* Window selector */}
-          <div className="flex items-center gap-1 bg-slate-800 rounded-lg p-1 border border-slate-700">
-            {WINDOW_OPTIONS.map((w) => (
-              <button
-                key={w}
-                onClick={() => setWindowMinutes(w)}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                  windowMinutes === w
-                    ? "bg-violet-600 text-white"
-                    : "text-slate-400 hover:text-slate-200 hover:bg-slate-700"
-                }`}
-              >
-                {w}m
-              </button>
-            ))}
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 text-sm text-slate-400 bg-slate-800/50 px-4 py-2 rounded-full border border-slate-700/50">
+            <Clock className="w-4 h-4" />
+            <span>Updated {fmtTime(report.generatedAt)}</span>
           </div>
-
           <Button
-            size="sm"
+            onClick={fetchReport}
             variant="outline"
-            className="border-slate-700 text-slate-300 hover:bg-slate-800"
-            onClick={() => fetchReport()}
+            className="bg-slate-800/50 border-slate-700 hover:bg-slate-700 hover:text-white"
             disabled={loading}
           >
-            <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${loading ? "animate-spin" : ""}`} />
+            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
             Refresh
-          </Button>
-
-          <Button
-            size="sm"
-            variant="outline"
-            className="border-slate-700 text-slate-300 hover:bg-slate-800"
-            onClick={downloadActivityCsv}
-            disabled={downloading}
-          >
-            <Download className="w-3.5 h-3.5 mr-1.5" />
-            {downloading ? "Downloading..." : "Export Report"}
           </Button>
         </div>
       </div>
 
-      {/* Countdown */}
-      {report && (
-        <div className="mb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-slate-900 rounded-lg border border-slate-800">
-          <div className="flex items-center gap-3 text-sm text-slate-500">
-            <span>
-              Report generated{" "}
-              <span className="text-slate-300">
-                {new Date(report.generatedAt).toLocaleTimeString("en-IN", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  second: "2-digit",
-                  hour12: true,
-                })}
-              </span>
-            </span>
-            <span>·</span>
-            <span>Window: last {report.windowMinutes} minutes</span>
+      {/* ── Critical Alerts ── */}
+      {report.summary.criticalAlerts.length > 0 && (
+        <div className="bg-red-950/30 border border-red-500/30 rounded-xl p-4">
+          <div className="flex items-center gap-2 text-red-400 font-bold mb-3">
+            <AlertTriangle className="w-5 h-5" />
+            CRITICAL ALERTS
           </div>
-          <CountdownTimer nextRefreshAt={nextRefreshAt} windowMinutes={windowMinutes} />
-        </div>
-      )}
-
-      {/* Error */}
-      {error && (
-        <div className="mb-5 flex items-center gap-2 p-4 rounded-lg bg-red-950/30 border border-red-800/40 text-red-400">
-          <AlertCircle className="w-4 h-4 shrink-0" />
-          <span className="text-sm">{error}</span>
-        </div>
-      )}
-
-      {/* Loading skeleton */}
-      {loading && !report && (
-        <div className="space-y-4">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="rounded-xl border border-slate-700/60 bg-slate-800/40 p-5 animate-pulse">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-full bg-slate-700" />
-                <div className="flex-1 space-y-2">
-                  <div className="h-4 bg-slate-700 rounded w-48" />
-                  <div className="h-3 bg-slate-800 rounded w-32" />
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {report && (
-        <>
-          {/* Summary stats */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
-            {[
-              {
-                label: "Team Members",
-                value: report.summary.totalMembers,
-                icon: <Users className="w-4 h-4 text-slate-400" />,
-                color: "text-white",
-              },
-              {
-                label: "Inactive",
-                value: report.summary.inactiveMembers,
-                icon: <UserX className="w-4 h-4 text-red-400" />,
-                color: report.summary.inactiveMembers > 0 ? "text-red-400" : "text-emerald-400",
-              },
-              {
-                label: "Stuck Members",
-                value: report.summary.stuckMembers,
-                icon: <AlertTriangle className="w-4 h-4 text-orange-400" />,
-                color: report.summary.stuckMembers > 0 ? "text-orange-400" : "text-emerald-400",
-              },
-              {
-                label: "Behind Target",
-                value: report.summary.behindOnTargets,
-                icon: <TrendingUp className="w-4 h-4 text-amber-400" />,
-                color: report.summary.behindOnTargets > 0 ? "text-amber-400" : "text-emerald-400",
-              },
-            ].map(({ label, value, icon, color }) => (
-              <div key={label} className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  {icon}
-                  <span className="text-xs text-slate-500">{label}</span>
-                </div>
-                <div className={`text-2xl font-bold ${color}`}>{value}</div>
+          <div className="space-y-2">
+            {report.summary.criticalAlerts.map((alert, idx) => (
+              <div key={idx} className="text-red-200 text-sm bg-red-900/20 px-3 py-2 rounded-lg border border-red-500/10">
+                {alert}
               </div>
             ))}
           </div>
+        </div>
+      )}
 
-          {/* Critical alerts */}
-          {report.summary.criticalAlerts.length > 0 && (
-            <div className="mb-5 rounded-xl border border-red-800/40 bg-red-950/20 p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <AlertTriangle className="w-4 h-4 text-red-400" />
-                <span className="text-sm font-semibold text-red-400 uppercase tracking-wider">Critical Alerts</span>
-              </div>
-              <ul className="space-y-2">
-                {report.summary.criticalAlerts.map((a, i) => (
-                  <li key={i} className="text-sm text-red-300">
-                    {a}
-                  </li>
+      {/* ── KPI Grid ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-slate-800/50 border border-slate-700/50 p-5 rounded-xl">
+          <div className="text-slate-400 text-sm font-medium mb-1 flex items-center justify-between">
+            Total Members
+            <Users className="w-4 h-4 text-blue-400" />
+          </div>
+          <div className="text-3xl font-black text-white">{report.summary.totalMembers}</div>
+          <div className="text-xs text-slate-500 mt-1">Active on floor today</div>
+        </div>
+        <div className="bg-slate-800/50 border border-slate-700/50 p-5 rounded-xl">
+          <div className="text-slate-400 text-sm font-medium mb-1 flex items-center justify-between">
+            Inactive ({report.windowMinutes}m)
+            <UserX className="w-4 h-4 text-red-400" />
+          </div>
+          <div className={`text-3xl font-black ${report.summary.inactiveMembers > 0 ? "text-red-400" : "text-emerald-400"}`}>
+            {report.summary.inactiveMembers}
+          </div>
+          <div className="text-xs text-slate-500 mt-1">Require immediate manager action</div>
+        </div>
+        <div className="bg-slate-800/50 border border-slate-700/50 p-5 rounded-xl">
+          <div className="text-slate-400 text-sm font-medium mb-1 flex items-center justify-between">
+            Stuck Leads
+            <Target className="w-4 h-4 text-orange-400" />
+          </div>
+          <div className={`text-3xl font-black ${report.summary.stuckMembers > 0 ? "text-orange-400" : "text-emerald-400"}`}>
+            {report.summary.stuckMembers} members
+          </div>
+          <div className="text-xs text-slate-500 mt-1">Have leads stuck &gt; 30m</div>
+        </div>
+        <div className="bg-slate-800/50 border border-slate-700/50 p-5 rounded-xl">
+          <div className="text-slate-400 text-sm font-medium mb-1 flex items-center justify-between">
+            Behind Targets
+            <TrendingUp className="w-4 h-4 text-amber-400" />
+          </div>
+          <div className={`text-3xl font-black ${report.summary.behindOnTargets > 0 ? "text-amber-400" : "text-emerald-400"}`}>
+            {report.summary.behindOnTargets}
+          </div>
+          <div className="text-xs text-slate-500 mt-1">Missed daily execution targets</div>
+        </div>
+      </div>
+
+      {/* ── Tabs for Sheets ── */}
+      <Tabs defaultValue="dashboard" className="w-full">
+        <TabsList className="bg-slate-800/50 border border-slate-700/50 mb-6 flex flex-wrap h-auto gap-2 p-1">
+          <TabsTrigger value="dashboard" className="data-[state=active]:bg-violet-600 data-[state=active]:text-white">
+            <LayoutGrid className="w-4 h-4 mr-2" /> 30-Min Dashboard
+          </TabsTrigger>
+          <TabsTrigger value="matrix" className="data-[state=active]:bg-violet-600 data-[state=active]:text-white">
+            <BarChart2 className="w-4 h-4 mr-2" /> Lead Stage Matrix
+          </TabsTrigger>
+          <TabsTrigger value="scoreboard" className="data-[state=active]:bg-violet-600 data-[state=active]:text-white">
+            <TrendingUp className="w-4 h-4 mr-2" /> EOD Scoreboard
+          </TabsTrigger>
+          <TabsTrigger value="low-activity" className="data-[state=active]:bg-red-600 data-[state=active]:text-white">
+            <AlertTriangle className="w-4 h-4 mr-2" /> Low Activity Alerts
+          </TabsTrigger>
+          <TabsTrigger value="features" className="data-[state=active]:bg-violet-600 data-[state=active]:text-white">
+            <PieChart className="w-4 h-4 mr-2" /> Feature Usage
+          </TabsTrigger>
+          <TabsTrigger value="raw" className="data-[state=active]:bg-violet-600 data-[state=active]:text-white">
+            <List className="w-4 h-4 mr-2" /> Raw Activity
+          </TabsTrigger>
+        </TabsList>
+
+        {/* ── Sheet 1: Raw CRM Activity ── */}
+        <TabsContent value="raw">
+          <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+            <Table>
+              <TableHeader className="bg-slate-800/80">
+                <TableRow>
+                  <TableHead>Time</TableHead>
+                  <TableHead>Employee</TableHead>
+                  <TableHead>Action</TableHead>
+                  <TableHead>Remarks / Subject</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {report.rawActivityLog.map((log, i) => (
+                  <TableRow key={i} className="border-slate-800">
+                    <TableCell className="text-slate-300 font-mono text-xs">{fmtTime(log.time)}</TableCell>
+                    <TableCell className="text-white font-medium">{log.employee}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="bg-slate-800 text-slate-300">{log.action}</Badge>
+                    </TableCell>
+                    <TableCell className="text-slate-400 text-xs truncate max-w-[300px]">{log.detail || "—"}</TableCell>
+                  </TableRow>
                 ))}
-              </ul>
-            </div>
-          )}
-
-          {/* Day success criteria legend */}
-          <div className="mb-5 rounded-xl border border-slate-800 bg-slate-900/50 p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Target className="w-4 h-4 text-violet-400" />
-              <span className="text-sm font-semibold text-slate-300">End-of-Day Success Criteria</span>
-            </div>
-            <div className="flex flex-wrap gap-4 text-sm">
-              <span className="text-slate-400">
-                ≥ <strong className="text-violet-300">{report.successCriteria.scheduledTarget} leads</strong> progressed to Scheduled+
-              </span>
-              <span className="text-slate-600">·</span>
-              <span className="text-slate-400">
-                ≥ <strong className="text-green-300">{report.successCriteria.quotationTarget} quotations</strong> generated
-              </span>
-              <span className="text-slate-600">·</span>
-              <span className="text-slate-400">
-                <strong className="text-blue-300">CRM updated</strong> with complete data
-              </span>
-              <span className="text-slate-600">·</span>
-              <span className="text-slate-400">
-                <strong className="text-amber-300">No lead</strong> without owner/next action
-              </span>
-            </div>
+                {report.rawActivityLog.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center py-8 text-slate-500">No recent activity.</TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
           </div>
+        </TabsContent>
 
-          {/* Per-member cards */}
-          <div className="mb-3 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Activity className="w-4 h-4 text-slate-400" />
-              <span className="text-sm font-semibold text-slate-300">
-                Team ({report.members.length})
-              </span>
-            </div>
-            <div className="flex items-center gap-4 text-xs text-slate-600">
-              <span className="flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-red-500" />
-                Inactive
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-amber-500" />
-                Behind
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                On track
-              </span>
-            </div>
+        {/* ── Sheet 2: 30-Minute Dashboard ── */}
+        <TabsContent value="dashboard">
+          <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+            <Table>
+              <TableHeader className="bg-slate-800/80">
+                <TableRow>
+                  <TableHead>Employee</TableHead>
+                  <TableHead className="text-right">Leads Added (30m)</TableHead>
+                  <TableHead className="text-right">Total Clicks (30m)</TableHead>
+                  <TableHead className="text-right">Prop Shared (30m)</TableHead>
+                  <TableHead className="text-right">Scheduled (30m)</TableHead>
+                  <TableHead className="text-right">Quotations (30m)</TableHead>
+                  <TableHead>Most Used Feature</TableHead>
+                  <TableHead>Inactive?</TableHead>
+                  <TableHead>Stuck Leads</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {report.members.map((m) => (
+                  <TableRow key={m.userId} className={`border-slate-800 ${m.isInactive ? "bg-red-950/10" : ""}`}>
+                    <TableCell className="font-bold text-white">{m.name}</TableCell>
+                    <TableCell className="text-right text-slate-300">{m.leadsAddedLast30}</TableCell>
+                    <TableCell className="text-right text-slate-300">{m.actionsLast30}</TableCell>
+                    <TableCell className="text-right text-slate-300">{m.propertiesSharedLast30 || 0}</TableCell>
+                    <TableCell className="text-right text-slate-300">{m.scheduledLast30 || 0}</TableCell>
+                    <TableCell className="text-right text-slate-300">{m.quotationsLast30}</TableCell>
+                    <TableCell>
+                      {m.mostUsedActions.length > 0 ? (
+                        <span className="text-xs text-slate-400 bg-slate-800 px-2 py-1 rounded">{m.mostUsedActions[0].action}</span>
+                      ) : "—"}
+                    </TableCell>
+                    <TableCell>
+                      {m.isInactive ? <Badge className="bg-red-500/20 text-red-400 border-red-500/30">Yes</Badge> : <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">No</Badge>}
+                    </TableCell>
+                    <TableCell>
+                      {m.stuckLeads.length > 0 ? <span className="text-orange-400 font-bold">{m.stuckLeads.length}</span> : <span className="text-slate-500">0</span>}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </div>
+        </TabsContent>
 
-          <div className="space-y-3">
-            {report.members.map((member) => (
-              <MemberCard
-                key={member.userId}
-                member={member}
-                criteria={report.successCriteria}
-                window={report.windowMinutes}
-              />
-            ))}
+        {/* ── Sheet 3: Lead Stage Matrix ── */}
+        <TabsContent value="matrix">
+          <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden overflow-x-auto">
+            <Table>
+              <TableHeader className="bg-slate-800/80">
+                <TableRow>
+                  <TableHead>Employee</TableHead>
+                  {Object.values(STAGE_LABEL).map(label => <TableHead key={label} className="text-center text-xs">{label}</TableHead>)}
+                  <TableHead className="text-center font-bold">Total Active</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {report.members.map((m) => (
+                  <TableRow key={m.userId} className="border-slate-800">
+                    <TableCell className="font-medium text-white">{m.name}</TableCell>
+                    {Object.keys(STAGE_LABEL).map(stageKey => (
+                      <TableCell key={stageKey} className="text-center">
+                        {m.stageDistribution[stageKey] ? (
+                          <span className={`inline-flex items-center justify-center min-w-[24px] h-6 rounded px-1.5 text-xs font-medium ${stageColor(stageKey)}`}>
+                            {m.stageDistribution[stageKey]}
+                          </span>
+                        ) : (
+                          <span className="text-slate-600">-</span>
+                        )}
+                      </TableCell>
+                    ))}
+                    <TableCell className="text-center font-bold text-violet-400">{m.totalActiveLeads}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </div>
+        </TabsContent>
 
-          {report.members.length === 0 && (
-            <div className="text-center py-16 text-slate-600">
-              <Users className="w-10 h-10 mx-auto mb-3 opacity-30" />
-              <p>No team members found.</p>
-              <p className="text-xs mt-1">Make sure members with role "member" or "tcm" exist in the system.</p>
-            </div>
-          )}
-
-          {/* Footer timestamp */}
-          <div className="mt-8 text-center text-xs text-slate-700">
-            Report window: {new Date(report.windowStart).toLocaleTimeString("en-IN")} → Now ·
-            Auto-refreshes every {report.windowMinutes} minutes
+        {/* ── Sheet 4: Low Activity Alert ── */}
+        <TabsContent value="low-activity">
+          <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+            <Table>
+              <TableHeader className="bg-slate-800/80">
+                <TableRow>
+                  <TableHead>Employee</TableHead>
+                  <TableHead>Last Activity</TableHead>
+                  <TableHead>Idle Time</TableHead>
+                  <TableHead>Leads Added</TableHead>
+                  <TableHead>Total Clicks</TableHead>
+                  <TableHead>Stuck Stages</TableHead>
+                  <TableHead>Manager Action Required</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {report.members.filter(m => m.isInactive || m.stuckLeads.length > 0 || m.followUpsRequired.length > 0).map((m) => (
+                  <TableRow key={m.userId} className="border-slate-800 bg-red-950/5">
+                    <TableCell className="font-bold text-white">{m.name}</TableCell>
+                    <TableCell className="text-slate-300">{fmtTime(m.lastActionAt)}</TableCell>
+                    <TableCell>
+                      {m.isInactive ? (
+                        <span className="text-red-400 font-bold">{m.minutesSinceLastAction} min</span>
+                      ) : (
+                        <span className="text-emerald-400">{m.minutesSinceLastAction} min</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-slate-300">{m.totalLeadsAdded}</TableCell>
+                    <TableCell className="text-slate-300">{m.totalActions}</TableCell>
+                    <TableCell>
+                      {m.stuckLeads.map((s, i) => (
+                        <div key={i} className="text-xs text-orange-400 mb-1">
+                          {s.leadName} ({s.minutesInStage}m in {STAGE_LABEL[s.stage] || s.stage})
+                        </div>
+                      ))}
+                      {m.stuckLeads.length === 0 && <span className="text-slate-500">—</span>}
+                    </TableCell>
+                    <TableCell>
+                      {m.followUpsRequired.map((f, i) => (
+                        <div key={i} className="text-xs text-amber-400 mb-1">• {f}</div>
+                      ))}
+                      {m.isInactive && <div className="text-xs text-red-400 font-bold">• Check inactivity</div>}
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {report.members.filter(m => m.isInactive || m.stuckLeads.length > 0 || m.followUpsRequired.length > 0).length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-8 text-emerald-500 font-medium">All members active and no stuck leads! 🎉</TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
           </div>
-        </>
-      )}
+        </TabsContent>
+
+        {/* ── Sheet 5: Feature Usage Analytics ── */}
+        <TabsContent value="features">
+          <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+            <Table>
+              <TableHeader className="bg-slate-800/80">
+                <TableRow>
+                  <TableHead>Feature / Action</TableHead>
+                  <TableHead className="text-right">Total Clicks</TableHead>
+                  <TableHead className="text-right">Unique Users</TableHead>
+                  <TableHead className="text-right">Avg / User</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {report.featureUsage.map((f, i) => (
+                  <TableRow key={i} className="border-slate-800">
+                    <TableCell className="font-medium text-white">{f.feature}</TableCell>
+                    <TableCell className="text-right text-violet-400 font-mono">{f.totalClicks}</TableCell>
+                    <TableCell className="text-right text-slate-300">{f.uniqueUsers}</TableCell>
+                    <TableCell className="text-right text-slate-400">{f.avgPerUser}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </TabsContent>
+
+        {/* ── Sheet 6: End-of-Day Scoreboard ── */}
+        <TabsContent value="scoreboard">
+          <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+            <Table>
+              <TableHeader className="bg-slate-800/80">
+                <TableRow>
+                  <TableHead>Employee</TableHead>
+                  <TableHead className="text-right">Leads Added</TableHead>
+                  <TableHead className="text-right">Scheduled</TableHead>
+                  <TableHead className="text-right">Quotations</TableHead>
+                  <TableHead className="text-right">Visits</TableHead>
+                  <TableHead className="text-right">Bookings</TableHead>
+                  <TableHead className="text-right">CRM Completion %</TableHead>
+                  <TableHead className="text-right">Missing Owners</TableHead>
+                  <TableHead className="text-right">Missing Actions</TableHead>
+                  <TableHead className="text-center">Final Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {report.members.map((m) => (
+                  <TableRow key={m.userId} className="border-slate-800">
+                    <TableCell className="font-bold text-white">{m.name}</TableCell>
+                    <TableCell className="text-right text-slate-300">{m.totalLeadsAdded}</TableCell>
+                    <TableCell className={`text-right font-medium ${m.scheduledStageCount >= report.successCriteria.scheduledTarget ? "text-emerald-400" : "text-amber-400"}`}>{m.scheduledStageCount}</TableCell>
+                    <TableCell className={`text-right font-medium ${m.totalQuotations >= report.successCriteria.quotationTarget ? "text-emerald-400" : "text-amber-400"}`}>{m.totalQuotations}</TableCell>
+                    <TableCell className="text-right text-violet-400 font-bold">{m.visitsToday || 0}</TableCell>
+                    <TableCell className="text-right text-emerald-400 font-bold">{m.bookingsToday || 0}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <span className={m.crmCompletionPct >= 100 ? "text-emerald-400" : "text-amber-400"}>{m.crmCompletionPct || 0}%</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className={`text-right ${m.missingOwners > 0 ? "text-red-400 font-bold" : "text-slate-500"}`}>{m.missingOwners || 0}</TableCell>
+                    <TableCell className={`text-right ${m.missingNextActions > 0 ? "text-red-400 font-bold" : "text-slate-500"}`}>{m.missingNextActions || 0}</TableCell>
+                    <TableCell className="text-center">
+                      {m.allCriteriaMet ? (
+                        <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">Target Met</Badge>
+                      ) : (
+                        <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30">Pending</Badge>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </TabsContent>
+
+      </Tabs>
     </div>
   );
 }
