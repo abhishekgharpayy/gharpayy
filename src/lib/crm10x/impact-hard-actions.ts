@@ -28,8 +28,8 @@ export function mapNbaToFocusAction(
   if (nbaVerb === "book") return "book";
   if (nbaVerb === "revive") return "revive";
   if (column === "booked") return "checkin";
-  if (column === "quoted" && hasQuote) return "quote";
-  if (column === "scheduled" || column === "onTour") return "schedule";
+  if (column === "decisionPending" && hasQuote) return "quote";
+  if (column === "tourScheduled") return "schedule";
   return "call-hot";
 }
 
@@ -75,7 +75,7 @@ export function pickLeadsForHardAction(
         active,
         (e) =>
           e.nba.verb === "schedule" ||
-          ((e.column === "inbox" || e.lead.stage === "new" || e.lead.stage === "contacted") && !e.openTour),
+          ((e.column === "superHot" || e.column === "followUp" || e.lead.stage === "new" || e.lead.stage === "contacted") && !e.openTour),
       );
       break;
     case "quote":
@@ -83,7 +83,7 @@ export function pickLeadsForHardAction(
         active,
         (e) =>
           e.nba.verb === "quote" ||
-          e.column === "quoted" ||
+          e.column === "decisionPending" ||
           e.lead.stage === "tour-done" ||
           e.lead.stage === "quote-sent",
       );
@@ -125,9 +125,7 @@ export function classifyImpactPriority(e: ImpactEnrichedPick): ImpactPriority {
   if (e.column === "booked" || e.lead.stage === "booked") return "won";
   if (e.nba.pressure === "escalate" || e.tourBand === "fire") return "now";
   if (
-    e.tourBand === "confirm" ||
-    (e.openTour && isTodayIST(e.openTour.scheduledAt)) ||
-    e.column === "onTour"
+    (e.openTour && isTodayIST(e.openTour.scheduledAt))
   ) {
     return "today";
   }

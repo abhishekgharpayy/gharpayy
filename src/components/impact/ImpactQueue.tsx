@@ -9,8 +9,13 @@ import { ImpactManagerEscalations } from "@/components/impact/ImpactManagerEscal
 import { ImpactStageMoveDialog } from "@/components/impact/ImpactStageMoveDialog";
 import {
   ImpactFiltersPopover,
+  ImpactQueueSwitcher,
+  ImpactActiveFiltersSummary,
   ImpactFocusPopover,
   ImpactQueueMetaBar,
+  ImpactDateDropdown,
+  type QueueFilters,
+  defaultQueueFilters,
 } from "@/components/impact/ImpactQueueHeaderControls";
 import {
   COLUMNS,
@@ -18,6 +23,7 @@ import {
   COLUMN_STAGE_TARGET,
   type ImpactEnriched,
 } from "@/components/impact/impact-queue-types";
+import { ImpactPerformanceView } from "./ImpactPerformanceView";
 import {
   type QueueChipFilter,
   type ViewMode,
@@ -58,6 +64,7 @@ import {
   type Quotation,
 } from "@/lib/crm10x/quotations";
 import { useTcmContacts } from "@/lib/crm10x/tcm-contacts";
+import { deriveWorkflowState, formatWorkflowLabel } from "@/lib/crm10x/workflow-navigation";
 import { useLeadInterests, useToggleInterest } from "@/lib/crm10x/lead-interests";
 import { useCRM10x } from "@/lib/crm10x/store";
 import {
@@ -102,6 +109,12 @@ import {
 } from "@/lib/crm10x/impact-scoring";
 import { QuotationBuilder } from "@/components/crm10x/QuotationBuilder";
 import { SmartDossier } from "@/components/crm10x/SmartDossier";
+import {
+  calculateLastActivityAt,
+  deriveImpactStage,
+  derivePriorityScore,
+  deriveNextAction,
+} from "@/lib/crm10x/impact-stage-derivation";
 import { CheckInPanel } from "@/components/checkins/CheckInPanel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -176,6 +189,8 @@ import {
   MessageSquareCode,
   ArchiveX,
   UserRound,
+  ArrowRight,
+  BarChart3,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useMountedNow } from "@/hooks/use-now";
@@ -186,6 +201,7 @@ import {
   hasCapturedLeadName,
   pickRelevantActiveTour,
   resolveBestLeadName,
+  profileCompletionScore,
 } from "@/lib/lead-helpers";
 
 /* ================================================================== */
@@ -219,19 +235,23 @@ function phonesMatch(a: string, b: string): boolean {
 }
 
 const COLUMN_HELP: Record<ColumnKey, string> = {
-  inbox: "New/contacted leads without an active tour or quote appear here.",
-  scheduled: "Tours that are scheduled and need confirmation or preparation.",
-  onTour: "Tours happening today or currently in progress.",
-  quoted: "Leads where a quote has been sent and payment/follow-up is pending.",
-  booked: "Leads converted to booking.",
+  superHot: "New leads, fresh responses, urgent callbacks, high-intent prospects.",
+  followUp: "Active conversations, leads requiring next touchpoint.",
+  tourScheduled: "Tours booked, upcoming visits.",
+  stuck: "No activity for configurable period, blocked or delayed progression.",
+  decisionPending: "Tour completed, quote shared, awaiting customer decision.",
+  booked: "Successfully converted customers.",
+  notNeeded: "Lost leads, invalid leads, duplicate leads, not interested.",
 };
 
 const COLUMN_HEADER_TONE: Record<ColumnKey, string> = {
-  inbox: "border-info/35 bg-info/5 text-info",
-  scheduled: "border-accent/35 bg-accent/5 text-accent",
-  onTour: "border-warning/40 bg-warning/5 text-warning",
-  quoted: "border-primary/35 bg-primary/5 text-primary",
-  booked: "border-success/40 bg-success/5 text-success",
+  superHot: "border-rose-500/40 bg-rose-500/10 text-rose-600",
+  followUp: "border-blue-500/40 bg-blue-500/10 text-blue-600",
+  tourScheduled: "border-indigo-500/40 bg-indigo-500/10 text-indigo-600",
+  stuck: "border-orange-500/40 bg-orange-500/10 text-orange-600",
+  decisionPending: "border-purple-500/40 bg-purple-500/10 text-purple-600",
+  booked: "border-emerald-500/40 bg-emerald-500/10 text-emerald-600",
+  notNeeded: "border-slate-400/40 bg-slate-400/10 text-slate-600",
 };
 function isToday(iso: string) {
   return isTodayIST(iso);
@@ -319,12 +339,13 @@ function normalizeQueueLead(lead: Lead): Lead {
 }
 
 function shouldShowInImpactQueue(lead: Lead, tours: Tour[], quotes: Quotation[]): boolean {
-  if (lead.stage === "dropped") return false;
   if (!hasCapturedLeadName(lead)) return false;
 
   const leadTours = tours.filter((tour) => tour.leadId === lead.id);
   return true;
 }
+
+// Removed computeColumn as it's replaced by deriveImpactStage
 
 export function drawerTabForLeadFocusAction(action?: LeadFocusAction | null) {
   if (action === "quote") return "quote";
@@ -338,6 +359,8 @@ export function useImpactStateForLead(leadInput?: Lead | null) {
   const tours = useApp((s) => s.tours);
   const opsProperties = useApp((s) => s.properties);
   const fallbackTcms = useApp((s) => s.tcms);
+  const allCalls = useCRM10x((s) => s.calls);
+  const allFollowUps = useApp((s) => s.followUps);
   const { tcms: activeTcms } = useActiveTcMs();
   const tcmOptions = activeTcms.length > 0 ? activeTcms : fallbackTcms;
   const { data: leadQuotes = [] } = useQuotationsQuery(leadInput?.id);
@@ -353,22 +376,15 @@ export function useImpactStateForLead(leadInput?: Lead | null) {
       .filter((q) => q.leadId === lead.id)
       .sort((a, b) => +new Date(b.sentAt) - +new Date(a.sentAt))[0];
 
-    let column: ColumnKey = "inbox";
-    if (lead.stage === "booked") column = "booked";
-    else if (lead.stage === "quote-sent" || lead.stage === "negotiation") column = "quoted";
-    else if (lastQuote && (lastQuote.status === "sent" || lastQuote.status === "paid"))
-      column = "quoted";
-    else if (openTour && isToday(openTour.scheduledAt)) column = "onTour";
-    else if (
-      openTour ||
-      lead.stage === "tour-scheduled" ||
-      lead.stage === "on-tour" ||
-      lead.stage === "tour-done"
-    )
-      column = "scheduled";
-
+    const lastActivityAt = calculateLastActivityAt(lead, allCalls, allFollowUps, tours);
     const nba = computeNBA(lead, openTour, lastQuote);
-    const { score } = scoreLead(lead, openTour, lastQuote);
+    const derivedStage = deriveImpactStage(lead, lastActivityAt, openTour, lastQuote);
+    const column = derivedStage.stage;
+    const stageDebugReason = derivedStage.reason;
+    const score = derivePriorityScore(lead, lastActivityAt, openTour, lastQuote);
+    const derivedNextAction = deriveNextAction(lead, lastActivityAt, openTour, lastQuote);
+    const nextActionReason = derivedNextAction.reason;
+    
     const catalogProperty = openTour
       ? resolvePropertyById(openTour.propertyId, opsProperties)
       : undefined;
@@ -516,13 +532,13 @@ export function ImpactQueue() {
   const leadsSyncStatus = useLeadsSync((s) => s.status);
   const { data: quotes = [] } = useQuotationsQuery();
 
-  const [tcmFilter, setTcmFilter] = useState<string>(role === "tcm" ? currentTcmId : "all");
+  const profiles = useCRM10x((s) => s.profiles);
+  const allCalls = useCRM10x((s) => s.calls);
+  const allObjections = useCRM10x((s) => s.objections);
+  const allFollowUps = useApp((s) => s.followUps);
   const [query, setQuery] = useState("");
-  const [chipFilter, setChipFilter] = useState<QueueChipFilter>(() => initialChipFilter(role));
-  const [areaFilter, setAreaFilter] = useState<string>("all");
-  const [typeFilter, setTypeFilter] = useState<string>("all");
-  const [roomFilter, setRoomFilter] = useState<string>("all");
-  const [needFilter, setNeedFilter] = useState<string>("all");
+  const [queueFilters, setQueueFilters] = useState<QueueFilters>(defaultQueueFilters);
+  const tcmFilter = canSelectTcmScope ? "all" : selfScopeId || "all";
   const [view, setView] = useState<ViewMode>(readStoredView);
   const [stageFilter, setStageFilter] = useState<string>("all");
   const [focusLeadId, setFocusLeadId] = useState<string | null>(null);
@@ -540,19 +556,7 @@ export function ImpactQueue() {
 
   useImpactMorningDigest(() => setDigestOpen(true));
 
-  useEffect(() => {
-    if (!canSelectTcmScope && selfScopeId && tcmFilter !== selfScopeId) {
-      setTcmFilter(selfScopeId);
-    }
-  }, [canSelectTcmScope, selfScopeId, tcmFilter]);
-
-  useEffect(() => {
-    if (!canSelectTcmScope) return;
-    if (tcmFilter === "all") return;
-    if (!memberScopeOptions.some((m) => m.id === tcmFilter)) {
-      setTcmFilter("all");
-    }
-  }, [canSelectTcmScope, memberScopeOptions, tcmFilter]);
+  // removed assignment use effects
 
   const [fixing, setFixing] = useState(false);
   const handleFixProperties = async () => {
@@ -615,6 +619,9 @@ export function ImpactQueue() {
     column: ColumnKey;
     tourBand?: TourQueueBand;
     tourTimeHint?: string;
+    stageDebugReason?: string;
+    nextActionReason?: string;
+    workflow?: import("@/lib/crm10x/workflow-navigation").WorkflowNavigationState;
   };
 
   const enriched: Enriched[] = useMemo(() => {
@@ -644,33 +651,25 @@ export function ImpactQueue() {
           .filter((q) => q.leadId === lead.id)
           .sort((a, b) => +new Date(b.sentAt) - +new Date(a.sentAt))[0];
 
-        let column: ColumnKey = "inbox";
-        if (lead.stage === "booked") column = "booked";
-        else if (lead.stage === "quote-sent" || lead.stage === "negotiation") column = "quoted";
-        else if (lastQuote && (lastQuote.status === "sent" || lastQuote.status === "paid"))
-          column = "quoted";
-        else if (openTour && isToday(openTour.scheduledAt)) column = "onTour";
-        else if (
-          openTour ||
-          lead.stage === "tour-scheduled" ||
-          lead.stage === "on-tour" ||
-          lead.stage === "tour-done"
-        )
-          column = "scheduled";
-
+        const lastActivityAt = calculateLastActivityAt(lead, allCalls, useApp.getState().followUps, tours);
         const nba = computeNBA(lead, openTour, lastQuote);
-        const { score } = scoreLead(lead, openTour, lastQuote);
+        const derivedStage = deriveImpactStage(lead, lastActivityAt, openTour, lastQuote);
+        const column = derivedStage.stage;
+        
+        const workflow = deriveWorkflowState(lead, openTour, !!lastQuote, false, lastActivityAt);
+        const score = workflow.sortingScore;
+        
         const tourBand =
-          column === "scheduled" || column === "onTour"
+          column === "tourScheduled"
             ? classifyTourBand(column, openTour, lead, nba, at)
             : undefined;
         const tourTimeHint =
-          openTour && (column === "scheduled" || column === "onTour")
+          openTour && column === "tourScheduled"
             ? (buildTourTimeHint(openTour, at) ?? undefined)
             : undefined;
-        return { lead, openTour, lastQuote, nba, score, column, tourBand, tourTimeHint };
+        return { lead, openTour, lastQuote, nba, score, column, tourBand, tourTimeHint, workflow };
       });
-  }, [leads, tours, quotes, tcmFilter, query, tick, canSelectTcmScope]);
+  }, [leads, tours, quotes, tcmFilter, query, tick, canSelectTcmScope, allCalls]);
 
   /* Auto-promote tour-scheduled → on-tour when tour day is today (IST). */
   const autoPromotedRef = useRef(new Set<string>());
@@ -704,33 +703,150 @@ export function ImpactQueue() {
     return Array.from(s).filter(Boolean).sort();
   }, [enriched]);
 
-  const filtered = useMemo(() => {
-    return enriched.filter((e) => {
-      if (chipFilter === "hot" && e.lead.intent !== "hot") return false;
-      if (chipFilter === "warm" && e.lead.intent !== "warm") return false;
-      if (chipFilter === "cold" && e.lead.intent !== "cold") return false;
-      if (chipFilter === "overdue" && e.nba.pressure !== "escalate") return false;
-      if (chipFilter === "tour-today" && !(e.openTour && isToday(e.openTour.scheduledAt)))
-        return false;
-      if (chipFilter === "quote-pending" && e.lastQuote?.status !== "sent") return false;
+  const { baseFiltered, viewCounts, filtered } = useMemo(() => {
+    const at = Date.now();
+    let dateRangeStart = 0;
+    let dateRangeEnd = Infinity;
+    if (queueFilters.dateRange === "today") dateRangeStart = at - 24 * 60 * 60 * 1000;
+    else if (queueFilters.dateRange === "yesterday") {
+      dateRangeStart = at - 48 * 60 * 60 * 1000;
+      dateRangeEnd = at - 24 * 60 * 60 * 1000;
+    }
+    else if (queueFilters.dateRange === "last7") dateRangeStart = at - 7 * 24 * 60 * 60 * 1000;
+    else if (queueFilters.dateRange === "last30") dateRangeStart = at - 30 * 24 * 60 * 60 * 1000;
+    else if (queueFilters.dateRange === "custom" && queueFilters.customDate) {
+      const [fromStr, toStr] = queueFilters.customDate.split(":");
+      dateRangeStart = fromStr ? new Date(fromStr).getTime() : 0;
+      dateRangeEnd = toStr ? new Date(toStr).getTime() + 86400000 : Infinity;
+    }
+
+    const baseFiltered = enriched.filter((e) => {
+      // 1. DATE RANGE (Activity-based)
+      if (queueFilters.dateRange !== "all") {
+        let hadActivity = false;
+        const checkDates = [
+          e.lead.createdAt,
+          e.lead.updatedAt,
+          e.lead.stageEnteredAt,
+          e.lead.lastContactAt,
+          e.openTour?.scheduledAt,
+          e.openTour?.updatedAt,
+          e.lastQuote?.sentAt
+        ];
+        const leadCalls = allCalls.filter(c => c.leadId === e.lead.id);
+        leadCalls.forEach(c => checkDates.push(c.ts));
+        
+        for (const dStr of checkDates) {
+          if (dStr) {
+            const ms = new Date(dStr).getTime();
+            if (ms >= dateRangeStart && ms <= dateRangeEnd) {
+               hadActivity = true;
+               break;
+            }
+          }
+        }
+        if (!hadActivity) return false;
+      }
+
       if (e.lead.stage === "dropped") return false;
 
-      if (areaFilter !== "all") {
-        const lowerAreaFilter = (areaFilter || "").toLowerCase();
-        const preferredAreaMatch = (e.lead.preferredArea || "").toLowerCase() === lowerAreaFilter;
-        const areasMatch = (e.lead.areas || []).map((a) => (a || "").toLowerCase()).includes(lowerAreaFilter);
-        if (!preferredAreaMatch && !areasMatch) return false;
+      // 2. QUICK FILTERS
+      if (queueFilters.quickFilters.length > 0) {
+        let qPass = false;
+        for (const qf of queueFilters.quickFilters) {
+          if (qf === "tour-today" && e.openTour && isToday(e.openTour.scheduledAt)) qPass = true;
+          if (qf === "feedback-missing" && e.workflow?.pendingItem === "tour-feedback-missing") qPass = true;
+          if (qf === "quote-pending" && e.workflow?.pendingItem === "quote-missing") qPass = true;
+          if (qf === "movein-0-7") {
+             const days = e.lead.moveInDate ? (new Date(e.lead.moveInDate).getTime() - at) / 86400000 : -1;
+             if (days >= 0 && days <= 7) qPass = true;
+          }
+          if (qf === "no-activity-48h") {
+             const ms = e.lead.lastContactAt ? new Date(e.lead.lastContactAt).getTime() : 0;
+             if (at - ms > 48 * 3600000) qPass = true;
+          }
+          if (qf === "property-not-selected") {
+             const selType = (e.lead as any).qualification?.propertySelection?.type || (e.lead as any).propertySelection?.type;
+             if (!selType) qPass = true;
+          }
+        }
+        if (!qPass) return false;
       }
-      if (typeFilter !== "all" && (e.lead.type || "").toLowerCase() !== (typeFilter || "").toLowerCase())
-        return false;
-      if (roomFilter !== "all" && (e.lead.room || "").toLowerCase() !== (roomFilter || "").toLowerCase())
-        return false;
-      if (needFilter !== "all" && (e.lead.need || "").toLowerCase() !== (needFilter || "").toLowerCase())
-        return false;
+
+      // 5. AREA
+      const areaFilter = queueFilters.area;
+      if (
+        areaFilter !== "all" &&
+        e.lead.preferredArea?.toLowerCase() !== areaFilter.toLowerCase() &&
+        !e.lead.areas?.map((a) => a.toLowerCase()).includes(areaFilter.toLowerCase())
+      ) return false;
+
+      // 6. ADVANCED
+      const adv = queueFilters.advanced;
+      if (adv.type !== "all" && e.lead.type?.toLowerCase() !== adv.type.toLowerCase()) return false;
+      if (adv.room !== "all" && e.lead.room?.toLowerCase() !== adv.room.toLowerCase()) return false;
+      if (adv.need !== "all" && e.lead.need?.toLowerCase() !== adv.need.toLowerCase()) return false;
+
+      if (adv.qualification.length > 0) {
+        let pass = false;
+        const p = profiles[e.lead.id];
+        const score = profileCompletionScore(p as any);
+        if (adv.qualification.includes("profile-complete") && score >= 80) pass = true;
+        if (adv.qualification.includes("profile-incomplete") && score < 80) pass = true;
+        if (adv.qualification.includes("budget-verified") && p?.verifiedBudget) pass = true;
+        if (adv.qualification.includes("budget-unverified") && !p?.verifiedBudget) pass = true;
+        if (!pass) return false;
+      }
+
+      if (adv.objections.length > 0) {
+         let pass = false;
+         const leadObjections = allObjections.filter(o => o.leadId === e.lead.id);
+         for (const reqCode of adv.objections) {
+           if (reqCode === "other") {
+             if (leadObjections.some(o => !["food-not-available", "price-too-high", "location-not-suitable", "room-too-small", "needs-family-approval"].includes(o.code))) pass = true;
+           } else {
+             if (leadObjections.some(o => o.code === reqCode)) pass = true;
+           }
+         }
+         if (!pass) return false;
+      }
 
       return true;
     });
-  }, [enriched, chipFilter, areaFilter, typeFilter, roomFilter, needFilter]);
+
+    const isMatch = (e: Enriched, view: import("@/components/impact/impact-queue-types").ActiveView) => {
+      if (view === "all") return true;
+      if (view === "tours-today") return e.openTour && isToday(e.openTour.scheduledAt);
+      if (view === "feedback-missing") return e.workflow?.pendingItem === "tour-feedback-missing";
+      if (view === "quote-pending") return e.workflow?.pendingItem === "quote-missing";
+      if (view === "movein-0-7") {
+        const days = e.lead.moveInDate ? (new Date(e.lead.moveInDate).getTime() - at) / 86400000 : -1;
+        return days >= 0 && days <= 7;
+      }
+      if (view === "no-activity-48h") {
+        const ms = e.lead.lastContactAt ? new Date(e.lead.lastContactAt).getTime() : 0;
+        return (at - ms > 48 * 3600000);
+      }
+      return false;
+    };
+
+    const counts: Record<import("@/components/impact/impact-queue-types").ActiveView, number> = {
+      "all": 0, "tours-today": 0, "feedback-missing": 0, "quote-pending": 0, "movein-0-7": 0, "no-activity-48h": 0
+    };
+
+    for (const e of baseFiltered) {
+      if (isMatch(e, "all")) counts["all"]++;
+      if (isMatch(e, "tours-today")) counts["tours-today"]++;
+      if (isMatch(e, "feedback-missing")) counts["feedback-missing"]++;
+      if (isMatch(e, "quote-pending")) counts["quote-pending"]++;
+      if (isMatch(e, "movein-0-7")) counts["movein-0-7"]++;
+      if (isMatch(e, "no-activity-48h")) counts["no-activity-48h"]++;
+    }
+
+    const filtered = baseFiltered.filter((e) => isMatch(e, queueFilters.activeView));
+
+    return { baseFiltered, viewCounts: counts, filtered };
+  }, [enriched, queueFilters, allCalls, profiles, allObjections, selfScopeId]);
 
   const stackSorted = useMemo(() => {
     const sorted = [...filtered].sort((a, b) => b.score - a.score);
@@ -740,27 +856,17 @@ export function ImpactQueue() {
 
   const boardBuckets = useMemo(() => {
     const b: Record<ColumnKey, ImpactEnriched[]> = {
-      inbox: [],
-      scheduled: [],
-      onTour: [],
-      quoted: [],
+      superHot: [],
+      followUp: [],
+      tourScheduled: [],
+      stuck: [],
+      decisionPending: [],
       booked: [],
+      notNeeded: [],
     };
     filtered.forEach((e) => b[e.column].push(e));
     const at = Date.now();
-    (["scheduled", "onTour"] as const).forEach((key) => {
-      b[key].sort((a, bb) => {
-        const bandA = a.tourBand ?? classifyTourBand(key, a.openTour, a.lead, a.nba, at);
-        const bandB = bb.tourBand ?? classifyTourBand(key, bb.openTour, bb.lead, bb.nba, at);
-        const orderA = TOUR_BAND_ORDER.indexOf(bandA);
-        const orderB = TOUR_BAND_ORDER.indexOf(bandB);
-        if (orderA !== orderB) return orderA - orderB;
-        const ta = a.openTour ? +new Date(a.openTour.scheduledAt) : Infinity;
-        const tb = bb.openTour ? +new Date(bb.openTour.scheduledAt) : Infinity;
-        return ta - tb;
-      });
-    });
-    (["inbox", "quoted", "booked"] as ColumnKey[]).forEach((key) => {
+    (Object.keys(b) as ColumnKey[]).forEach((key) => {
       b[key].sort((a, bb) => bb.score - a.score);
     });
     return b;
@@ -866,135 +972,113 @@ export function ImpactQueue() {
       <ImpactApiHealthBanner />
 
       {/* ---------------- Command deck ---------------- */}
-      <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-        {/* Row 1: heading left | controls right */}
-        <div className="flex flex-wrap items-center justify-between gap-2 px-4 pt-3 pb-1">
-          <h1 className="text-xl font-display font-bold shrink-0">Impact Queue</h1>
+      <div className="rounded-xl border border-border bg-card shadow-sm sticky top-0 z-30 flex flex-col">
+        <div className="flex flex-col gap-3 px-4 pt-3 pb-3">
+          {/* Row 1: heading left | controls right */}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h1 className="text-xl font-display font-bold shrink-0">Impact Queue</h1>
 
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <TenXCommandBar
-              lastRerank={lastRerank}
-              escalations={escalations}
-              counters={counters}
-              targets={targets}
-              stackSorted={stackSorted}
-              tick={tick}
-              digestOpen={digestOpen}
-              onDigestOpenChange={setDigestOpen}
-              onFocusLead={(leadId) => {
-                setFocusLeadId(leadId);
-                setFocusAction("auto");
-              }}
-            />
-            <QuickAddLead
-              defaultTcmId={tcmFilter !== "all" ? tcmFilter : currentTcmId}
-              open={quickAddOpen}
-              onOpenChange={setQuickAddOpen}
-              tcmOptions={tcmOptions}
-              onLeadSaved={() => {
-                setChipFilter("all");
-                setQuery("");
-                setView("board");
-              }}
-            />
-            <div className="relative">
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-              <Input
-                className={`h-8 pl-7 text-[11px] w-48 sm:w-56 bg-background ${query.trim() ? "pr-7" : ""}`}
-                placeholder="Search lead or phone"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <TenXCommandBar
+                lastRerank={lastRerank}
+                escalations={escalations}
+                counters={counters}
+                targets={targets}
+                stackSorted={stackSorted}
+                tick={tick}
+                digestOpen={digestOpen}
+                onDigestOpenChange={setDigestOpen}
+                onFocusLead={(leadId) => {
+                  setFocusLeadId(leadId);
+                  setFocusAction("auto");
+                }}
               />
-              {query.trim() && (
-                <button
-                  type="button"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  aria-label="Clear search"
-                  onClick={() => setQuery("")}
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              )}
-            </div>
-            <ImpactFiltersPopover
-              filters={{
-                chip: chipFilter,
-                area: areaFilter,
-                type: typeFilter,
-                room: roomFilter,
-                need: needFilter,
-              }}
-              uniqueAreas={uniqueAreas}
-              onApply={(next) => {
-                setChipFilter(next.chip);
-                setAreaFilter(next.area);
-                setTypeFilter(next.type);
-                setRoomFilter(next.room);
-                setNeedFilter(next.need);
-              }}
-              onOpenMessageLab={() => setMessageLabOpen(true)}
-            />
-            <ImpactFocusPopover
-              tcmFilter={tcmFilter}
-              tcmOptions={tcmOptions}
-              onFilterArea={(area) => setAreaFilter(area)}
-            />
-            {!canSelectTcmScope ? (
-              <div className="h-8 min-w-[8rem] rounded-md border border-border bg-background px-3 py-2 text-[11px] font-semibold text-foreground flex items-center gap-1.5">
-                {(() => {
-                  const me = tcmOptions.find((t: any) => t.id === selfScopeId);
-                  const name =
-                    (me as any)?.fullName ?? (me as any)?.name ?? authUser?.fullName ?? "My queue";
-                  const zone = (me as any)?.zones?.[0] ?? (me as any)?.zone ?? "";
-                  return zone ? (
-                    <>
-                      <span>{name}</span>
-                      <span className="text-muted-foreground font-normal">· {zone}</span>
-                    </>
-                  ) : (
-                    name
-                  );
-                })()}
+              <QuickAddLead
+                defaultTcmId={tcmFilter !== "all" ? tcmFilter : currentTcmId}
+                open={quickAddOpen}
+                onOpenChange={setQuickAddOpen}
+                tcmOptions={tcmOptions}
+                onLeadSaved={() => {
+                  setQueueFilters(defaultQueueFilters);
+                  setQuery("");
+                  setView("board");
+                }}
+              />
+              <div className="relative">
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  className={`h-8 pl-7 text-[11px] w-48 sm:w-56 bg-background ${query.trim() ? "pr-7" : ""}`}
+                  placeholder="Search lead or phone"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                />
+                {query.trim() && (
+                  <button
+                    type="button"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    aria-label="Clear search"
+                    onClick={() => setQuery("")}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
               </div>
-            ) : (
-              <Select value={tcmFilter} onValueChange={setTcmFilter}>
-                <SelectTrigger className="h-8 text-[11px] w-40 bg-background">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all" className="text-[11px]">
-                    All Members
-                  </SelectItem>
-                  {memberScopeOptions.map((m) => (
-                    <SelectItem key={m.id} value={m.id} className="text-[11px]">
-                      {memberOptionLabel(m)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-            <div className="flex rounded-md border border-border overflow-hidden bg-background">
-              <button
-                className={`h-8 px-2 text-[9px] uppercase tracking-wider font-semibold flex items-center gap-1 ${view === "stack" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground"}`}
-                onClick={() => setView("stack")}
-              >
-                <ListOrdered className="h-3 w-3" /> Stack
-              </button>
-              <button
-                className={`h-8 px-2 text-[9px] uppercase tracking-wider font-semibold flex items-center gap-1 ${view === "board" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground"}`}
-                onClick={() => setView("board")}
-              >
-                <LayoutGrid className="h-3 w-3" /> Board
-              </button>
+              
+              <div className="flex items-center gap-1.5">
+                <ImpactDateDropdown 
+                  filters={queueFilters}
+                  onChange={(dateRange, customDate) => setQueueFilters(prev => ({ ...prev, dateRange, customDate }))}
+                />
+                <ImpactFiltersPopover
+                  filters={queueFilters}
+                  uniqueAreas={uniqueAreas}
+                  tcms={tcmOptions.map(t => ({ id: t.id, name: t.name || t.fullName }))}
+                  onApply={setQueueFilters}
+                  onOpenMessageLab={() => setMessageLabOpen(true)}
+                />
+                <ImpactActiveFiltersSummary 
+                  filters={queueFilters} 
+                  tcms={tcmOptions.map(t => ({ id: t.id, name: t.name || t.fullName }))} 
+                />
+              </div>
+
+              <ImpactFocusPopover
+                tcmFilter={tcmFilter}
+                tcmOptions={tcmOptions}
+                onFilterArea={(area) => setQueueFilters(prev => ({...prev, area}))}
+              />
+              
+              <div className="flex bg-muted/50 p-1 rounded-lg border border-border/50 shadow-inner">
+                <button
+                  className={`h-7 px-3 text-[10px] uppercase tracking-wider font-semibold flex items-center gap-1.5 rounded-md transition-all ${view === "stack" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                  onClick={() => { setView("stack"); writeStoredView("stack"); }}
+                >
+                  <ListOrdered className="h-3.5 w-3.5" /> Stack
+                </button>
+                <button
+                  className={`h-7 px-3 text-[10px] uppercase tracking-wider font-semibold flex items-center gap-1.5 rounded-md transition-all ${view === "board" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                  onClick={() => { setView("board"); writeStoredView("board"); }}
+                >
+                  <LayoutGrid className="h-3.5 w-3.5" /> Board
+                </button>
+                <button
+                  className={`h-7 px-3 text-[10px] uppercase tracking-wider font-semibold flex items-center gap-1.5 rounded-md transition-all ${view === "performance" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                  onClick={() => { setView("performance"); writeStoredView("performance"); }}
+                >
+                  <BarChart3 className="h-3.5 w-3.5" /> Performance
+                </button>
+              </div>
+
             </div>
           </div>
-        </div>
 
-        {/* Row 2: subtitle */}
-        <div className="px-4 pb-2.5">
-          <p className="text-[11px] text-muted-foreground">
-            One Screen Conversion Engine (Lead → Booked)
-          </p>
+          <div className="w-full pt-1">
+            <ImpactQueueSwitcher 
+               activeView={queueFilters.activeView} 
+               counts={viewCounts} 
+               onChange={(val) => setQueueFilters(prev => ({...prev, activeView: val}))} 
+            />
+          </div>
         </div>
 
         <div className="border-t border-border/70 px-3 py-2 bg-muted/10">
@@ -1027,60 +1111,6 @@ export function ImpactQueue() {
 
       {/* ---------------- 10x Command Bar ---------------- */}
 
-      {(chipFilter !== "all" ||
-        query.trim() ||
-        areaFilter !== "all" ||
-        typeFilter !== "all" ||
-        roomFilter !== "all" ||
-        needFilter !== "all") && (
-        <div className="flex flex-wrap items-center gap-2 text-[11px] rounded-md border border-border bg-muted/30 px-2.5 py-1.5">
-          <span className="text-muted-foreground">Showing:</span>
-          {chipFilter !== "all" && (
-            <Badge variant="outline" className="text-[10px]">
-              {CHIP_LABELS[chipFilter]}
-            </Badge>
-          )}
-          {areaFilter !== "all" && (
-            <Badge variant="outline" className="text-[10px]">
-              {areaFilter}
-            </Badge>
-          )}
-          {typeFilter !== "all" && (
-            <Badge variant="outline" className="text-[10px]">
-              {typeFilter}
-            </Badge>
-          )}
-          {roomFilter !== "all" && (
-            <Badge variant="outline" className="text-[10px]">
-              {roomFilter}
-            </Badge>
-          )}
-          {needFilter !== "all" && (
-            <Badge variant="outline" className="text-[10px]">
-              {needFilter}
-            </Badge>
-          )}
-          {query.trim() && (
-            <Badge variant="outline" className="text-[10px]">
-              “{query.trim()}”
-            </Badge>
-          )}
-          <button
-            type="button"
-            className="text-accent font-semibold hover:underline"
-            onClick={() => {
-              setChipFilter("all");
-              setAreaFilter("all");
-              setTypeFilter("all");
-              setRoomFilter("all");
-              setNeedFilter("all");
-              setQuery("");
-            }}
-          >
-            Reset filters
-          </button>
-        </div>
-      )}
 
       {booting && leads.length === 0 && leadsSyncStatus !== "error" && (
         <div className="rounded-lg border border-border bg-card p-8 text-center space-y-2 animate-pulse">
@@ -1093,7 +1123,17 @@ export function ImpactQueue() {
 
       {/* ---------------- View ---------------- */}
       {!booting || leads.length > 0 ? (
-        view === "stack" ? (
+        view === "performance" ? (
+          <ImpactPerformanceView 
+            leads={leads} 
+            tours={tours} 
+            quotes={quotes} 
+            activities={allCalls as any} 
+            followUps={allFollowUps as any} 
+            tcms={tcms}
+            tcmOptions={tcmOptions}
+          />
+        ) : view === "stack" ? (
           <div className="space-y-2">
             {/* Stage filter bar — stack view only */}
             <div className="flex flex-wrap items-center gap-1.5">
@@ -1103,11 +1143,7 @@ export function ImpactQueue() {
               {(
                 [
                   { key: "all", label: "All stages" },
-                  { key: "inbox", label: "Inbox" },
-                  { key: "scheduled", label: "Tour scheduled" },
-                  { key: "onTour", label: "On tour" },
-                  { key: "quoted", label: "Quote sent" },
-                  { key: "booked", label: "Booked" },
+                  ...COLUMNS.map(c => ({ key: c.key, label: c.label }))
                 ] as const
               ).map((s) => (
                 <button
@@ -1132,35 +1168,27 @@ export function ImpactQueue() {
             {stackSorted.length === 0 && (
               <div className="rounded-lg border border-border bg-card p-10 text-center text-xs text-muted-foreground space-y-2">
                 <p>
-                  {chipFilter !== "all" ||
-                  query.trim() ||
-                  areaFilter !== "all" ||
-                  typeFilter !== "all" ||
-                  roomFilter !== "all" ||
-                  needFilter !== "all"
-                    ? "No leads match your filters."
+                  {query.trim()
+                    ? "No leads match your search."
+                    : queueFilters.activeView === "feedback-missing" ? "No Feedback Missing Leads"
+                    : queueFilters.activeView === "quote-pending" ? "No Quotes Pending"
+                    : queueFilters.activeView === "tours-today" ? "No Tours Scheduled Today"
+                    : queueFilters.activeView === "movein-0-7" ? "No Move-Ins < 7 Days"
+                    : queueFilters.activeView === "no-activity-48h" ? "No Stale Leads (> 48h No Activity)"
                     : "Queue clear. Add a lead or relax 🌱"}
                 </p>
-                {(chipFilter !== "all" ||
-                  query.trim() ||
-                  areaFilter !== "all" ||
-                  typeFilter !== "all" ||
-                  roomFilter !== "all" ||
-                  needFilter !== "all") && (
+                {(queueFilters !== defaultQueueFilters ||
+                  query.trim()) && (
                   <Button
                     size="sm"
                     variant="outline"
                     className="h-7 text-[10px]"
                     onClick={() => {
-                      setChipFilter("all");
-                      setAreaFilter("all");
-                      setTypeFilter("all");
-                      setRoomFilter("all");
-                      setNeedFilter("all");
+                      setQueueFilters(defaultQueueFilters);
                       setQuery("");
                     }}
                   >
-                    Show all leads
+                    Clear filters & Show all leads
                   </Button>
                 )}
               </div>
@@ -1184,16 +1212,27 @@ export function ImpactQueue() {
             ))}
           </div>
         ) : (
-          <div className="w-full min-w-0 overflow-x-auto pb-1">
-            <div className="grid grid-cols-5 gap-2 h-[calc(100vh-270px)] min-h-[430px] min-w-[720px]">
+          <div className="w-full min-w-0 overflow-x-auto pb-1 relative">
+            <div className="flex gap-2 h-[calc(100vh-270px)] min-h-[430px] w-max items-stretch">
               {COLUMNS.map((c) => (
                 <div
                   key={c.key}
-                  className={`min-w-0 h-full overflow-hidden rounded-xl border-l-2 ${c.tint} border-t border-r border-b border-border bg-background shadow-sm`}
+                  className={`w-[320px] shrink-0 h-full flex flex-col overflow-hidden rounded-xl border-l-2 ${c.tint} border-t border-r border-b border-border bg-background shadow-sm`}
+                  onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; }}
+                  onDrop={(e) => {
+                     e.preventDefault();
+                     const leadId = e.dataTransfer.getData("text/plain");
+                     if (leadId) {
+                       const targetStage = COLUMN_STAGE_TARGET[c.key as ColumnKey];
+                       if (targetStage) {
+                          void setLeadStage(leadId, targetStage);
+                       }
+                     }
+                  }}
                 >
                   <div
                     className={cn(
-                      "flex h-11 shrink-0 items-center justify-between gap-2 border-b px-3",
+                      "flex h-11 shrink-0 items-center justify-between gap-2 border-b px-3 sticky top-0 z-10",
                       COLUMN_HEADER_TONE[c.key],
                     )}
                     title={COLUMN_HELP[c.key]}
@@ -1206,19 +1245,28 @@ export function ImpactQueue() {
                         <div className="truncate text-[12px] font-semibold text-foreground">
                           {c.label}
                         </div>
-                        <div className="truncate text-[9px] text-muted-foreground">
+                        <div className="truncate text-[9px] text-muted-foreground opacity-80">
                           {COLUMN_HELP[c.key]}
                         </div>
                       </div>
                     </div>
-                    <span className="shrink-0 rounded-full border border-border bg-background px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
-                      {boardBuckets[c.key].length}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      {(() => {
+                        const overdueCount = boardBuckets[c.key].filter(e => e.nba.pressure === "escalate" || (e.nextActionReason && e.nextActionReason.toLowerCase().includes("overdue"))).length;
+                        if (overdueCount > 0) {
+                          return <span className="text-[10px] text-danger font-semibold">{overdueCount} overdue</span>;
+                        }
+                        return null;
+                      })()}
+                      <span className="shrink-0 rounded-full border border-border bg-background px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                        {boardBuckets[c.key].length}
+                      </span>
+                    </div>
                   </div>
                   <div className="h-[calc(100%-2.75rem)] overflow-y-auto overflow-x-hidden bg-muted/15 p-2">
-                    {c.key === "inbox" &&
-                      boardBuckets.inbox.length === 0 &&
-                      chipFilter === "all" &&
+                    {c.key === "superHot" &&
+                      boardBuckets.superHot.length === 0 &&
+                      queueFilters === defaultQueueFilters &&
                       query.trim() === "" && (
                         <div
                           className="mb-2 rounded-lg border border-dashed border-border bg-background/80 px-2 py-1.5 text-[10px] text-muted-foreground"
@@ -1455,10 +1503,10 @@ function BoardColumnBody({
   focusAction: LeadFocusAction | null;
   onFocusConsumed: () => void;
 }) {
-  const useBands = columnKey === "scheduled" || columnKey === "onTour";
+  const useBands = columnKey === "tourScheduled";
   const [postTourOpen, setPostTourOpen] = useState(true);
   const postTourItems =
-    columnKey === "scheduled" ? items.filter((item) => item.lead.stage === "tour-done") : [];
+    columnKey === "tourScheduled" ? items.filter((item) => item.lead.stage === "tour-done") : [];
   const activeItems = postTourItems.length
     ? items.filter((item) => item.lead.stage !== "tour-done")
     : items;
@@ -1475,7 +1523,7 @@ function BoardColumnBody({
     for (const e of activeItems) {
       const band =
         e.tourBand ??
-        classifyTourBand(columnKey as "scheduled" | "onTour", e.openTour, e.lead, e.nba, at);
+        classifyTourBand(columnKey as "tourScheduled", e.openTour, e.lead, e.nba, at);
       map[band].push(e);
     }
     for (const band of TOUR_BAND_ORDER) {
@@ -1616,6 +1664,8 @@ type EnrichedLite = {
   column: ColumnKey;
   tourBand?: TourQueueBand;
   tourTimeHint?: string;
+  stageDebugReason?: string;
+  nextActionReason?: string;
 };
 
 function LeadRow({
@@ -1686,20 +1736,28 @@ function LeadRow({
     [allObjections, lead.id],
   );
 
+  const hasProperty = interestedPropertyIds.length > 0;
+  // TODO: we need `lastActivityAt`. For now we approximate it with `updatedAt` locally.
+  const approximatedLastActivityAt = lead.updatedAt || lead.createdAt;
+  const workflowState = deriveWorkflowState(lead, openTour, !!lastQuote, hasProperty, approximatedLastActivityAt);
+
   useEffect(() => {
     if (autoOpen) {
-      selectLead(lead.id, drawerTabForLeadFocusAction(focusAction), focusAction);
+      selectLead(lead.id, workflowState.destinationTab, workflowState.destinationSection, workflowState.destinationField, focusAction);
       onAutoOpenConsumed?.();
     }
-  }, [autoOpen, focusAction, lead.id, onAutoOpenConsumed, selectLead]);
-
-  const staleQuote = isQuoteStale(lastQuote);
+  }, [autoOpen, focusAction, lead.id, onAutoOpenConsumed, selectLead, workflowState.destinationTab, workflowState.destinationSection, workflowState.destinationField]);
 
   return (
     <>
       <div
         role="button"
         tabIndex={0}
+        draggable={true}
+        onDragStart={(e) => {
+          e.dataTransfer.setData("text/plain", lead.id);
+          e.dataTransfer.effectAllowed = "move";
+        }}
         onClick={() => selectLead(lead.id)}
         onKeyDown={(ev) => {
           if (ev.key === "Enter" || ev.key === " ") {
@@ -1708,80 +1766,45 @@ function LeadRow({
           }
         }}
         className={cn(
-          "relative w-full cursor-pointer text-left rounded-md border bg-card hover:border-accent/60 hover:bg-muted/30 transition-colors px-3 py-2 pr-12 group",
+          "relative w-full cursor-pointer text-left rounded-md border bg-card hover:border-accent/60 hover:bg-muted/30 transition-colors p-3 flex flex-col gap-3 group shadow-sm",
           keyboardHighlight && "ring-2 ring-accent border-accent",
-          staleQuote && "border-danger/40",
         )}
       >
-        {rank !== undefined && (
-          <div className="absolute left-3 top-2 w-7 h-7 rounded-md bg-muted text-[11px] font-mono font-semibold flex items-center justify-center group-hover:bg-accent/20">
-            #{rank}
-          </div>
-        )}
-        <div className={cn("min-w-0", rank !== undefined && "pl-9")}>
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span
-              className={`h-2 w-2 rounded-full shrink-0 ${priorityMeta.dot}`}
-              title={priorityMeta.hint}
-            />
-            <span className="text-xs font-semibold truncate">{lead.name}</span>
-          </div>
-          <div className="mt-1 grid gap-1 text-[10px] text-muted-foreground">
-            <span className="inline-flex items-center gap-1 min-w-0">
-              <Phone className="h-2.5 w-2.5 shrink-0" />
-              <span className="truncate">{lead.phone}</span>
-            </span>
-            {areaText && (
-              <span className="inline-flex min-w-0 items-center gap-1">
-                <MapPin className="h-2.5 w-2.5 shrink-0" />
-                <span className="truncate">{areaText}</span>
-              </span>
-            )}
-            <span>{blrText}</span>
-            <span className="inline-flex items-center gap-1">
-              <Calendar className="h-2.5 w-2.5 shrink-0" />
-              Move-in: {fmtDate(lead.moveInDate)}
-            </span>
-            <span className="truncate">
-              Assigned by {assignedByName} → {assignedToName}
-            </span>
-            {openTour && (
-              <span className="text-[10px] font-semibold text-accent flex items-center gap-1">
-                <Calendar className="h-2.5 w-2.5 shrink-0" />
-                Tour: {fmtTourScheduleLabel(openTour.scheduledAt)} ·{" "}
-                {TOUR_TYPE_LABELS[openTourType] ?? openTourType}
-              </span>
-            )}
-          </div>
-          {(pickedProperty || latestObjection) && (
-            <div className="mt-1 flex flex-wrap gap-1">
-              {pickedProperty && (
-                <Badge
-                  variant="outline"
-                  className="text-[9px] bg-success/10 text-success border-success/40"
-                >
-                  {pickedProperty.name}
-                </Badge>
-              )}
-              {latestObjection && (
-                <Badge
-                  variant="outline"
-                  className="text-[9px] bg-warning/10 text-warning border-warning/40"
-                >
-                  Objection:{" "}
-                  {latestObjection.code === "none"
-                    ? "None"
-                    : latestObjection.code.replace(/-/g, " ")}
-                </Badge>
-              )}
+        {/* Row 1: Who */}
+        <div className="flex flex-col gap-0.5">
+          <div className="text-[13px] font-bold text-foreground leading-tight">{lead.name}</div>
+          <div className="text-xs text-muted-foreground font-medium hover:underline">{lead.phone}</div>
+        </div>
+
+        {/* Row 2: Metadata */}
+        <div className="flex flex-col gap-0.5 text-xs text-muted-foreground">
+          {areaText && <div>Area: {areaText}</div>}
+          {lead.moveInDate && <div>Move-In: {fmtDate(lead.moveInDate)}</div>}
+          
+          {(workflowState.currentStep === "Tour" || workflowState.currentStep === "Decision Pending" || workflowState.currentStep === "Booked") && pickedProperty && (
+             <div className="font-medium text-foreground">Property: {pickedProperty.name}</div>
+          )}
+          
+          {workflowState.currentStep === "Tour" && openTour && (
+            <div className="font-medium text-foreground">
+              Tour: {fmtTourScheduleLabel(openTour.scheduledAt)}
             </div>
           )}
-          {staleQuote && (
-            <Badge
-              variant="outline"
-              className="mt-1 text-[9px] border-danger/50 text-danger bg-danger/10"
-            >
-              Quote 24h+ · follow up
+        </div>
+
+        {/* Row 3-6: Workflow Blockers */}
+        <div className="flex flex-col gap-1.5 items-start">
+          <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
+            Current Step: {formatWorkflowLabel(workflowState.currentStep)}
+          </div>
+
+          <Badge variant="outline" className="text-[10px] mt-1 bg-primary/10 text-primary border-primary/30 hover:bg-primary/20 hover:border-primary/50 uppercase tracking-wider font-extrabold transition-colors py-1 px-2 shadow-sm">
+            {formatWorkflowLabel(workflowState.pendingItem)}
+          </Badge>
+
+          {latestObjection && (
+            <Badge variant="outline" className="mt-1 text-[10px] bg-danger/10 text-danger border-danger/40 uppercase">
+              Objection: {latestObjection.code === "none" ? "None" : latestObjection.code.replace(/-/g, " ")}
             </Badge>
           )}
         </div>
@@ -2019,6 +2042,8 @@ function LeadDrawer({
     setScheduleOpen(true);
   };
 
+  const workflowState = deriveWorkflowState(lead, openTour, !!lastQuote, false, lead.updatedAt || lead.createdAt);
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
@@ -2084,6 +2109,9 @@ function LeadDrawer({
           </div>
           {/* NBA banner */}
           <div className={`rounded-md border px-3 py-2 ${pressureColor(nba.pressure)}`}>
+            <div className="text-[10px] uppercase font-bold text-muted-foreground/80 tracking-wider">
+              {formatWorkflowLabel(workflowState.currentStep)}
+            </div>
             <div className="text-[10px] uppercase tracking-wider opacity-70">Next best action</div>
             <div className="text-sm font-semibold">{nba.label}</div>
             <div className="text-[10px] opacity-80">{nba.reason}</div>
@@ -2204,6 +2232,8 @@ export function CommandActions({
     if (onScheduleOpenChange) onScheduleOpenChange(v);
     else setLocalScheduleOpen(v);
   };
+
+  const workflowState = deriveWorkflowState(lead, openTour, !!lastQuote, false, lead.updatedAt || lead.createdAt);
 
   const updateIntent = async (intent: Lead["intent"]) => {
     const previous = lead.intent;
@@ -2356,7 +2386,7 @@ export function CommandActions({
 
       {/* Action toolbar — context-aware */}
       <div className="flex flex-wrap gap-1.5 pt-2 border-t border-border">
-        {(column === "inbox" || scheduleDialogOpen) &&
+        {((column === "superHot" || column === "followUp" || column === "stuck") || scheduleDialogOpen) &&
           (dossier.ready ? (
             <ScheduleTourDialog
               lead={lead}
@@ -2366,7 +2396,7 @@ export function CommandActions({
                 if (!v) onSchedulePrefillClear?.();
               }}
               prefillPg={schedulePrefill}
-              showTrigger={column === "inbox"}
+              showTrigger={column === "superHot" || column === "followUp" || column === "stuck"}
               tcmOptions={tcmOptions}
             />
           ) : (
@@ -2380,7 +2410,7 @@ export function CommandActions({
             </Button>
           ))}
 
-        {column === "scheduled" && openTour && (
+        {column === "tourScheduled" && openTour && (
           <>
             <ConfirmTourButton lead={lead} tour={openTour} />
             {isTodayIST(openTour.scheduledAt) &&
@@ -2426,7 +2456,10 @@ export function CommandActions({
                       );
                   }}
                 >
-                  <AlertTriangle className="h-3 w-3" /> No-show
+                  <div className="flex items-start gap-1">
+                    <AlertTriangle className="h-3 w-3 shrink-0 mt-[2px]" />
+                    <span className="leading-tight">{formatWorkflowLabel(workflowState.pendingItem)}</span>
+                  </div>
                 </Button>
               </>
             )}
@@ -2438,40 +2471,9 @@ export function CommandActions({
           </>
         )}
 
-        {column === "onTour" && openTour && (
-          <>
-            <Button
-              size="sm"
-              variant="outline"
-              className={`h-7 text-[10px] gap-1 ${actionButtonClass}`}
-              onClick={() => {
-                void completeTour(openTour.id)
-                  .then(() => toast.success("Tour completed"))
-                  .catch((err) =>
-                    toast.error(err instanceof Error ? err.message : "Failed to complete tour"),
-                  );
-              }}
-            >
-              <CheckCircle2 className="h-3 w-3" /> Tour done
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              className={`h-7 text-[10px] gap-1 text-destructive hover:text-destructive ${actionButtonClass}`}
-              onClick={() => {
-                void updateTourDetails(openTour.id, { status: "no-show", showUp: false })
-                  .then(() => toast("Marked no-show · lead returned for follow-up"))
-                  .catch((err) =>
-                    toast.error(err instanceof Error ? err.message : "Failed to mark no-show"),
-                  );
-              }}
-            >
-              <AlertTriangle className="h-3 w-3" /> No-show
-            </Button>
-          </>
-        )}
 
-        {column === "quoted" && lastQuote && (
+
+        {column === "decisionPending" && lastQuote && (
           <>
             {lastQuote.status === "sent" && (
               <>
@@ -2522,7 +2524,7 @@ export function CommandActions({
           </div>
         )}
 
-        {column === "quoted" && (
+        {column === "decisionPending" && (
           <>
             <NegotiationPlaybook
               lead={lead}
@@ -2539,7 +2541,7 @@ export function CommandActions({
             />
           </>
         )}
-        {(column === "inbox" || column === "quoted") && (
+        {(column === "superHot" || column === "followUp" || column === "stuck" || column === "decisionPending") && (
           <Button
             size="sm"
             variant="ghost"
@@ -2563,7 +2565,7 @@ export function CommandActions({
             onOpenChange={setCheckinOpen}
           />
         )}
-        {lastQuote && column !== "quoted" && (
+        {lastQuote && column !== "decisionPending" && (
           <BookingDialog
             lead={lead}
             quote={lastQuote}

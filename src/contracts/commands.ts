@@ -71,6 +71,11 @@ export const CreateLeadCmd = Base.extend({
   }).extend({
     intent: Intent.optional(),
     tags: z.array(z.string()).max(10).optional(),
+    propertySelection: z.object({
+      type: z.enum(["hub", "other"]),
+      propertyId: z.string().optional(),
+      propertyName: z.string().optional()
+    }).optional(),
     // Extended Quick-Add fields - all optional, server fills defaults.
     email: z.string().max(160).optional(),
     areas: z.array(z.string().max(80)).max(20).optional(),
@@ -85,6 +90,10 @@ export const CreateLeadCmd = Base.extend({
     zoneCategory: z.string().max(80).optional(),
     assigneeId: z.string().nullable().optional(),
     stageLabel: z.string().max(120).optional(),
+    rawSource: z.string().max(5000).optional(),
+    parsedByAI: z.boolean().optional(),
+    aiConfidence: z.number().int().min(0).max(100).optional(),
+    missingFields: z.array(z.string()).optional(),
   }),
 });
 

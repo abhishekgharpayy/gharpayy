@@ -8,18 +8,31 @@ import {
   FileText,
   Sparkles,
   UserCheck,
+  Flame,
+  AlertTriangle,
+  UserX,
   type LucideIcon,
 } from "lucide-react";
 
-export type ColumnKey = "inbox" | "scheduled" | "onTour" | "quoted" | "booked";
+export type ColumnKey = "superHot" | "followUp" | "tourScheduled" | "stuck" | "decisionPending" | "booked" | "notNeeded";
+
+export type ActiveView = 
+  | "all" 
+  | "tours-today" 
+  | "feedback-missing" 
+  | "quote-pending" 
+  | "movein-0-7" 
+  | "no-activity-48h";
 
 /** Target stage when dragging a card into a column (confirmed in dialog). */
 export const COLUMN_STAGE_TARGET: Partial<Record<ColumnKey, LeadStage>> = {
-  inbox: "contacted",
-  scheduled: "tour-scheduled",
-  onTour: "on-tour",
-  quoted: "quote-sent",
+  superHot: "contacted",
+  followUp: "contacted",
+  tourScheduled: "tour-scheduled",
+  stuck: "contacted",
+  decisionPending: "quote-sent",
   booked: "booked",
+  notNeeded: "dropped",
 };
 
 export type ImpactEnriched = {
@@ -27,18 +40,23 @@ export type ImpactEnriched = {
   openTour?: Tour;
   lastQuote?: Quotation;
   nba: NextBestAction;
-  score: number;
+  score: number; // Priority Score
   column: ColumnKey;
   tourBand?: TourQueueBand;
   tourTimeHint?: string;
+  stageDebugReason?: string;
+  nextActionReason?: string;
+  workflow?: import("@/lib/crm10x/workflow-navigation").WorkflowNavigationState;
 };
 
 export const COLUMNS: { key: ColumnKey; label: string; tint: string; icon: LucideIcon }[] = [
-  { key: "inbox", label: "Inbox", tint: "border-l-info", icon: Sparkles },
-  { key: "scheduled", label: "Tour scheduled", tint: "border-l-accent", icon: Calendar },
-  { key: "onTour", label: "On tour today", tint: "border-l-warning", icon: UserCheck },
-  { key: "quoted", label: "Quote sent", tint: "border-l-primary", icon: FileText },
+  { key: "superHot", label: "Super Hot", tint: "border-l-danger", icon: Flame },
+  { key: "followUp", label: "Follow-Up", tint: "border-l-info", icon: Sparkles },
+  { key: "tourScheduled", label: "Tour Scheduled", tint: "border-l-accent", icon: Calendar },
+  { key: "stuck", label: "Stuck", tint: "border-l-warning", icon: AlertTriangle },
+  { key: "decisionPending", label: "Decision Pending", tint: "border-l-primary", icon: FileText },
   { key: "booked", label: "Booked", tint: "border-l-success", icon: CheckCircle2 },
+  { key: "notNeeded", label: "Not Needed", tint: "border-l-muted", icon: UserX },
 ];
 
 export type EnrichedLite = ImpactEnriched;

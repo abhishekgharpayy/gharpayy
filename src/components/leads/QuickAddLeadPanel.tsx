@@ -11,6 +11,7 @@
 // Zone (categorical) · Assign Member · Lead Stage · Notes
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -101,6 +102,9 @@ export function QuickAddLeadPanel({ open, onClose }: Props) {
   const [selectedPG, setSelectedPG] = useState<PG | null>(null);
   const [hubQuery, setHubQuery] = useState("");
   const [showHubResults, setShowHubResults] = useState(false);
+  const [showOtherModal, setShowOtherModal] = useState(false);
+  const [otherPropertyName, setOtherPropertyName] = useState("");
+  const [propertySelection, setPropertySelection] = useState<ParsedLeadDraft["propertySelection"] | undefined>();
   const [fullAddress, setFullAddress] = useState("");
   const [budget, setBudget] = useState("");
   const [moveIn, setMoveIn] = useState("");
@@ -172,7 +176,7 @@ export function QuickAddLeadPanel({ open, onClose }: Props) {
     setType(""); setRoom(""); setNeed(""); setSpecialReqs("");
     setInBLR(null); setQuality(null); setZoneBucket("");
     setAssigneeId(defaultAssigneeId); setStage(STAGES[0]); setNotes("");
-    setLastParsed(null);
+    setLastParsed(null); setPropertySelection(undefined); setOtherPropertyName("");
     setTimeout(() => nameRef.current?.focus(), 30);
   };
 
@@ -280,6 +284,7 @@ export function QuickAddLeadPanel({ open, onClose }: Props) {
         zoneCategory: zoneBucket,
         assigneeId: assignee?.id ?? null,
         stageLabel: stage,
+        propertySelection,
       },
     });
     if (!result.ok) {
@@ -372,6 +377,7 @@ export function QuickAddLeadPanel({ open, onClose }: Props) {
     e.preventDefault();
     setLastParsed(parsed);
     setSelectedPG(null);
+    setPropertySelection(undefined);
     if (parsed.name) setName(parsed.name);
     if (parsed.phone) setPhone(parsed.phone);
     if (parsed.email) setEmail(parsed.email);
@@ -468,6 +474,7 @@ export function QuickAddLeadPanel({ open, onClose }: Props) {
                     if (selectedPG) {
                       setSelectedPG(null);
                       setAreasText("");
+                      setPropertySelection(undefined);
                     }
                   }}
                   onFocus={() => setShowHubResults(true)}
@@ -488,30 +495,53 @@ export function QuickAddLeadPanel({ open, onClose }: Props) {
                   </div>
                 </div>
               )}
-              {showHubResults && hubResults.length > 0 && !selectedPG && (
-                <div className="absolute z-50 mt-1 w-full rounded-md border border-border bg-background shadow-lg max-h-48 overflow-y-auto">
-                  {hubResults.map(({ pg }) => (
-                    <button
-                      key={pg.id}
-                      type="button"
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        setSelectedPG(pg);
-                        setAreasText(pg.area);
-                        setHubQuery("");
-                        setShowHubResults(false);
-                      }}
-                      className="w-full text-left px-2.5 py-2 text-xs hover:bg-muted/50 transition-colors flex items-center gap-2 border-b border-border last:border-0"
-                    >
-                      <Building2 className="h-3 w-3 shrink-0 text-primary" />
-                      <div className="min-w-0 flex-1">
-                        <div className="font-medium truncate">{pg.name}</div>
-                        <div className="text-[10px] text-muted-foreground truncate">
-                          {pg.area} · {formatINR(Math.min(...[pg.prices.triple, pg.prices.double, pg.prices.single].filter(Boolean)))}/mo · IQ {pg.iq}
+              {showHubResults && !selectedPG && propertySelection?.type !== "other" && (
+                <div className="absolute z-50 mt-1 w-full rounded-md border border-border bg-background shadow-lg max-h-56 flex flex-col">
+                  <div className="flex-1 overflow-y-auto">
+                    {hubResults.map(({ pg }) => (
+                      <button
+                        key={pg.id}
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          setSelectedPG(pg);
+                          setAreasText(pg.area);
+                          setPropertySelection({ type: "hub", propertyId: pg.id, propertyName: pg.name });
+                          setHubQuery("");
+                          setShowHubResults(false);
+                        }}
+                        className="w-full text-left px-2.5 py-2 text-xs hover:bg-muted/50 transition-colors flex items-center gap-2 border-b border-border last:border-0"
+                      >
+                        <Building2 className="h-3 w-3 shrink-0 text-primary" />
+                        <div className="min-w-0 flex-1">
+                          <div className="font-medium truncate">{pg.name}</div>
+                          <div className="text-[10px] text-muted-foreground truncate">
+                            {pg.area} · {formatINR(Math.min(...[pg.prices.triple, pg.prices.double, pg.prices.single].filter(Boolean)))}/mo · IQ {pg.iq}
+                          </div>
                         </div>
-                      </div>
-                    </button>
-                  ))}
+                      </button>
+                    ))}
+                    {hubResults.length === 0 && (
+                      <div className="px-3 py-4 text-xs text-muted-foreground text-center">No properties found in Property Hub</div>
+                    )}
+                  </div>
+                  <div className="p-2 border-t border-border bg-muted/20 shrink-0">
+                    <Button variant="secondary" size="sm" className="w-full text-xs" onClick={(e) => { 
+                      e.preventDefault(); 
+                      setShowOtherModal(true); 
+                      setShowHubResults(false); 
+                    }}>Other Property</Button>
+                  </div>
+                </div>
+              )}
+              {propertySelection?.type === "other" && propertySelection.propertyName && (
+                <div className="mt-1.5 rounded-md border border-primary/40 bg-primary/5 p-2 flex justify-between items-center">
+                  <div className="text-sm font-semibold">Other: {propertySelection.propertyName}</div>
+                  <Button variant="link" size="sm" className="h-auto p-0 text-xs" onClick={(e) => { 
+                    e.preventDefault();
+                    setOtherPropertyName(propertySelection?.propertyName || "");
+                    setShowOtherModal(true);
+                  }}>Change</Button>
                 </div>
               )}
             </div>
@@ -663,6 +693,33 @@ export function QuickAddLeadPanel({ open, onClose }: Props) {
           </p>
         </div>
       </SheetContent>
+
+      <Dialog open={showOtherModal} onOpenChange={setShowOtherModal}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Other Property</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <Label className="text-xs">Property Name *</Label>
+            <Input 
+              value={otherPropertyName} 
+              onChange={(e) => setOtherPropertyName(e.target.value)} 
+              placeholder="e.g. ABC PG" 
+              maxLength={100}
+              className="mt-1.5"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setShowOtherModal(false)}>Cancel</Button>
+            <Button size="sm" onClick={() => {
+              const cleanName = otherPropertyName.replace(/\s+/g, " ").trim();
+              if (!cleanName) { toast.error("Property Name is required"); return; }
+              setPropertySelection({ type: "other", propertyName: cleanName });
+              setShowOtherModal(false);
+            }}>Save Property</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Sheet>
   );
 }

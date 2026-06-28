@@ -221,6 +221,7 @@ export interface CoachInput {
     pendingBlocks: number;    // pending block requests
   };
   now: number;
+  authUserName?: string;
 }
 
 /* ============== MAIN ============== */
@@ -375,8 +376,9 @@ export function buildCoachReport(input: CoachInput): CoachReport {
   const ranked = queueItems
     .sort((a, b) => b.score - a.score)
     .filter((i) => {
-      if (seen.has(i.id)) return false;
-      seen.add(i.id);
+      const dedupeKey = i.leadId ? `lead:${i.leadId}` : i.id;
+      if (seen.has(dedupeKey)) return false;
+      seen.add(dedupeKey);
       return true;
     });
 
@@ -413,7 +415,10 @@ export function buildCoachReport(input: CoachInput): CoachReport {
   });
 
   /* MISSION (persona-aware target) */
-  const persona = activePersona(role, role === "tcm" ? currentTcmId : undefined);
+  const persona = { ...activePersona(role, role === "tcm" ? currentTcmId : undefined) };
+  if (input.authUserName) {
+    persona.name = input.authUserName;
+  }
   const target = persona.missionCap || missionTargetFor(role);
   const doneCount = done.length;
   const xpToday = done.reduce((s, d) => s + d.xp, 0);

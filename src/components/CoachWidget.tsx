@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from "@/components/ui/sheet";
 import { Sparkles, Flame } from "lucide-react";
 import { useApp } from "@/lib/store";
 import { useGame, whoKey } from "@/lib/gamification";
@@ -96,50 +96,61 @@ export function CoachWidget() {
             missed > 0 && "ring-4 ring-destructive/30",
           )}
         >
-          {/* Progress ring */}
-          <svg className="absolute inset-0 -rotate-90" viewBox="0 0 56 56">
-            <circle
-              cx="28" cy="28" r="25"
-              fill="none" stroke="currentColor"
-              className="text-accent-foreground/20"
-              strokeWidth="3"
-            />
-            <circle
-              cx="28" cy="28" r="25"
-              fill="none" stroke="currentColor"
-              className="text-background transition-all duration-500"
-              strokeWidth="3"
-              strokeDasharray={2 * Math.PI * 25}
-              strokeDashoffset={2 * Math.PI * 25 * (1 - pct / 100)}
-              strokeLinecap="round"
-            />
-          </svg>
-          <div className="relative flex flex-col items-center justify-center leading-none">
-            {stats.streak > 0 ? (
-              <>
-                <Flame className="h-3.5 w-3.5" />
-                <span className="text-[11px] font-bold mt-0.5">{stats.streak}</span>
-              </>
-            ) : (
+          {role !== "tcm" ? (
+            <>
+              {/* Progress ring */}
+              <svg className="absolute inset-0 -rotate-90" viewBox="0 0 56 56">
+                <circle
+                  cx="28" cy="28" r="25"
+                  fill="none" stroke="currentColor"
+                  className="text-accent-foreground/20"
+                  strokeWidth="3"
+                />
+                <circle
+                  cx="28" cy="28" r="25"
+                  fill="none" stroke="currentColor"
+                  className="text-background transition-all duration-500"
+                  strokeWidth="3"
+                  strokeDasharray={2 * Math.PI * 25}
+                  strokeDashoffset={2 * Math.PI * 25 * (1 - pct / 100)}
+                  strokeLinecap="round"
+                />
+              </svg>
+              <div className="relative flex flex-col items-center justify-center leading-none">
+                {stats.streak > 0 ? (
+                  <>
+                    <Flame className="h-3.5 w-3.5" />
+                    <span className="text-[11px] font-bold mt-0.5">{stats.streak}</span>
+                  </>
+                ) : (
+                  <Sparkles className="h-5 w-5" />
+                )}
+              </div>
+              {missed > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-5 h-5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center px-1 ring-2 ring-background">
+                  {missed}
+                </span>
+              )}
+            </>
+          ) : (
+            <div className="relative flex flex-col items-center justify-center leading-none">
               <Sparkles className="h-5 w-5" />
-            )}
-          </div>
-          {missed > 0 && (
-            <span className="absolute -top-1 -right-1 min-w-5 h-5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center px-1 ring-2 ring-background">
-              {missed}
-            </span>
+            </div>
           )}
         </button>
       </SheetTrigger>
-      <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
+      <SheetContent side="right" className="w-full sm:max-w-md flex flex-col h-full overflow-hidden">
         <SheetHeader className="mb-4">
           <SheetTitle className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-accent" />
+            <Sparkles className="h-4 w-4 text-primary" />
             Your Coach
             <span className="ml-auto text-[10px] font-mono text-muted-foreground border border-border rounded px-1.5 py-0.5">
               Shift + C
             </span>
           </SheetTitle>
+          <SheetDescription className="sr-only">
+            Personalized daily briefing and gamified insights to help you manage your day and close more deals.
+          </SheetDescription>
         </SheetHeader>
         <CoachPanel compact />
       </SheetContent>

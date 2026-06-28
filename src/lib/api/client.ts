@@ -8,8 +8,11 @@
 import { localAdapter, isLocalMode } from "./local-adapter";
 import { ulid } from "@/contracts";
 
-
-export const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
+let rawApiUrl = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
+if (rawApiUrl && !rawApiUrl.startsWith("http://") && !rawApiUrl.startsWith("https://")) {
+  rawApiUrl = "https://" + rawApiUrl;
+}
+export const API_URL = rawApiUrl;
 
 export class ApiError extends Error {
   constructor(
@@ -271,6 +274,24 @@ export const api = {
           }),
       ),
     get: (id: string) => request<unknown>(`/api/leads/${id}`),
+    checkDuplicate: (phone: string) => request<{ exists: boolean; leadId?: string; owner?: string; currentStage?: string; name?: string }>(`/api/leads/check-duplicate?phone=${phone}`),
+    parseLead: async (text: string) => {
+      if (isLocalMode()) {
+        const t = tokenStore.get();
+        const baseUrl = (import.meta.env.VITE_API_URL as string) || "";
+        const res = await fetch(`${baseUrl}/api/leads/parse`, {
+          method: "POST",
+          headers: { 
+            "Content-Type": "application/json",
+            ...(t ? { Authorization: `Bearer ${t}` } : {})
+          },
+          body: JSON.stringify({ text })
+        });
+        if (!res.ok) throw new Error("Local backend unavailable or failed");
+        return res.json();
+      }
+      return request<any>("/api/leads/parse", { method: "POST", body: JSON.stringify({ text }) });
+    },
   },
 
   todos: {
@@ -839,6 +860,13 @@ export const api = {
     },
     risk: () =>
       request<{ items: any[] }>("/api/v1/admin/people360/risk"),
+  },
+  ai: {
+    getCoachAdvice: (payload: { tours: any[], leads: any[], role: string, userName?: string }) =>
+      request<{ advice: string; tours: { tourId: string; briefing: string }[] }>("/api/ai/coach", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }),
   },
 };
 

@@ -43,6 +43,11 @@ export interface Lead {
   intent: Intent;
   confidence: number; // 0-100 (deal probability)
   tags: string[];
+  propertySelection?: {
+    type: "hub" | "other";
+    propertyId?: string;
+    propertyName?: string;
+  };
   nextFollowUpAt: string | null;
   responseSpeedMins: number; // first response time
   createdAt: string;

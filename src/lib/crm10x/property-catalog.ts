@@ -7,7 +7,7 @@ export type CatalogProperty = {
   id: string;
   name: string;
   area: string;
-  source: "hub" | "ops";
+  source: "hub" | "ops" | "other";
   pricePerBed: number;
   vacantBeds?: number;
   totalBeds?: number;
@@ -50,6 +50,15 @@ export function resolvePropertyById(
   opsProperties: Property[],
 ): CatalogProperty | undefined {
   if (!id?.trim()) return undefined;
+  if (id.startsWith("other:")) {
+    return {
+      id,
+      name: id.replace("other:", ""),
+      area: "Other",
+      source: "other",
+      pricePerBed: 0,
+    };
+  }
   const pg = PGS.find((p) => p.id === id);
   if (pg) return pgToCatalog(pg);
   const ops = opsProperties.find((p) => p.id === id);
@@ -68,13 +77,22 @@ export function resolvePropertyByName(
   if (pg) return pgToCatalog(pg);
   const ops = opsProperties.find((p) => p.name.toLowerCase() === lower);
   if (ops) return opsToCatalog(ops);
+  if (name.startsWith("other:")) {
+    return {
+      id: name,
+      name: name.replace("other:", ""),
+      area: "Other",
+      source: "other",
+      pricePerBed: 0,
+    };
+  }
   return undefined;
 }
 
 export function searchPropertyCatalog(
   query: string,
   opsProperties: Property[],
-  opts?: { preferredArea?: string; limit?: number },
+  opts?: { preferredArea?: string; limit?: number; budget?: number; need?: string; room?: string },
 ): CatalogProperty[] {
   const limit = opts?.limit ?? 12;
   const q = query.trim().toLowerCase();
@@ -92,12 +110,28 @@ export function searchPropertyCatalog(
     ops = opsProperties.filter(
       (p) => p.name.toLowerCase().includes(q) || p.area.toLowerCase().includes(q),
     );
-  } else if (opts?.preferredArea?.trim()) {
-    const area = opts.preferredArea.toLowerCase();
-    const byArea = PGS.filter(
-      (p) => p.area.toLowerCase().includes(area) || area.includes(p.area.toLowerCase()),
-    );
-    if (byArea.length) hub = byArea;
+  } else {
+    if (opts?.preferredArea?.trim()) {
+      const area = opts.preferredArea.toLowerCase();
+      const byArea = PGS.filter(
+        (p) => p.area.toLowerCase().includes(area) || area.includes(p.area.toLowerCase()),
+      );
+      if (byArea.length) hub = byArea;
+    }
+
+    if (opts?.budget) {
+      // Filter properties where cheapest bed is within budget + 2000 buffer
+      hub = hub.filter((p) => cheapestBed(p) <= opts.budget! + 2000);
+    }
+
+    if (opts?.need) {
+      const n = opts.need.toLowerCase();
+      if (n.includes("boy") || n.includes("men")) {
+        hub = hub.filter((p) => p.gender !== "Girls");
+      } else if (n.includes("girl") || n.includes("women")) {
+        hub = hub.filter((p) => p.gender !== "Boys");
+      }
+    }
   }
 
   const merged: CatalogProperty[] = [

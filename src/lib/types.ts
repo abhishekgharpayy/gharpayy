@@ -98,6 +98,7 @@ export interface Lead {
   zoneCategory?: string;
   stageLabel?: string;
   suggestedProperties?: string[];
+  stageEnteredAt?: string;
 }
 
 export interface PostTourUpdate {

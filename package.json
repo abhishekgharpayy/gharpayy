@@ -14,7 +14,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "format": "prettier --write .",
-    "start": "node serve.mjs"
+    "start": "node .output/server/index.mjs"
   },
   "dependencies": {
     "@cloudflare/vite-plugin": "^1.25.5",

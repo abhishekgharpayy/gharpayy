@@ -115,7 +115,9 @@ export function DailyProgressView() {
             Daily Progress
           </h2>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Leads added, tours scheduled + completed, and quotes sent for the selected date (IST).
+            {role === "tcm" 
+              ? "Tours scheduled + completed for the selected date (IST)."
+              : "Leads added, tours scheduled + completed, and quotes sent for the selected date (IST)."}
           </p>
         </div>
         <div className="flex items-center gap-2 rounded-xl border bg-background/90 px-2.5 py-1.5">
@@ -162,14 +164,22 @@ export function DailyProgressView() {
                 </Badge>
               )}
             </div>
-            <div className="mt-3 grid gap-3 md:grid-cols-3">
-              <MetricTile label="Leads Added" value={memberRow.leadsAdded} max={goals.leadsAdded} accent="violet" />
+            <div className={`mt-3 grid gap-3 ${memberRow.role === "tcm" ? "md:grid-cols-1" : "md:grid-cols-3"}`}>
+              {memberRow.role !== "tcm" && (
+                <MetricTile label="Leads Added" value={memberRow.leadsAdded} max={goals.leadsAdded} accent="violet" />
+              )}
               <MetricTile label="Tours Scheduled + Completed" value={memberRow.toursScheduled} max={goals.toursScheduled} accent="emerald" />
-              <MetricTile label="Quotes Sent" value={memberRow.quotesSent ?? 0} max={goals.quotesSent ?? 10} accent="emerald" />
+              {memberRow.role !== "tcm" && (
+                <MetricTile label="Quotes Sent" value={memberRow.quotesSent ?? 0} max={goals.quotesSent ?? 10} accent="emerald" />
+              )}
             </div>
             <div className="mt-3 rounded-xl border border-dashed border-border/80 bg-secondary/20 px-3 py-2">
               <p className="text-[11px] text-muted-foreground">
-                Daily target: <span className="font-medium text-foreground">{goals.leadsAdded}</span> leads, <span className="font-medium text-foreground">{goals.toursScheduled}</span> tours, and <span className="font-medium text-foreground">{goals.quotesSent ?? 10}</span> quotes.
+                Daily target: {memberRow.role !== "tcm" ? (
+                  <><span className="font-medium text-foreground">{goals.leadsAdded}</span> leads, <span className="font-medium text-foreground">{goals.toursScheduled}</span> tours, and <span className="font-medium text-foreground">{goals.quotesSent ?? 10}</span> quotes.</>
+                ) : (
+                  <><span className="font-medium text-foreground">{goals.toursScheduled}</span> tours.</>
+                )}
               </p>
             </div>
           </div>
@@ -244,16 +254,20 @@ export function DailyProgressView() {
                     )}
                   </div>
 
-                  <div className="grid md:grid-cols-3 gap-3">
-                    <div className="rounded-lg bg-secondary/20 p-2.5">
-                      <ProgressLine label="Leads Added" value={member.leadsAdded} max={goals.leadsAdded} />
-                    </div>
+                  <div className={`grid ${member.role === "tcm" ? "md:grid-cols-1" : "md:grid-cols-3"} gap-3`}>
+                    {member.role !== "tcm" && (
+                      <div className="rounded-lg bg-secondary/20 p-2.5">
+                        <ProgressLine label="Leads Added" value={member.leadsAdded} max={goals.leadsAdded} />
+                      </div>
+                    )}
                     <div className="rounded-lg bg-secondary/20 p-2.5">
                       <ProgressLine label="Tours Scheduled + Completed" value={member.toursScheduled} max={goals.toursScheduled} />
                     </div>
-                    <div className="rounded-lg bg-secondary/20 p-2.5">
-                      <ProgressLine label="Quotes Sent" value={member.quotesSent ?? 0} max={goals.quotesSent ?? 10} />
-                    </div>
+                    {member.role !== "tcm" && (
+                      <div className="rounded-lg bg-secondary/20 p-2.5">
+                        <ProgressLine label="Quotes Sent" value={member.quotesSent ?? 0} max={goals.quotesSent ?? 10} />
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}

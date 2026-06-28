@@ -316,6 +316,7 @@ export const localAdapter = {
           intent: (p.intent as Lead["intent"]) ?? "warm",
           confidence: 50,
           tags: (p.tags as string[]) ?? [],
+          propertySelection: p.propertySelection as Lead["propertySelection"],
           nextFollowUpAt: null,
           responseSpeedMins: 0,
           email: (p.email as string) ?? "",
@@ -331,6 +332,10 @@ export const localAdapter = {
           zoneCategory: (p.zoneCategory as string) ?? "",
           assigneeId: (p.assigneeId as string | null) ?? null,
           stageLabel: (p.stageLabel as string) ?? "",
+          priorityScore: 0,
+          priorityState: "COLD",
+          nextBestAction: null,
+          priorityReason: null,
           createdAt: nowISO(), updatedAt: nowISO(),
           createdBy: USER, tenantId: TENANT,
         };

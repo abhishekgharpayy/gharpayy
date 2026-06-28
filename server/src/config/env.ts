@@ -31,6 +31,10 @@ const Env = z.object({
   SUPER_ADMIN_EMAIL: z.string().default("superadmin@gharpayy.com"),
   SUPER_ADMIN_PASSWORD: z.string().default("superadmin#gharpayy"),
   SUPER_ADMIN_NAME: z.string().default("Gharpayy Super Admin"),
+  GEMINI_API_KEY: z.string().optional(),
+  GEMINI_MODELS: z.string().default("gemini-2.0-flash,gemini-2.0-flash-lite,gemini-1.5-flash"),
+  GROQ_API_KEY: z.string().optional(),
+  GROQ_MODEL: z.string().default("llama-3.1-8b-instant"),
 });
 
 const parsedEnv = Env.parse(process.env);

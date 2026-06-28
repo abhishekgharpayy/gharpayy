@@ -19,10 +19,20 @@ export function AuthGate({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
 
+  const signOut = useAuthUser((s) => s.signOut);
+
   useEffect(() => { 
     console.log("[AuthGate] mount/hydrate");
     hydrate(); 
   }, [hydrate]);
+
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      void signOut();
+    };
+    window.addEventListener("gharpayy:unauthorized", handleUnauthorized);
+    return () => window.removeEventListener("gharpayy:unauthorized", handleUnauthorized);
+  }, [signOut]);
 
   const hasToken = typeof window !== "undefined" && !!tokenStore.get();
   const isLoginRoute = pathname === "/login";
@@ -46,6 +56,14 @@ export function AuthGate({ children }: { children: ReactNode }) {
       void navigate({ to: "/property-owner/dashboard", replace: true }).catch(() => undefined);
     }
   }, [user, loading, isOwnerRoute, isLoginRoute, navigate]);
+
+  // Redirect TCM from root to /inbox
+  useEffect(() => {
+    if (!user || loading || isLoginRoute || pathname !== "/") return;
+    if (user.role === "tcm") {
+      void navigate({ to: "/inbox", replace: true }).catch(() => undefined);
+    }
+  }, [user, loading, isLoginRoute, pathname, navigate]);
 
   const spinner = (
     <div className="min-h-screen flex items-center justify-center bg-background">

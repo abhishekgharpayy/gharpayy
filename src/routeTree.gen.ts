@@ -66,6 +66,7 @@ import { Route as MytSettingsRouteImport } from './routes/myt/settings'
 import { Route as MytScoreRouteImport } from './routes/myt/score'
 import { Route as MytScheduleRouteImport } from './routes/myt/schedule'
 import { Route as MytPropertiesRouteImport } from './routes/myt/properties'
+import { Route as MytPostToursRouteImport } from './routes/myt/post-tours'
 import { Route as MytOwnersCompareRouteImport } from './routes/myt/owners-compare'
 import { Route as MytMismatchRouteImport } from './routes/myt/mismatch'
 import { Route as MytMarketplaceRouteImport } from './routes/myt/marketplace'
@@ -404,6 +405,11 @@ const MytScheduleRoute = MytScheduleRouteImport.update({
 const MytPropertiesRoute = MytPropertiesRouteImport.update({
   id: '/myt/properties',
   path: '/myt/properties',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MytPostToursRoute = MytPostToursRouteImport.update({
+  id: '/myt/post-tours',
+  path: '/myt/post-tours',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MytOwnersCompareRoute = MytOwnersCompareRouteImport.update({
@@ -752,6 +758,7 @@ export interface FileRoutesByFullPath {
   '/myt/marketplace': typeof MytMarketplaceRoute
   '/myt/mismatch': typeof MytMismatchRoute
   '/myt/owners-compare': typeof MytOwnersCompareRoute
+  '/myt/post-tours': typeof MytPostToursRoute
   '/myt/properties': typeof MytPropertiesRoute
   '/myt/schedule': typeof MytScheduleRoute
   '/myt/score': typeof MytScoreRoute
@@ -863,6 +870,7 @@ export interface FileRoutesByTo {
   '/myt/marketplace': typeof MytMarketplaceRoute
   '/myt/mismatch': typeof MytMismatchRoute
   '/myt/owners-compare': typeof MytOwnersCompareRoute
+  '/myt/post-tours': typeof MytPostToursRoute
   '/myt/properties': typeof MytPropertiesRoute
   '/myt/schedule': typeof MytScheduleRoute
   '/myt/score': typeof MytScoreRoute
@@ -976,6 +984,7 @@ export interface FileRoutesById {
   '/myt/marketplace': typeof MytMarketplaceRoute
   '/myt/mismatch': typeof MytMismatchRoute
   '/myt/owners-compare': typeof MytOwnersCompareRoute
+  '/myt/post-tours': typeof MytPostToursRoute
   '/myt/properties': typeof MytPropertiesRoute
   '/myt/schedule': typeof MytScheduleRoute
   '/myt/score': typeof MytScoreRoute
@@ -1090,6 +1099,7 @@ export interface FileRouteTypes {
     | '/myt/marketplace'
     | '/myt/mismatch'
     | '/myt/owners-compare'
+    | '/myt/post-tours'
     | '/myt/properties'
     | '/myt/schedule'
     | '/myt/score'
@@ -1201,6 +1211,7 @@ export interface FileRouteTypes {
     | '/myt/marketplace'
     | '/myt/mismatch'
     | '/myt/owners-compare'
+    | '/myt/post-tours'
     | '/myt/properties'
     | '/myt/schedule'
     | '/myt/score'
@@ -1313,6 +1324,7 @@ export interface FileRouteTypes {
     | '/myt/marketplace'
     | '/myt/mismatch'
     | '/myt/owners-compare'
+    | '/myt/post-tours'
     | '/myt/properties'
     | '/myt/schedule'
     | '/myt/score'
@@ -1398,6 +1410,7 @@ export interface RootRouteChildren {
   MytMarketplaceRoute: typeof MytMarketplaceRoute
   MytMismatchRoute: typeof MytMismatchRoute
   MytOwnersCompareRoute: typeof MytOwnersCompareRoute
+  MytPostToursRoute: typeof MytPostToursRoute
   MytPropertiesRoute: typeof MytPropertiesRoute
   MytScheduleRoute: typeof MytScheduleRoute
   MytScoreRoute: typeof MytScoreRoute
@@ -1815,6 +1828,13 @@ declare module '@tanstack/react-router' {
       path: '/myt/properties'
       fullPath: '/myt/properties'
       preLoaderRoute: typeof MytPropertiesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/myt/post-tours': {
+      id: '/myt/post-tours'
+      path: '/myt/post-tours'
+      fullPath: '/myt/post-tours'
+      preLoaderRoute: typeof MytPostToursRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/myt/owners-compare': {
@@ -2445,6 +2465,7 @@ const rootRouteChildren: RootRouteChildren = {
   MytMarketplaceRoute: MytMarketplaceRoute,
   MytMismatchRoute: MytMismatchRoute,
   MytOwnersCompareRoute: MytOwnersCompareRoute,
+  MytPostToursRoute: MytPostToursRoute,
   MytPropertiesRoute: MytPropertiesRoute,
   MytScheduleRoute: MytScheduleRoute,
   MytScoreRoute: MytScoreRoute,

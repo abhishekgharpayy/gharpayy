@@ -16,6 +16,7 @@ import type { DomainEvent } from "../../../src/contracts/events.js";
 import { claimEvent, releaseEvent } from "../platform/dedup.js";
 import { workerJobs } from "../platform/metrics.js";
 import { startScheduledWorker } from "./scheduled.js";
+import { processPriorityRecalculation } from "../modules/leads/priority-worker.js";
 
 const QUEUE = "automation";
 const CONSUMER = "automation-worker";
@@ -72,7 +73,6 @@ new Worker<DomainEvent>(
       return { skipped: true };
     }
     try {
-      // TODO Phase 4: load rules (cached, invalidated on evt.automation.updated),
       // run JSONLogic when, dispatch action commands with deterministic IDs.
       // For now: structured log proves the event reached us.
       const ruleId = "default";
@@ -80,6 +80,10 @@ new Worker<DomainEvent>(
         workerJobs.inc({ outcome: "breaker-open" });
         return { breakerOpen: true };
       }
+      
+      // Hook Priority recalculation
+      await processPriorityRecalculation(evt);
+
       console.log(`[automation] ${evt.type}`, JSON.stringify((evt as { payload: unknown }).payload));
       workerJobs.inc({ outcome: "ok" });
       return { ok: true };

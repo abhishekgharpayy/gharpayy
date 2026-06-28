@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -22,98 +22,105 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  CHIP_LABELS,
-  type QueueChipFilter,
-  type ViewMode,
-} from "@/lib/crm10x/impact-queue-prefs";
+  Command,
+  CommandInput,
+  CommandList,
+  CommandEmpty,
+  CommandGroup,
+  CommandItem,
+} from "@/components/ui/command";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import {
   Beaker,
-  Flame,
   MoreHorizontal,
   Pin,
   SlidersHorizontal,
+  Check,
+  ChevronsUpDown,
+  ChevronDown,
+  Calendar
 } from "lucide-react";
 import { ImpactFocusInventoryPanel } from "@/components/impact/ImpactFocusInventoryPanel";
+import { useCRM10x } from "@/lib/crm10x/store";
+import type { ActiveView } from "./impact-queue-types";
 
 export type QueueFilters = {
-  chip: QueueChipFilter;
+  activeView: ActiveView;
+  dateRange: string;
+  customDate?: string;
+  quickFilters: string[];
   area: string;
-  type: string;
-  room: string;
-  need: string;
+  advanced: {
+    type: string;
+    room: string;
+    need: string;
+    objections: string[];
+    qualification: string[];
+  };
 };
 
-const HEAT_OPTIONS: Array<{ key: QueueChipFilter; label: string }> = [
-  { key: "all", label: "All" },
-  { key: "hot", label: "Hot" },
-  { key: "warm", label: "Warm" },
-  { key: "cold", label: "Cold" },
-  { key: "overdue", label: "Overdue only" },
-];
-
-const SECONDARY_FILTERS: Array<{ key: QueueChipFilter; label: string }> = [
-  { key: "tour-today", label: "Tour today" },
-  { key: "quote-pending", label: "Quote pending" },
-];
-
-function filterSummary(filters: QueueFilters): string {
-  const parts = [
-    CHIP_LABELS[filters.chip] ?? "All leads",
-    filters.area === "all" ? "All areas" : filters.area,
-    filters.type === "all" ? "All types" : filters.type,
-  ];
-  if (filters.room !== "all") parts.push(filters.room);
-  if (filters.need !== "all") parts.push(filters.need);
-  return parts.join(" • ");
-}
-
-function filtersActive(filters: QueueFilters): boolean {
-  return (
-    filters.chip !== "all" ||
-    filters.area !== "all" ||
-    filters.type !== "all" ||
-    filters.room !== "all" ||
-    filters.need !== "all"
-  );
-}
+export const defaultQueueFilters: QueueFilters = {
+  activeView: "all",
+  dateRange: "all",
+  quickFilters: [],
+  area: "all",
+  advanced: {
+    type: "all",
+    room: "all",
+    need: "all",
+    objections: [],
+    qualification: [],
+  }
+};
 
 export function ImpactFiltersPopover({
   filters,
   uniqueAreas,
   onApply,
   onOpenMessageLab,
+  tcms
 }: {
   filters: QueueFilters;
   uniqueAreas: string[];
   onApply: (next: QueueFilters) => void;
   onOpenMessageLab: () => void;
+  tcms?: Array<{id: string; name?: string}>;
 }) {
   const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState<QueueFilters>(filters);
+  const [localFilters, setLocalFilters] = useState<QueueFilters>(filters);
 
   useEffect(() => {
-    if (open) setDraft(filters);
+    if (open) setLocalFilters(filters);
   }, [open, filters]);
+  const allObjections = useCRM10x((s) => s.objections);
 
-  const activeSecondary = SECONDARY_FILTERS.find((item) => item.key === draft.chip);
+  const updateFilter = (updater: (prev: QueueFilters) => QueueFilters) => {
+    setLocalFilters(updater(localFilters!));
+  };
 
-  const apply = () => {
-    onApply(draft);
+  const applyChanges = () => {
+    onApply(localFilters);
     setOpen(false);
   };
 
   const reset = () => {
-    const cleared: QueueFilters = {
-      chip: "all",
-      area: "all",
-      type: "all",
-      room: "all",
-      need: "all",
-    };
-    setDraft(cleared);
-    onApply(cleared);
+    onApply({ ...defaultQueueFilters, activeView: filters.activeView });
     setOpen(false);
   };
+
+  const toggleAdvancedArray = (key: 'objections' | 'qualification', item: string) => {
+    updateFilter((prev) => {
+      const arr = prev.advanced[key];
+      const newArr = arr.includes(item) ? arr.filter((x) => x !== item) : [...arr, item];
+      return { ...prev, advanced: { ...prev.advanced, [key]: newArr } };
+    });
+  };
+
+  const [memberOpen, setMemberOpen] = useState(false);
 
   return (
     <div className="flex min-w-0 items-center gap-1.5">
@@ -122,69 +129,22 @@ export function ImpactFiltersPopover({
           <button
             type="button"
             className={cn(
-              "h-8 shrink-0 rounded-md border px-2.5 text-[11px] font-medium flex items-center gap-1.5 transition-colors",
-              filtersActive(filters)
-                ? "border-accent bg-accent/10 text-foreground"
-                : "border-border bg-background text-muted-foreground hover:text-foreground hover:bg-accent/5",
+              "h-8 shrink-0 rounded-md border px-3 text-[11px] font-semibold flex items-center gap-1.5 transition-colors border-border bg-background text-muted-foreground hover:bg-muted/50 hover:text-foreground"
             )}
           >
             <SlidersHorizontal className="h-3.5 w-3.5" />
-            Filters
+            <span className="hidden sm:inline">More Filters</span>
+            <span className="sm:hidden">Filters</span>
           </button>
         </PopoverTrigger>
-        <PopoverContent align="end" className="w-auto max-w-[min(92vw,42rem)] p-0">
-          <div className="grid divide-x divide-border sm:grid-cols-4">
-            <div className="p-3 min-w-[7.5rem]">
-              <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Heat
-              </p>
-              <div className="space-y-2">
-                {HEAT_OPTIONS.map((item) => (
-                  <label
-                    key={item.key}
-                    className="flex cursor-pointer items-center gap-2 text-[11px]"
-                  >
-                    <Checkbox
-                      checked={draft.chip === item.key}
-                      onCheckedChange={() => setDraft((prev) => ({ ...prev, chip: item.key }))}
-                    />
-                    <span className="flex items-center gap-1">
-                      {item.key === "hot" ? <Flame className="h-3 w-3 text-danger" /> : null}
-                      {item.label}
-                    </span>
-                  </label>
-                ))}
-              </div>
-              <div className="mt-3 space-y-1 border-t border-border/60 pt-2">
-                <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  More
-                </p>
-                {SECONDARY_FILTERS.map((item) => (
-                  <label
-                    key={item.key}
-                    className="flex cursor-pointer items-center gap-2 text-[11px]"
-                  >
-                    <Checkbox
-                      checked={draft.chip === item.key}
-                      onCheckedChange={() => setDraft((prev) => ({ ...prev, chip: item.key }))}
-                    />
-                    {item.label}
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            <div className="p-3 min-w-[8.5rem]">
-              <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Location
-              </p>
-              <Select
-                value={draft.area}
-                onValueChange={(area) => setDraft((prev) => ({ ...prev, area }))}
-              >
-                <SelectTrigger className="h-8 text-[11px] bg-background">
-                  <SelectValue placeholder="All areas" />
-                </SelectTrigger>
+        <PopoverContent align="start" className="w-[min(95vw,32rem)] p-0 flex flex-col max-h-[85vh] shadow-xl">
+          <div className="p-4 overflow-y-auto space-y-6">
+            
+            {/* SECTION 1: AREA */}
+            <div>
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Area</p>
+              <Select value={localFilters.area} onValueChange={(area) => updateFilter((prev) => ({ ...prev, area }))}>
+                <SelectTrigger className="h-9 text-[11px] bg-background"><SelectValue placeholder="All areas" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all" className="text-[11px]">All areas</SelectItem>
                   {uniqueAreas.map((area) => (
@@ -192,82 +152,114 @@ export function ImpactFiltersPopover({
                   ))}
                 </SelectContent>
               </Select>
-              <p className="mb-2 mt-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Type
-              </p>
-              <Select
-                value={draft.type}
-                onValueChange={(type) => setDraft((prev) => ({ ...prev, type }))}
-              >
-                <SelectTrigger className="h-8 text-[11px] bg-background">
-                  <SelectValue placeholder="All types" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all" className="text-[11px]">All types</SelectItem>
-                  <SelectItem value="Student" className="text-[11px]">Student</SelectItem>
-                  <SelectItem value="Working" className="text-[11px]">Working</SelectItem>
-                  <SelectItem value="Intern" className="text-[11px]">Intern</SelectItem>
-                  <SelectItem value="Family" className="text-[11px]">Family</SelectItem>
-                  <SelectItem value="Other" className="text-[11px]">Other</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
 
-            <div className="p-3 min-w-[8rem]">
-              <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Room
-              </p>
-              <Select
-                value={draft.room}
-                onValueChange={(room) => setDraft((prev) => ({ ...prev, room }))}
-              >
-                <SelectTrigger className="h-8 text-[11px] bg-background">
-                  <SelectValue placeholder="All rooms" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all" className="text-[11px]">All rooms</SelectItem>
-                  <SelectItem value="Private" className="text-[11px]">Private</SelectItem>
-                  <SelectItem value="Shared" className="text-[11px]">Shared</SelectItem>
-                  <SelectItem value="Both" className="text-[11px]">Both</SelectItem>
-                  <SelectItem value="Studio" className="text-[11px]">Studio</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {/* ADVANCED FILTERS */}
+            <Collapsible>
+              <CollapsibleTrigger asChild>
+                <button className="flex w-full items-center justify-between rounded-md border border-border bg-muted/30 px-3 py-2 text-xs font-bold text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors">
+                  Advanced Filters
+                  <ChevronDown className="h-4 w-4" />
+                </button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="pt-4 space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Room</p>
+                    <Select value={localFilters.advanced.room} onValueChange={(val) => updateFilter(p => ({ ...p, advanced: { ...p.advanced, room: val }}))}>
+                      <SelectTrigger className="h-8 text-[11px] bg-background"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all" className="text-[11px]">All rooms</SelectItem>
+                        <SelectItem value="Private" className="text-[11px]">Private</SelectItem>
+                        <SelectItem value="Shared" className="text-[11px]">Shared</SelectItem>
+                        <SelectItem value="Both" className="text-[11px]">Both</SelectItem>
+                        <SelectItem value="Studio" className="text-[11px]">Studio</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Type</p>
+                    <Select value={localFilters.advanced.type} onValueChange={(val) => updateFilter(p => ({ ...p, advanced: { ...p.advanced, type: val }}))}>
+                      <SelectTrigger className="h-8 text-[11px] bg-background"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all" className="text-[11px]">All types</SelectItem>
+                        <SelectItem value="Student" className="text-[11px]">Student</SelectItem>
+                        <SelectItem value="Working" className="text-[11px]">Working</SelectItem>
+                        <SelectItem value="Intern" className="text-[11px]">Intern</SelectItem>
+                        <SelectItem value="Family" className="text-[11px]">Family</SelectItem>
+                        <SelectItem value="Other" className="text-[11px]">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Needs</p>
+                    <Select value={localFilters.advanced.need} onValueChange={(val) => updateFilter(p => ({ ...p, advanced: { ...p.advanced, need: val }}))}>
+                      <SelectTrigger className="h-8 text-[11px] bg-background"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all" className="text-[11px]">All needs</SelectItem>
+                        <SelectItem value="Boys" className="text-[11px]">Boys</SelectItem>
+                        <SelectItem value="Girls" className="text-[11px]">Girls</SelectItem>
+                        <SelectItem value="Coed" className="text-[11px]">Coed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
 
-            <div className="p-3 min-w-[8rem]">
-              <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Needs
-              </p>
-              <Select
-                value={draft.need}
-                onValueChange={(need) => setDraft((prev) => ({ ...prev, need }))}
-              >
-                <SelectTrigger className="h-8 text-[11px] bg-background">
-                  <SelectValue placeholder="All needs" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all" className="text-[11px]">All needs</SelectItem>
-                  <SelectItem value="Boys" className="text-[11px]">Boys</SelectItem>
-                  <SelectItem value="Girls" className="text-[11px]">Girls</SelectItem>
-                  <SelectItem value="Coed" className="text-[11px]">Coed</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+                <div>
+                  <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Deep Profile & Qualification</p>
+                  <div className="space-y-2">
+                    {[
+                      { k: "profile-complete", l: "Deep Profile Complete" },
+                      { k: "profile-incomplete", l: "Deep Profile Incomplete" },
+                      { k: "budget-verified", l: "Budget Verified" },
+                      { k: "budget-unverified", l: "Budget Unverified" }
+                    ].map(opt => (
+                      <label key={opt.k} className="flex cursor-pointer items-start gap-2 text-[11px] font-medium leading-tight">
+                        <Checkbox checked={localFilters.advanced.qualification.includes(opt.k)} onCheckedChange={() => toggleAdvancedArray("qualification", opt.k)} />
+                        {opt.l}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                
+                <div>
+                  <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Objections</p>
+                  <div className="flex flex-wrap gap-2.5">
+                    {[
+                      { k: "food-not-available", l: "Food" },
+                      { k: "price-too-high", l: "Budget" },
+                      { k: "location-not-suitable", l: "Distance" },
+                      { k: "room-too-small", l: "Room" },
+                      { k: "needs-family-approval", l: "Parent" },
+                      { k: "other", l: "Other" }
+                    ].map(opt => {
+                      const active = localFilters.advanced.objections.includes(opt.k);
+                      return (
+                        <button 
+                          key={opt.k}
+                          onClick={() => toggleAdvancedArray("objections", opt.k)}
+                          className={cn("rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-colors", active ? "border-primary bg-primary text-primary-foreground shadow-sm" : "border-border bg-background text-muted-foreground hover:bg-muted")}
+                        >
+                          {opt.l}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+              </CollapsibleContent>
+            </Collapsible>
+
           </div>
 
-          <div className="flex items-center justify-between gap-2 border-t border-border px-3 py-2">
+          <div className="flex items-center justify-between gap-2 border-t border-border px-4 py-3 bg-muted/20">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className={cn(
-                    "h-7 rounded-md border px-2 text-[10px] font-semibold flex items-center gap-1",
-                    activeSecondary
-                      ? "border-warning bg-warning/10 text-warning"
-                      : "border-border text-muted-foreground hover:text-foreground",
-                  )}
+                  className="h-8 rounded-md border border-border bg-background px-3 text-[11px] font-semibold flex items-center gap-1.5 text-muted-foreground hover:text-foreground"
                 >
-                  <MoreHorizontal className="h-3 w-3" />
+                  <MoreHorizontal className="h-3.5 w-3.5" />
                   Tools
                 </button>
               </DropdownMenuTrigger>
@@ -288,12 +280,13 @@ export function ImpactFiltersPopover({
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            
             <div className="flex items-center gap-2">
-              <Button size="sm" variant="outline" className="h-7 text-[11px]" onClick={reset}>
-                Reset
+              <Button size="sm" variant="ghost" className="h-8 px-4 text-xs font-semibold text-muted-foreground hover:text-foreground" onClick={reset}>
+                Clear All
               </Button>
-              <Button size="sm" className="h-7 text-[11px]" onClick={apply}>
-                Apply
+              <Button size="sm" className="h-8 px-4 text-xs font-semibold shadow-sm" onClick={applyChanges}>
+                Apply Filters
               </Button>
             </div>
           </div>
@@ -345,7 +338,7 @@ export function ImpactQueueMetaBar({
   view,
 }: {
   leadCount: number;
-  view: ViewMode;
+  view: string;
 }) {
   return (
     <div className="flex items-center gap-2 border-t border-border/70 bg-background px-3 py-1 text-[10px] text-muted-foreground">
@@ -355,3 +348,155 @@ export function ImpactQueueMetaBar({
     </div>
   );
 }
+
+export function ImpactDateDropdown({
+  filters,
+  onChange,
+}: {
+  filters: QueueFilters;
+  onChange: (dateRange: string, customDate?: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [customVal, setCustomVal] = useState(filters.customDate || "");
+
+  const getLabel = () => {
+    switch (filters.dateRange) {
+      case "today": return "Today";
+      case "yesterday": return "Yesterday";
+      case "last7": return "Last 7 Days";
+      case "custom": return "Custom Range";
+      default: return "All Time";
+    }
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button className="h-8 rounded-md border border-border bg-background px-3 text-[11px] font-semibold flex items-center gap-1.5 transition-colors text-muted-foreground hover:bg-muted/50 hover:text-foreground">
+          <Calendar className="h-3.5 w-3.5" />
+          {getLabel()}
+          <ChevronDown className="h-3.5 w-3.5 opacity-50" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-56 p-1" align="start">
+        <div className="flex flex-col">
+          {[
+            { k: "all", l: "All Time" },
+            { k: "today", l: "Today" },
+            { k: "yesterday", l: "Yesterday" },
+            { k: "last7", l: "Last 7 Days" },
+            { k: "custom", l: "Custom Range" },
+          ].map(opt => (
+            <div key={opt.k} className="flex flex-col">
+              <button
+                className={cn("flex items-center px-2 py-1.5 text-sm rounded-sm hover:bg-muted text-left", filters.dateRange === opt.k && "bg-muted font-medium")}
+                onClick={() => {
+                  if (opt.k !== "custom") {
+                    onChange(opt.k);
+                    setOpen(false);
+                  } else {
+                    onChange("custom", customVal);
+                  }
+                }}
+              >
+                {opt.l}
+              </button>
+              {opt.k === "custom" && filters.dateRange === "custom" && (
+                <div className="p-2 border-t mt-1 flex flex-col gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-muted-foreground w-8">From</span>
+                    <input type="date" value={customVal.split(":")[0] || ""} onChange={(e) => {
+                      const to = customVal.split(":")[1] || "";
+                      const newVal = `${e.target.value}:${to}`;
+                      setCustomVal(newVal);
+                      onChange("custom", newVal);
+                    }} className="h-8 w-full rounded-md border border-input text-xs px-2 bg-background" />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-muted-foreground w-8">To</span>
+                    <input type="date" value={customVal.split(":")[1] || ""} onChange={(e) => {
+                      const from = customVal.split(":")[0] || "";
+                      const newVal = `${from}:${e.target.value}`;
+                      setCustomVal(newVal);
+                      onChange("custom", newVal);
+                    }} className="h-8 w-full rounded-md border border-input text-xs px-2 bg-background" />
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+export function ImpactQueueSwitcher({
+  activeView,
+  counts,
+  onChange
+}: {
+  activeView: ActiveView;
+  counts: Record<ActiveView, number>;
+  onChange: (view: ActiveView) => void;
+}) {
+  const views: { k: ActiveView; l: string }[] = [
+    { k: "all", l: "All Leads" },
+    { k: "tours-today", l: "Tours Today" },
+    { k: "feedback-missing", l: "Feedback Missing" },
+    { k: "quote-pending", l: "Quote Pending" },
+    { k: "movein-0-7", l: "Move-In < 7 Days" },
+    { k: "no-activity-48h", l: "No Activity > 48h" },
+  ];
+
+  return (
+    <div className="flex flex-1 items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 sm:pb-0">
+      {views.map((v) => {
+         const active = activeView === v.k;
+         return (
+           <button
+             key={v.k}
+             onClick={() => onChange(v.k)}
+             className={cn("shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-colors shadow-sm", active ? "bg-slate-800 text-white border-slate-800 dark:bg-foreground dark:text-background" : "bg-card text-slate-600 border-border hover:bg-muted hover:text-foreground")}
+           >
+             {v.l} ({counts[v.k] ?? 0})
+           </button>
+         );
+      })}
+    </div>
+  );
+}
+
+export function ImpactActiveFiltersSummary({ filters, tcms }: { filters: QueueFilters, tcms?: Array<{id: string; name?: string}> }) {
+  const parts: string[] = [];
+
+  if (filters.dateRange !== "all") {
+    const dr = {
+      today: "Today",
+      yesterday: "Yesterday",
+      last7: "Last 7 Days",
+      custom: `Range: ${filters.customDate?.replace(":", " to ")}`,
+    }[filters.dateRange];
+    if (dr) parts.push(dr);
+  }
+
+  if (filters.area !== "all") {
+    parts.push(filters.area);
+  }
+
+  const adv = filters.advanced;
+  if (adv.type !== "all") parts.push(`Type: ${adv.type}`);
+  if (adv.room !== "all") parts.push(`Room: ${adv.room}`);
+  if (adv.need !== "all") parts.push(`Need: ${adv.need}`);
+  if (adv.qualification.length > 0) parts.push(`${adv.qualification.length} Qual. Filters`);
+  if (adv.objections.length > 0) parts.push(`${adv.objections.length} Objections`);
+
+  if (parts.length === 0) return null;
+
+  return (
+    <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground font-medium truncate max-w-[300px]">
+      <span className="truncate">{parts.join(" • ")}</span>
+    </div>
+  );
+}
+
