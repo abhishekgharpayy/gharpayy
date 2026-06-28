@@ -36,6 +36,7 @@ import { registerBookingsRoutes } from "./modules/bookings/routes.js";
 import { registerTenantsRoutes } from "./modules/tenants/routes.js";
 import { registerPaymentsRoutes } from "./modules/payments/routes.js";
 import { registerOwnerRoutes } from "./modules/owner/routes.js";
+import { registerAiRoutes } from "./modules/ai/routes.js";
 import { registerAdminSupremeRoutes } from "./modules/admin/supreme.js";
 import { registerAdminPerformanceRoutes } from "./modules/admin/performance.js";
 import { registerAdminImpactCommandRoutes } from "./modules/admin/impact-command.js";
@@ -143,6 +144,7 @@ h1{margin:0 0 .5rem;font-size:1.5rem;color:#34d399}p{margin:.25rem 0;color:#94a3
   registerTenantsRoutes(app);
   registerPaymentsRoutes(app);
   registerOwnerRoutes(app);
+  registerAiRoutes(app);
   registerAdminSupremeRoutes(app);
   registerAdminPerformanceRoutes(app);
   registerAdminImpactCommandRoutes(app);
