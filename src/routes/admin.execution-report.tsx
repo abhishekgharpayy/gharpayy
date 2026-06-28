@@ -154,7 +154,7 @@ function ExecutionMonitorPage() {
       const res = await apiClient.get<ExecutionReport>("/api/admin/execution-report", {
         params: { window_minutes: windowMins },
       });
-      setReport(res.data);
+      setReport(res);
       setNextRefreshAt(Date.now() + windowMins * 60000);
     } catch (e: any) {
       setError(e.response?.data?.message || e.message);
