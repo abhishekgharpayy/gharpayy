@@ -1003,7 +1003,7 @@ export const PGS: PG[] = [
    "double": 0,
    "triple": 0
   },
-  "rooms": "❤️Room with Balcony & Common Washroom  💛Room with Attached Washroom  💛Room with",
+  "rooms": "️Room with Balcony & Common Washroom  Room with Attached Washroom  Room with",
   "furnishing": "Amenities as mentioned in chat",
   "amenities": [
    "Wifi",
@@ -25712,7 +25712,7 @@ export const PGS: PG[] = [
   "name": "MVS PEARLS-SOLD OUT",
   "actualName": "dc gardenia",
   "area": "Koramangala",
-  "locality": "\"📍GHARPAYY MVS PEARLS!!!  -COED  🚀 Attention: Pre-Booking Required!   _enjoy a s",
+  "locality": "\"GHARPAYY MVS PEARLS!!!  -COED   Attention: Pre-Booking Required!   _enjoy a s",
   "gender": "Co-live",
   "tier": "Mid",
   "audience": "Both",
@@ -26011,7 +26011,7 @@ export const PGS: PG[] = [
     ]
    },
    "pitch": {
-    "location": "MVS PEARLS-SOLD OUT sits at \"📍GHARPAYY MVS PEARLS!!!  -COED  🚀 Attention: Pre-Booking Required!   _enjoy a s. From here you can walk to Koramangala 8th Block, SGPalya, Koramangala 7th Block. 15 minutes walk to nearest tech park. No commute headache.",
+    "location": "MVS PEARLS-SOLD OUT sits at \"GHARPAYY MVS PEARLS!!!  -COED   Attention: Pre-Booking Required!   _enjoy a s. From here you can walk to Koramangala 8th Block, SGPalya, Koramangala 7th Block. 15 minutes walk to nearest tech park. No commute headache.",
     "lifestyle": "Vibe Is very good, All good restaurants are nearby, and good parties happen here You get Lounge, Gym, Pantry, Rooftop, Both food, and Every Alternate Day.",
     "priceClose": "₹18,000–₹27,000/mo all-inclusive. That's electricity + water + WiFi + maintenance + 4 Meals / Day. No hidden charges, no shocks at month-end.",
     "closeQuestion": "Shall I block this room for you with a ₹3,000 refundable token? You'll have 24 hours to confirm."
@@ -28355,7 +28355,7 @@ export const PGS: PG[] = [
   "name": "jack coed",
   "actualName": "euphoria",
   "area": "Koramangala",
-  "locality": "\"📍GHARPAYY JACK- COED! 🚀 Attention: Pre-Booking Required!   _enjoy a seamless ex",
+  "locality": "\"GHARPAYY JACK- COED!  Attention: Pre-Booking Required!   _enjoy a seamless ex",
   "gender": "Co-live",
   "tier": "Mid",
   "audience": "Both",
@@ -28654,7 +28654,7 @@ export const PGS: PG[] = [
     ]
    },
    "pitch": {
-    "location": "jack coed sits at \"📍GHARPAYY JACK- COED! 🚀 Attention: Pre-Booking Required!   _enjoy a seamless ex. From here you can walk to Koramangala Post Office, Tonic Koramangala, Jyoti Nivas College Road. 15 minutes walk to nearest tech park. No commute headache.",
+    "location": "jack coed sits at \"GHARPAYY JACK- COED!  Attention: Pre-Booking Required!   _enjoy a seamless ex. From here you can walk to Koramangala Post Office, Tonic Koramangala, Jyoti Nivas College Road. 15 minutes walk to nearest tech park. No commute headache.",
     "lifestyle": "Vibe Is very good, All good restaurants are nearby, and good parties happen here You get Lounge, Gym, Pantry, Rooftop, Both food, and Every Alternate Day.",
     "priceClose": "₹19,000–₹22,000/mo all-inclusive. That's electricity + water + WiFi + maintenance + 4 Meals / Day. No hidden charges, no shocks at month-end.",
     "closeQuestion": "Shall I block this room for you with a ₹3,000 refundable token? You'll have 24 hours to confirm."
@@ -29677,7 +29677,7 @@ export const PGS: PG[] = [
   "name": "Homely GIRLS",
   "actualName": "kalpavriksha",
   "area": "Koramangala",
-  "locality": "\"📍GHARPAYY  HOMELY GIRLS 🚀 Attention: Pre-Booking Required! enjoy a seamless exp",
+  "locality": "\"GHARPAYY  HOMELY GIRLS  Attention: Pre-Booking Required! enjoy a seamless exp",
   "gender": "Girls",
   "tier": "Mid",
   "audience": "Both",
@@ -29979,7 +29979,7 @@ export const PGS: PG[] = [
     ]
    },
    "pitch": {
-    "location": "Homely GIRLS sits at \"📍GHARPAYY  HOMELY GIRLS 🚀 Attention: Pre-Booking Required! enjoy a seamless exp. From here you can walk to Koramangala Post Office, Tonic Koramangala, Jyoti Nivas College Road. 15 minutes to nearest tech park. No commute headache.",
+    "location": "Homely GIRLS sits at \"GHARPAYY  HOMELY GIRLS  Attention: Pre-Booking Required! enjoy a seamless exp. From here you can walk to Koramangala Post Office, Tonic Koramangala, Jyoti Nivas College Road. 15 minutes to nearest tech park. No commute headache.",
     "lifestyle": "All restaurants nearby, good nightlife and area You get Lounge, Gym, Pantry, Study Area, Rooftop, Library, Both food, and Every Alternate Day.",
     "priceClose": "₹16,000–₹27,000/mo all-inclusive. That's electricity + water + WiFi + maintenance + 4 Meals / Day. No hidden charges, no shocks at month-end.",
     "closeQuestion": "Shall I block this room for you with a ₹3,000 refundable token? You'll have 24 hours to confirm."
@@ -30692,7 +30692,7 @@ export const PGS: PG[] = [
    "triple": 0
   },
   "rooms": "Single Sharing, Double Sharing, Triple Sharing",
-  "furnishing": "AMENITIES INCLUDED  You'll Save Moneyy 🔥⚡ ALL AMENITIES Included – SUPER STAY Mo",
+  "furnishing": "AMENITIES INCLUDED  You'll Save Moneyy  ALL AMENITIES Included – SUPER STAY Mo",
   "amenities": [
    "Wifi",
    "Laundry Area",
@@ -32451,7 +32451,7 @@ export const PGS: PG[] = [
    "double": 0,
    "triple": 0
   },
-  "rooms": "Single Sharing, Double Sharing, Triple Sharing, Studio, \"\"\"⚡️ Welcome to Gharpay",
+  "rooms": "Single Sharing, Double Sharing, Triple Sharing, Studio, \"\"\"️ Welcome to Gharpay",
   "furnishing": "\"ALL-INCLUSIVE AMENITIES (BUILT INTO YOUR RENT) This isn’t a place to stay. It’s",
   "amenities": [
    "Parking",
@@ -35283,7 +35283,7 @@ export const PGS: PG[] = [
   "foodType": "Veg",
   "mealsIncluded": "2 Meals/ Day",
   "utilities": "\"ALL-INCLUSIVE AMENITIES (BUILT INTO YOUR RENT) This isn’t a",
-  "cleaning": "\"ALL-INCLUSIVE AMENITIES (BUILT INTO YOUR RENT) This isn’t a place to stay. It’s a system designed to remove friction from daily life. SIGMA COED  🧹 Housekeeping * Professional cleaning twice a week, based on room type  🍽️ Food (Weekdays) * Breakfast & Dinner * Monday to Friday  ⚙️ Utilities & Daily Essentials * Maintenance & Water * RO Drinking Water * High-Speed Wi-Fi * Scheduled Pest Control * 24×7 CCTV & Security  🧺 Laundry Support 2–4 Laundry Coupons (Varies by room category)  🛏️ In-Room Comforts * Refrigerator * Dedicated Workstation (Table & Chair) * Wardrobe Organizer Sets   COMMUNITY & LIFESTYLE SPACES  🎯 Social & Recreation * Game Room: Table Tennis, Pool, Foosball * Board Games * PS4 Gaming Console  🎬 Entertainment Zones * Home Theater with Netflix, Prime & Hotstar * TV with Tata Sky in common areas  🏡 Shared Living Spaces * Lounge Area • Dining Area * Sky Deck & Terrace Access   Self-Use Convenience* • Fully equipped self-cooking kitchen stations   TRANSPARENCY, ALWAYS * Electricity charged on actual consumption * All prices are inclusive of applicable taxes and charges  Designed for people who value time, comfort, and clarity. Everything you need. Nothing you need to chase.\"",
+  "cleaning": "\"ALL-INCLUSIVE AMENITIES (BUILT INTO YOUR RENT) This isn’t a place to stay. It’s a system designed to remove friction from daily life. SIGMA COED   Housekeeping * Professional cleaning twice a week, based on room type  ️ Food (Weekdays) * Breakfast & Dinner * Monday to Friday  ️ Utilities & Daily Essentials * Maintenance & Water * RO Drinking Water * High-Speed Wi-Fi * Scheduled Pest Control * 24×7 CCTV & Security   Laundry Support 2–4 Laundry Coupons (Varies by room category)  ️ In-Room Comforts * Refrigerator * Dedicated Workstation (Table & Chair) * Wardrobe Organizer Sets   COMMUNITY & LIFESTYLE SPACES   Social & Recreation * Game Room: Table Tennis, Pool, Foosball * Board Games * PS4 Gaming Console   Entertainment Zones * Home Theater with Netflix, Prime & Hotstar * TV with Tata Sky in common areas   Shared Living Spaces * Lounge Area • Dining Area * Sky Deck & Terrace Access   Self-Use Convenience* • Fully equipped self-cooking kitchen stations   TRANSPARENCY, ALWAYS * Electricity charged on actual consumption * All prices are inclusive of applicable taxes and charges  Designed for people who value time, comfort, and clarity. Everything you need. Nothing you need to chase.\"",
   "noise": "Medium",
   "vibe": "GOOD",
   "rules": "READ T&C",
@@ -35552,7 +35552,7 @@ export const PGS: PG[] = [
    },
    "pitch": {
     "location": "MAXX COED sits at Thubarahalli. From here you can walk to Marathahalli Bridge Signal, Outer Ring Road Marathahalli, HP Campus Marathahalli. 3 MIN to nearest tech park. No commute headache.",
-    "lifestyle": "GOOD You get \"ALL-INCLUSIVE AMENITIES (BUILT INTO YOUR RENT) This isn’t a place to stay. It’s, Veg food, and \"ALL-INCLUSIVE AMENITIES (BUILT INTO YOUR RENT) This isn’t a place to stay. It’s a system designed to remove friction from daily life. SIGMA COED  🧹 Housekeeping * Professional cleaning twice a week, based on room type  🍽️ Food (Weekdays) * Breakfast & Dinner * Monday to Friday  ⚙️ Utilities & Daily Essentials * Maintenance & Water * RO Drinking Water * High-Speed Wi-Fi * Scheduled Pest Control * 24×7 CCTV & Security  🧺 Laundry Support 2–4 Laundry Coupons (Varies by room category)  🛏️ In-Room Comforts * Refrigerator * Dedicated Workstation (Table & Chair) * Wardrobe Organizer Sets   COMMUNITY & LIFESTYLE SPACES  🎯 Social & Recreation * Game Room: Table Tennis, Pool, Foosball * Board Games * PS4 Gaming Console  🎬 Entertainment Zones * Home Theater with Netflix, Prime & Hotstar * TV with Tata Sky in common areas  🏡 Shared Living Spaces * Lounge Area • Dining Area * Sky Deck & Terrace Access   Self-Use Convenience* • Fully equipped self-cooking kitchen stations   TRANSPARENCY, ALWAYS * Electricity charged on actual consumption * All prices are inclusive of applicable taxes and charges  Designed for people who value time, comfort, and clarity. Everything you need. Nothing you need to chase.\".",
+    "lifestyle": "GOOD You get \"ALL-INCLUSIVE AMENITIES (BUILT INTO YOUR RENT) This isn’t a place to stay. It’s, Veg food, and \"ALL-INCLUSIVE AMENITIES (BUILT INTO YOUR RENT) This isn’t a place to stay. It’s a system designed to remove friction from daily life. SIGMA COED   Housekeeping * Professional cleaning twice a week, based on room type  ️ Food (Weekdays) * Breakfast & Dinner * Monday to Friday  ️ Utilities & Daily Essentials * Maintenance & Water * RO Drinking Water * High-Speed Wi-Fi * Scheduled Pest Control * 24×7 CCTV & Security   Laundry Support 2–4 Laundry Coupons (Varies by room category)  ️ In-Room Comforts * Refrigerator * Dedicated Workstation (Table & Chair) * Wardrobe Organizer Sets   COMMUNITY & LIFESTYLE SPACES   Social & Recreation * Game Room: Table Tennis, Pool, Foosball * Board Games * PS4 Gaming Console   Entertainment Zones * Home Theater with Netflix, Prime & Hotstar * TV with Tata Sky in common areas   Shared Living Spaces * Lounge Area • Dining Area * Sky Deck & Terrace Access   Self-Use Convenience* • Fully equipped self-cooking kitchen stations   TRANSPARENCY, ALWAYS * Electricity charged on actual consumption * All prices are inclusive of applicable taxes and charges  Designed for people who value time, comfort, and clarity. Everything you need. Nothing you need to chase.\".",
     "priceClose": "₹18,000–₹18,000/mo all-inclusive. That's electricity + water + WiFi + maintenance + 2 Meals/ Day. No hidden charges, no shocks at month-end.",
     "closeQuestion": "Shall I block this room for you with a ₹3,000 refundable token? You'll have 24 hours to confirm."
    },
@@ -36921,9 +36921,9 @@ export const PGS: PG[] = [
    "\"ALL-INCLUSIVE AMENIT"
   ],
   "foodType": "Both",
-  "mealsIncluded": "\"ALL-INCLUSIVE AMENITIES (BUILT INTO YOUR RENT) This isn’t a place to stay. It’s a system designed to remove friction from daily life. SIGMA COED  🧹 Housekeeping * Professional cleaning twice a week, based on room type  🍽️ Food (Weekdays) * Breakfast & Dinner * Monday to Friday  ⚙️ Utilities & Daily Essentials * Maintenance & Water * RO Drinking Water * High-Speed Wi-Fi * Scheduled Pest Control * 24×7 CCTV & Security  🧺 Laundry Support 2–4 Laundry Coupons (Varies by room category)  🛏️ In-Room Comforts * Refrigerator * Dedicated Workstation (Table & Chair) * Wardrobe Organizer Sets   COMMUNITY & LIFESTYLE SPACES  🎯 Social & Recreation * Game Room: Table Tennis, Pool, Foosball * Board Games * PS4 Gaming Console  🎬 Entertainment Zones * Home Theater with Netflix, Prime & Hotstar * TV with Tata Sky in common areas  🏡 Shared Living Spaces * Lounge Area • Dining Area * Sky Deck & Terrace Access   Self-Use Convenience* • Fully equipped self-cooking kitchen stations   TRANSPARENCY, ALWAYS * Electricity charged on actual consumption * All prices are inclusive of applicable taxes and charges  Designed for people who value time, comfort, and clarity. Everything you need. Nothing you need to chase.\"",
+  "mealsIncluded": "\"ALL-INCLUSIVE AMENITIES (BUILT INTO YOUR RENT) This isn’t a place to stay. It’s a system designed to remove friction from daily life. SIGMA COED   Housekeeping * Professional cleaning twice a week, based on room type  ️ Food (Weekdays) * Breakfast & Dinner * Monday to Friday  ️ Utilities & Daily Essentials * Maintenance & Water * RO Drinking Water * High-Speed Wi-Fi * Scheduled Pest Control * 24×7 CCTV & Security   Laundry Support 2–4 Laundry Coupons (Varies by room category)  ️ In-Room Comforts * Refrigerator * Dedicated Workstation (Table & Chair) * Wardrobe Organizer Sets   COMMUNITY & LIFESTYLE SPACES   Social & Recreation * Game Room: Table Tennis, Pool, Foosball * Board Games * PS4 Gaming Console   Entertainment Zones * Home Theater with Netflix, Prime & Hotstar * TV with Tata Sky in common areas   Shared Living Spaces * Lounge Area • Dining Area * Sky Deck & Terrace Access   Self-Use Convenience* • Fully equipped self-cooking kitchen stations   TRANSPARENCY, ALWAYS * Electricity charged on actual consumption * All prices are inclusive of applicable taxes and charges  Designed for people who value time, comfort, and clarity. Everything you need. Nothing you need to chase.\"",
   "utilities": "\"ALL-INCLUSIVE AMENITIES (BUILT INTO YOUR RENT) This isn’t a",
-  "cleaning": "\"ALL-INCLUSIVE AMENITIES (BUILT INTO YOUR RENT) This isn’t a place to stay. It’s a system designed to remove friction from daily life. SIGMA COED  🧹 Housekeeping * Professional cleaning twice a week, based on room type  🍽️ Food (Weekdays) * Breakfast & Dinner * Monday to Friday  ⚙️ Utilities & Daily Essentials * Maintenance & Water * RO Drinking Water * High-Speed Wi-Fi * Scheduled Pest Control * 24×7 CCTV & Security  🧺 Laundry Support 2–4 Laundry Coupons (Varies by room category)  🛏️ In-Room Comforts * Refrigerator * Dedicated Workstation (Table & Chair) * Wardrobe Organizer Sets   COMMUNITY & LIFESTYLE SPACES  🎯 Social & Recreation * Game Room: Table Tennis, Pool, Foosball * Board Games * PS4 Gaming Console  🎬 Entertainment Zones * Home Theater with Netflix, Prime & Hotstar * TV with Tata Sky in common areas  🏡 Shared Living Spaces * Lounge Area • Dining Area * Sky Deck & Terrace Access   Self-Use Convenience* • Fully equipped self-cooking kitchen stations   TRANSPARENCY, ALWAYS * Electricity charged on actual consumption * All prices are inclusive of applicable taxes and charges  Designed for people who value time, comfort, and clarity. Everything you need. Nothing you need to chase.\"",
+  "cleaning": "\"ALL-INCLUSIVE AMENITIES (BUILT INTO YOUR RENT) This isn’t a place to stay. It’s a system designed to remove friction from daily life. SIGMA COED   Housekeeping * Professional cleaning twice a week, based on room type  ️ Food (Weekdays) * Breakfast & Dinner * Monday to Friday  ️ Utilities & Daily Essentials * Maintenance & Water * RO Drinking Water * High-Speed Wi-Fi * Scheduled Pest Control * 24×7 CCTV & Security   Laundry Support 2–4 Laundry Coupons (Varies by room category)  ️ In-Room Comforts * Refrigerator * Dedicated Workstation (Table & Chair) * Wardrobe Organizer Sets   COMMUNITY & LIFESTYLE SPACES   Social & Recreation * Game Room: Table Tennis, Pool, Foosball * Board Games * PS4 Gaming Console   Entertainment Zones * Home Theater with Netflix, Prime & Hotstar * TV with Tata Sky in common areas   Shared Living Spaces * Lounge Area • Dining Area * Sky Deck & Terrace Access   Self-Use Convenience* • Fully equipped self-cooking kitchen stations   TRANSPARENCY, ALWAYS * Electricity charged on actual consumption * All prices are inclusive of applicable taxes and charges  Designed for people who value time, comfort, and clarity. Everything you need. Nothing you need to chase.\"",
   "noise": "Medium",
   "vibe": "VERY PREMIUM AND FRIENDLY LOCALITY",
   "rules": "\"ALL-INCLUSIVE AMENITIES (BUILT INTO YOUR RENT) This isn’t a",
@@ -37166,7 +37166,7 @@ export const PGS: PG[] = [
     "objections": [
      {
       "obj": "It's over my budget",
-      "resp": "I hear you. Look - Premium property + all-inclusive bill (no separate electricity) + \"ALL-INCLUSIVE AMENITIES (BUILT INTO YOUR RENT) This isn’t a place to stay. It’s a system designed to remove friction from daily life. SIGMA COED  🧹 Housekeeping * Professional cleaning twice a week, based on room type  🍽️ Food (Weekdays) * Breakfast & Dinner * Monday to Friday  ⚙️ Utilities & Daily Essentials * Maintenance & Water * RO Drinking Water * High-Speed Wi-Fi * Scheduled Pest Control * 24×7 CCTV & Security  🧺 Laundry Support 2–4 Laundry Coupons (Varies by room category)  🛏️ In-Room Comforts * Refrigerator * Dedicated Workstation (Table & Chair) * Wardrobe Organizer Sets   COMMUNITY & LIFESTYLE SPACES  🎯 Social & Recreation * Game Room: Table Tennis, Pool, Foosball * Board Games * PS4 Gaming Console  🎬 Entertainment Zones * Home Theater with Netflix, Prime & Hotstar * TV with Tata Sky in common areas  🏡 Shared Living Spaces * Lounge Area • Dining Area * Sky Deck & Terrace Access   Self-Use Convenience* • Fully equipped self-cooking kitchen stations   TRANSPARENCY, ALWAYS * Electricity charged on actual consumption * All prices are inclusive of applicable taxes and charges  Designed for people who value time, comfort, and clarity. Everything you need. Nothing you need to chase.\" = effective cost is ₹27,200/mo. Plus we have an offer right now: 2K off monthly on 12-month stay. Want me to lock that for you?"
+      "resp": "I hear you. Look - Premium property + all-inclusive bill (no separate electricity) + \"ALL-INCLUSIVE AMENITIES (BUILT INTO YOUR RENT) This isn’t a place to stay. It’s a system designed to remove friction from daily life. SIGMA COED   Housekeeping * Professional cleaning twice a week, based on room type  ️ Food (Weekdays) * Breakfast & Dinner * Monday to Friday  ️ Utilities & Daily Essentials * Maintenance & Water * RO Drinking Water * High-Speed Wi-Fi * Scheduled Pest Control * 24×7 CCTV & Security   Laundry Support 2–4 Laundry Coupons (Varies by room category)  ️ In-Room Comforts * Refrigerator * Dedicated Workstation (Table & Chair) * Wardrobe Organizer Sets   COMMUNITY & LIFESTYLE SPACES   Social & Recreation * Game Room: Table Tennis, Pool, Foosball * Board Games * PS4 Gaming Console   Entertainment Zones * Home Theater with Netflix, Prime & Hotstar * TV with Tata Sky in common areas   Shared Living Spaces * Lounge Area • Dining Area * Sky Deck & Terrace Access   Self-Use Convenience* • Fully equipped self-cooking kitchen stations   TRANSPARENCY, ALWAYS * Electricity charged on actual consumption * All prices are inclusive of applicable taxes and charges  Designed for people who value time, comfort, and clarity. Everything you need. Nothing you need to chase.\" = effective cost is ₹27,200/mo. Plus we have an offer right now: 2K off monthly on 12-month stay. Want me to lock that for you?"
      },
      {
       "obj": "Let me think about it / discuss with parents",
@@ -37192,8 +37192,8 @@ export const PGS: PG[] = [
    },
    "pitch": {
     "location": "ITP LUXE COED sits at near to itpl. From here you can walk to Kundanahalli Gate, Brookfield Signal, Vigyan Nagar Mahadevapura. 3 MIN to nearest tech park. No commute headache.",
-    "lifestyle": "VERY PREMIUM AND FRIENDLY LOCALITY You get \"ALL-INCLUSIVE AMENITIES (BUILT INTO YOUR RENT) This isn’t a place to stay. It’s, Both food, and \"ALL-INCLUSIVE AMENITIES (BUILT INTO YOUR RENT) This isn’t a place to stay. It’s a system designed to remove friction from daily life. SIGMA COED  🧹 Housekeeping * Professional cleaning twice a week, based on room type  🍽️ Food (Weekdays) * Breakfast & Dinner * Monday to Friday  ⚙️ Utilities & Daily Essentials * Maintenance & Water * RO Drinking Water * High-Speed Wi-Fi * Scheduled Pest Control * 24×7 CCTV & Security  🧺 Laundry Support 2–4 Laundry Coupons (Varies by room category)  🛏️ In-Room Comforts * Refrigerator * Dedicated Workstation (Table & Chair) * Wardrobe Organizer Sets   COMMUNITY & LIFESTYLE SPACES  🎯 Social & Recreation * Game Room: Table Tennis, Pool, Foosball * Board Games * PS4 Gaming Console  🎬 Entertainment Zones * Home Theater with Netflix, Prime & Hotstar * TV with Tata Sky in common areas  🏡 Shared Living Spaces * Lounge Area • Dining Area * Sky Deck & Terrace Access   Self-Use Convenience* • Fully equipped self-cooking kitchen stations   TRANSPARENCY, ALWAYS * Electricity charged on actual consumption * All prices are inclusive of applicable taxes and charges  Designed for people who value time, comfort, and clarity. Everything you need. Nothing you need to chase.\".",
-    "priceClose": "₹32,000–₹32,000/mo all-inclusive. That's electricity + water + WiFi + maintenance + \"ALL-INCLUSIVE AMENITIES (BUILT INTO YOUR RENT) This isn’t a place to stay. It’s a system designed to remove friction from daily life. SIGMA COED  🧹 Housekeeping * Professional cleaning twice a week, based on room type  🍽️ Food (Weekdays) * Breakfast & Dinner * Monday to Friday  ⚙️ Utilities & Daily Essentials * Maintenance & Water * RO Drinking Water * High-Speed Wi-Fi * Scheduled Pest Control * 24×7 CCTV & Security  🧺 Laundry Support 2–4 Laundry Coupons (Varies by room category)  🛏️ In-Room Comforts * Refrigerator * Dedicated Workstation (Table & Chair) * Wardrobe Organizer Sets   COMMUNITY & LIFESTYLE SPACES  🎯 Social & Recreation * Game Room: Table Tennis, Pool, Foosball * Board Games * PS4 Gaming Console  🎬 Entertainment Zones * Home Theater with Netflix, Prime & Hotstar * TV with Tata Sky in common areas  🏡 Shared Living Spaces * Lounge Area • Dining Area * Sky Deck & Terrace Access   Self-Use Convenience* • Fully equipped self-cooking kitchen stations   TRANSPARENCY, ALWAYS * Electricity charged on actual consumption * All prices are inclusive of applicable taxes and charges  Designed for people who value time, comfort, and clarity. Everything you need. Nothing you need to chase.\". No hidden charges, no shocks at month-end.",
+    "lifestyle": "VERY PREMIUM AND FRIENDLY LOCALITY You get \"ALL-INCLUSIVE AMENITIES (BUILT INTO YOUR RENT) This isn’t a place to stay. It’s, Both food, and \"ALL-INCLUSIVE AMENITIES (BUILT INTO YOUR RENT) This isn’t a place to stay. It’s a system designed to remove friction from daily life. SIGMA COED   Housekeeping * Professional cleaning twice a week, based on room type  ️ Food (Weekdays) * Breakfast & Dinner * Monday to Friday  ️ Utilities & Daily Essentials * Maintenance & Water * RO Drinking Water * High-Speed Wi-Fi * Scheduled Pest Control * 24×7 CCTV & Security   Laundry Support 2–4 Laundry Coupons (Varies by room category)  ️ In-Room Comforts * Refrigerator * Dedicated Workstation (Table & Chair) * Wardrobe Organizer Sets   COMMUNITY & LIFESTYLE SPACES   Social & Recreation * Game Room: Table Tennis, Pool, Foosball * Board Games * PS4 Gaming Console   Entertainment Zones * Home Theater with Netflix, Prime & Hotstar * TV with Tata Sky in common areas   Shared Living Spaces * Lounge Area • Dining Area * Sky Deck & Terrace Access   Self-Use Convenience* • Fully equipped self-cooking kitchen stations   TRANSPARENCY, ALWAYS * Electricity charged on actual consumption * All prices are inclusive of applicable taxes and charges  Designed for people who value time, comfort, and clarity. Everything you need. Nothing you need to chase.\".",
+    "priceClose": "₹32,000–₹32,000/mo all-inclusive. That's electricity + water + WiFi + maintenance + \"ALL-INCLUSIVE AMENITIES (BUILT INTO YOUR RENT) This isn’t a place to stay. It’s a system designed to remove friction from daily life. SIGMA COED   Housekeeping * Professional cleaning twice a week, based on room type  ️ Food (Weekdays) * Breakfast & Dinner * Monday to Friday  ️ Utilities & Daily Essentials * Maintenance & Water * RO Drinking Water * High-Speed Wi-Fi * Scheduled Pest Control * 24×7 CCTV & Security   Laundry Support 2–4 Laundry Coupons (Varies by room category)  ️ In-Room Comforts * Refrigerator * Dedicated Workstation (Table & Chair) * Wardrobe Organizer Sets   COMMUNITY & LIFESTYLE SPACES   Social & Recreation * Game Room: Table Tennis, Pool, Foosball * Board Games * PS4 Gaming Console   Entertainment Zones * Home Theater with Netflix, Prime & Hotstar * TV with Tata Sky in common areas   Shared Living Spaces * Lounge Area • Dining Area * Sky Deck & Terrace Access   Self-Use Convenience* • Fully equipped self-cooking kitchen stations   TRANSPARENCY, ALWAYS * Electricity charged on actual consumption * All prices are inclusive of applicable taxes and charges  Designed for people who value time, comfort, and clarity. Everything you need. Nothing you need to chase.\". No hidden charges, no shocks at month-end.",
     "closeQuestion": "Shall I block this room for you with a ₹3,000 refundable token? You'll have 24 hours to confirm."
    },
    "money": {

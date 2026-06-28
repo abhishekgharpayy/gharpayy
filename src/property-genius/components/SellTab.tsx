@@ -200,11 +200,11 @@ function CommutePanel({ pg }: { pg: PG }) {
   const msg = est && resolved ? [
     `Commute reality — *${pg.name}* → *${resolved.label}*`,
     "",
-    `📏 Distance: ${km}km`,
-    `🚶 Walk: ${est.walkMins} min`,
-    `🛺 Auto (normal): ${est.autoMins} min`,
-    `🚦 Auto (peak hour): ${est.peakMins} min`,
-    nearestMetro ? `🚇 Metro option: ${nearestMetro}` : "",
+    ` Distance: ${km}km`,
+    ` Walk: ${est.walkMins} min`,
+    ` Auto (normal): ${est.autoMins} min`,
+    ` Auto (peak hour): ${est.peakMins} min`,
+    nearestMetro ? ` Metro option: ${nearestMetro}` : "",
     "",
     `Recommended: ${est.mode === "walk" ? "Walk it" : est.mode === "auto" ? "Auto / bike" : `Metro to ${nearestMetro} + auto`}`,
   ].filter(Boolean).join("\n") : "";

@@ -2,9 +2,9 @@ import { InventorySignal } from '@/myt/lib/types';
 import { cn } from '@/lib/utils';
 
 const signalConfig: Record<InventorySignal, { label: string; emoji: string; cls: string }> = {
-  hot: { label: 'Hot', emoji: '🔥', cls: 'bg-danger/15 text-danger border-danger/30' },
-  balanced: { label: 'Balanced', emoji: '⚖️', cls: 'bg-role-hr/15 text-role-hr border-role-hr/30' },
-  cold: { label: 'Cold', emoji: '❄️', cls: 'bg-primary/10 text-primary border-primary/30' },
+  hot: { label: 'Hot', emoji: '', cls: 'bg-danger/15 text-danger border-danger/30' },
+  balanced: { label: 'Balanced', emoji: '️', cls: 'bg-role-hr/15 text-role-hr border-role-hr/30' },
+  cold: { label: 'Cold', emoji: '️', cls: 'bg-primary/10 text-primary border-primary/30' },
 };
 
 export function SignalChip({ signal, className }: { signal: InventorySignal; className?: string }) {

@@ -4,7 +4,7 @@ import type { AreaIntel, DistanceMatrix } from './types';
 export const AREAS: AreaIntel[] = [
  {
   "area": "Koramangala",
-  "subAreas": "\"CHRIST CENTRAL IBC KNOWLEDGE PARK\", \"SG PALYA + all Koramangala / NEXUS/ tavrekere\", \"📍GHARPAYY MVS PEARLS!!!  -COED  🚀 Attention: Pre-Booking Required!   _enjoy a s, 5km, IBC knowledge, KORAMANGALA, Koramangala, MG road",
+  "subAreas": "\"CHRIST CENTRAL IBC KNOWLEDGE PARK\", \"SG PALYA + all Koramangala / NEXUS/ tavrekere\", \"GHARPAYY MVS PEARLS!!!  -COED   Attention: Pre-Booking Required!   _enjoy a s, 5km, IBC knowledge, KORAMANGALA, Koramangala, MG road",
   "budget": "₹11,000–₹30,000/mo (avg ₹19,906)",
   "demand": "High",
   "profile": "20 active PGs · 11B / 18G / 13C",

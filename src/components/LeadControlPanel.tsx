@@ -1891,9 +1891,9 @@ export function LeadControlPanel() {
               })()}
             </TabsContent>
 
-            {/* HANDOFF - FlowOps ↔ TCM thread for this lead */}
+            {/* HANDOFF - FlowOps  TCM thread for this lead */}
             <TabsContent value="handoff" className="pt-4">
-              <Section title="FlowOps ↔ TCM thread">
+              <Section title="FlowOps  TCM thread">
                 <HandoffThread leadId={lead.id} />
               </Section>
             </TabsContent>

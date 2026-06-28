@@ -45,7 +45,7 @@ export function LeadActionsMenu({ lead, size = 'sm' }: Props) {
         <DropdownMenuItem onClick={() => { logCall(lead.id); toast.success(`Call logged for ${lead.name}`); }}>
           <Phone className="h-3.5 w-3.5 mr-2" /> Log call
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => { sendMessage(lead.id, '👋 Quick check-in from Gharpayy'); toast.success('Message sent'); }}>
+        <DropdownMenuItem onClick={() => { sendMessage(lead.id, ' Quick check-in from Gharpayy'); toast.success('Message sent'); }}>
           <MessageCircle className="h-3.5 w-3.5 mr-2" /> Send check-in
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => selectLead(lead.id)}>
@@ -60,7 +60,7 @@ export function LeadActionsMenu({ lead, size = 'sm' }: Props) {
           disabled={!canSendTourMsg}
           onClick={() => {
             if (!tour || !property) return;
-            const txt = `Hi ${lead.name}! Your visit to *${property.name}* (${property.area}) is confirmed for ${formatTime12h(tour.scheduledAt.slice(11, 16))} on ${tour.scheduledAt.slice(0, 10)}. See you there! 🏠`;
+            const txt = `Hi ${lead.name}! Your visit to *${property.name}* (${property.area}) is confirmed for ${formatTime12h(tour.scheduledAt.slice(11, 16))} on ${tour.scheduledAt.slice(0, 10)}. See you there! `;
             openWaMessage(txt);
             toast.success('WhatsApp confirmation opened');
           }}
@@ -71,7 +71,7 @@ export function LeadActionsMenu({ lead, size = 'sm' }: Props) {
           disabled={!canSendTourMsg}
           onClick={() => {
             if (!tour || !property) return;
-            const reminder = `⏰ Reminder: Your visit to *${property.name}* (${property.area}) is at ${formatTime12h(tour.scheduledAt.slice(11, 16))}. We're looking forward to showing you around!`;
+            const reminder = ` Reminder: Your visit to *${property.name}* (${property.area}) is at ${formatTime12h(tour.scheduledAt.slice(11, 16))}. We're looking forward to showing you around!`;
             openWaMessage(reminder);
             toast.success('2h reminder opened');
           }}

@@ -269,7 +269,7 @@ export default function OwnerInventoryPage() {
             {/* Subtle warning if stats API failed */}
             {isStatsError && (
               <div className="bg-amber-50 border border-amber-200 text-amber-700 text-sm px-4 py-2.5 rounded-xl flex items-center gap-2">
-                <span>⚠️</span>
+                <span>️</span>
                 <span>Occupancy data could not be loaded. Stats may be outdated.</span>
               </div>
             )}

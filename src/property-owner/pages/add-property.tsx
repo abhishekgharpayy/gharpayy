@@ -61,7 +61,7 @@ export default function OwnerAddPropertyPage() {
         nearbyLandmark: landmark || undefined,
         referralBonus: Number(referralBonus || 0),
       });
-      toast({ title: "PG listed! 🎉", description: "Your property is now visible to the network" });
+      toast({ title: "PG listed! ", description: "Your property is now visible to the network" });
       navigate({ to: "/property-owner/properties" });
     } catch (err: any) {
       toast({ title: "Failed to create property", description: err.message, variant: "destructive" });
@@ -144,7 +144,7 @@ export default function OwnerAddPropertyPage() {
                 {(["MALE", "FEMALE", "ANY"] as const).map(g => (
                   <button key={g} onClick={() => setGender(g)}
                     className={`flex-1 py-2 rounded-lg text-sm font-bold border-2 transition-all ${gender === g ? "bg-primary text-white border-primary" : "bg-white text-slate-600 border-slate-200"}`}>
-                    {g === "MALE" ? "👨 Boys" : g === "FEMALE" ? "👩 Girls" : "🤝 Co-ed"}
+                    {g === "MALE" ? " Boys" : g === "FEMALE" ? " Girls" : " Co-ed"}
                   </button>
                 ))}
               </div>
@@ -192,7 +192,7 @@ export default function OwnerAddPropertyPage() {
           </div>
 
           <Button onClick={handleSubmit} disabled={addRealPropertyMut.isPending || createPropertyMock.isPending} className="w-full h-12 text-base font-bold">
-            {addRealPropertyMut.isPending || createPropertyMock.isPending ? "Listing..." : "List My PG 🏠"}
+            {addRealPropertyMut.isPending || createPropertyMock.isPending ? "Listing..." : "List My PG "}
           </Button>
         </div>
       </div>

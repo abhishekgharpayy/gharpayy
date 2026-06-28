@@ -96,8 +96,8 @@ export function tickMultiplier(state: MultiplierState, now = Date.now()): Multip
 }
 
 export function multiplierLabel(mult: number): string {
-  if (mult >= 3) return "🔥 3.0× MAX";
-  if (mult >= 2) return `⚡ ${mult.toFixed(2)}× HOT`;
+  if (mult >= 3) return " 3.0× MAX";
+  if (mult >= 2) return ` ${mult.toFixed(2)}× HOT`;
   if (mult > 1) return `↑ ${mult.toFixed(2)}× combo`;
   return "1.00×";
 }

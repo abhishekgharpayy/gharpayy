@@ -735,7 +735,7 @@ export function CheckInPanel({ lead }: { lead: Lead }) {
               </div>
             ))}
             {checkin.issues.length === 0 && (
-              <div className="text-[11px] text-muted-foreground italic">No issues yet. 🎉</div>
+              <div className="text-[11px] text-muted-foreground italic">No issues yet. </div>
             )}
           </div>
         </div>

@@ -540,10 +540,10 @@ export function computeBadges(
 ): Badge[] {
   return [
     { id: "spark",     label: "First Spark",      emoji: "✦",  earned: xp >= 50,         hint: "Earn 50 XP" },
-    { id: "rhythm",    label: "Rhythm",           emoji: "♪",  earned: streak >= 3,      hint: "3-day streak" },
-    { id: "engine",    label: "Engine",           emoji: "⚡", earned: streak >= 7,      hint: "7-day streak" },
+    { id: "rhythm",    label: "Rhythm",           emoji: "",  earned: streak >= 3,      hint: "3-day streak" },
+    { id: "engine",    label: "Engine",           emoji: "", earned: streak >= 7,      hint: "7-day streak" },
     { id: "closer",    label: "Closer",           emoji: "✓",  earned: bookingsClosed >= 1, hint: "Close 1 deal" },
-    { id: "rainmaker", label: "Rainmaker",        emoji: "★",  earned: bookingsClosed >= 5, hint: "Close 5 deals" },
+    { id: "rainmaker", label: "Rainmaker",        emoji: "",  earned: bookingsClosed >= 5, hint: "Close 5 deals" },
     { id: "veteran",   label: "Veteran",          emoji: "◆",  earned: xp >= 1000,       hint: "Earn 1,000 XP" },
   ];
 }

@@ -240,9 +240,9 @@ export function LeadControlPanel({ subject, trigger, defaultTab = "overview" }: 
                 )}
               </SheetTitle>
               <p className="text-[11px] text-muted-foreground mt-1">
-                {phone && <span className="mr-2">📞 {phone}</span>}
-                <span className="mr-2">📍 {area}</span>
-                <span>💰 ₹{(budget/1000).toFixed(0)}k</span>
+                {phone && <span className="mr-2"> {phone}</span>}
+                <span className="mr-2"> {area}</span>
+                <span> ₹{(budget/1000).toFixed(0)}k</span>
               </p>
               {tour && (
                 <p className="text-[11px] text-muted-foreground mt-0.5">
@@ -328,9 +328,9 @@ export function LeadControlPanel({ subject, trigger, defaultTab = "overview" }: 
                     <div className="text-xs font-semibold text-muted-foreground mb-1">Show-up status</div>
                     <div className="flex gap-2">
                       {[
-                        { v: true, label: "✅ Showed up" },
-                        { v: false, label: "❌ No show" },
-                        { v: null, label: "⏳ Pending" },
+                        { v: true, label: " Showed up" },
+                        { v: false, label: " No show" },
+                        { v: null, label: " Pending" },
                       ].map((opt) => (
                         <button
                           key={String(opt.v)}
@@ -454,7 +454,7 @@ export function LeadControlPanel({ subject, trigger, defaultTab = "overview" }: 
           {visibleTabs.includes("followup") && (
             <TabsContent value="followup" className="mt-3 space-y-3">
             <div className="rounded-md border border-amber/30 bg-amber/5 p-2.5 text-[11px] text-amber-foreground/90">
-              ⚠ Every lead must have a next follow-up date. No exceptions.
+               Every lead must have a next follow-up date. No exceptions.
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1.5">
@@ -466,9 +466,9 @@ export function LeadControlPanel({ subject, trigger, defaultTab = "overview" }: 
                 <Select value={fuPriority} onValueChange={(v) => setFuPriority(v as any)}>
                   <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="hot">🔥 Hot - today</SelectItem>
-                    <SelectItem value="warm">☀️ Warm - 24h</SelectItem>
-                    <SelectItem value="cold">❄️ Cold - this week</SelectItem>
+                    <SelectItem value="hot"> Hot - today</SelectItem>
+                    <SelectItem value="warm">️ Warm - 24h</SelectItem>
+                    <SelectItem value="cold">️ Cold - this week</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -506,12 +506,12 @@ export function LeadControlPanel({ subject, trigger, defaultTab = "overview" }: 
                 <Label className="text-[11px] text-muted-foreground">Outcome (mandatory)</Label>
                 <div className="grid grid-cols-2 gap-2">
                   {[
-                    { v: "booked", label: "✅ Booked" },
-                    { v: "token-paid", label: "💰 Token" },
-                    { v: "draft", label: "📄 Draft" },
-                    { v: "follow-up", label: "🔁 Follow-up" },
-                    { v: "not-interested", label: "❌ Not fit" },
-                    { v: "rejected", label: "🚫 Rejected" },
+                    { v: "booked", label: " Booked" },
+                    { v: "token-paid", label: " Token" },
+                    { v: "draft", label: " Draft" },
+                    { v: "follow-up", label: " Follow-up" },
+                    { v: "not-interested", label: " Not fit" },
+                    { v: "rejected", label: " Rejected" },
                   ].map((o) => (
                     <button
                       key={o.v}

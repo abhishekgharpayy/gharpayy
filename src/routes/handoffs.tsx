@@ -11,7 +11,7 @@ export const Route = createFileRoute("/handoffs")({
   head: () => ({
     meta: [
       { title: "Handoffs - Gharpayy" },
-      { name: "description", content: "FlowOps ↔ TCM communication thread. Every lead handover, every urgent ping." },
+      { name: "description", content: "FlowOps  TCM communication thread. Every lead handover, every urgent ping." },
     ],
   }),
   component: HandoffsPage,

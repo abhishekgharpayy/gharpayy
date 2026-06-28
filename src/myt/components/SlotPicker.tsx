@@ -40,7 +40,7 @@ export function SlotPicker({ date, selected, onSelect, takenSlots, recommendEarl
       </div>
       {recommendEarly && (
         <p className="text-[10px] text-role-tcm mt-2 flex items-center gap-1">
-          ⚡ Hard intent - earliest open slots highlighted
+           Hard intent - earliest open slots highlighted
         </p>
       )}
     </div>

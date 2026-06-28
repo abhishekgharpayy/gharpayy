@@ -16,12 +16,12 @@ function fmtWhen(iso: string) {
 
 export function tourScheduledMessage(p: Property, whenISO: string) {
   return [
-    `Your tour is *scheduled* ✅`,
+    `Your tour is *scheduled* `,
     ``,
-    `🏠 ${p.name}`,
-    `📍 ${p.area}`,
-    `🗓 ${fmtWhen(whenISO)}`,
-    `💰 ${fmtINR(p.pricePerBed)}/mo onwards`,
+    ` ${p.name}`,
+    ` ${p.area}`,
+    ` ${fmtWhen(whenISO)}`,
+    ` ${fmtINR(p.pricePerBed)}/mo onwards`,
     ``,
     `Please *call us 20 min prior* on ${OFFICE_PHONE} so we can keep the room ready for you.`,
     ``,
@@ -31,7 +31,7 @@ export function tourScheduledMessage(p: Property, whenISO: string) {
 
 export function tourReminderMessage(p: Property, whenISO: string) {
   return [
-    `Reminder ⏰`,
+    `Reminder `,
     ``,
     `Your tour at *${p.name}* (${p.area}) is at ${fmtWhen(whenISO)}.`,
     `Please call ${OFFICE_PHONE} 20 min before reaching.`,
@@ -157,12 +157,12 @@ function whenIN(ms: number) {
 
 export function visitBlock(c: VisitCopyCtx) {
   return [
-    `🏠 *${c.propertyName}* · ${c.propertyArea}`,
-    `🗓 ${whenIN(c.scheduledAt)}`,
-    c.pricePerBed ? `💰 ${fmtINR(c.pricePerBed)}/mo onwards` : "",
+    ` *${c.propertyName}* · ${c.propertyArea}`,
+    ` ${whenIN(c.scheduledAt)}`,
+    c.pricePerBed ? ` ${fmtINR(c.pricePerBed)}/mo onwards` : "",
     ``,
-    `📍 ${c.mapsLink ?? mapsLinkFor(c.propertyArea, c.propertyName)}`,
-    `📞 Please call ${OFFICE_PHONE} 20 min before reaching.`,
+    ` ${c.mapsLink ?? mapsLinkFor(c.propertyArea, c.propertyName)}`,
+    ` Please call ${OFFICE_PHONE} 20 min before reaching.`,
     ``,
     `— Team Gharpayy`,
   ].filter(Boolean).join("\n");
@@ -170,36 +170,36 @@ export function visitBlock(c: VisitCopyCtx) {
 
 export function visitReminderBlock(c: VisitCopyCtx, kind: "t60" | "t15") {
   const head = kind === "t15"
-    ? `⏰ Your visit starts in ~15 min`
-    : `⏰ Reminder · visit in ~1 hour`;
+    ? ` Your visit starts in ~15 min`
+    : ` Reminder · visit in ~1 hour`;
   return [
     head, ``,
-    `🏠 ${c.propertyName} · ${c.propertyArea}`,
-    `🗓 ${whenIN(c.scheduledAt)}`,
-    `📍 ${c.mapsLink ?? mapsLinkFor(c.propertyArea, c.propertyName)}`,
-    `📞 ${OFFICE_PHONE}`,
+    ` ${c.propertyName} · ${c.propertyArea}`,
+    ` ${whenIN(c.scheduledAt)}`,
+    ` ${c.mapsLink ?? mapsLinkFor(c.propertyArea, c.propertyName)}`,
+    ` ${OFFICE_PHONE}`,
   ].join("\n");
 }
 
 export function visitReachedBlock(c: VisitCopyCtx) {
   return [
-    `We're at *${c.propertyName}* gate now ✅`,
+    `We're at *${c.propertyName}* gate now `,
     `Come over whenever you reach — we'll keep the room ready.`,
-    ``, `📞 ${OFFICE_PHONE}`,
+    ``, ` ${OFFICE_PHONE}`,
   ].join("\n");
 }
 
 export function visitOngoingBlock(c: VisitCopyCtx) {
   return [
-    `Hope you're liking the tour at *${c.propertyName}* 🏠`,
+    `Hope you're liking the tour at *${c.propertyName}* `,
     `Anything you'd like us to show you again — rooms, common area, kitchen?`,
-    ``, `📞 ${OFFICE_PHONE}`,
+    ``, ` ${OFFICE_PHONE}`,
   ].join("\n");
 }
 
 export function visitDoneBlock(c: VisitCopyCtx) {
   return [
-    `Thanks for visiting *${c.propertyName}* today! 🙏`,
+    `Thanks for visiting *${c.propertyName}* today! `,
     ``,
     `If you'd like, we can lock the room with a 2-hour hold — just call ${OFFICE_PHONE}.`,
     `Happy to share quote or alternative options too.`,
@@ -211,14 +211,14 @@ export function hotLeadBlock(c: VisitCopyCtx) {
     `Quick check on *${c.propertyName}* —`,
     `we still have your room blocked. Want us to confirm it?`,
     ``,
-    `📞 ${OFFICE_PHONE} · we can wrap this up in 2 min.`,
+    ` ${OFFICE_PHONE} · we can wrap this up in 2 min.`,
   ].join("\n");
 }
 
 export function tokenRequestBlock(c: VisitCopyCtx, amount = 2000) {
   return [
     `To lock your room at *${c.propertyName}*:`,
-    `💳 Pre-book token: ${fmtINR(amount)}`,
+    ` Pre-book token: ${fmtINR(amount)}`,
     `Fully adjusted in your first month's rent.`,
     ``,
     `Call ${OFFICE_PHONE} and we'll share the payment link.`,
@@ -227,7 +227,7 @@ export function tokenRequestBlock(c: VisitCopyCtx, amount = 2000) {
 
 export function revivalBlock(c: VisitCopyCtx) {
   return [
-    `Quick one 👋`,
+    `Quick one `,
     `New rooms just opened at *${c.propertyName}* (${c.propertyArea}) this week.`,
     `Still on the lookout? Call ${OFFICE_PHONE} — we'll line up 2-3 options.`,
   ].join("\n");
@@ -241,16 +241,16 @@ export function ownerNotifyBlock(args: {
   objectionCategory?: string;
 }) {
   const tag = ({
-    scheduled: "📅 New visit scheduled",
-    started:   "🚶 Customer on the way",
-    reached:   "✅ Customer reached property",
-    completed: "🏁 Visit complete",
-    booked:    "🎉 Room booked",
-    objection: "⚠️ Concern raised",
+    scheduled: " New visit scheduled",
+    started:   " Customer on the way",
+    reached:   " Customer reached property",
+    completed: " Visit complete",
+    booked:    " Room booked",
+    objection: "️ Concern raised",
   } as const)[args.event];
   return [
     `${tag} · *${args.propertyName}*`,
-    `🕒 ${whenIN(args.whenMs)}`,
+    ` ${whenIN(args.whenMs)}`,
     args.reaction ? `Customer reaction: ${args.reaction}` : "",
     args.objectionCategory ? `Concern category: ${args.objectionCategory}` : "",
     ``,
@@ -266,7 +266,7 @@ export function hrCoachBlock(args: {
   suggestion?: string;
 }) {
   return [
-    `👋 ${args.tcmName} — quick coach note`,
+    ` ${args.tcmName} — quick coach note`,
     `Lead: ${args.leadName} · ${args.propertyName}`,
     ``,
     `Issue: ${args.issue}`,

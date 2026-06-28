@@ -133,7 +133,7 @@ export function ConversionIntelligence() {
                     </div>
                     <div className="text-xs text-muted-foreground mt-0.5">{r.detail}</div>
                     <div className="text-[11px] text-success mt-1 font-medium">
-                      💡 {r.expectedImpact}
+                       {r.expectedImpact}
                     </div>
                   </div>
                 </div>
@@ -244,7 +244,7 @@ export function ConversionIntelligence() {
       {tab === "objections" && (
         <Card className="p-4 space-y-3">
           <h3 className="font-display font-semibold flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-destructive" /> Objection ↔ loss correlation
+            <AlertTriangle className="h-4 w-4 text-destructive" /> Objection  loss correlation
           </h3>
           {objLoss.length === 0 && (
             <p className="text-xs text-muted-foreground">

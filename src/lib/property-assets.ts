@@ -79,7 +79,7 @@ export function buildPdfShareMessage(
     `Sharing the full brochure for *${pg.name}* (${pg.area}).`,
     "Includes rooms, pricing, photos, amenities and house rules.",
     "",
-    `📄 ${opts.pdfUrl}`,
+    ` ${opts.pdfUrl}`,
     "",
     "Tell me which room type works and I'll lock a visit slot.",
     `- Team ${opts.siteName ?? "Gharpayy"}`,

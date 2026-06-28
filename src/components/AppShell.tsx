@@ -280,7 +280,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       { to: "/admin/people360", label: "People 360", icon: Sparkles },
       { to: "/admin/radar", label: "Radar", icon: Radar },
       { to: "/admin/intelligence", label: "Intelligence", icon: Activity },
-      { to: "/admin/health-score", label: "⚡ Health Score", icon: HeartPulse },
+      { to: "/admin/health-score", label: " Health Score", icon: HeartPulse },
       { to: "/admin/property", label: "Property Pulse", icon: Building2 },
       { to: "/admin/impact-command", label: "Impact Command", icon: ShieldCheck },
       { to: "/admin/impact", label: "Impact Analytics", icon: HeartPulse },

@@ -143,11 +143,11 @@ async function generateReport() {
             const leadName = leadsMap.get(f.leadId)?.name || "Unknown Lead";
             const tcmName = tcmsMap.get(f.tcmId)?.name || "Unassigned";
             const timestamp = (f.updatedAt || f.createdAt || f.dueAt);
-            let statusObj = { text: "⏳ Pending", val: "pending", days: 0 };
-            if (f.done) statusObj = { text: "✅ Completed", val: "completed", days: 0 };
+            let statusObj = { text: " Pending", val: "pending", days: 0 };
+            if (f.done) statusObj = { text: " Completed", val: "completed", days: 0 };
             else if (isOverdue) {
                 const odDays = Math.round((now - dueAt) / 86400000);
-                statusObj = { text: `🔴 Overdue (${odDays}d)`, val: "overdue", days: odDays };
+                statusObj = { text: ` Overdue (${odDays}d)`, val: "overdue", days: odDays };
             }
 
             auditData.push({
@@ -385,11 +385,11 @@ async function generateReport() {
             <input type="text" id="auditSearch" class="search-bar" placeholder="Search audit logs (Name, TCM, Type)...">
             <table id="auditTable">
                 <thead><tr>
-                    <th data-sort="timeStr">Timestamp ↕</th>
-                    <th data-sort="tcm">TCM ↕</th>
-                    <th data-sort="leadName">Lead ↕</th>
-                    <th data-sort="type">Task Type ↕</th>
-                    <th data-sort="statusVal">Status ↕</th>
+                    <th data-sort="timeStr">Timestamp </th>
+                    <th data-sort="tcm">TCM </th>
+                    <th data-sort="leadName">Lead </th>
+                    <th data-sort="type">Task Type </th>
+                    <th data-sort="statusVal">Status </th>
                 </tr></thead>
                 <tbody id="auditTableBody"></tbody>
             </table>

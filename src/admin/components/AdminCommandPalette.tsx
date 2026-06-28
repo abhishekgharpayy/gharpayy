@@ -37,7 +37,7 @@ const NAV_ITEMS: Omit<Extract<PaletteItem, { kind: "nav" }>, "kind">[] = [
   { id: "nav-command",       label: "Command Bridge",    sub: "Broadcast, kill-switch, impersonate", icon: <Terminal className="h-4 w-4" />, to: "/admin/command" },
   { id: "nav-audit",         label: "Audit Log",         sub: "Every admin action persisted",   icon: <FileText className="h-4 w-4" />,     to: "/admin/audit" },
   { id: "nav-warroom",       label: "War-Room TV",       sub: "Full-screen cockpit display",    icon: <Eye className="h-4 w-4" />,          to: "/admin/warroom" },
-  { id: "nav-health-score",  label: "⚡ Health Score",    sub: "TCM composite scores + coaching",    icon: <BarChart2 className="h-4 w-4" />,    to: "/admin/health-score" },
+  { id: "nav-health-score",  label: " Health Score",    sub: "TCM composite scores + coaching",    icon: <BarChart2 className="h-4 w-4" />,    to: "/admin/health-score" },
   { id: "nav-settings",      label: "Settings",          sub: "Diagnostics & role controls",    icon: <Settings className="h-4 w-4" />,     to: "/admin/settings" },
   { id: "nav-login",         label: "Sign out",          sub: "Return to login page",           icon: <LogIn className="h-4 w-4" />,        to: "/login" },
 ];

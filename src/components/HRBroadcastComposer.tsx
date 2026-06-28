@@ -244,8 +244,8 @@ export function HRBroadcastComposer({ defaultOpen = false }: { defaultOpen?: boo
 
       <div className="flex items-center justify-between pt-1">
         <div className="text-[11px] text-muted-foreground">
-          {channels.has("email") && <span className="mr-2">📧 Email queued - backend will send</span>}
-          {channels.has("calendar") && <span className="mr-2">📅 Lands on /calendar</span>}
+          {channels.has("email") && <span className="mr-2"> Email queued - backend will send</span>}
+          {channels.has("calendar") && <span className="mr-2"> Lands on /calendar</span>}
         </div>
         <Button onClick={send} size="sm" className="h-8">
           <Send className="h-3.5 w-3.5 mr-1.5" />

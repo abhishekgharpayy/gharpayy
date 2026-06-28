@@ -112,7 +112,7 @@ export const WA_TEMPLATES: Record<
     label: "Ghost #2 · direct",
     group: "non-responder",
     body: {
-      en: "{name}, last 2 messages went unread. One reply (Yes / No / Later) and I'll act accordingly. Saves both of us time 🙏",
+      en: "{name}, last 2 messages went unread. One reply (Yes / No / Later) and I'll act accordingly. Saves both of us time ",
       hi: "{name}, पिछले 2 messages unread हैं। बस एक reply (Yes / No / Later) - आगे उसी से चलूँगा/चलूँगी।",
     },
   },
@@ -144,8 +144,8 @@ export const WA_TEMPLATES: Record<
     label: "Phone off",
     group: "non-responder",
     body: {
-      en: "Hi {name}, your number was unreachable. Drop me a 👍 here when you're free and I'll call back.",
-      hi: "नमस्ते {name}, आपका number switched-off था। free हों तो 👍 भेज दीजिए, मैं call करूँगा/करूँगी।",
+      en: "Hi {name}, your number was unreachable. Drop me a  here when you're free and I'll call back.",
+      hi: "नमस्ते {name}, आपका number switched-off था। free हों तो  भेज दीजिए, मैं call करूँगा/करूँगी।",
     },
   },
 

@@ -60,14 +60,14 @@ const TYPE_OPTS = QUICKAD_TYPE_OPTIONS;
 const ROOM_OPTS = QUICKAD_ROOM_OPTIONS;
 const NEED_OPTS = QUICKAD_NEED_OPTIONS;
 const QUALITY_OPTS = [
-  { v: "hot" as const, label: "🔥 Hot" },
-  { v: "good" as const, label: "✅ Good" },
-  { v: "bad" as const, label: "❌ Bad" },
+  { v: "hot" as const, label: " Hot" },
+  { v: "good" as const, label: " Good" },
+  { v: "bad" as const, label: " Bad" },
 ];
 const BLR_OPTS = [
-  { v: true as const, label: "🏙 In" },
-  { v: false as const, label: "✈️ Out" },
-  { v: null, label: "❓ Unknown" },
+  { v: true as const, label: " In" },
+  { v: false as const, label: "️ Out" },
+  { v: null, label: " Unknown" },
 ];
 
 export function QuickAddLeadPanel({ open, onClose }: Props) {
@@ -449,20 +449,20 @@ export function QuickAddLeadPanel({ open, onClose }: Props) {
 
           {/* Name + Phone */}
           <div className="grid grid-cols-2 gap-2">
-            <Field label="👤 Name *">
+            <Field label=" Name *">
               <Input ref={nameRef} value={name} onChange={(e) => setName(e.target.value)} placeholder="Rahul Sharma" />
             </Field>
-            <Field label="📱 Phone *">
+            <Field label=" Phone *">
               <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="98xxxxxxxx" inputMode="tel" />
             </Field>
           </div>
 
-          <Field label="✉️ Email">
+          <Field label="️ Email">
             <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.com" inputMode="email" />
           </Field>
 
           {/* Property Hub */}
-          <Field label="📍 Preferred Property (from Property Hub)">
+          <Field label=" Preferred Property (from Property Hub)">
             <div className="relative" onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setTimeout(() => setShowHubResults(false), 200); }}>
               <div className="relative">
                 <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
@@ -548,7 +548,7 @@ export function QuickAddLeadPanel({ open, onClose }: Props) {
           </Field>
 
           {/* Full Address */}
-          <Field label="🏠 Full Address / Map link">
+          <Field label=" Full Address / Map link">
             <Textarea
               value={fullAddress}
               onChange={(e) => setFullAddress(e.target.value)}
@@ -560,27 +560,27 @@ export function QuickAddLeadPanel({ open, onClose }: Props) {
 
           {/* Budget + Move-in */}
           <div className="grid grid-cols-2 gap-2">
-            <Field label="💰 Budget">
+            <Field label=" Budget">
               <Input value={budget} onChange={(e) => setBudget(e.target.value)} placeholder="8-12k" />
             </Field>
-            <Field label="📅 Move-in">
+            <Field label=" Move-in">
               <Input type="date" value={moveIn} onChange={(e) => setMoveIn(e.target.value)} />
             </Field>
           </div>
 
           {/* Type + Room + Need (chips) */}
-          <Field label="💼 Type">
+          <Field label=" Type">
             <ChipGroup options={TYPE_OPTS} value={type} onChange={setType} />
           </Field>
-          <Field label="🛏 Room">
+          <Field label=" Room">
             <ChipGroup options={ROOM_OPTS} value={room} onChange={setRoom} />
           </Field>
-          <Field label="👥 Need">
+          <Field label=" Need">
             <ChipGroup options={NEED_OPTS} value={need} onChange={setNeed} />
           </Field>
 
           {/* Special requests */}
-          <Field label="⭐ Special Requests">
+          <Field label=" Special Requests">
             <Textarea
               value={specialReqs}
               onChange={(e) => setSpecialReqs(e.target.value)}
@@ -652,7 +652,7 @@ export function QuickAddLeadPanel({ open, onClose }: Props) {
           </Field>
 
           {/* Notes */}
-          <Field label="📝 Notes">
+          <Field label=" Notes">
             <Textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}

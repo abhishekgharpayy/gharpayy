@@ -94,7 +94,7 @@ export default function OwnerVisitsPage() {
         setRespondingId(null);
         setRespondForm({ message: "", proposedAt: "" });
         showToast(
-          response === "confirmed" ? "✅ Visit Confirmed!" : "🔄 Reschedule Requested",
+          response === "confirmed" ? " Visit Confirmed!" : " Reschedule Requested",
         );
       } else {
         showToast("Failed to respond", "destructive");
@@ -221,7 +221,7 @@ export default function OwnerVisitsPage() {
                             "text-[11px] font-bold px-2 py-0.5 rounded-full border",
                             visit.type === "virtual" ? "bg-indigo-100 text-indigo-700 border-indigo-200" : "bg-green-100 text-green-700 border-green-200"
                           )}>
-                            {visit.type === "virtual" ? "🖥 Virtual" : "🏠 Physical"}
+                            {visit.type === "virtual" ? " Virtual" : " Physical"}
                           </span>
                           <span className={cn("text-[11px] font-bold px-2 py-0.5 rounded-full border", status.color)}>
                             {status.label}

@@ -153,7 +153,7 @@ function Stat({ label, value, mono, hot }: { label: string; value: string | numb
       <div className="text-[9px] uppercase tracking-wider text-muted-foreground">{label}</div>
       <div className={`text-xs font-medium ${mono ? "font-mono" : ""}`}>
         {value}
-        {hot !== undefined && hot > 0 && <span className="ml-1 text-destructive font-mono text-[10px]">·{hot}🔥</span>}
+        {hot !== undefined && hot > 0 && <span className="ml-1 text-destructive font-mono text-[10px]">·{hot}</span>}
       </div>
     </div>
   );

@@ -501,7 +501,7 @@ function ExecutionMonitorPage() {
           </div>
           <div className="space-y-2">
             {report.summary.criticalAlerts.map((alert, idx) => (
-              <div key={idx} className="text-red-200 text-sm bg-red-900/20 px-3 py-2 rounded-lg border border-red-500/10">
+              <div key={idx} className="text-black text-sm bg-red-900/20 px-3 py-2 rounded-lg border border-red-500/10">
                 {alert}
               </div>
             ))}
@@ -638,10 +638,10 @@ function ExecutionMonitorPage() {
             
             {report.summary.criticalAlerts.length > 0 && (
               <div>
-                <h3 className="text-xl font-bold text-red-400 mb-4">Critical Action Required</h3>
+                <h3 className="text-xl font-bold text-black</h3>
                 <div className="space-y-2">
                   {report.summary.criticalAlerts.map((alert, i) => (
-                    <div key={i} className="bg-red-950/20 text-red-200 p-3 rounded border border-red-900/50 text-sm">
+                    <div key={i} className="bg-red-950/20 text-black p-3 rounded border border-red-900/50 text-sm">
                       {alert}
                     </div>
                   ))}
@@ -809,7 +809,7 @@ function ExecutionMonitorPage() {
                 ))}
                 {report.members.filter(m => m.isInactive || m.stuckLeads.length > 0 || m.followUpsRequired.length > 0).length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-emerald-500 font-medium">All members active and no stuck leads! 🎉</TableCell>
+                    <TableCell colSpan={7} className="text-center py-8 text-emerald-500 font-medium">All members active and no stuck leads! </TableCell>
                   </TableRow>
                 )}
               </TableBody>

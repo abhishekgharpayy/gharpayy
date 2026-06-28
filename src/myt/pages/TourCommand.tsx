@@ -36,20 +36,20 @@ import {
 import { cn } from "@/lib/utils";
 
 const EVENT_LABEL: Record<TourEventKind, string> = {
-  booked: "📌 Booked",
-  confirmation_sent: "📤 Confirmation sent",
-  confirmed_by_customer: "✅ Customer confirmed",
-  reschedule_requested: "🔁 Reschedule requested",
-  reminder_sent: "⏰ Reminder sent",
-  tcm_on_the_way: "🚗 TCM on the way",
-  customer_running_late: "🐢 Customer running late",
-  tour_started: "▶️ Tour started",
-  tour_ended: "⏹️ Tour ended",
-  no_show: "👻 No-show",
-  cancelled: "❌ Cancelled",
-  feedback_received: "💬 Customer feedback",
-  tcm_report_filed: "📝 TCM report filed",
-  custom_message_sent: "💬 Custom message",
+  booked: " Booked",
+  confirmation_sent: " Confirmation sent",
+  confirmed_by_customer: " Customer confirmed",
+  reschedule_requested: " Reschedule requested",
+  reminder_sent: " Reminder sent",
+  tcm_on_the_way: " TCM on the way",
+  customer_running_late: " Customer running late",
+  tour_started: "️ Tour started",
+  tour_ended: "️ Tour ended",
+  no_show: " No-show",
+  cancelled: " Cancelled",
+  feedback_received: " Customer feedback",
+  tcm_report_filed: " TCM report filed",
+  custom_message_sent: " Custom message",
 };
 
 export default function TourCommand() {
@@ -183,7 +183,7 @@ export default function TourCommand() {
                 <span className="inline-flex items-center gap-1"><User className="h-3 w-3" />{tour.assignedToName}</span>
                 <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" />{tour.area} · {tour.propertyName}</span>
                 <span className="inline-flex items-center gap-1"><CalendarClock className="h-3 w-3" />{fmtWhen(tour.tourDate, tour.tourTime)}</span>
-                <span>💰 ₹{tour.budget?.toLocaleString("en-IN")}</span>
+                <span> ₹{tour.budget?.toLocaleString("en-IN")}</span>
               </div>
             </div>
             <div className="flex flex-col items-end gap-1">
@@ -223,7 +223,7 @@ export default function TourCommand() {
 
           {mismatches.length > 0 && (
             <div className="mt-3 rounded border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
-              <div className="font-semibold mb-0.5">⚠ Mismatch detected</div>
+              <div className="font-semibold mb-0.5"> Mismatch detected</div>
               {mismatches.map((m, i) => <div key={i}>• {m.reason}</div>)}
             </div>
           )}

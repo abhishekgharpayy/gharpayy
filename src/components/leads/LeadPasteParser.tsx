@@ -20,7 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useApp } from "@/lib/store";
 import type { LeadStage, Intent } from "@/lib/types";
 
-const SAMPLE = `Hi team, new lead 👇
+const SAMPLE = `Hi team, new lead 
 Rahul Sharma 9876543210
 Email: rahul@example.com
 Looking in HSR Layout, BTM, Koramangala
@@ -35,9 +35,9 @@ const STAGES = [
 ] as const;
 
 const QUALITY_OPTS = [
-  { v: "hot" as const, label: "🔥 Hot" },
-  { v: "good" as const, label: "✅ Good" },
-  { v: "bad" as const, label: "❌ Bad" },
+  { v: "hot" as const, label: " Hot" },
+  { v: "good" as const, label: " Good" },
+  { v: "bad" as const, label: " Bad" },
 ];
 
 const BLR_OPTS = [
@@ -261,7 +261,7 @@ export function LeadPasteParser({ onDone }: Props) {
     // specialReqs — filter out junk
     if (regexResult.specialReqs && !tf.has("specialReqs")) {
       const val = regexResult.specialReqs.trim();
-      const isJunk = /hi\s*team|new\s*lead|gharpayy|currently\s*in|not\s*in\s*(bangalore|blr)|👇|emoji/i.test(val);
+      const isJunk = /hi\s*team|new\s*lead|gharpayy|currently\s*in|not\s*in\s*(bangalore|blr)||emoji/i.test(val);
       if (!isJunk && val.length > 0 && val.length <= 120) setSpecialReqs(val);
     }
 

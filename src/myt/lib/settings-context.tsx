@@ -142,10 +142,10 @@ const DEFAULT_TEMPLATES: MessageTemplate[] = [
     label: "Booking Confirmation",
     scenario: "Send the moment a tour is booked",
     body:
-      "Hi {{leadName}}, your {{siteName}} tour is *locked in* 🔒\n" +
-      "📍 {{area}} | 🏠 {{propertyName}}\n" +
-      "🕒 {{when}}\n" +
-      "👤 Coordinator: {{tcmName}} ({{tcmPhone}})\n\n" +
+      "Hi {{leadName}}, your {{siteName}} tour is *locked in* \n" +
+      " {{area}} |  {{propertyName}}\n" +
+      " {{when}}\n" +
+      " Coordinator: {{tcmName}} ({{tcmPhone}})\n\n" +
       "This slot is reserved exclusively for you.\n" +
       "Reply *YES* to confirm or *RESCHEDULE*.\n" +
       "{{signature}}",
@@ -182,7 +182,7 @@ const DEFAULT_TEMPLATES: MessageTemplate[] = [
       "Hi {{leadName}}, your {{siteName}} tour is in *4 hours*.\n" +
       "Based on your budget *₹{{budget}}* and your work area *{{workLocation}}*, " +
       "{{propertyName}} is one of your strongest matches.\n" +
-      "🕒 {{when}} 📍 {{area}}\n{{signature}}",
+      " {{when}}  {{area}}\n{{signature}}",
   },
   {
     id: "reminder_2h",
@@ -190,8 +190,8 @@ const DEFAULT_TEMPLATES: MessageTemplate[] = [
     scenario: "2 hours before - directions + coordinator contact",
     body:
       "Hi {{leadName}}, your {{siteName}} tour is in *2 hours*.\n" +
-      "📍 {{propertyName}}, {{area}}\n" +
-      "👤 {{tcmName}} - call: {{tcmPhone}}\n" +
+      " {{propertyName}}, {{area}}\n" +
+      " {{tcmName}} - call: {{tcmPhone}}\n" +
       "Tap for directions: {{mapsLink}}\n{{signature}}",
   },
   {
@@ -199,9 +199,9 @@ const DEFAULT_TEMPLATES: MessageTemplate[] = [
     label: "T-30m Action Trigger",
     scenario: "30 minutes before - leave now",
     body:
-      "Hi {{leadName}}, *time to leave* 🚗\n" +
+      "Hi {{leadName}}, *time to leave* \n" +
       "Your tour at {{propertyName}} starts in 30 mins.\n" +
-      "👤 {{tcmName}} ({{tcmPhone}}) is on the way.\n{{signature}}",
+      " {{tcmName}} ({{tcmPhone}}) is on the way.\n{{signature}}",
   },
   {
     id: "tcm_eta",
@@ -240,8 +240,8 @@ const DEFAULT_TEMPLATES: MessageTemplate[] = [
     label: "Tour Ended + Feedback",
     scenario: "Right after tour ends",
     body:
-      "Your tour at {{propertyName}} is *complete* ✅\n" +
-      "How was it?\n• Loved it 🔥\n• Good but unsure 🙂\n• Not a fit ❌\n• Need better options 🔄\n" +
+      "Your tour at {{propertyName}} is *complete* \n" +
+      "How was it?\n• Loved it \n• Good but unsure \n• Not a fit \n• Need better options \n" +
       "Reply with one. {{signature}}",
   },
   {

@@ -191,25 +191,25 @@ function AdminLeads() {
           onClick={() => setFilterFlagged(!filterFlagged)}
           className={`text-[11px] font-medium rounded-full px-3 py-1 transition-colors ${filterFlagged ? "bg-primary text-primary-foreground shadow-sm" : "bg-card text-muted-foreground border border-border hover:bg-muted/50 hover:text-foreground"}`}
         >
-          🚩 Flagged ({rows.filter(r => r.intervention?.isFlagged).length})
+           Flagged ({rows.filter(r => r.intervention?.isFlagged).length})
         </button>
         <button
           onClick={() => setFilterStuck(!filterStuck)}
           className={`text-[11px] font-medium rounded-full px-3 py-1 transition-colors ${filterStuck ? "bg-primary text-primary-foreground shadow-sm" : "bg-card text-muted-foreground border border-border hover:bg-muted/50 hover:text-foreground"}`}
         >
-          ⏰ Stuck ({rows.filter(r => r.isStuck).length})
+           Stuck ({rows.filter(r => r.isStuck).length})
         </button>
         <button
           onClick={() => setShowBulkPanel(!showBulkPanel)}
           className={`text-[11px] font-medium rounded-full px-3 py-1 transition-colors ${showBulkPanel ? "bg-primary text-primary-foreground shadow-sm" : "bg-card text-muted-foreground border border-border hover:bg-muted/50 hover:text-foreground"}`}
         >
-          📥 Bulk Panel
+           Bulk Panel
         </button>
         <button
           onClick={() => setShowImport(!showImport)}
           className={`text-[11px] font-medium rounded-full px-3 py-1 transition-colors ${showImport ? "bg-primary text-primary-foreground shadow-sm" : "bg-card text-muted-foreground border border-border hover:bg-muted/50 hover:text-foreground"}`}
         >
-          📤 Import CSV/JSON
+           Import CSV/JSON
         </button>
       </div>
 
@@ -321,7 +321,7 @@ function AdminLeads() {
                     </td>
                     <td className="p-2">
                       <div className="flex items-center gap-1.5">
-                        {isFlagged && <span title={`Flagged: ${r.intervention?.category}`}>🚩</span>}
+                        {isFlagged && <span title={`Flagged: ${r.intervention?.category}`}></span>}
                         <div>
                           <button onClick={() => setDrawer(r)} className="font-medium hover:underline text-left">
                             {r.lead.name}
@@ -452,7 +452,7 @@ function LeadDrawer({ row, tcms, onClose, onResolve, invalidateLeads }: {
         <div className="flex items-center justify-between">
           <div>
             <div className="text-lg font-display font-semibold flex items-center gap-2">
-              {row.intervention?.isFlagged && <span title="Flagged">🚩</span>}
+              {row.intervention?.isFlagged && <span title="Flagged"></span>}
               {row.lead.name}
             </div>
             <div className="text-[11px] text-muted-foreground font-mono">{row.lead.phone}</div>
@@ -484,7 +484,7 @@ function LeadDrawer({ row, tcms, onClose, onResolve, invalidateLeads }: {
         {row.intervention?.isFlagged && (
           <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-xs space-y-1">
             <div className="flex items-center justify-between">
-              <div className="text-[10px] uppercase text-amber-600 font-medium">🚩 Intervention Active</div>
+              <div className="text-[10px] uppercase text-amber-600 font-medium"> Intervention Active</div>
               <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={() => onResolve(row.lead.id || row.lead._id)}>
                 Resolve
               </Button>

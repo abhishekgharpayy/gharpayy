@@ -114,7 +114,7 @@ async function run() {
       } catch (err: any) {
         if (err.code === 11000) {
           // Duplicate key — already exists under a different path, skip
-          console.warn(`  ⚠ Duplicate key for ${username}, skipping insert`);
+          console.warn(`   Duplicate key for ${username}, skipping insert`);
           skipped++;
           // Still try to fetch and use that userId for property linking
           const dup = await users.findOne({ $or: [{ username }, { email }] });

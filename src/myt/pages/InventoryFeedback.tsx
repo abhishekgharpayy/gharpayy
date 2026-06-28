@@ -66,7 +66,7 @@ export default function InventoryFeedback() {
 
       <div className="grid md:grid-cols-2 gap-3">
         <Card>
-          <CardHeader><CardTitle className="text-base">⚰️ Dead inventory (≥3 tours, 0 conversion)</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-base">️ Dead inventory (≥3 tours, 0 conversion)</CardTitle></CardHeader>
           <CardContent>
             {dead.length === 0 ? (
               <p className="text-sm text-muted-foreground">No dead inventory yet.</p>
@@ -84,7 +84,7 @@ export default function InventoryFeedback() {
         </Card>
 
         <Card>
-          <CardHeader><CardTitle className="text-base">💎 Hidden winners (low tours, high conv)</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-base"> Hidden winners (low tours, high conv)</CardTitle></CardHeader>
           <CardContent>
             {winners.length === 0 ? (
               <p className="text-sm text-muted-foreground">No hidden winners yet.</p>

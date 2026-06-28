@@ -131,7 +131,7 @@ export function PasteToLead({ onCreated }: Props) {
             e.preventDefault();
             autoParse(text);
           }}
-          placeholder={`Paste anything…\n\n📝 GHARPAYY FORM\nName: Rahul Sharma\nPhone: 9876543210\nLocation: Koramangala\nBudget: 8-12k\nMove-in: 1 May`}
+          placeholder={`Paste anything…\n\n GHARPAYY FORM\nName: Rahul Sharma\nPhone: 9876543210\nLocation: Koramangala\nBudget: 8-12k\nMove-in: 1 May`}
           className="min-h-32 font-mono text-xs"
         />
       </div>

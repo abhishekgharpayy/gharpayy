@@ -199,9 +199,9 @@ export default function TCMReportPage() {
               value={r.interestLevel}
               onChange={(v) => field("interestLevel", v)}
               options={[
-                { value: "high", label: "🔥 High" },
-                { value: "medium", label: "🙂 Medium" },
-                { value: "low", label: "❄️ Low" },
+                { value: "high", label: " High" },
+                { value: "medium", label: " Medium" },
+                { value: "low", label: "️ Low" },
               ]}
             />
           </div>

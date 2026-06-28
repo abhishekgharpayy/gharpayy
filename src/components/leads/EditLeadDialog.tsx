@@ -168,9 +168,9 @@ export function EditLeadDialog({ open, onOpenChange, lead }: { open: boolean, on
             <Select value={draft.quality} onValueChange={(v) => setDraft({...draft, quality: v})}>
               <SelectTrigger className="h-9"><SelectValue placeholder="Select" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="hot">🔥 Hot</SelectItem>
-                <SelectItem value="good">✅ Good</SelectItem>
-                <SelectItem value="bad">❌ Bad</SelectItem>
+                <SelectItem value="hot"> Hot</SelectItem>
+                <SelectItem value="good"> Good</SelectItem>
+                <SelectItem value="bad"> Bad</SelectItem>
               </SelectContent>
             </Select>
           </div>

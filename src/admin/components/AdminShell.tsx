@@ -12,7 +12,7 @@ const TABS = [
   { to: "/admin/bookings",       label: "Bookings" },
   { to: "/admin/tenants",        label: "Tenants" },
   { to: "/admin/people",         label: "People 360" },
-  { to: "/admin/health-score",   label: "⚡ Health Score" },
+  { to: "/admin/health-score",   label: " Health Score" },
   { to: "/admin/supreme",        label: "Revenue & SLA" },
   { to: "/admin/radar",          label: "Radar" },
   { to: "/admin/command",        label: "Command" },

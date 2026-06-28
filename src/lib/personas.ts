@@ -308,7 +308,7 @@ export function voiceFor(p: Persona, missionDone: number, missionTarget: number)
     ],
     "hype-friend": [
       `Yo ${p.name.split(" ")[0]}!`,
-      `Let's gooo, ${p.name.split(" ")[0]} 🔥`,
+      `Let's gooo, ${p.name.split(" ")[0]} `,
       `${p.name.split(" ")[0]}, today is yours.`,
     ],
     "stoic": [
@@ -327,7 +327,7 @@ export function voiceFor(p: Persona, missionDone: number, missionTarget: number)
   const missionLine =
     p.coachTone === "drill-sgt" ? `Target ${missionTarget}. Done ${missionDone}. No excuses.`
     : p.coachTone === "data-nerd" ? `${missionDone}/${missionTarget} - completion ${Math.round(ratio * 100)}%.`
-    : p.coachTone === "hype-friend" ? `${missionDone} of ${missionTarget} - keep the energy 💥`
+    : p.coachTone === "hype-friend" ? `${missionDone} of ${missionTarget} - keep the energy `
     : p.coachTone === "stoic" ? `${missionDone}/${missionTarget}.`
     : `${missionDone} done, ${Math.max(0, missionTarget - missionDone)} to go.`;
 

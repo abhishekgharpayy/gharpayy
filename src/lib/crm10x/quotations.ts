@@ -57,12 +57,12 @@ export function renderQuotationMessage(d: QuotationDraft): string {
   const validity = formatValidity(d.validUntilISO);
   const roomLine = d.roomNumber ? ` | Room ${d.roomNumber}` : "";
   return [
-    `🙌🏻⚡️ *Stay Reserved  ( Limited Good Rooms)*`,
-    `📍 *${d.propertyName}*`,
+    `️ *Stay Reserved  ( Limited Good Rooms)*`,
+    ` *${d.propertyName}*`,
     ` \`Room Type: ${d.roomType}\`${roomLine}`,
     ``,
     `Actual Rent: ~${formatINR(d.actualRent)}~`,
-    ` \`Discounted Price: ${formatINR(d.discountedPrice)}\`  🔑 valid till ${validity}`,
+    ` \`Discounted Price: ${formatINR(d.discountedPrice)}\`   valid till ${validity}`,
     ``,
     ` \`Deposit: ${formatINR(d.deposit)}\``,
     ` _Maintenance: ${formatINR(d.maintenance)} (${d.maintenanceType}) | Lock-in: ${d.lockIn} | Notice: ${d.notice}_`,
@@ -71,7 +71,7 @@ export function renderQuotationMessage(d: QuotationDraft): string {
     `_Balance payable at check-in_`,
     `> Note: After ${validity}, price resets to ACTUAL RENT and the same room won't be available.`,
     ``,
-    `🤙🏻 https://gharpayy.com/payment.html`,
+    ` https://gharpayy.com/payment.html`,
   ].join("\n");
 }
 

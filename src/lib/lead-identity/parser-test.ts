@@ -135,7 +135,7 @@ export function extractSamplesFromCsv(csvText: string): string[] {
 export const BUILTIN_SAMPLES: string[] = [
   `Name: Vemula Shanmukha Sai \\nPhone: 9398992589\\nEmail: saishanmukha390@gmail.com \\nPreferred location : Koramangala\\nBudget range: 8k - 12k\\nMove in date: tomorrow \\nWorking \\nShared room`,
   `Name: Riya\\r\\nPhone: 9111310344\\r\\nLocation: Near Christ University Central Campus Bangalore\\r\\nBudget: Within ₹20k\\r\\nMove in date: June first week\\r\\nStudent\\r\\nGirls pg preferable`,
-  `📝 *Name:*  Keshav Kakkar\\r\\n📱 *Phone:*  8218844116\\r\\n✉️ *Email:*  kaka.kakkar3110@gmail.com\\r\\n📍 *Preferred Location:*  HustleHub Tech Park, HSR Layout\\r\\n💰 *Budget Range:* ₹8-16k monthly\\r\\n📆 *Move-in Date:*  Last week of April\\r\\nWorking \\r\\n🏢 Shared\\r\\n👫 NEED Boys`,
+  ` *Name:*  Keshav Kakkar\\r\\n *Phone:*  8218844116\\r\\n️ *Email:*  kaka.kakkar3110@gmail.com\\r\\n *Preferred Location:*  HustleHub Tech Park, HSR Layout\\r\\n *Budget Range:* ₹8-16k monthly\\r\\n *Move-in Date:*  Last week of April\\r\\nWorking \\r\\n Shared\\r\\n NEED Boys`,
   `Abhineet\\r\\n8400411502\\r\\nabhineet738@gmail.com\\r\\nPreferred location: HSR Layout\\r\\nBudget: 13-16k\\r\\nMove in date: 1st May\\r\\nWorking professional\\r\\nRoom Type: Private\\r\\nNeed: Coed`,
   `Priya 9876543210 Indiranagar 12k May 5`,
   `not filled`,

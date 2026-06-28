@@ -43,7 +43,7 @@ export default function MismatchConsole() {
       <div>
         <h1 className="text-xl md:text-2xl font-heading font-bold">Mismatch Detection Engine</h1>
         <p className="text-sm text-muted-foreground">
-          Cross-checks customer feedback ↔ TCM report ↔ system actions to expose reality gaps.
+          Cross-checks customer feedback  TCM report  system actions to expose reality gaps.
         </p>
       </div>
 

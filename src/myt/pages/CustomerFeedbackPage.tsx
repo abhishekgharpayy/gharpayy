@@ -11,10 +11,10 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 const OPTS: { v: CustomerSentiment; label: string; emoji: string }[] = [
-  { v: "loved", label: "Loved it", emoji: "🔥" },
-  { v: "good_unsure", label: "Good but unsure", emoji: "🙂" },
-  { v: "not_fit", label: "Not a fit", emoji: "❌" },
-  { v: "need_better", label: "Need better options", emoji: "🔄" },
+  { v: "loved", label: "Loved it", emoji: "" },
+  { v: "good_unsure", label: "Good but unsure", emoji: "" },
+  { v: "not_fit", label: "Not a fit", emoji: "" },
+  { v: "need_better", label: "Need better options", emoji: "" },
 ];
 
 export default function CustomerFeedbackPage() {
@@ -88,7 +88,7 @@ export default function CustomerFeedbackPage() {
 
           {submitted && (
             <div className="text-xs text-muted-foreground border rounded p-2 bg-muted/30">
-              ✅ Recorded. The team will reach out with refined options shortly.
+               Recorded. The team will reach out with refined options shortly.
             </div>
           )}
         </CardContent>

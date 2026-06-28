@@ -49,7 +49,7 @@ export function funnelVelocity(leads: Lead[]): FunnelVelocityRow[] {
 }
 
 /* ============================================================
- * OBJECTION ↔ LOSS CORRELATION
+ * OBJECTION  LOSS CORRELATION
  * For each objection code: how many of the leads that raised it
  * were ultimately dropped vs booked. Surfaces what is actually
  * killing your conversion.

@@ -714,7 +714,7 @@ function WhyPanel({
                   </div>
                   {freshLeadStats.unassignedCount > 0 && (
                     <div className="text-[10px] text-amber-500 font-medium mt-0.5 pl-1.5">
-                      ⚠️ {freshLeadStats.unassignedCount} leads have no TCM assigned — assign immediately
+                      ️ {freshLeadStats.unassignedCount} leads have no TCM assigned — assign immediately
                     </div>
                   )}
                 </>

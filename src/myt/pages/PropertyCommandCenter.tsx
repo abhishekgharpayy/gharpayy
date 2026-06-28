@@ -95,8 +95,8 @@ export default function PropertyCommandCenter() {
 
       {!isEmpty && (
         <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
-          <SummaryTile label="🔥 Hot" value={totals.hot} />
-          <SummaryTile label="❄️ Cold" value={totals.cold} />
+          <SummaryTile label=" Hot" value={totals.hot} />
+          <SummaryTile label="️ Cold" value={totals.cold} />
           <SummaryTile label="Beds Held" value={totals.blockedBeds} />
           <SummaryTile label="Revenue (7d)" value={`₹${(totals.revenue / 1000).toFixed(0)}k`} />
           <SummaryTile label="Missed (7d)" value={`₹${(totals.missed / 1000).toFixed(0)}k`} accent="danger" />
@@ -374,7 +374,7 @@ function PropertyDrawer({ property, onClose }: { property: Property; onClose: ()
             <h4 className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Recommended Actions</h4>
             {scores.suggestedActions.map((a, i) => (
               <div key={i} className="text-xs text-foreground bg-primary/5 border border-primary/20 rounded px-3 py-2 flex items-start gap-2">
-                <span>💡</span><span>{a}</span>
+                <span></span><span>{a}</span>
               </div>
             ))}
           </div>

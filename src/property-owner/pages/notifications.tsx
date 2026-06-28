@@ -223,7 +223,7 @@ export default function OwnerNotificationsPage() {
                             "text-[11px] font-bold px-2 py-0.5 rounded-full",
                             n.tourType === "virtual" ? "bg-indigo-100 text-indigo-700" : "bg-green-100 text-green-700"
                           )}>
-                            {n.tourType === "virtual" ? "🖥 Virtual Tour" : "🏠 Physical Tour"}
+                            {n.tourType === "virtual" ? " Virtual Tour" : " Physical Tour"}
                           </span>
                         )}
                         {n.occupancyPct !== undefined && (

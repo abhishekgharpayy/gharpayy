@@ -96,8 +96,8 @@ export function ParserTestModal({ open, onClose }: Props) {
           <div className="space-y-4 py-2">
             <div className="grid grid-cols-3 gap-2">
               <Stat label="Total" value={report.total} tone="neutral" />
-              <Stat label="Parsed ✅" value={report.parsed} tone="good" />
-              <Stat label="Failed ❌" value={report.failed} tone="bad" />
+              <Stat label="Parsed " value={report.parsed} tone="good" />
+              <Stat label="Failed " value={report.failed} tone="bad" />
             </div>
 
             <div className="rounded-lg border border-border p-3 space-y-1.5 text-sm">

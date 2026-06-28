@@ -12,25 +12,25 @@ export const TOUR_BAND_META: Record<
   { label: string; desc: string; border: string; header: string }
 > = {
   fire: {
-    label: "🔥 NOW",
+    label: " NOW",
     desc: "Overdue or starting within 30 min — top priority",
     border: "border-destructive/40",
     header: "bg-destructive/10 text-destructive",
   },
   confirm: {
-    label: "📞 CONFIRM",
+    label: " CONFIRM",
     desc: "Today / tomorrow — call to confirm visit",
     border: "border-warning/40",
     header: "bg-warning/10 text-warning",
   },
   soon: {
-    label: "⚡ NEXT",
+    label: " NEXT",
     desc: "Coming up soon — stay ready",
     border: "border-accent/40",
     header: "bg-accent/10 text-accent",
   },
   later: {
-    label: "📅 LATER",
+    label: " LATER",
     desc: "Further out — plan ahead",
     border: "border-border",
     header: "bg-muted/50 text-muted-foreground",

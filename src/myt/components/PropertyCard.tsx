@@ -70,7 +70,7 @@ export function PropertyCard({ property: p, scores: s, onClick }: Props) {
       {/* Top action */}
       {s.suggestedActions.length > 0 && (
         <div className="text-[10px] text-primary bg-primary/5 border border-primary/20 rounded px-2 py-1 leading-snug">
-          💡 {s.suggestedActions[0]}
+           {s.suggestedActions[0]}
         </div>
       )}
 

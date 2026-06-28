@@ -166,7 +166,7 @@ export default function Bookings() {
               <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-medium', statusColors[b.agreementStatus])}>
                 {b.agreementStatus}
               </span>
-              <span className="text-muted-foreground">{b.viaTour ? '🏠 Via Tour' : '📞 Direct'}</span>
+              <span className="text-muted-foreground">{b.viaTour ? ' Via Tour' : ' Direct'}</span>
               <span className="text-muted-foreground">Closed by: {b.closedByName}</span>
             </div>
             {b.agreementStatus !== 'moved-in' && (

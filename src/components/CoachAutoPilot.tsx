@@ -71,7 +71,7 @@ export function CoachAutoPilot({
     <div className="space-y-3 mt-4">
       <div className="flex items-center gap-1.5 px-1 text-xs font-bold text-foreground uppercase tracking-wider">
         <Sparkles className="h-4 w-4 text-blue-500" />
-        ✨ AI Suggested Next Action
+         AI Suggested Next Action
       </div>
 
       <div className="flex items-center gap-4 rounded-xl border border-blue-200 bg-blue-50/40 dark:border-blue-900 dark:bg-blue-900/10 px-4 py-3 shadow-sm transition-all duration-300">

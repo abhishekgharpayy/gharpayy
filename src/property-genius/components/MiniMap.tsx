@@ -182,7 +182,7 @@ export function MiniMap({ pg, pins, height = MAP_H }: Props) {
 
         {/* Attribution + actions */}
         <div className="pointer-events-none absolute bottom-1 right-1 rounded bg-black/60 px-1.5 py-0.5 text-[9px] text-white/80">
-          © OpenStreetMap
+           OpenStreetMap
         </div>
       </div>
 

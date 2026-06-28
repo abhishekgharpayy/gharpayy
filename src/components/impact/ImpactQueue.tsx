@@ -1175,7 +1175,7 @@ export function ImpactQueue() {
                     : queueFilters.activeView === "tours-today" ? "No Tours Scheduled Today"
                     : queueFilters.activeView === "movein-0-7" ? "No Move-Ins < 7 Days"
                     : queueFilters.activeView === "no-activity-48h" ? "No Stale Leads (> 48h No Activity)"
-                    : "Queue clear. Add a lead or relax 🌱"}
+                    : "Queue clear. Add a lead or relax "}
                 </p>
                 {(queueFilters !== defaultQueueFilters ||
                   query.trim()) && (
@@ -2734,7 +2734,7 @@ function TemplateMessenger({
         </Button>
         {!ctx.agentPhone && (
           <span className="text-[10px] text-warning self-center">
-            ⚠ Set the TCM phone (in “Confirm tour”) so it auto-fills
+             Set the TCM phone (in “Confirm tour”) so it auto-fills
           </span>
         )}
       </div>

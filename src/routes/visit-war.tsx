@@ -1910,7 +1910,7 @@ function VisitDetailPanel({
     }),
   );
   if (v.outcome === "booked")
-    replay.push({ ts: v.lastUpdateAt, label: "Booking confirmed 🎉", tone: "success" });
+    replay.push({ ts: v.lastUpdateAt, label: "Booking confirmed ", tone: "success" });
   if (v.outcome === "lost")
     replay.push({ ts: v.lastUpdateAt, label: `Lost · ${v.lostReason ?? "—"}`, tone: "risk" });
   replay.sort((a, b) => a.ts - b.ts);
@@ -2071,11 +2071,11 @@ function VisitDetailPanel({
             {(["loved", "interested", "comparing", "average", "rejected"] as Reaction[]).map(
               (r) => {
                 const emoji = {
-                  loved: "😍",
-                  interested: "🙂",
-                  comparing: "🤔",
-                  average: "😐",
-                  rejected: "❌",
+                  loved: "",
+                  interested: "",
+                  comparing: "",
+                  average: "",
+                  rejected: "",
                 }[r];
                 const active = v.reaction === r;
                 return (
@@ -2290,7 +2290,7 @@ function VisitDetailPanel({
         <Section title="7 · Final Outcome">
           <ButtonRow>
             <ActBtn
-              label="✅ Booked"
+              label=" Booked"
               tone="success"
               active={v.outcome === "booked"}
               onClick={() => {
@@ -2299,18 +2299,18 @@ function VisitDetailPanel({
               }}
             />
             <ActBtn
-              label="🟡 Thinking"
+              label=" Thinking"
               active={v.outcome === "thinking"}
               onClick={() => onPatch({ outcome: "thinking" })}
             />
             <ActBtn
-              label="🔵 Follow-up"
+              label=" Follow-up"
               tone="info"
               active={v.outcome === "follow-up"}
               onClick={() => onPatch({ outcome: "follow-up", stage: "follow-up" })}
             />
             <ActBtn
-              label="🔴 Lost"
+              label=" Lost"
               tone="destructive"
               active={v.outcome === "lost"}
               onClick={() => {
@@ -2352,7 +2352,7 @@ function VisitDetailPanel({
           </Section>
         )}
 
-        <Section title="📼 Visit Replay">
+        <Section title=" Visit Replay">
           <div className="space-y-1.5 border-l-2 border-border ml-1 pl-3">
             {replay.length === 0 && (
               <div className="text-xs text-muted-foreground">No events yet.</div>
@@ -2385,11 +2385,11 @@ function VisitDetailPanel({
           </div>
         </Section>
 
-        <Section title="📲 WhatsApp Copy Block">
+        <Section title=" WhatsApp Copy Block">
           <VisitCopyChips v={v} />
         </Section>
 
-        <Section title="🎯 Coach & Intervention">
+        <Section title=" Coach & Intervention">
           <CoachNoteThread v={v} />
         </Section>
       </div>

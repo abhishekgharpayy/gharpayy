@@ -573,7 +573,7 @@ export function registerExecutionReportRoutes(app: FastifyInstance) {
 
       if (inactiveMembers.length > 0) {
         criticalAlerts.push(
-          `🔴 ${inactiveMembers.length} team member(s) inactive for >${q.window_minutes} min: ${inactiveMembers
+          ` ${inactiveMembers.length} team member(s) inactive for >${q.window_minutes} min: ${inactiveMembers
             .slice(0, 3)
             .map((m) => m.name)
             .join(", ")}`
@@ -583,14 +583,14 @@ export function registerExecutionReportRoutes(app: FastifyInstance) {
       const highStuckCount = memberReports.filter((m) => m.stuckLeads.length >= 3);
       if (highStuckCount.length > 0) {
         criticalAlerts.push(
-          `⚠️ ${highStuckCount.length} member(s) have 3+ leads stuck in the same stage`
+          `️ ${highStuckCount.length} member(s) have 3+ leads stuck in the same stage`
         );
       }
 
       const zeroLeads = memberReports.filter((m) => m.totalLeadsAdded === 0);
       if (zeroLeads.length > 0) {
         criticalAlerts.push(
-          `📭 ${zeroLeads.length} member(s) have added 0 leads today: ${zeroLeads
+          ` ${zeroLeads.length} member(s) have added 0 leads today: ${zeroLeads
             .slice(0, 3)
             .map((m) => m.name)
             .join(", ")}`

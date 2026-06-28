@@ -195,11 +195,11 @@ function AdminImpact() {
             const leadName = leadsMap.get(f.leadId)?.name || "Unknown Lead";
             const tcmName = tcmsMap.get(f.tcmId)?.name || "Unassigned";
             const timestamp = f.dueAt;
-            let statusObj = { text: "⏳ Pending", val: "pending", days: 0 };
-            if (f.done) statusObj = { text: "✅ Completed", val: "completed", days: 0 };
+            let statusObj = { text: " Pending", val: "pending", days: 0 };
+            if (f.done) statusObj = { text: " Completed", val: "completed", days: 0 };
             else if (isOverdue) {
                 const odDays = Math.round((now - dueAt) / 86400000);
-                statusObj = { text: `🔴 Overdue (${odDays}d)`, val: "overdue", days: odDays };
+                statusObj = { text: ` Overdue (${odDays}d)`, val: "overdue", days: odDays };
             }
 
             auditData.push({
@@ -497,7 +497,7 @@ function AdminImpact() {
           {/* TCM Performance Table */}
           <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
             <div className="p-4 border-b border-border bg-muted/20 font-semibold text-sm flex items-center gap-2">
-              🏆 TCM Performance Table
+               TCM Performance Table
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm text-left">
@@ -535,7 +535,7 @@ function AdminImpact() {
           {/* Type Breakdown Table */}
           <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
             <div className="p-4 border-b border-border bg-muted/20 font-semibold text-sm flex items-center gap-2">
-              📌 Task Type Breakdown
+               Task Type Breakdown
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm text-left">
@@ -625,19 +625,19 @@ function AdminImpact() {
               <thead className="bg-muted/40 text-muted-foreground border-b border-border">
                 <tr>
                   <th className="p-3 font-semibold cursor-pointer hover:text-foreground transition-colors" onClick={() => toggleSort('timeStr')}>
-                    Timestamp {sortCol === 'timeStr' ? (sortAsc ? '↑' : '↓') : '↕'}
+                    Timestamp {sortCol === 'timeStr' ? (sortAsc ? '↑' : '↓') : ''}
                   </th>
                   <th className="p-3 font-semibold cursor-pointer hover:text-foreground transition-colors" onClick={() => toggleSort('tcm')}>
-                    TCM {sortCol === 'tcm' ? (sortAsc ? '↑' : '↓') : '↕'}
+                    TCM {sortCol === 'tcm' ? (sortAsc ? '↑' : '↓') : ''}
                   </th>
                   <th className="p-3 font-semibold cursor-pointer hover:text-foreground transition-colors" onClick={() => toggleSort('leadName')}>
-                    Lead {sortCol === 'leadName' ? (sortAsc ? '↑' : '↓') : '↕'}
+                    Lead {sortCol === 'leadName' ? (sortAsc ? '↑' : '↓') : ''}
                   </th>
                   <th className="p-3 font-semibold cursor-pointer hover:text-foreground transition-colors" onClick={() => toggleSort('type')}>
-                    Task Type {sortCol === 'type' ? (sortAsc ? '↑' : '↓') : '↕'}
+                    Task Type {sortCol === 'type' ? (sortAsc ? '↑' : '↓') : ''}
                   </th>
                   <th className="p-3 font-semibold cursor-pointer hover:text-foreground transition-colors" onClick={() => toggleSort('statusVal')}>
-                    Status {sortCol === 'statusVal' ? (sortAsc ? '↑' : '↓') : '↕'}
+                    Status {sortCol === 'statusVal' ? (sortAsc ? '↑' : '↓') : ''}
                   </th>
                 </tr>
               </thead>

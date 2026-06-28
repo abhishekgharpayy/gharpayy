@@ -115,7 +115,7 @@ export const intentBg: Record<Intent, string> = {
 };
 
 export const confirmationLabel: Record<ConfirmationStrength, string> = {
-  strong: '✅ Strong',
-  tentative: '⚠️ Tentative',
-  weak: '❌ Weak',
+  strong: ' Strong',
+  tentative: '️ Tentative',
+  weak: ' Weak',
 };

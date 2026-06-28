@@ -56,7 +56,7 @@ export const IMPACT_TEMPLATES: Record<ImpactScenario, ImpactTpl[]> = {
     {
       id: "ft-warm", label: "Warm intro", vibe: "warm",
       body:
-        "Hi {leadName}! 👋 This is {agentName} from Gharpayy. I saw you're looking near {area} around ₹{budget}. " +
+        "Hi {leadName}!  This is {agentName} from Gharpayy. I saw you're looking near {area} around ₹{budget}. " +
         "I have 2 strong options that would suit you — want me to share?",
     },
     {
@@ -68,7 +68,7 @@ export const IMPACT_TEMPLATES: Record<ImpactScenario, ImpactTpl[]> = {
     {
       id: "ft-casual", label: "Casual nudge", vibe: "casual",
       body:
-        "Hey {leadName}! {agentName} from Gharpayy 🙌 — saw your enquiry. Free for 5 mins on call, or should I drop options on WhatsApp?",
+        "Hey {leadName}! {agentName} from Gharpayy  — saw your enquiry. Free for 5 mins on call, or should I drop options on WhatsApp?",
     },
   ],
 
@@ -76,13 +76,13 @@ export const IMPACT_TEMPLATES: Record<ImpactScenario, ImpactTpl[]> = {
     {
       id: "tc-formal", label: "Confirmation card", vibe: "premium",
       body:
-        "Hi {leadName}, your visit is confirmed ✅\n\n📍 {propertyName}\n🗓️ {tourWhen}\n\nYour tour coordinator:\n👤 {agentName}\n📞 {agentPhone}\n\nThey'll receive you at the property. Reply here to reschedule.\n— Team Gharpayy",
+        "Hi {leadName}, your visit is confirmed \n\n {propertyName}\n️ {tourWhen}\n\nYour tour coordinator:\n {agentName}\n {agentPhone}\n\nThey'll receive you at the property. Reply here to reschedule.\n— Team Gharpayy",
     },
     {
       id: "tc-friendly", label: "Friendly heads-up", vibe: "warm",
       body:
-        "Hi {leadName}! Just to confirm — {agentName} (📞 {agentPhone}) will be waiting for you at {propertyName} on {tourWhen}. " +
-        "Anything you'd like them to keep ready? 🏠",
+        "Hi {leadName}! Just to confirm — {agentName} ( {agentPhone}) will be waiting for you at {propertyName} on {tourWhen}. " +
+        "Anything you'd like them to keep ready? ",
     },
     {
       id: "tc-direct", label: "Short & direct", vibe: "direct",
@@ -96,13 +96,13 @@ export const IMPACT_TEMPLATES: Record<ImpactScenario, ImpactTpl[]> = {
       id: "tr-soft", label: "Soft reminder", vibe: "warm",
       body:
         "Hey {leadName}, looking forward to your visit at {propertyName} on {tourWhen}. {agentName} will be there. " +
-        "Ping me if anything changes 🙏",
+        "Ping me if anything changes ",
     },
     {
       id: "tr-urgent", label: "Day-of nudge", vibe: "urgent",
       body:
         "Hi {leadName}! Your visit at {propertyName} is in a few hours ({tourWhen}). " +
-        "{agentName} (📞 {agentPhone}) is keeping a slot for you. See you there!",
+        "{agentName} ( {agentPhone}) is keeping a slot for you. See you there!",
     },
     {
       id: "tr-route", label: "Route + parking", vibe: "premium",
@@ -115,7 +115,7 @@ export const IMPACT_TEMPLATES: Record<ImpactScenario, ImpactTpl[]> = {
     {
       id: "ns-empathy", label: "Empathy check-in", vibe: "warm",
       body:
-        "Hi {leadName}, we missed you at {propertyName} today. Hope everything's okay 🤞 " +
+        "Hi {leadName}, we missed you at {propertyName} today. Hope everything's okay  " +
         "Want me to lock a slot for tomorrow same time?",
     },
     {
@@ -134,7 +134,7 @@ export const IMPACT_TEMPLATES: Record<ImpactScenario, ImpactTpl[]> = {
     {
       id: "qf-soft", label: "Soft check-in", vibe: "warm",
       body:
-        "Hi {leadName}, did the quotation for {propertyName} make sense? Happy to walk through anything — deposit, lock-in, anything 🙏",
+        "Hi {leadName}, did the quotation for {propertyName} make sense? Happy to walk through anything — deposit, lock-in, anything ",
     },
     {
       id: "qf-direct", label: "Direct ask", vibe: "direct",
@@ -157,7 +157,7 @@ export const IMPACT_TEMPLATES: Record<ImpactScenario, ImpactTpl[]> = {
     {
       id: "nh-warm", label: "Warm hold", vibe: "warm",
       body:
-        "Hi {leadName}, I hear you on price. Honestly ₹{price} is the best at {propertyName} for this room — but I'll throw in early check-in and one waived utility bill 🙌",
+        "Hi {leadName}, I hear you on price. Honestly ₹{price} is the best at {propertyName} for this room — but I'll throw in early check-in and one waived utility bill ",
     },
     {
       id: "nh-direct", label: "Firm but kind", vibe: "direct",
@@ -204,9 +204,9 @@ export const IMPACT_TEMPLATES: Record<ImpactScenario, ImpactTpl[]> = {
 
   "booking-confirm": [
     {
-      id: "bc-celebrate", label: "Welcome aboard 🎉", vibe: "warm",
+      id: "bc-celebrate", label: "Welcome aboard ", vibe: "warm",
       body:
-        "Welcome to Gharpayy, {leadName}! 🎉\nYour room at {propertyName} is booked — move-in {moveIn}.\nCoordinator: {agentName} ({agentPhone}).\nReceipt + agreement coming to your email.",
+        "Welcome to Gharpayy, {leadName}! \nYour room at {propertyName} is booked — move-in {moveIn}.\nCoordinator: {agentName} ({agentPhone}).\nReceipt + agreement coming to your email.",
     },
     {
       id: "bc-formal", label: "Formal confirmation", vibe: "premium",
@@ -216,7 +216,7 @@ export const IMPACT_TEMPLATES: Record<ImpactScenario, ImpactTpl[]> = {
     {
       id: "bc-direct", label: "Quick receipt", vibe: "direct",
       body:
-        "Booked ✅ {propertyName} · {roomType} · move-in {moveIn}.\nManager: {agentName} ({agentPhone}). Receipt coming on email.",
+        "Booked  {propertyName} · {roomType} · move-in {moveIn}.\nManager: {agentName} ({agentPhone}). Receipt coming on email.",
     },
   ],
 
@@ -224,7 +224,7 @@ export const IMPACT_TEMPLATES: Record<ImpactScenario, ImpactTpl[]> = {
     {
       id: "rv-warm", label: "Soft revival", vibe: "warm",
       body:
-        "Hi {leadName}, hope you're well! Wanted to check — still looking for a PG in {area}? Prices have eased a bit, worth another look 🙌",
+        "Hi {leadName}, hope you're well! Wanted to check — still looking for a PG in {area}? Prices have eased a bit, worth another look ",
     },
     {
       id: "rv-direct", label: "Fresh inventory", vibe: "direct",

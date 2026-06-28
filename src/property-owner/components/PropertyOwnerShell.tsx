@@ -64,7 +64,7 @@ export function PropertyOwnerShell({ children }: { children: React.ReactNode }) 
       <aside className="hidden md:flex flex-col w-64 border-r border-border/10 bg-card/50 backdrop-blur shrink-0">
         <div className="p-6">
           <div className="flex items-center gap-2">
-            <span className="text-2xl">🏘️</span>
+            <span className="text-2xl">️</span>
             <div>
               <h1 className="text-xl font-black font-display text-primary leading-none">Gharpayy</h1>
               <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest leading-none">Owner Portal</p>
@@ -104,7 +104,7 @@ export function PropertyOwnerShell({ children }: { children: React.ReactNode }) 
           "md:hidden flex items-center justify-between px-4 py-3 sticky top-0 z-10 border-b bg-background/90 border-border/10 backdrop-blur"
         )}>
           <div className="flex items-center gap-1.5">
-            <span className="text-xl">🏘️</span>
+            <span className="text-xl">️</span>
             <div>
               <span className="text-base font-black font-display leading-none text-primary">Gharpayy</span>
               <span className="text-[9px] font-bold ml-1 opacity-60 uppercase tracking-widest text-foreground">Owner Portal</span>

@@ -107,7 +107,7 @@ function AdminSettings() {
                   </div>
                   <div className={`text-sm font-mono font-semibold flex items-center gap-1 ${diag.sequencesPaused ? "text-destructive" : "text-success"}`}>
                     {diag.sequencesPaused ? (
-                      <>⛔ PAUSED</>
+                      <> PAUSED</>
                     ) : (
                       <><CheckCircle2 className="h-4 w-4" /> RUNNING</>
                     )}
@@ -125,7 +125,7 @@ function AdminSettings() {
                     Errors (last 24h)
                   </div>
                   <div className={`text-sm font-mono font-semibold ${diag.recentErrors.length > 0 ? "text-destructive" : "text-success"}`}>
-                    {diag.recentErrors.length === 0 ? "✅ None" : `${diag.recentErrors.length} error(s)`}
+                    {diag.recentErrors.length === 0 ? " None" : `${diag.recentErrors.length} error(s)`}
                   </div>
                 </div>
               </div>

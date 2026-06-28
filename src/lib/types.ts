@@ -173,7 +173,7 @@ export interface FollowUp {
   done: boolean;
 }
 
-/* ============== HANDOFF (FlowOps ↔ TCM messaging) ============== */
+/* ============== HANDOFF (FlowOps  TCM messaging) ============== */
 export interface HandoffMessage {
   id: string;
   leadId: string;

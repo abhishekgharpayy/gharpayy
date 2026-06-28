@@ -9,7 +9,7 @@ import type { Role } from "@/lib/types";
 import { ClientOnly } from "@/components/ClientOnly";
 
 /**
- * FlowOps ↔ TCM handoff thread for a single lead.
+ * FlowOps  TCM handoff thread for a single lead.
  * Real-life: FlowOps queues hot leads, TCMs ack & close, both leave context.
  */
 export function HandoffThread({ leadId }: { leadId: string }) {

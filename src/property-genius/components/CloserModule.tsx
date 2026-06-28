@@ -371,12 +371,12 @@ function ObjectionPivot({ onOpen }: { onOpen: (pg: PG) => void }) {
   const stretch = useMemo(() => budgetStretch(baseBudget, PGS, pg?.gender), [baseBudget, pg]);
 
   const objections: { k: Objection; l: string; emoji: string }[] = [
-    { k: "expensive", l: "Too expensive", emoji: "💰" },
-    { k: "far",       l: "Too far",      emoji: "📍" },
-    { k: "no_gym",    l: "Need gym",     emoji: "💪" },
-    { k: "no_meals",  l: "Need meals",   emoji: "🍽" },
-    { k: "no_ac",     l: "Need AC",      emoji: "❄️" },
-    { k: "wrong_food",l: "Need non-veg", emoji: "🍗" },
+    { k: "expensive", l: "Too expensive", emoji: "" },
+    { k: "far",       l: "Too far",      emoji: "" },
+    { k: "no_gym",    l: "Need gym",     emoji: "" },
+    { k: "no_meals",  l: "Need meals",   emoji: "" },
+    { k: "no_ac",     l: "Need AC",      emoji: "️" },
+    { k: "wrong_food",l: "Need non-veg", emoji: "" },
   ];
 
   return (

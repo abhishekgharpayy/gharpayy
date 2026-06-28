@@ -124,10 +124,10 @@ export default function OwnerDashboardPage() {
         {/* Stats Grid */}
         <div className="grid grid-cols-2 gap-4">
           {[
-            { label: "Monthly Revenue", value: `₹${((apiStats?.overall as any)?.monthlyRevenue || 0).toLocaleString()}`, icon: "💰", color: "bg-green-50 border-green-100" },
-            { label: "Total Leads", value: (apiStats?.overall as any)?.totalLeadsReceived || 0, icon: "🎯", color: "bg-orange-50 border-orange-100" },
-            { label: "Total Bookings", value: (apiStats?.overall as any)?.totalBookings || bookingStats.total || 0, icon: "🔑", color: "bg-purple-50 border-purple-100" },
-            { label: "Referral Earnings", value: `₹${((apiStats?.overall as any)?.referralEarnings || 0).toLocaleString()}`, icon: "🎁", color: "bg-yellow-50 border-yellow-100" },
+            { label: "Monthly Revenue", value: `₹${((apiStats?.overall as any)?.monthlyRevenue || 0).toLocaleString()}`, icon: "", color: "bg-green-50 border-green-100" },
+            { label: "Total Leads", value: (apiStats?.overall as any)?.totalLeadsReceived || 0, icon: "", color: "bg-orange-50 border-orange-100" },
+            { label: "Total Bookings", value: (apiStats?.overall as any)?.totalBookings || bookingStats.total || 0, icon: "", color: "bg-purple-50 border-purple-100" },
+            { label: "Referral Earnings", value: `₹${((apiStats?.overall as any)?.referralEarnings || 0).toLocaleString()}`, icon: "", color: "bg-yellow-50 border-yellow-100" },
           ].map((item, i) => (
             <motion.div key={item.label}
               initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07 }}

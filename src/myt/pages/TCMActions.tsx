@@ -31,24 +31,24 @@ export default function TCMActions() {
         <p className="text-xs text-muted-foreground">Hard intent surfaced first - fight for the highest-conversion tours</p>
       </div>
 
-      <Section title="📞 Confirm Attendance" count={toConfirm.length} color="text-primary">
+      <Section title=" Confirm Attendance" count={toConfirm.length} color="text-primary">
         {toConfirm.map(t => <TourCard key={t.id} tour={t} onUpdate={updateTour} variant="compact" />)}
       </Section>
 
-      <Section title="❌ Missed - Follow Up" count={missed.length} color="text-danger">
+      <Section title=" Missed - Follow Up" count={missed.length} color="text-danger">
         {missed.map(t => <TourCard key={t.id} tour={t} onUpdate={updateTour} variant="compact" />)}
       </Section>
 
-      <Section title="📝 Update Outcome" count={needsOutcome.length} color="text-role-hr">
+      <Section title=" Update Outcome" count={needsOutcome.length} color="text-role-hr">
         {needsOutcome.map(t => <TourCard key={t.id} tour={t} onUpdate={updateTour} variant="compact" />)}
       </Section>
 
-      <Section title="📄 Push Draft Agreement" count={draftPush.length} color="text-role-hr">
+      <Section title=" Push Draft Agreement" count={draftPush.length} color="text-role-hr">
         {draftPush.map(t => <TourCard key={t.id} tour={t} onUpdate={updateTour} variant="compact" />)}
       </Section>
 
       {total === 0 && (
-        <div className="glass-card p-8 text-center text-muted-foreground">All caught up! 🎉</div>
+        <div className="glass-card p-8 text-center text-muted-foreground">All caught up! </div>
       )}
     </div>
   );

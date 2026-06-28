@@ -151,7 +151,7 @@ export function scoreLead(lead: Lead, activities: Activity[] = [], todos: Todo[]
 }
 
 function recommendationFor(lead: Lead, score: number, stalenessDays: number): string {
-  if (lead.stage === "booked") return "🎉 Booked - schedule onboarding.";
+  if (lead.stage === "booked") return " Booked - schedule onboarding.";
   if (lead.stage === "dropped") return "Cold list - drop into 14-day revival sequence.";
   if (score >= 70 && lead.stage === "new") return "Hot lead, untouched - call within 5 min.";
   if (score >= 70) return "Hot - push for tour confirmation today.";

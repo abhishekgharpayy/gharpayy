@@ -232,7 +232,7 @@ function AdminIntelligence() {
         {/* Objection Correlation */}
         <div className="rounded-xl border border-border bg-card p-4">
           <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-3">
-            Objection ↔ Loss Correlation
+            Objection  Loss Correlation
           </div>
           <table className="w-full text-xs">
             <thead>

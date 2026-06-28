@@ -78,7 +78,7 @@ interface BandConfig {
 
 const BANDS: Record<BandKey, BandConfig> = {
   fire: {
-    label: "🔥 Urgent - Move-in ≤ 7 days",
+    label: " Urgent - Move-in ≤ 7 days",
     subtitle: "Close or lose this week.",
     icon: Flame,
     color: "text-destructive",
@@ -87,7 +87,7 @@ const BANDS: Record<BandKey, BandConfig> = {
     defaultOpen: true,
   },
   stuck: {
-    label: "🚨 Stuck - Stage Expired",
+    label: " Stuck - Stage Expired",
     subtitle: "Days exceeded. Unblock today.",
     icon: AlertTriangle,
     color: "text-warning",
@@ -96,7 +96,7 @@ const BANDS: Record<BandKey, BandConfig> = {
     defaultOpen: true,
   },
   active: {
-    label: "⚡ In Progress",
+    label: " In Progress",
     subtitle: "Moving. Sorted by move-in date.",
     icon: TrendingUp,
     color: "text-success",
@@ -105,7 +105,7 @@ const BANDS: Record<BandKey, BandConfig> = {
     defaultOpen: true,
   },
   future: {
-    label: "🔭 Future - Move-in 45+ Days",
+    label: " Future - Move-in 45+ Days",
     subtitle: "Qualified. Set a trigger.",
     icon: Telescope,
     color: "text-info",
@@ -114,7 +114,7 @@ const BANDS: Record<BandKey, BandConfig> = {
     defaultOpen: false,
   },
   dormant: {
-    label: "😴 Dormant - 30+ Days Silent",
+    label: " Dormant - 30+ Days Silent",
     subtitle: "Final attempt then mark lost.",
     icon: Moon,
     color: "text-muted-foreground",
@@ -123,7 +123,7 @@ const BANDS: Record<BandKey, BandConfig> = {
     defaultOpen: false,
   },
   closed: {
-    label: "✅ Closed",
+    label: " Closed",
     subtitle: "Booked or dropped.",
     icon: CheckCircle2,
     color: "text-muted-foreground",

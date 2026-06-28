@@ -224,9 +224,9 @@ function AdminExports() {
     return [
       `*Gharpayy Admin Summary — ${new Date().toLocaleDateString("en-IN")}*`,
       "",
-      `📊 Pipeline: ${open.length} open · ${hot.length} hot · ${booked.length} booked`,
-      `🏆 Top closeable: ${top3.map((l) => `${l.name} (${l.confidence}%)`).join(", ")}`,
-      `👥 TCMs: ${tcms.length} active · ${leads.length} total leads`,
+      ` Pipeline: ${open.length} open · ${hot.length} hot · ${booked.length} booked`,
+      ` Top closeable: ${top3.map((l) => `${l.name} (${l.confidence}%)`).join(", ")}`,
+      ` TCMs: ${tcms.length} active · ${leads.length} total leads`,
     ].join("\n");
   }, [leads, tcms]);
 
@@ -294,7 +294,7 @@ function AdminExports() {
             <div>
               <div className="text-xs text-muted-foreground mb-1">Hot leads alert</div>
               <pre className="text-xs bg-muted/30 rounded-lg p-3 whitespace-pre-wrap font-sans">
-                {`🚨 *Hot leads needing attention* 🚨\n\n${leads
+                {` *Hot leads needing attention* \n\n${leads
                   .filter((l) => l.confidence >= 70 && l.stage !== "booked" && l.stage !== "dropped")
                   .slice(0, 5)
                   .map((l) => {
@@ -316,7 +316,7 @@ function AdminExports() {
                       return `• ${l.name} — ${l.confidence}% (${tcm?.name ?? "Unassigned"})`;
                     })
                     .join("\n") || "No hot leads right now.";
-                  navigator.clipboard.writeText(`🚨 *Hot leads needing attention* 🚨\n\n${txt}`);
+                  navigator.clipboard.writeText(` *Hot leads needing attention* \n\n${txt}`);
                   toast.success("Copied");
                 }}
               >

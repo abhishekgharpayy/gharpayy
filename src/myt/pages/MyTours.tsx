@@ -139,7 +139,7 @@ export default function MyTours() {
             <button 
               onClick={() => setFilter("has-clash")}
               className="mt-2 w-full text-left rounded-md bg-red-50 hover:bg-red-100 transition-colors border border-red-200 px-3 py-1.5 text-xs text-red-800 font-medium">
-              ⚠ {myTours.filter((t:any) => clashes.has(t.id || t._id)).length} tour{myTours.filter((t:any) => clashes.has(t.id || t._id)).length > 1 ? "s have" : " has"} a time clash — tap to view
+               {myTours.filter((t:any) => clashes.has(t.id || t._id)).length} tour{myTours.filter((t:any) => clashes.has(t.id || t._id)).length > 1 ? "s have" : " has"} a time clash — tap to view
             </button>
           )}
         </div>

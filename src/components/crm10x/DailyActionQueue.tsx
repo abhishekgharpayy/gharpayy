@@ -32,31 +32,31 @@ type Band = "fire" | "confirm" | "recover" | "nurture" | "prospect";
 
 const BAND_META: Record<Band, { label: string; tone: string; icon: typeof Flame; desc: string }> = {
   fire: {
-    label: "🔥 FIRE",
+    label: " FIRE",
     tone: "border-destructive bg-destructive/10 text-destructive",
     icon: Flame,
     desc: "Top priority - every minute costs revenue.",
   },
   confirm: {
-    label: "📞 CONFIRM",
+    label: " CONFIRM",
     tone: "border-warning bg-warning/10 text-warning",
     icon: Phone,
     desc: "Visits today/tomorrow - call to confirm.",
   },
   recover: {
-    label: "⚡ RECOVER",
+    label: " RECOVER",
     tone: "border-accent bg-accent/10 text-accent",
     icon: Zap,
     desc: "Overdue follow-ups - re-engage now.",
   },
   nurture: {
-    label: "🌱 NURTURE",
+    label: " NURTURE",
     tone: "border-info bg-info/10 text-info",
     icon: Sun,
     desc: "Follow-ups due today.",
   },
   prospect: {
-    label: "📋 PROSPECT",
+    label: " PROSPECT",
     tone: "border-border bg-muted/50 text-muted-foreground",
     icon: ClipboardCheck,
     desc: "Leads without a follow-up - set one.",
@@ -116,14 +116,14 @@ export function DailyActionQueue() {
         </div>
         <div className="flex items-center gap-2">
           <Stat label="To do" value={totalToDo} tone={totalToDo > 0 ? "default" : "success"} />
-          <Stat label="🔥 Fire" value={fireCount} tone={fireCount > 0 ? "danger" : "success"} />
+          <Stat label=" Fire" value={fireCount} tone={fireCount > 0 ? "danger" : "success"} />
           <Stat label="Logged" value={completedToday} tone="success" />
         </div>
       </header>
 
       {totalToDo === 0 && (
         <Card className="p-12 text-center space-y-3">
-          <div className="text-5xl">🎯</div>
+          <div className="text-5xl"></div>
           <h2 className="font-display text-xl">Inbox zero - all clear.</h2>
           <p className="text-sm text-muted-foreground">
             No pending actions. Use this time to add fresh leads or coach the team.

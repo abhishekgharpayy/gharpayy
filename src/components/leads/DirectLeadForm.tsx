@@ -56,9 +56,9 @@ const STAGES = [
 ] as const;
 
 const QUALITY_OPTS: { v: Quality; label: string }[] = [
-  { v: "hot", label: "🔥 Hot" },
-  { v: "good", label: "✅ Good" },
-  { v: "bad", label: "❌ Bad" },
+  { v: "hot", label: " Hot" },
+  { v: "good", label: " Good" },
+  { v: "bad", label: " Bad" },
 ];
 
 const emptyDraft = (): Draft => ({

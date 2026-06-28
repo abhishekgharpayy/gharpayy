@@ -172,21 +172,21 @@ function WarRoomTV() {
         </section>
 
         <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Wall title="MOST LIKELY TO CLOSE" icon="🎯">
+          <Wall title="MOST LIKELY TO CLOSE" icon="">
             {hot.map((r, i) => (
               <Row key={r.lead.id} idx={i + 1} left={r.lead.name} mid={r.tcm?.name ?? "-"} right={`${r.probability}%`} />
             ))}
             {!hot.length && <Empty>NO HOT LEADS DETECTED</Empty>}
           </Wall>
           
-          <Wall title="SLA BREACHES (HIGH VALUE)" icon="⚠️" borderTone="danger">
+          <Wall title="SLA BREACHES (HIGH VALUE)" icon="️" borderTone="danger">
             {breaches.map((b, i) => (
               <Row key={b.leadId + b.type} idx={i + 1} left={b.leadName} mid={b.type.replace(/_/g, " ")} right={inrL(b.expectedValue)} tone="danger" />
             ))}
             {!breaches.length && <Empty>ALL SYSTEMS NOMINAL. NO BREACHES.</Empty>}
           </Wall>
           
-          <Wall title="LIVE ACTIVITY FEED" icon="📡">
+          <Wall title="LIVE ACTIVITY FEED" icon="">
             {alerts.map((a) => (
               <li key={a.id} className="flex gap-4 text-sm py-2.5 border-b border-blue-900/30">
                 <span className="font-mono text-blue-400/70">{new Date(a.ts).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</span>
@@ -198,7 +198,7 @@ function WarRoomTV() {
         </section>
 
         <section className="grid grid-cols-1 gap-6">
-          <Wall title="GLOBAL TCM LEADERBOARD" icon="🏆" borderTone="accent">
+          <Wall title="GLOBAL TCM LEADERBOARD" icon="" borderTone="accent">
             <div className="h-64 mt-2">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={leaderboard} layout="vertical" margin={{ left: 8, right: 30, top: 0, bottom: 0 }}>
@@ -244,7 +244,7 @@ function WarRoomTV() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/95 backdrop-blur-xl animate-in fade-in duration-500">
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-green-900/40 via-slate-950/90 to-slate-950/100 pointer-events-none" />
           <div className="relative text-center space-y-6 animate-in slide-in-from-bottom-10 zoom-in-95 duration-700">
-            <div className="text-[180px] leading-none mb-4 animate-bounce drop-shadow-[0_0_50px_rgba(16,185,129,0.8)]">🚀</div>
+            <div className="text-[180px] leading-none mb-4 animate-bounce drop-shadow-[0_0_50px_rgba(16,185,129,0.8)]"></div>
             <h2 className="text-7xl font-display font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-green-500 tracking-tight neon-text-glow">
               MISSION ACCOMPLISHED
             </h2>

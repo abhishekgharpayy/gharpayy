@@ -90,7 +90,7 @@ export function detectZone(rawText: string): string {
   return "";
 }
 
-const EMOJI_RE = /[📝📱✉️📍💰📆📅👨🏢👫✨💥💯⚡🔥💛😘🏠🎯👥📞👤💼🛏️🥵✅❌⭐]/g;
+const EMOJI_RE = /[️️]/g;
 
 const NULL_WORD_RE = /\b(?:name|form|full|thank\s*you|thanks|gharpayy|gharpayy\.com|your\s+superstay\s+awaits|best\s+pg\s+in\s+10\s+minutes|18\s*sec|aayushi\s+from\s+gharpayy|not\s+filled)\b/gi;
 const LINK_RE = /(?:https?:\/\/|www\.)\S+|\b(?:maps\.app\.goo\.gl|goo\.gl|bit\.ly)\/\S+/gi;
@@ -213,7 +213,7 @@ function extractBudgets(text: string): string[] {
 }
 
 function cleanJunk(text: string): string {
-  return text.replace(NULL_WORD_RE, " ").replace(/[*_`⚡🔥💛🥵]/g, " ").replace(/\s+/g, " ").trim();
+  return text.replace(NULL_WORD_RE, " ").replace(/[*_`]/g, " ").replace(/\s+/g, " ").trim();
 }
 
 /** Title-case a name string, preserving common patronymic letters. */
@@ -434,7 +434,7 @@ export function parseLead(raw: string): ParsedLeadDraft | null {
   // Tier 2: Try existing emoji-labeled or inline 'Name' patterns anywhere on the line
   if (!name) {
     name = grab(
-      /\bName\s*[:\-–*]+\s*([^\n,📱\d]{2,120})/im,
+      /\bName\s*[:\-–*]+\s*([^\n,\d]{2,120})/im,
       /\.Name\s+([^\n.]{2,120})/im,
       /[-–]\s*([A-Z][a-z][^\n\d]{1,60})/m,
     );
@@ -510,9 +510,9 @@ export function parseLead(raw: string): ParsedLeadDraft | null {
 
   // ---------- Location ----------
   let location = grab(
-    /Preferred\s*Location[^:\n]*[:\-–]+\s*([^\n💰📆👨🏢]{3,200})/i,
+    /Preferred\s*Location[^:\n]*[:\-–]+\s*([^\n]{3,200})/i,
     /Which\s+location\s*[:\-–]+\s*([^\n]{3,200})/i,
-    /Location\s*[:\-–]+\s*([^\n💰📆👨🏢]{3,200})/i,
+    /Location\s*[:\-–]+\s*([^\n]{3,200})/i,
     /Area\s*[:\-–]+\s*([^\n]{3,200})/i,
     /Landmark[^:\n]*[:\-–]+\s*([^\n]{3,200})/i,
   );
@@ -538,7 +538,7 @@ export function parseLead(raw: string): ParsedLeadDraft | null {
   // ---------- Budget ----------
   const budgets = extractBudgets(clean);
   let budget = grab(
-    /(?:Actual\s*budget|Budget\s*Range|Budget\s*range|Budget\s*is|Budget|Budjet)\s*[:\-–(]*\s*([^\n)📆👨🏢]{2,80})/i,
+    /(?:Actual\s*budget|Budget\s*Range|Budget\s*range|Budget\s*is|Budget|Budjet)\s*[:\-–(]*\s*([^\n)]{2,80})/i,
   ).replace(/[₹()\[\]]/g, "").replace(/\s+/g, " ").trim();
   if (!budget && budgets.length) budget = budgets.join(", ");
 
@@ -557,7 +557,7 @@ export function parseLead(raw: string): ParsedLeadDraft | null {
 
   // ---------- Move-in ----------
   let moveIn = grab(
-    /Move[-\s]?in[-\s]?Date\s*[:\-–😘*]+\s*([^\n👨🏢👫✨]{2,80})/i,
+    /Move[-\s]?in[-\s]?Date\s*[:\-–*]+\s*([^\n]{2,80})/i,
     /Moving\s*Date\s*[:\-–]+\s*([^\n]{2,60})/i,
     /Move[-\s]?in\s*[:\-–]+\s*([^\n]{2,60})/i,
     /Movein\s*[:\-–]+\s*([^\n]{2,60})/i,
@@ -586,12 +586,12 @@ export function parseLead(raw: string): ParsedLeadDraft | null {
     : isIntern ? "Intern" : "";
 
   // ---------- Room ----------
-  const roomLabeled = grab(/Room(?:\s*Type)?\s*[*:\-–(]+\s*([^\n👫✨📞]{2,60})/i);
+  const roomLabeled = grab(/Room(?:\s*Type)?\s*[*:\-–(]+\s*([^\n]{2,60})/i);
   const room = normalizeRoom(roomLabeled || clean);
 
   // ---------- Need ----------
   const needRaw = grab(
-    /NEED\s*[*:\-–(]+\s*([^\n✨📞]{2,60})/i,
+    /NEED\s*[*:\-–(]+\s*([^\n]{2,60})/i,
     /Need\s*[:\-–]+\s*([^\n]{2,60})/i,
     /Cohort\s*[:\-–]+\s*([^\n]{2,60})/i,
   ).toLowerCase();
@@ -602,7 +602,7 @@ export function parseLead(raw: string): ParsedLeadDraft | null {
 
   // ---------- Special requests ----------
   let specialReqs = grab(
-    /Special\s*Requests?\s*[*:\-–(]+\s*([^\n*📞]{2,200})/i,
+    /Special\s*Requests?\s*[*:\-–(]+\s*([^\n*]{2,200})/i,
     /Notes?\s*[:\-–]+\s*([^\n]{2,200})/i,
     /Remarks?\s*[:\-–]+\s*([^\n]{2,200})/i,
   ).replace(/\b(NA|None|n\/a|If any)\b/gi, "").trim();
@@ -690,7 +690,7 @@ export function parseLead(raw: string): ParsedLeadDraft | null {
     distanceHint: links.length ? "Map link attached for distance check" : areas.length ? `Route by ${areas[0]}${areas[1] ? ` + ${areas.length - 1} more area(s)` : ""}` : "Needs location before distance check",
     syncStatus: (location || areas.length || links.length ? links.length ? "ready" : "needs-map-link" : "needs-location") as "ready" | "needs-map-link" | "needs-location",
   };
-  const summary = [name || "Unnamed", phone && `☎ ${phone}`, budget && `₹ ${budget}`, moveIn && `move ${moveIn}`, room, need, location || areas.join(", ")]
+  const summary = [name || "Unnamed", phone && ` ${phone}`, budget && `₹ ${budget}`, moveIn && `move ${moveIn}`, room, need, location || areas.join(", ")]
     .filter(Boolean).join(" · ");
 
   if (!phone && !email && !name) return null;
@@ -732,7 +732,7 @@ export function splitLeads(text: string): string[] {
     const t = line.trim();
     if (t.length < 3) return false;
     return (
-      /^📝/.test(t) ||
+      /^/.test(t) ||
       /^\*?GHARPAYY/i.test(t) ||
       /^(?:\*?\s*Name\s*[:\-–*])/i.test(t) ||
       /^Name\s*[-–]/i.test(t) ||

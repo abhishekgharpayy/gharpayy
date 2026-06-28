@@ -167,7 +167,7 @@ function CommandBridge() {
               paused ? "bg-destructive/15 text-destructive" : "bg-success/15 text-success",
             )}
           >
-            {paused ? "⛔ PAUSED" : "✅ RUNNING"}
+            {paused ? " PAUSED" : " RUNNING"}
           </div>
           <button
             onClick={handleTogglePause}
@@ -275,7 +275,7 @@ function CommandBridge() {
             {!stuckHot.length && (
               <tr>
                 <td colSpan={5} className="text-center text-muted-foreground py-4">
-                  No hot leads stalled. 🎉
+                  No hot leads stalled. 
                 </td>
               </tr>
             )}

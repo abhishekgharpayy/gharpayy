@@ -101,7 +101,7 @@ export function TourCard({ tour: t, onUpdate, variant = 'full' }: Props) {
 
       {t.qualification.keyConcern && variant === 'full' && (
         <div className="text-[10px] text-amber-foreground/80 bg-amber/10 border border-amber/20 rounded px-2 py-1">
-          ⚠ {t.qualification.keyConcern}
+           {t.qualification.keyConcern}
         </div>
       )}
 
@@ -165,7 +165,7 @@ export function TourCard({ tour: t, onUpdate, variant = 'full' }: Props) {
           label="Pack"
           onClick={() => {
             const msg = encodeURIComponent(
-              `Hi ${t.leadName}, here's your pre-tour pack for ${t.propertyName}:\n\n📸 Photos: gharpayy.com/p/${t.propertyId ?? 'demo'}\n🍽 Today's menu: gharpayy.com/menu\n🛡 Safety video: gharpayy.com/safety\n\nSee you at ${formatTime12h(t.tourTime)}!`
+              `Hi ${t.leadName}, here's your pre-tour pack for ${t.propertyName}:\n\n Photos: gharpayy.com/p/${t.propertyId ?? 'demo'}\n Today's menu: gharpayy.com/menu\n Safety video: gharpayy.com/safety\n\nSee you at ${formatTime12h(t.tourTime)}!`
             );
             window.open(`https://wa.me/${t.phone.replace(/[^\d]/g, '')}?text=${msg}`, '_blank');
             toast.success('Content pack ready');
@@ -208,11 +208,11 @@ export function TourCard({ tour: t, onUpdate, variant = 'full' }: Props) {
             <option value="other">Other</option>
           </select>
           <div className="flex gap-1.5 flex-wrap">
-            <Button size="sm" onClick={() => setOutcome('booked', { tokenPaid: true })} className="h-7 text-[10px] px-2 bg-role-tcm text-background hover:bg-role-tcm/90">✅ Booked</Button>
-            <Button size="sm" onClick={() => setOutcome('token-paid', { tokenPaid: true })} className="h-7 text-[10px] px-2 bg-role-tcm/80 text-background hover:bg-role-tcm/70">💰 Token</Button>
-            <Button size="sm" onClick={() => setOutcome('draft')} variant="outline" className="h-7 text-[10px] px-2 text-role-hr border-role-hr/30">📄 Draft</Button>
-            <Button size="sm" onClick={() => setOutcome('follow-up')} variant="outline" className="h-7 text-[10px] px-2">🔁 Follow-up</Button>
-            <Button size="sm" onClick={() => setOutcome('not-interested')} variant="outline" className="h-7 text-[10px] px-2 text-danger border-danger/30">❌ Lost</Button>
+            <Button size="sm" onClick={() => setOutcome('booked', { tokenPaid: true })} className="h-7 text-[10px] px-2 bg-role-tcm text-background hover:bg-role-tcm/90"> Booked</Button>
+            <Button size="sm" onClick={() => setOutcome('token-paid', { tokenPaid: true })} className="h-7 text-[10px] px-2 bg-role-tcm/80 text-background hover:bg-role-tcm/70"> Token</Button>
+            <Button size="sm" onClick={() => setOutcome('draft')} variant="outline" className="h-7 text-[10px] px-2 text-role-hr border-role-hr/30"> Draft</Button>
+            <Button size="sm" onClick={() => setOutcome('follow-up')} variant="outline" className="h-7 text-[10px] px-2"> Follow-up</Button>
+            <Button size="sm" onClick={() => setOutcome('not-interested')} variant="outline" className="h-7 text-[10px] px-2 text-danger border-danger/30"> Lost</Button>
           </div>
         </div>
       )}

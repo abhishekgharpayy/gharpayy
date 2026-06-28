@@ -127,9 +127,9 @@ export function ImpactPerformanceView({ leads, tours, quotes, activities, follow
   };
 
   const PriorityBadge = ({ priority }: { priority: string }) => {
-    if (priority === "Critical") return <Badge variant="destructive" className="text-[10px]">🔴 Critical</Badge>;
-    if (priority === "High") return <Badge variant="secondary" className="bg-warning/20 text-warning-foreground border-warning/30 text-[10px]">🟠 High</Badge>;
-    return <Badge variant="secondary" className="text-[10px]">🟡 Medium</Badge>;
+    if (priority === "Critical") return <Badge variant="destructive" className="text-[10px]"> Critical</Badge>;
+    if (priority === "High") return <Badge variant="secondary" className="bg-warning/20 text-warning-foreground border-warning/30 text-[10px]"> High</Badge>;
+    return <Badge variant="secondary" className="text-[10px]"> Medium</Badge>;
   };
 
   const displayedAtRisk = showAllAtRisk ? atRisk : atRisk.slice(0, 10);

@@ -112,7 +112,7 @@ export function SupplyOps({ onOpen }: { onOpen: (pg: PG) => void }) {
           })}
         </Section>
 
-        <Section title="Onboarding gaps" icon={ListChecks} accent="warning" empty={gaps.length === 0 ? "All properties are 100% complete. 🎉" : null}>
+        <Section title="Onboarding gaps" icon={ListChecks} accent="warning" empty={gaps.length === 0 ? "All properties are 100% complete. " : null}>
           {gaps.map(({ pgId, pct }) => {
             const pg = byId.get(pgId);
             if (!pg) return null;
