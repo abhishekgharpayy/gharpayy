@@ -557,9 +557,10 @@ export function registerExecutionReportRoutes(app: FastifyInstance) {
         };
       });
 
-      // Sort: inactive first, then by leadsAdded desc
+      // Sort: active (working) first, then by totalActions desc (most contributed)
       memberReports.sort((a, b) => {
-        if (a.isInactive !== b.isInactive) return a.isInactive ? -1 : 1;
+        if (a.isInactive !== b.isInactive) return a.isInactive ? 1 : -1;
+        if (b.totalActions !== a.totalActions) return b.totalActions - a.totalActions;
         return b.totalLeadsAdded - a.totalLeadsAdded;
       });
 
