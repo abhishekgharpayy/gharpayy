@@ -33,7 +33,7 @@ function AdminAudit() {
     return entries.filter(
       (e) =>
         e.actorName.toLowerCase().includes(q) ||
-        e.entityId.toLowerCase().includes(q) ||
+        (e.entityId || "").toLowerCase().includes(q) ||
         e.summary.toLowerCase().includes(q) ||
         e.action.toLowerCase().includes(q),
     );
@@ -44,7 +44,7 @@ function AdminAudit() {
       filtered.map((e) => ({
         time: new Date(e.ts).toLocaleString("en-IN"),
         actor: e.actorName,
-        entity: `${e.entityType} #${e.entityId.slice(0, 8)}`,
+        entity: `${e.entityType} #${(e.entityId || "").slice(0, 8)}`,
         action: e.action,
         summary: e.summary,
         before: e.before != null ? String(e.before) : "",
@@ -137,7 +137,7 @@ function AdminAudit() {
                   </td>
                   <td className="px-2 py-1.5 font-medium">{e.actorName}</td>
                   <td className="px-2 py-1.5 text-muted-foreground">
-                    {e.entityType} <span className="font-mono">#{e.entityId.slice(0, 8)}</span>
+                    {e.entityType} <span className="font-mono">#{(e.entityId || "").slice(0, 8)}</span>
                   </td>
                   <td className="px-2 py-1.5">
                     <code className={`bg-muted/40 px-1.5 py-0.5 rounded text-[10px] ${ACTION_COLORS[e.action] ?? ""}`}>

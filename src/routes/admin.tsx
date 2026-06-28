@@ -9,9 +9,11 @@ export const Route = createFileRoute("/admin")(
       if (role !== "super_admin") throw redirect({ to: "/" });
     },
     component: () => (
-      <AppShell>
-        <Outlet />
-      </AppShell>
+      <div className="admin-theme min-h-screen w-full bg-background text-foreground">
+        <AppShell>
+          <Outlet />
+        </AppShell>
+      </div>
     ),
   }
 );

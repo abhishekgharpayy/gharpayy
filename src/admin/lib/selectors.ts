@@ -124,8 +124,8 @@ function computeProbability(
   if (visits.some((v) => v.outcome === "lost")) p = 5;
   // Check for booked decision in tours
   if (tours.some((t) => t.decision === "booked")) return 100;
-  if (tours.some((t) => t.postTour.outcome === "thinking")) p = Math.max(p, 60);
-  if (tours.some((t) => t.postTour.outcome === "not-interested")) p = 5;
+  if (tours.some((t) => t.postTour?.outcome === "thinking")) p = Math.max(p, 60);
+  if (tours.some((t) => t.postTour?.outcome === "not-interested")) p = 5;
   const unresolved = objs.filter((o) => o.resolution !== "yes" && o.code !== "none").length;
   p = Math.max(0, p - unresolved * 8);
   if (callCount > 5) p = Math.max(0, p - 5);

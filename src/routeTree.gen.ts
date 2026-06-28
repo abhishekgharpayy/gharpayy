@@ -92,6 +92,7 @@ import { Route as AdminPropertyRouteImport } from './routes/admin.property'
 import { Route as AdminPerformanceRouteImport } from './routes/admin.performance'
 import { Route as AdminPeople360RouteImport } from './routes/admin.people360'
 import { Route as AdminPayoutsRouteImport } from './routes/admin.payouts'
+import { Route as AdminOwnersRouteImport } from './routes/admin.owners'
 import { Route as AdminOwnerBookingsRouteImport } from './routes/admin.owner-bookings'
 import { Route as AdminLeadsRouteImport } from './routes/admin.leads'
 import { Route as AdminLeaderboardRouteImport } from './routes/admin.leaderboard'
@@ -537,6 +538,11 @@ const AdminPayoutsRoute = AdminPayoutsRouteImport.update({
   path: '/payouts',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminOwnersRoute = AdminOwnersRouteImport.update({
+  id: '/owners',
+  path: '/owners',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminOwnerBookingsRoute = AdminOwnerBookingsRouteImport.update({
   id: '/owner-bookings',
   path: '/owner-bookings',
@@ -733,6 +739,7 @@ export interface FileRoutesByFullPath {
   '/admin/leaderboard': typeof AdminLeaderboardRoute
   '/admin/leads': typeof AdminLeadsRoute
   '/admin/owner-bookings': typeof AdminOwnerBookingsRoute
+  '/admin/owners': typeof AdminOwnersRoute
   '/admin/payouts': typeof AdminPayoutsRoute
   '/admin/people360': typeof AdminPeople360Route
   '/admin/performance': typeof AdminPerformanceRouteWithChildren
@@ -845,6 +852,7 @@ export interface FileRoutesByTo {
   '/admin/leaderboard': typeof AdminLeaderboardRoute
   '/admin/leads': typeof AdminLeadsRoute
   '/admin/owner-bookings': typeof AdminOwnerBookingsRoute
+  '/admin/owners': typeof AdminOwnersRoute
   '/admin/payouts': typeof AdminPayoutsRoute
   '/admin/people360': typeof AdminPeople360Route
   '/admin/performance': typeof AdminPerformanceRouteWithChildren
@@ -959,6 +967,7 @@ export interface FileRoutesById {
   '/admin/leaderboard': typeof AdminLeaderboardRoute
   '/admin/leads': typeof AdminLeadsRoute
   '/admin/owner-bookings': typeof AdminOwnerBookingsRoute
+  '/admin/owners': typeof AdminOwnersRoute
   '/admin/payouts': typeof AdminPayoutsRoute
   '/admin/people360': typeof AdminPeople360Route
   '/admin/performance': typeof AdminPerformanceRouteWithChildren
@@ -1074,6 +1083,7 @@ export interface FileRouteTypes {
     | '/admin/leaderboard'
     | '/admin/leads'
     | '/admin/owner-bookings'
+    | '/admin/owners'
     | '/admin/payouts'
     | '/admin/people360'
     | '/admin/performance'
@@ -1186,6 +1196,7 @@ export interface FileRouteTypes {
     | '/admin/leaderboard'
     | '/admin/leads'
     | '/admin/owner-bookings'
+    | '/admin/owners'
     | '/admin/payouts'
     | '/admin/people360'
     | '/admin/performance'
@@ -1299,6 +1310,7 @@ export interface FileRouteTypes {
     | '/admin/leaderboard'
     | '/admin/leads'
     | '/admin/owner-bookings'
+    | '/admin/owners'
     | '/admin/payouts'
     | '/admin/people360'
     | '/admin/performance'
@@ -2012,6 +2024,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminPayoutsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/owners': {
+      id: '/admin/owners'
+      path: '/owners'
+      fullPath: '/admin/owners'
+      preLoaderRoute: typeof AdminOwnersRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/owner-bookings': {
       id: '/admin/owner-bookings'
       path: '/owner-bookings'
@@ -2277,6 +2296,7 @@ interface AdminRouteChildren {
   AdminLeaderboardRoute: typeof AdminLeaderboardRoute
   AdminLeadsRoute: typeof AdminLeadsRoute
   AdminOwnerBookingsRoute: typeof AdminOwnerBookingsRoute
+  AdminOwnersRoute: typeof AdminOwnersRoute
   AdminPayoutsRoute: typeof AdminPayoutsRoute
   AdminPeople360Route: typeof AdminPeople360Route
   AdminPerformanceRoute: typeof AdminPerformanceRouteWithChildren
@@ -2308,6 +2328,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminLeaderboardRoute: AdminLeaderboardRoute,
   AdminLeadsRoute: AdminLeadsRoute,
   AdminOwnerBookingsRoute: AdminOwnerBookingsRoute,
+  AdminOwnersRoute: AdminOwnersRoute,
   AdminPayoutsRoute: AdminPayoutsRoute,
   AdminPeople360Route: AdminPeople360Route,
   AdminPerformanceRoute: AdminPerformanceRouteWithChildren,

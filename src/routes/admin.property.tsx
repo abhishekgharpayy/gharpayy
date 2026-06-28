@@ -41,8 +41,28 @@ function AdminPropertyCommandCenter() {
     }
   });
 
+  const mergedProperties = useMemo(() => {
+    const list = [...PGS];
+    liveProperties.forEach((p: any) => {
+      if (list.some(x => x.name.toLowerCase() === p.name.toLowerCase() || x.id === p._id || x.id === p.id)) {
+        return;
+      }
+      list.push({
+        id: p._id || p.id,
+        name: p.name,
+        area: p.address ? p.address.split(",")[1]?.trim() || p.zoneId || "Unknown" : p.zoneId || "Unknown",
+        tier: p.rentAmount > 25000 ? "Premium" : p.rentAmount < 12000 ? "Budget" : "Mid",
+        prices: {
+          min: p.rentAmount || 15000,
+          max: p.rentAmount || 25000,
+        },
+      } as any);
+    });
+    return list;
+  }, [liveProperties]);
+
   const stats = useMemo(() => {
-    return PGS.map((pg) => {
+    return mergedProperties.map((pg) => {
       // Find leads for this property (either preferred Area matches, or explicitly assigned to propertyName)
       const propLeads = leads.filter(
         (l) => l.preferredArea === pg.area || l.propertyName === pg.name,

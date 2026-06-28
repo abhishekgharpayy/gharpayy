@@ -29,13 +29,13 @@ function AdminLeaderboard() {
           api.tcms.list(),
           api.followUps.list({ limit: 2000 })
         ]);
-        setLeads((lRes.items as any[]).map(l => normalizeLeadRecord(l)));
-        setTcms(tRes.map(t => {
+        setLeads(((lRes?.items || []) as any[]).map(l => normalizeLeadRecord(l)));
+        setTcms((tRes || []).map(t => {
           const initials = (t.fullName || t.name || t.username || "TC").substring(0, 2).toUpperCase();
           const name = t.fullName || t.name || t.username || "TCM";
           return { id: t.id, name, initials, zone: t.zones?.[0] || "All", totalLeads: 0, conversionRate: 0, totalTasks: 0, completionRate: 0, avgResponseMins: 0 };
         }));
-        setFollowUps(fRes.items as unknown as FollowUp[]);
+        setFollowUps((fRes?.items || []) as unknown as FollowUp[]);
       } catch (err) {
         console.error("Failed to fetch leaderboard data", err);
       } finally {
@@ -95,8 +95,8 @@ function AdminLeaderboard() {
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto w-full animate-in fade-in zoom-in-95 duration-500 pb-12">
-      <div className="text-center py-8 bg-gradient-to-r from-blue-600/10 via-purple-600/10 to-pink-600/10 rounded-2xl border border-border">
-        <h1 className="text-4xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-500 to-purple-600">
+      <div className="text-center py-8 bg-gradient-to-r from-orange-600/10 via-amber-600/10 to-yellow-600/10 rounded-2xl border border-border">
+        <h1 className="text-4xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-orange-500 to-amber-600">
           TCM Performance Leaderboard
         </h1>
         <p className="text-muted-foreground mt-2 max-w-xl mx-auto">

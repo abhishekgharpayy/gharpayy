@@ -68,7 +68,9 @@ function AdminIntelligence() {
       const idx = stageIndex.get(l.stage);
       if (idx === undefined) return;
       counts.set(l.stage, (counts.get(l.stage) ?? 0) + 1);
-      const ageDays = Math.max(0, Math.floor((now - new Date(l.updatedAt).getTime()) / 86400000));
+      const d = new Date(l.updatedAt || l.createdAt);
+      const ts = d.getTime();
+      const ageDays = isNaN(ts) ? 0 : Math.max(0, Math.floor((now - ts) / 86400000));
       daysTotal.set(l.stage, (daysTotal.get(l.stage) ?? 0) + ageDays);
     });
 

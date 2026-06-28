@@ -81,7 +81,10 @@ function AdminExports() {
         stage: v.stage,
         reaction: v.reaction ?? "",
         outcome: v.outcome ?? "",
-        scheduled_at: new Date(v.scheduledAt).toISOString(),
+        scheduled_at: (() => {
+          const d = new Date(v.scheduledAt);
+          return isNaN(d.getTime()) ? "" : d.toISOString();
+        })(),
       })),
     [visits],
   );

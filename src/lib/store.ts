@@ -1189,6 +1189,16 @@ export const useApp = create<AppState>()(
         t.id === tenantId ? { ...t, status, exitDate: exitDate ?? t.exitDate, updatedAt: new Date().toISOString() } : t,
       ),
     }));
+    api.command({
+      _id: uid("c"),
+      type: "cmd.tenant.update_status",
+      issuedAt: new Date().toISOString(),
+      payload: {
+        tenantId,
+        status,
+        exitDate: exitDate || undefined,
+      },
+    }).catch(e => console.error("Failed to sync tenant status update", e));
   },
 
   updateTenant: (tenantId, patch) => {
@@ -1197,6 +1207,15 @@ export const useApp = create<AppState>()(
         t.id === tenantId ? { ...t, ...patch, updatedAt: new Date().toISOString() } : t,
       ),
     }));
+    api.command({
+      _id: uid("c"),
+      type: "cmd.tenant.update",
+      issuedAt: new Date().toISOString(),
+      payload: {
+        tenantId,
+        patch,
+      },
+    }).catch(e => console.error("Failed to sync tenant update", e));
   },
 
   recordRentPayment: (input) => {

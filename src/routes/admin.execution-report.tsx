@@ -104,7 +104,9 @@ export const Route = createFileRoute("/admin/execution-report")({
 
 function fmtTime(iso: string | null): string {
   if (!iso) return "—";
-  return new Date(iso).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "—";
+  return d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
 }
 
 function fmtMins(mins: number | null): string {
@@ -192,7 +194,7 @@ function ExecutionMonitorPage() {
     if (!report) return;
     const header = ["Time", "Employee", "Action", "Remarks/Subject"];
     const rows = report.rawActivityLog.map(log => [
-      new Date(log.time).toLocaleString(),
+      log.time && !isNaN(new Date(log.time).getTime()) ? new Date(log.time).toLocaleString() : "—",
       log.employee,
       log.action,
       `"${(log.detail || "").replace(/"/g, '""')}"`

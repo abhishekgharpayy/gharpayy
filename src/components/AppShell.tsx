@@ -187,7 +187,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     [scopedQueueLeads, scopedQueueTours, scopedQueueFollowUps, now, mounted],
   );
   const overdueCount = mounted ? scopedQueueFollowUps.filter((f) => !f.done && +new Date(f.dueAt) <= now).length : 0;
-  const incompletePostTour = tours.filter((t) => t.status === "completed" && !t.postTour.filledAt).length;
+  const incompletePostTour = tours.filter((t) => t.status === "completed" && !t.postTour?.filledAt).length;
   const unreadHandoffs = handoffs.filter((h) => !h.read && h.to === role).length;
 
   // Booking XP awarder - credit the TCM once per booking id.
@@ -302,7 +302,11 @@ export function AppShell({ children }: { children: ReactNode }) {
     : [...navByRole[role]];
   
 
-  const isActive = (to: string) => (to === "/" ? path === "/" : path === to || path.startsWith(to + "/"));
+  const isActive = (to: string) => {
+    if (to === "/") return path === "/";
+    if (to === "/admin") return path === "/admin" || path === "/admin/";
+    return path === to || path.startsWith(to + "/");
+  };
   const shouldMountMytBridges = path.startsWith("/myt");
 
   return (

@@ -117,12 +117,15 @@ export function registerAdminImpactCommandRoutes(app: FastifyInstance) {
       }
 
       // Trend map
-      const leadMonth = new Date(l.createdAt).toISOString().slice(0, 7); // YYYY-MM
-      if (!trendMap[leadMonth]) trendMap[leadMonth] = { month: leadMonth, leads: 0, bookings: 0, revenue: 0 };
-      trendMap[leadMonth].leads++;
-      if (l.stage === "booked") {
-        trendMap[leadMonth].bookings++;
-        trendMap[leadMonth].revenue += l.budget || 0;
+      const cd = new Date(l.createdAt);
+      if (!isNaN(cd.getTime())) {
+        const leadMonth = cd.toISOString().slice(0, 7); // YYYY-MM
+        if (!trendMap[leadMonth]) trendMap[leadMonth] = { month: leadMonth, leads: 0, bookings: 0, revenue: 0 };
+        trendMap[leadMonth].leads++;
+        if (l.stage === "booked") {
+          trendMap[leadMonth].bookings++;
+          trendMap[leadMonth].revenue += l.budget || 0;
+        }
       }
     });
 

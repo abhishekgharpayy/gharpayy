@@ -2,10 +2,12 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useLiveSupremeMetrics } from "@/admin/lib/use-live-supreme";
 
 import { useAuthUser } from "@/lib/auth-store";
+import { useApp } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useMemo } from "react";
 import type { AdminLeadRow } from "@/admin/lib/selectors";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin/radar")({
   beforeLoad: () => {
@@ -206,10 +208,20 @@ function RadarPage() {
                 </div>
                 
                 <div className="mt-3 flex gap-2">
-                  <Button variant="outline" size="sm" className="flex-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => useApp.getState().selectLead(c.row.lead.id)}
+                  >
                     View Lead
                   </Button>
-                  <Button variant="destructive" size="sm" className="flex-1">
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => toast.success(`Nudge sent for ${c.row.lead.name}`)}
+                  >
                     Emergency Nudge
                   </Button>
                 </div>

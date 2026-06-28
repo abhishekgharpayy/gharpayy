@@ -288,12 +288,16 @@ function TenantControlTower() {
                     )}>
                       {s.status}
                     </span>
-                    {s.status === "notice" && s.moveOutDate && (
-                      <div className="text-xs text-amber-500 mt-1 flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {formatDistanceToNow(new Date(s.moveOutDate), { addSuffix: true })}
-                      </div>
-                    )}
+                    {s.status === "notice" && s.moveOutDate && (() => {
+                      const d = new Date(s.moveOutDate);
+                      if (isNaN(d.getTime())) return null;
+                      return (
+                        <div className="text-xs text-amber-500 mt-1 flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {formatDistanceToNow(d, { addSuffix: true })}
+                        </div>
+                      );
+                    })()}
                   </td>
 
                   <td className="px-4 py-4">

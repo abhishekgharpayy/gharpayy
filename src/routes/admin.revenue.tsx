@@ -95,6 +95,7 @@ function AdminRevenue() {
     const months: Record<string, { name: string, expected: number, realized: number }> = {};
     leads.forEach(l => {
        const d = l.createdAt ? new Date(l.createdAt) : new Date(l.updatedAt || Date.now());
+       if (isNaN(d.getTime())) return;
        const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2, '0')}`;
        if (!months[key]) months[key] = { name: key, expected: 0, realized: 0 };
        

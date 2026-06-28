@@ -369,8 +369,9 @@ export function registerAdminSupremeRoutes(app: FastifyInstance) {
         col("bookings").countDocuments({ tenantId }),
         col("users").countDocuments({ tenantId }),
         col("activities").countDocuments({ tenantId }),
-        col("entity_events")
-          .find({ tenantId, action: { $regex: "error", $options: "i" }, ts: { $gte: Date.now() - 24 * 3600_000 } })
+        col("dlq")
+          .find()
+          .sort({ failedAt: -1 })
           .limit(10)
           .toArray(),
         col("tenant_config").findOne({ tenantId }),
@@ -380,7 +381,10 @@ export function registerAdminSupremeRoutes(app: FastifyInstance) {
       counts: { leads: leadCount, tours: tourCount, bookings: bookingCount, users: userCount, activities: activityCount },
       sequencesPaused: tenantConfig?.sequencesPaused ?? false,
       pausedAt: tenantConfig?.pausedAt ?? null,
-      recentErrors,
+      recentErrors: recentErrors.map((e: any) => ({
+        action: e.eventType || "dlq.error",
+        summary: e.error?.message || e.message || "Unknown error",
+      })),
       serverTime: new Date().toISOString(),
       uptime: Math.round(process.uptime()),
     });

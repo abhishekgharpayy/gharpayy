@@ -215,3 +215,29 @@
     max-width: none !important;
   }
 }
+
+.admin-theme {
+  --background: #FFFFFF;
+  --foreground: #111827;
+  --card: #FFF7F0;
+  --card-foreground: #111827;
+  --popover: #FFF7F0;
+  --popover-foreground: #111827;
+  --ink: #111827;
+  --primary: #F97316;
+  --primary-foreground: #FFFFFF;
+  --secondary: #FFF0E0;
+  --secondary-foreground: #F97316;
+  --muted: #FFF0E0;
+  --muted-foreground: #6B7280;
+  --accent: #FFF0E0;
+  --accent-foreground: #F97316;
+  --border: #FFE0C2;
+  --input: #FFE0C2;
+  --ring: #F97316;
+  --sidebar: #1A1A1A;
+  --sidebar-foreground: #A3A3A3;
+  --sidebar-border: #2D2D2D;
+  --sidebar-accent: #2D2D2D;
+  --sidebar-accent-foreground: #FFFFFF;
+}

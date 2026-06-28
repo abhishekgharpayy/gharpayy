@@ -96,7 +96,7 @@ function AdminSettings() {
                   </div>
                   <div className="text-sm font-mono font-semibold text-success">{uptimeStr}</div>
                   <div className="text-[10px] text-muted-foreground mt-0.5">
-                    {new Date(diag.serverTime).toLocaleString("en-IN")}
+                    {diag.serverTime && !isNaN(new Date(diag.serverTime).getTime()) ? new Date(diag.serverTime).toLocaleString("en-IN") : "—"}
                   </div>
                 </div>
 
@@ -112,7 +112,7 @@ function AdminSettings() {
                       <><CheckCircle2 className="h-4 w-4" /> RUNNING</>
                     )}
                   </div>
-                  {diag.pausedAt && (
+                  {diag.pausedAt && !isNaN(new Date(diag.pausedAt).getTime()) && (
                     <div className="text-[10px] text-muted-foreground mt-0.5">
                       Since {new Date(diag.pausedAt).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
                     </div>

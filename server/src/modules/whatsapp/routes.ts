@@ -281,9 +281,13 @@ export function registerWhatsAppRoutes(app: FastifyInstance) {
     }
   });
 
+  const ArchiveConversationBody = z.object({
+    archived: z.boolean(),
+  });
+
   app.patch("/api/whatsapp/conversations/:id/archive", { preHandler: [requireAuth] }, async (req, reply) => {
     const { id } = req.params as { id: string };
-    const { archived } = req.body as { archived: boolean };
+    const { archived } = ArchiveConversationBody.parse(req.body);
     await conversations().updateOne(
       { _id: id, tenantId: req.user!.tenantId },
       { $set: { status: archived ? "archived" : "active", updatedAt: new Date().toISOString() } },

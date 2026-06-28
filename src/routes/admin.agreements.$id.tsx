@@ -125,10 +125,14 @@ function AgreementDetail() {
     field("Notice Period", `${agreement.noticePeriod} days`);
     line();
 
-    section("4. TENURE");
-    field("Move-in Date", new Date(agreement.moveInDate).toLocaleDateString("en-IN"));
-    if (agreement.moveInDate) {
-      const endDate = new Date(agreement.moveInDate);
+    const parseDate = (d: string) => {
+      const parsed = new Date(d);
+      return isNaN(parsed.getTime()) ? null : parsed;
+    };
+    const moveIn = agreement.moveInDate ? parseDate(agreement.moveInDate) : null;
+    field("Move-in Date", moveIn ? moveIn.toLocaleDateString("en-IN") : "—");
+    if (moveIn) {
+      const endDate = new Date(moveIn);
       endDate.setMonth(endDate.getMonth() + agreement.duration);
       field("End Date", endDate.toLocaleDateString("en-IN"));
     }
