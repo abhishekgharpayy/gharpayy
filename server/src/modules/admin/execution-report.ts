@@ -237,11 +237,14 @@ export function registerExecutionReportRoutes(app: FastifyInstance) {
         eventsWindow,
         toursToday,
       ] = await Promise.all([
-        // All leads assigned to team members
+        // All leads assigned to or created by team members
         col<Lead>("leads")
           .find({
             tenantId,
-            assignedTcmId: { $in: memberIds },
+            $or: [
+              { assignedTcmId: { $in: memberIds } },
+              { createdBy: { $in: memberIds } },
+            ],
           })
           .project({
             _id: 1,
@@ -351,10 +354,10 @@ export function registerExecutionReportRoutes(app: FastifyInstance) {
         eventsPerMember.get(e.actor)!.push(e);
       }
 
-      // Leads by assignedTcmId
+      // Leads by member (grouped by owner, falling back to creator if unowned)
       const leadsByMember = new Map<string, (typeof allLeads)[0][]>();
       for (const l of allLeads) {
-        const uid = l.assignedTcmId;
+        const uid = l.assignedTcmId || l.createdBy;
         if (!uid) continue;
         if (!leadsByMember.has(uid)) leadsByMember.set(uid, []);
         leadsByMember.get(uid)!.push(l);
@@ -495,12 +498,14 @@ export function registerExecutionReportRoutes(app: FastifyInstance) {
         // Count bookings from stage distribution
         bookingsToday = stageDist["booked"] || 0;
         
+        const activeLeads = memberLeads.filter(l => ACTIVE_STAGES.has(l.stage || "new"));
+        const activeLeadsCount = activeLeads.length;
         const missingOwners = unownedLeads.length;
-        const missingNextActions = memberLeads.filter(l => !l.nextFollowUpAt && ACTIVE_STAGES.has(l.stage || "new")).length;
+        const missingNextActions = activeLeads.filter(l => !l.nextFollowUpAt).length;
         
-        const totalReq = memberLeads.filter(l => ACTIVE_STAGES.has(l.stage || "new")).length * 2;
-        const actualReq = (memberLeads.filter(l => ACTIVE_STAGES.has(l.stage || "new")).length * 2) - missingOwners - missingNextActions;
-        const crmCompletionPct = totalReq === 0 ? 100 : Math.round((actualReq / totalReq) * 100);
+        // Lead is fully compliant if it has an owner AND a next follow-up action
+        const compliantLeads = activeLeads.filter(l => l.assignedTcmId && l.nextFollowUpAt).length;
+        const crmCompletionPct = activeLeadsCount === 0 ? 100 : Math.round((compliantLeads / activeLeadsCount) * 100);
 
         return {
           userId: uid,
