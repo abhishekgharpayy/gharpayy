@@ -47,7 +47,7 @@ type DrawerContent =
   | null;
 
 function AdminCockpit() {
-  const { rows, properties, rawData, isLoading, isError } = useLiveSupremeMetrics();
+  const { rows, properties, rawData, isLoading, isError, refetch } = useLiveSupremeMetrics();
   // Using useAuditLog for now until we migrate admin.audit.tsx
   const audit = useAuditLog((s) => s.entries)
     .filter((e) => e.action.startsWith("admin."))
@@ -79,7 +79,12 @@ function AdminCockpit() {
   if (isError) {
     return (
       <div className="space-y-4">
-        <div className="p-8 text-center text-destructive">Failed to fetch metrics. Please check your connection.</div>
+        <div className="p-8 text-center">
+          <div className="text-destructive mb-3">Failed to fetch metrics. Please check your connection.</div>
+          <Button variant="outline" size="sm" onClick={() => refetch()}>
+            <Terminal className="w-3.5 h-3.5 mr-1.5" /> Retry
+          </Button>
+        </div>
       </div>
     );
   }

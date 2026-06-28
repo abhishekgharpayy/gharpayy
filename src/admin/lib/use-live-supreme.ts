@@ -33,6 +33,8 @@ export function useLiveSupremeMetrics() {
     queryFn: () => authedFetch("/api/v1/admin/supreme/metrics") as Promise<Partial<JoinSources> & { properties?: any[] }>,
     refetchInterval: localMode ? undefined : 60_000,
     enabled: !localMode,
+    retry: 2,
+    retryDelay: 800,
   });
 
   if (localMode) {
