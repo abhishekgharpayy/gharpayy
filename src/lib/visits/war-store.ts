@@ -98,6 +98,7 @@ export interface VisitRecord {
   ownerCode?: string;
   bufferConflictWith?: string;
   interventionFlag?: { by: string; ts: number; note: string };
+  location?: { lat: number; lng: number };
   coachNotes?: Array<{ id: string; by: string; ts: number; note: string }>;
 }
 

@@ -92,10 +92,10 @@ export function CreateBookingDialog({ trigger, propertyId: initialPropertyId, fi
     const q = propQuery.trim().toLowerCase();
     if (q) {
       list = list.filter((p) =>
-        (p.actualName || p.name).toLowerCase().includes(q) ||
-        p.area.toLowerCase().includes(q) ||
-        p.locality.toLowerCase().includes(q) ||
-        p.id.toLowerCase().includes(q)
+        ((p.actualName || p.name) || "").toLowerCase().includes(q) ||
+        (p.area || "").toLowerCase().includes(q) ||
+        (p.locality || "").toLowerCase().includes(q) ||
+        (p.id || "").toLowerCase().includes(q)
       );
     }
     return list.slice(0, 80);

@@ -39,7 +39,6 @@ export function getDb(): Db {
 export function col<T extends Document = Document>(name: string): Collection<T & { _id?: string }> {
   return getDb().collection<T & { _id?: string }>(name);
 }
-
 async function ensureIndexes(db: Db) {
   // NOTE: do NOT manually create an index on `_id` — MongoDB creates a
   // unique `_id` index automatically and rejects any attempt to redefine it.
@@ -265,6 +264,57 @@ async function ensureIndexes(db: Db) {
           { key: { tenantId: 1, leadId: 1 } },
           { key: { tenantId: 1, propertyId: 1, status: 1 } },
           { key: { tenantId: 1, status: 1 } },
+        ]),
+    },
+    {
+      name: "property_media",
+      run: () =>
+        db.collection("property_media").createIndexes([
+          { key: { tenantId: 1, propertyId: 1, createdAt: -1 } },
+          { key: { tenantId: 1, propertyId: 1, isPrimary: 1 } },
+        ]),
+    },
+    {
+      name: "whatsapp_conversations",
+      run: () =>
+        db.collection("whatsapp_conversations").createIndexes([
+          { key: { tenantId: 1, status: 1, lastMessageAt: -1 } },
+          { key: { tenantId: 1, phone: 1 }, unique: true, name: "uniq_conv_phone" },
+        ]),
+    },
+    {
+      name: "whatsapp_messages",
+      run: () =>
+        db.collection("whatsapp_messages").createIndexes([
+          { key: { tenantId: 1, conversationId: 1, createdAt: -1 } },
+        ]),
+    },
+    {
+      name: "agreements",
+      run: () =>
+        db.collection("agreements").createIndexes([
+          { key: { tenantId: 1, createdAt: -1 } },
+          { key: { tenantId: 1, status: 1 } },
+          { key: { tenantId: 1, bookingId: 1 } },
+        ]),
+    },
+    {
+      name: "alerts",
+      run: () =>
+        db.collection("alerts").createIndexes([
+          { key: { tenantId: 1, createdAt: -1 } },
+          { key: { tenantId: 1, read: 1, dismissed: 1, expiresAt: 1 } },
+          { key: { tenantId: 1, severity: 1, createdAt: -1 } },
+        ]),
+    },
+    {
+      name: "payments",
+      run: () =>
+        db.collection("payments").createIndexes([
+          { key: { tenantId_scope: 1, month: -1, createdAt: -1 } },
+          { key: { tenantId_scope: 1, tenantId: 1, month: -1 } },
+          { key: { tenantId_scope: 1, status: 1, month: -1 } },
+          { key: { tenantId_scope: 1, type: 1, month: -1 } },
         ]),
     },
   ];

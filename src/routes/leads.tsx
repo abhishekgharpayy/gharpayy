@@ -201,7 +201,7 @@ function LeadsPage() {
   // Filter
   const filtered = useMemo(() => {
     return leads.filter((l) => {
-      if (q && !l.name.toLowerCase().includes(q.toLowerCase()) && !l.phone.includes(q))
+      if (q && !(l.name || '').toLowerCase().includes(q.toLowerCase()) && !(l.phone || '').includes(q))
         return false;
       if (stageFilter !== "all" && l.stage !== stageFilter) return false;
       if (memberFilter !== "all" && (l.createdBy || "system") !== memberFilter) return false;

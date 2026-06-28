@@ -635,8 +635,8 @@ export function ImpactQueue() {
     const tFilter = (lead: Lead) =>
       inScope(lead) &&
       (!query.trim() ||
-        lead.name.toLowerCase().includes(query.toLowerCase()) ||
-        lead.phone.includes(query));
+        (lead.name || "").toLowerCase().includes((query || "").toLowerCase()) ||
+        (lead.phone || "").includes(query));
 
     return leads
       .filter((lead) => shouldShowInImpactQueue(lead, tours, quotes))
@@ -1068,6 +1068,7 @@ export function ImpactQueue() {
                   <BarChart3 className="h-3.5 w-3.5" /> Performance
                 </button>
               </div>
+
             </div>
           </div>
 
@@ -2693,7 +2694,7 @@ function TemplateMessenger({
           <button
             key={v.id}
             onClick={() => apply(scenario, v.id)}
-            className={`h-6 px-2 rounded text-[10px] uppercase tracking-wider font-semibold border ${tpl.id === v.id ? "bg-accent text-accent-foreground border-accent" : "bg-card text-muted-foreground border-border hover:border-foreground/40"}`}
+            className={`h-6 px-2 rounded text-[10px] uppercase tracking-wider font-semibold border ${tpl.id === v.id ? "bg-primary text-primary-foreground shadow-sm" : "bg-card text-muted-foreground border-border hover:border-foreground/40"}`}
           >
             {v.label}
           </button>
@@ -2998,7 +2999,7 @@ function ScheduleTourDialog({
   useEffect(() => {
     if (open && prefillPg) {
       setSelectedProperty(prefillPg);
-      setPropertySearch(prefillPg.name);
+      setPropertySearch(prefillPg.name || "");
     }
   }, [open, prefillPg]);
 
@@ -3017,15 +3018,15 @@ function ScheduleTourDialog({
   }, [date, open, time]);
 
   const filteredProperties = useMemo(() => {
-    const q = propertySearch.trim().toLowerCase();
+    const q = (propertySearch || "").trim().toLowerCase();
     let list = PGS;
     if (q) {
       list = PGS.filter(
-        (p) => p.name.toLowerCase().includes(q) || p.area?.toLowerCase().includes(q),
+        (p) => (p.name || "").toLowerCase().includes(q) || (p.area || "").toLowerCase().includes(q),
       );
     } else if (lead.preferredArea) {
       const byArea = PGS.filter((p) =>
-        p.area.toLowerCase().includes(lead.preferredArea.toLowerCase()),
+        (p.area || "").toLowerCase().includes((lead.preferredArea || "").toLowerCase()),
       );
       if (byArea.length > 0) list = byArea;
     }

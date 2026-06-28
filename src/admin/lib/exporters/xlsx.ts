@@ -2,7 +2,7 @@
  * XLSX exporter — lazy-imported only when the user actually exports.
  * Builds a multi-sheet workbook.
  */
-import type { AdminLeadRow } from "@/admin/lib/selectors";
+import type { AdminLeadRow } from "@/hooks/api/useAdminLeads";
 
 export async function downloadAdminWorkbook(filename: string, rows: AdminLeadRow[]) {
   const XLSX = await import("xlsx");

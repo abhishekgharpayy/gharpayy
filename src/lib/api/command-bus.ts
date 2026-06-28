@@ -46,7 +46,11 @@ export async function dispatch(input: Omit<Cmd, "_id" | "issuedAt"> & Partial<Pi
     return await api.command<DispatchResult>(parsed.data as unknown as { _id: string; type: string; payload: Record<string, unknown> } & Record<string, unknown>);
   } catch (e) {
     const err = e as Error;
-    return { ok: false, error: err.message };
+    let errorMsg = err.message;
+    if (errorMsg === "Failed to fetch" || errorMsg.toLowerCase().includes("network error") || errorMsg.toLowerCase().includes("connection closed") || errorMsg.toLowerCase().includes("econnrefused")) {
+      errorMsg = "Connection closed: Unable to reach the server. Please check your network or ensure the backend is running.";
+    }
+    return { ok: false, error: errorMsg };
   }
 }
 

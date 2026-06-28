@@ -34,19 +34,23 @@ function HeatmapPage() {
 
   const rows = useMemo<AreaRow[]>(() => {
     const areas = new Set<string>();
-    properties.forEach((p) => areas.add(p.area));
-    leads.forEach((l) => areas.add(l.preferredArea));
+    properties.forEach((p) => {
+      if (p.area) areas.add(p.area);
+    });
+    leads.forEach((l) => {
+      if (l.preferredArea) areas.add(l.preferredArea);
+    });
 
     return Array.from(areas).map((area) => {
-      const areaLeads = leads.filter((l) => l.preferredArea.toLowerCase() === area.toLowerCase());
-      const areaProps = properties.filter((p) => p.area.toLowerCase() === area.toLowerCase());
+      const areaLeads = leads.filter((l) => (l.preferredArea || '').toLowerCase() === (area || '').toLowerCase());
+      const areaProps = properties.filter((p) => (p.area || '').toLowerCase() === (area || '').toLowerCase());
       const areaTours = tours.filter((t) => {
         const prop = properties.find((p) => p.id === t.propertyId);
-        return prop?.area.toLowerCase() === area.toLowerCase();
+        return (prop?.area || '').toLowerCase() === (area || '').toLowerCase();
       });
       const areaBookings = bookings.filter((b) => {
         const prop = properties.find((p) => p.id === b.propertyId);
-        return prop?.area.toLowerCase() === area.toLowerCase();
+        return (prop?.area || '').toLowerCase() === (area || '').toLowerCase();
       }).length;
       const completedTours = areaTours.filter((t) => t.status === "completed").length;
       const conversion = completedTours > 0 ? Math.round((areaBookings / completedTours) * 100) : 0;

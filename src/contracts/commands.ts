@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { Lead, LeadStage, Intent, Todo, TodoEntityType, TodoPriority, Activity, ActivityKind, ActivityEntityType, ActivityDirection, ActivityOutcome, TourStatus, TourOutcome, BookingStatus, TenantStatus } from "./entities.js";
+import { Lead, LeadStage, Intent, Todo, TodoEntityType, TodoPriority, Activity, ActivityKind, ActivityEntityType, ActivityDirection, ActivityOutcome, TourStatus, TourOutcome, BookingStatus, TenantStatus, PaymentStatus, PaymentMethod, PaymentType } from "./entities.js";
 
 // Command registry - every state-changing intent. Validated client + server.
 export const CommandType = z.enum([
@@ -41,6 +41,11 @@ export const CommandType = z.enum([
   "cmd.tenant.create",
   "cmd.tenant.update",
   "cmd.tenant.update_status",
+  // Payments
+  "cmd.payment.record",
+  "cmd.payment.update",
+  "cmd.payment.delete",
+  "cmd.payment.generate_rents",
 ]);
 export type CommandType = z.infer<typeof CommandType>;
 
@@ -162,6 +167,7 @@ export const UpdateTourCmd = Base.extend({
       customPropertyName: z.string().optional(),
       status: TourStatus.optional(),
       showUp: z.boolean().nullable().optional(),
+      location: z.object({ lat: z.number(), lng: z.number() }).optional(),
     }),
   }),
 });
@@ -374,6 +380,62 @@ export const UpdateTenantStatusCmd = Base.extend({
   }),
 });
 
+// ---------- Payments ----------
+export const RecordPaymentCmd = Base.extend({
+  type: z.literal("cmd.payment.record"),
+  payload: z.object({
+    tenantId: z.string(),
+    bookingId: z.string().optional(),
+    tenantName: z.string().min(1).max(120),
+    propertyName: z.string().max(120).optional(),
+    month: z.string().regex(/^\d{4}-\d{2}$/),
+    amount: z.number().int().min(0),
+    method: PaymentMethod.nullable().optional(),
+    ref: z.string().max(200).nullable().optional(),
+    type: PaymentType.optional(),
+    notes: z.string().max(2000).optional(),
+    paidAt: z.string().nullable().optional(),
+    dueAt: z.string().nullable().optional(),
+  }),
+});
+
+export const UpdatePaymentCmd = Base.extend({
+  type: z.literal("cmd.payment.update"),
+  payload: z.object({
+    paymentId: z.string(),
+    patch: z.object({
+      amount: z.number().int().min(0).optional(),
+      status: PaymentStatus.optional(),
+      method: PaymentMethod.nullable().optional(),
+      ref: z.string().max(200).nullable().optional(),
+      notes: z.string().max(2000).optional(),
+      paidAt: z.string().nullable().optional(),
+    }),
+  }),
+});
+
+export const DeletePaymentCmd = Base.extend({
+  type: z.literal("cmd.payment.delete"),
+  payload: z.object({ paymentId: z.string() }),
+});
+
+export const GenerateRentsCmd = Base.extend({
+  type: z.literal("cmd.payment.generate_rents"),
+  payload: z.object({
+    month: z.string().regex(/^\d{4}-\d{2}$/),
+  }),
+});
+
+export const FlagInterventionCmd = Base.extend({
+  type: z.literal("cmd.lead.flag_intervention"),
+  payload: z.object({
+    leadId: z.string(),
+    isFlagged: z.boolean(),
+    category: z.enum(["pricing_dispute", "tcm_unresponsive", "special_reqs", "bad_experience", "other"]).optional(),
+    note: z.string().max(2000).optional(),
+  }),
+});
+
 export const Command = z.discriminatedUnion("type", [
   CreateLeadCmd,
   UpdateLeadCmd,
@@ -408,5 +470,10 @@ export const Command = z.discriminatedUnion("type", [
   CreateTenantCmd,
   UpdateTenantCmd,
   UpdateTenantStatusCmd,
+  RecordPaymentCmd,
+  UpdatePaymentCmd,
+  DeletePaymentCmd,
+  GenerateRentsCmd,
+  FlagInterventionCmd,
 ]);
 export type Command = z.infer<typeof Command>;

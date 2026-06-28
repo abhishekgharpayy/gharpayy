@@ -3,7 +3,7 @@
  * NOTE: Requires jspdf and jspdf-autotable packages. Install with:
  * npm install jspdf jspdf-autotable
  */
-import type { AdminLeadRow } from "@/admin/lib/selectors";
+import type { AdminLeadRow } from "@/hooks/api/useAdminLeads";
 import { summarizeWhyNotClosing, summarizeTopObjections } from "@/admin/lib/selectors";
 
 export async function downloadAdminPdf(filename: string, rows: AdminLeadRow[]) {

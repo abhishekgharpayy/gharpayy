@@ -4,8 +4,11 @@ import { UsersTab } from "./UsersTab";
 import { RolesTab } from "./RolesTab";
 import { ActivityTab } from "./ActivityTab";
 import { ProfileTab } from "./ProfileTab";
+import { SlaTab } from "./SlaTab";
+import { BusinessConfigTab } from "./BusinessConfigTab";
+import { AlertTriangle, Building } from "lucide-react";
 
-type Tab = "users" | "roles" | "profile" | "activity";
+type Tab = "users" | "roles" | "profile" | "activity" | "sla" | "business";
 
 export function SuperAdminSettingsPanel() {
   const [active, setActive] = useState<Tab>("users");
@@ -13,12 +16,14 @@ export function SuperAdminSettingsPanel() {
   // hydrate tab from hash so links like /settings#roles work
   useEffect(() => {
     const h = (typeof window !== "undefined" ? window.location.hash : "").replace("#", "") as Tab;
-    if (["users", "roles", "profile", "activity"].includes(h)) setActive(h);
+    if (["users", "roles", "profile", "activity", "sla", "business"].includes(h)) setActive(h);
   }, []);
 
   const tabs: { id: Tab; label: string; icon: typeof Users }[] = [
     { id: "users", label: "Users", icon: Users },
     { id: "roles", label: "Roles", icon: Shield },
+    { id: "sla", label: "SLA Policies", icon: AlertTriangle },
+    { id: "business", label: "Business", icon: Building },
     { id: "profile", label: "Profile", icon: UserIcon },
     { id: "activity", label: "Activity", icon: ActivityIcon },
   ];
@@ -49,6 +54,8 @@ export function SuperAdminSettingsPanel() {
 
       {active === "users" && <UsersTab />}
       {active === "roles" && <RolesTab />}
+      {active === "sla" && <SlaTab />}
+      {active === "business" && <BusinessConfigTab />}
       {active === "profile" && <ProfileTab />}
       {active === "activity" && <ActivityTab />}
     </div>

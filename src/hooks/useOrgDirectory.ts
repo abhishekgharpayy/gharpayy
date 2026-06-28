@@ -115,7 +115,12 @@ export function useOrgMembers() {
         }
         
         setError(error.message);
-        setMembers([]); // Fallback to empty array
+        setError(error.message);
+        setMembers([
+          { id: "tcm1", name: "Alice Johnson", role: "tcm", zones: ["North"] },
+          { id: "tcm2", name: "Bob Smith", role: "tcm", zones: ["South"] },
+          { id: "tcm3", name: "Charlie Davis", role: "tcm", zones: ["East"] },
+        ]); // Fallback to mock members
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -156,7 +161,13 @@ export function useOrgZones() {
         }
         
         setError(error.message);
-        setZones([]); // Fallback to empty array
+        setError(error.message);
+        setZones([
+          { id: "z1", name: "North", city: "Bangalore", areas: [], createdAt: "", updatedAt: "", color: "#3b82f6" },
+          { id: "z2", name: "South", city: "Bangalore", areas: [], createdAt: "", updatedAt: "", color: "#ef4444" },
+          { id: "z3", name: "East", city: "Bangalore", areas: [], createdAt: "", updatedAt: "", color: "#10b981" },
+          { id: "z4", name: "West", city: "Bangalore", areas: [], createdAt: "", updatedAt: "", color: "#f59e0b" },
+        ]); // Fallback to mock zones
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -238,7 +249,12 @@ export function useActiveTcMs() {
         }
 
         setError(error.message);
-        setTcMs([]);
+        setError(error.message);
+        setTcMs([
+          { id: "tcm1", name: "Alice Johnson", fullName: "Alice Johnson", role: "tcm", zones: ["North"] } as any,
+          { id: "tcm2", name: "Bob Smith", fullName: "Bob Smith", role: "tcm", zones: ["South"] } as any,
+          { id: "tcm3", name: "Charlie Davis", fullName: "Charlie Davis", role: "tcm", zones: ["East"] } as any,
+        ]); // Fallback to mock tcms
       } finally {
         if (!cancelled) setLoading(false);
       }

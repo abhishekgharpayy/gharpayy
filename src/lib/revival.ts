@@ -47,7 +47,7 @@ export function scanRevivals(
     if ((lead.stage === "dropped" || lead.intent === "cold") && silentHrs >= 7 * 24) {
       const match = properties.find(
         (p) =>
-          p.area.toLowerCase() === lead.preferredArea.toLowerCase() &&
+          (p.area || '').toLowerCase() === (lead.preferredArea || '').toLowerCase() &&
           p.vacantBeds >= 2 &&
           p.pricePerBed <= lead.budget,
       );
@@ -68,7 +68,7 @@ export function scanRevivals(
     if (tour && lead.stage !== "booked") {
       const fit = properties.find(
         (p) =>
-          p.area.toLowerCase() === lead.preferredArea.toLowerCase() &&
+          (p.area || '').toLowerCase() === (lead.preferredArea || '').toLowerCase() &&
           p.pricePerBed <= lead.budget * 0.95,
       );
       if (fit) {

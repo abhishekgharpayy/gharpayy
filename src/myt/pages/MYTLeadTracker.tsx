@@ -35,7 +35,7 @@ export default function MYTLeadTracker() {
   const [, mounted] = useMountedNow();
 
   // A "qualified" live lead = budget >= 7000, in a covered zone, has move-in date.
-  const qualified = liveLeads.filter((l) => l.budget >= 7000 && l.moveInDate && zones.some((z) => z.area.toLowerCase() === (l.preferredArea ?? '').toLowerCase()));
+  const qualified = liveLeads.filter((l) => l.budget >= 7000 && l.moveInDate && zones.some((z) => (z.area || '').toLowerCase() === (l.preferredArea ?? '').toLowerCase()));
   const unqualified = liveLeads.filter((l) => !qualified.includes(l));
 
   const handleSubmit = (e: React.FormEvent) => {

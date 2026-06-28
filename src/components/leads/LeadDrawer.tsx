@@ -12,7 +12,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Phone, Mail, MessageCircle, Calendar, ListTodo, ExternalLink, FileText, Activity as ActivityIcon, Info, Link2, Sparkles, Keyboard } from "lucide-react";
+import { Phone, Mail, MessageCircle, Calendar, ListTodo, ExternalLink, FileText, Activity as ActivityIcon, Info, Link2, Sparkles, Keyboard, Copy } from "lucide-react";
 import { useActivities } from "@/hooks/useActivities";
 import { ActivityTimeline } from "@/components/activities/ActivityTimeline";
 import { ActivityComposer } from "@/components/activities/ActivityComposer";
@@ -22,6 +22,7 @@ import { StageChip, IntentChip, SourceChip, AssigneeChip } from "@/components/le
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import type { Lead, Activity } from "@/contracts";
+import { useApp } from "@/lib/store";
 
 interface Props {
   lead: Lead | null;
@@ -61,6 +62,25 @@ function DrawerInner({ lead, currentUserId, assignees }: { lead: Lead; currentUs
   const telHref = lead.phone ? `tel:${lead.phone.replace(/\s+/g, "")}` : undefined;
   const waHref = lead.phone ? `https://wa.me/${lead.phone.replace(/\D+/g, "")}` : undefined;
   const mailHref = lead.tags?.find((t) => /@/.test(t)) ? `mailto:${lead.tags.find((t) => /@/.test(t))}` : undefined;
+
+  const storeTours = useApp(s => s.tours);
+  const storeProperties = useApp(s => s.properties);
+  const leadTours = useMemo(() => storeTours.filter(t => t.leadId === lead._id), [storeTours, lead._id]);
+
+  const handleGenerateComparison = () => {
+    const props = leadTours
+      .map(t => storeProperties.find(p => p.id === t.propertyId))
+      .filter((p): p is NonNullable<typeof p> => Boolean(p));
+      
+    if (props.length < 2) return;
+    
+    const text = `Hi ${lead.name.split(" ")[0]},\n\nHere is a quick comparison of the properties we toured today:\n\n` +
+      props.map(p => `*${p.name}* (${p.area})\n- ₹${p.pricePerBed.toLocaleString("en-IN")}/mo\n- ${p.vacantBeds} beds currently vacant`).join("\n\n") +
+      `\n\nLet me know which one you prefer so I can block it for you!`;
+      
+    navigator.clipboard.writeText(text);
+    toast.success("Comparison copied to clipboard! Ready to paste in WhatsApp.");
+  };
 
   // Drawer-scoped keyboard shortcuts
   useEffect(() => {
@@ -123,6 +143,11 @@ function DrawerInner({ lead, currentUserId, assignees }: { lead: Lead; currentUs
             <a href={waHref} target="_blank" rel="noreferrer">
               <Button size="sm" variant="outline" className="w-full justify-start gap-1.5"><MessageCircle className="h-3.5 w-3.5" />WhatsApp <kbd className="ml-auto text-[9px]">W</kbd></Button>
             </a>
+            {leadTours.length >= 2 && (
+              <Button size="sm" variant="secondary" className="w-full justify-start gap-1.5 border border-border" onClick={handleGenerateComparison}>
+                <Copy className="h-3.5 w-3.5" />Compare Properties
+              </Button>
+            )}
           </div>
         </div>
 
@@ -177,7 +202,7 @@ function DrawerInner({ lead, currentUserId, assignees }: { lead: Lead; currentUs
           </TabsContent>
 
           <TabsContent value="details" className="m-0">
-            <DetailsGrid lead={lead} />
+            <DetailsGrid lead={lead} properties={useApp(s => s.properties)} />
           </TabsContent>
 
           <TabsContent value="tasks" className="m-0">
@@ -246,7 +271,12 @@ function suggestNext(lead: Lead, last: Activity | undefined): Suggestion {
   return null;
 }
 
-function DetailsGrid({ lead }: { lead: Lead }) {
+function DetailsGrid({ lead, properties = [] }: { lead: Lead; properties?: { id: string; name: string }[] }) {
+  const suggestedNames = lead.suggestedProperties
+    ?.map(id => properties.find(p => p.id === id)?.name)
+    .filter(Boolean)
+    .join(", ");
+
   const rows: Array<[string, React.ReactNode]> = [
     ["Name", lead.name],
     ["Phone", lead.phone],
@@ -259,6 +289,7 @@ function DetailsGrid({ lead }: { lead: Lead }) {
     ["Stage", lead.stage],
     ["Intent", lead.intent],
     ["Confidence", `${lead.confidence}%`],
+    ["Suggested Properties", suggestedNames || "-"],
     ["Tags", lead.tags?.join(", ") || "-"],
     ["Next follow-up", lead.nextFollowUpAt ? new Date(lead.nextFollowUpAt).toLocaleString() : "-"],
     ["Response speed", `${lead.responseSpeedMins} min`],

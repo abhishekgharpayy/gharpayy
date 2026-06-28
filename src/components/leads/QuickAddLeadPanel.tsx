@@ -148,8 +148,8 @@ export function QuickAddLeadPanel({ open, onClose }: Props) {
     if (q) return searchPGs(q, 10);
     if (areasText) {
       const byArea = PGS.filter((p) =>
-        p.area.toLowerCase().includes(areasText.toLowerCase()) ||
-        areasText.toLowerCase().includes(p.area.toLowerCase()),
+        (p.area || '').toLowerCase().includes((areasText || '').toLowerCase()) ||
+        (areasText || '').toLowerCase().includes((p.area || '').toLowerCase()),
       );
       return byArea.slice(0, 10).map((pg) => ({ pg, score: 1, matched: [] }));
     }

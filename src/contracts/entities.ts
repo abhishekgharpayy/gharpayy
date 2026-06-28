@@ -64,6 +64,15 @@ export const Lead = z.object({
   // Audit
   createdBy: z.string(),
   tenantId: z.string(),
+  // Overhaul additions
+  intervention: z.object({
+    isFlagged: z.boolean(),
+    category: z.string(),
+    note: z.string(),
+    flaggedAt: z.string(),
+    flaggedBy: z.string(),
+  }).nullable().optional(),
+  suggestedProperties: z.array(z.string()).default([]),
 });
 export type Lead = z.infer<typeof Lead>;
 
@@ -123,6 +132,8 @@ export const ActivityKind = z.enum([
   "field_changed",
   "todo_linked",
   "tour_scheduled",
+  "status_changed",
+  "coaching_note",
   "ai_parse",
   // User-logged
   "call",
@@ -233,6 +244,7 @@ export const Tour = z.object({
   createdAt: z.string(),
   updatedAt: z.string(),
   tenantId: z.string(),
+  location: z.object({ lat: z.number(), lng: z.number() }).optional().nullable().default(null),
 });
 export type Tour = z.infer<typeof Tour>;
 
@@ -360,3 +372,33 @@ export const TenantEntity = z.object({
   updatedAt: z.string(),
 });
 export type TenantEntity = z.infer<typeof TenantEntity>;
+
+// ------------------- PAYMENT ENTITY -------------------
+export const PaymentMethod = z.enum(["UPI", "Cash", "Bank", "Card"]);
+export type PaymentMethod = z.infer<typeof PaymentMethod>;
+
+export const PaymentType = z.enum(["token", "rent", "deposit", "maintenance", "other"]);
+export type PaymentType = z.infer<typeof PaymentType>;
+
+export const PaymentStatus = z.enum(["paid", "pending", "overdue", "partial"]);
+export type PaymentStatus = z.infer<typeof PaymentStatus>;
+
+export const PaymentRecord = z.object({
+  _id: z.string(),
+  tenantId: z.string(),
+  bookingId: z.string(),
+  tenantName: z.string(),
+  propertyName: z.string().default(""),
+  month: z.string(), // "YYYY-MM"
+  amount: z.number().int().min(0),
+  status: PaymentStatus.default("pending"),
+  method: PaymentMethod.nullable().default(null),
+  ref: z.string().max(200).nullable().default(null),
+  type: PaymentType.default("rent"),
+  notes: z.string().max(2000).default(""),
+  paidAt: z.string().nullable().default(null),
+  dueAt: z.string().nullable().default(null),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type PaymentRecord = z.infer<typeof PaymentRecord>;

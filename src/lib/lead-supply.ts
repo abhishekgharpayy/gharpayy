@@ -12,14 +12,14 @@ export interface InlineLeadMatch {
 }
 
 function deriveGender(lead: AppLead): SupplyLead["gender"] {
-  const tags = lead.tags.map((t) => t.toLowerCase());
+  const tags = (lead.tags || []).map((t) => (t || '').toLowerCase());
   if (tags.includes("girls")) return "Girls";
   if (tags.includes("boys")) return "Boys";
   return "Any";
 }
 
 function deriveAudience(lead: AppLead): SupplyLead["audience"] {
-  const tags = lead.tags.map((t) => t.toLowerCase());
+  const tags = (lead.tags || []).map((t) => (t || '').toLowerCase());
   if (tags.includes("student")) return "Student";
   if (tags.includes("working")) return "Working";
   return "Both";
@@ -35,7 +35,7 @@ export function toSupplyLead(lead: AppLead): SupplyLead {
     budgetMax: Math.max(lead.budget, Math.round(lead.budget * 1.15)),
     audience: deriveAudience(lead),
     occupancy: "Any",
-    notes: lead.tags.join(", "),
+    notes: (lead.tags || []).join(", "),
   };
 }
 

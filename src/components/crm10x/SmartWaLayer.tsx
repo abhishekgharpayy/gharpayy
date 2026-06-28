@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useApp, getProperty } from "@/lib/store";
+import { api } from "@/lib/api/client";
 import { useCRM10x } from "@/lib/crm10x/store";
 import { WA_TEMPLATES, renderTemplate, waLink, type TemplateStage } from "@/lib/crm10x/templates";
 import { recommendTemplate } from "@/lib/crm10x/analytics";
@@ -93,6 +94,12 @@ export function SmartWaLayer({ lead }: { lead: Lead }) {
       loggedBy: lead.assignedTcmId,
     });
     sendMessage(lead.id, `[${WA_TEMPLATES[stage].label} · ${lang}] sent`);
+    
+    // Sync with the backend WhatsApp inbox database
+    api.whatsapp.send(undefined, rendered, undefined, lead.phone, lead.name, lead.id)
+      .then(() => console.log("Outbound WhatsApp template synced to database"))
+      .catch((err) => console.error("Failed to sync outbound WhatsApp template", err));
+
     toast.success("WhatsApp opened - reply tracker enabled", {
       action: {
         label: "Mark replied",
@@ -130,6 +137,12 @@ export function SmartWaLayer({ lead }: { lead: Lead }) {
       notes: `PDF pitch · ${pg.name}`,
     });
     sendMessage(lead.id, `PDF pitch sent · ${pg.name}`);
+    
+    // Sync with backend WhatsApp database
+    api.whatsapp.send(undefined, msg, undefined, lead.phone, lead.name, lead.id)
+      .then(() => console.log("PDF pitch synced to WhatsApp database"))
+      .catch((err) => console.error("Failed to sync PDF pitch", err));
+
     toast.success(`Brochure sent · ${pg.name}`);
   };
 
@@ -200,7 +213,7 @@ export function SmartWaLayer({ lead }: { lead: Lead }) {
                     onClick={() => setStage(k)}
                     className={`text-[10px] px-2 py-1 rounded-md border transition-colors ${
                       stage === k
-                        ? "border-accent bg-accent text-accent-foreground"
+                        ? "border-accent bg-primary text-primary-foreground shadow-sm"
                         : "border-border hover:border-accent/50"
                     }`}
                   >

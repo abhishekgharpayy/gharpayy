@@ -24,7 +24,7 @@ import type {
   RentStatus,
 } from "./types";
 import type { Todo } from "@/contracts";
-import { ACTIVITIES, FOLLOWUPS, PROPERTIES, TCMS, HANDOFFS, SEQUENCES_INIT } from "./mock-data";
+import { ACTIVITIES, FOLLOWUPS, PROPERTIES, TCMS, HANDOFFS, SEQUENCES_INIT, LEADS } from "./mock-data";
 import { autoAssign as autoAssignFn } from "./routing";
 import { api } from "@/lib/api/client";
 import { isTodayIST } from "@/lib/crm10x/dates";
@@ -209,7 +209,7 @@ export const useApp = create<AppState>()(
   setTcms: (tcms) => set({ tcms }),
   properties: PROPERTIES,
   // Leads + tours hydrated from Mongo by LiveLeadsBridge / LiveToursAppBridge.
-  leads: [],
+  leads: LEADS,
   tours: [],
   activities: ACTIVITIES,
   followUps: FOLLOWUPS,
@@ -1302,7 +1302,7 @@ export const useApp = create<AppState>()(
     return prop;
   },
 }),
-    { name: "gharpayy.app.v1" },
+    { name: "gharpayy.app.v2" },
   ),
 );
 

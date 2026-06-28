@@ -110,8 +110,8 @@ export function DirectLeadForm({ onCreated }: Props) {
     if (q) return searchPGs(q, 10);
     if (draft.location) {
       const byArea = PGS.filter((p) =>
-        p.area.toLowerCase().includes(draft.location.toLowerCase()) ||
-        draft.location.toLowerCase().includes(p.area.toLowerCase()),
+        (p.area || '').toLowerCase().includes((draft.location || '').toLowerCase()) ||
+        (draft.location || '').toLowerCase().includes((p.area || '').toLowerCase()),
       );
       return byArea.slice(0, 10).map((pg) => ({ pg, score: 1, matched: [] }));
     }

@@ -1,6 +1,5 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useMemo } from "react";
-import { AdminShell } from "@/admin/components/AdminShell";
 import { useApp } from "@/lib/store";
 import { useVisitWar } from "@/lib/visits/war-store";
 import { useAuditLog } from "@/lib/crm10x/audit-log";
@@ -229,7 +228,11 @@ function AdminExports() {
   }, [leads, tcms]);
 
   return (
-    <AdminShell title="Export Center" sub="Download reports, spreadsheets, and data snapshots">
+    <div className="space-y-4">
+      <div>
+        <h1 className="text-lg font-semibold">Export Center</h1>
+        <p className="text-sm text-muted-foreground">Download reports, spreadsheets, and data snapshots</p>
+      </div>
         <div className="grid md:grid-cols-2 gap-4">
           <ExportCard
             icon={<FileSpreadsheet className="h-5 w-5" />}
@@ -318,8 +321,8 @@ function AdminExports() {
               </Button>
             </div>
           </div>
-        </div>
-      </AdminShell>
+      </div>
+    </div>
   );
 }
 

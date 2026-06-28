@@ -20,7 +20,7 @@ async function trySentryCapture(error: Error, context?: ErrorContext) {
         tracesSampleRate: 0.1,
       });
     }
-    Sentry.captureException(error, { extra: context });
+    (Sentry as any).captureException(error, { extra: context });
   } catch {
     // @sentry/react not installed — dev-only console is enough
   }

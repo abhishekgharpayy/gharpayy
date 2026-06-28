@@ -91,7 +91,7 @@ export function CoachWidget() {
           className={cn(
             "fixed bottom-20 right-4 md:bottom-6 md:right-6 z-40",
             "h-14 w-14 rounded-full shadow-lg flex items-center justify-center",
-            "bg-accent text-accent-foreground hover:scale-105 active:scale-95",
+            "bg-primary text-primary-foreground shadow-sm hover:scale-105 active:scale-95",
             "transition-transform border-2 border-background",
             missed > 0 && "ring-4 ring-destructive/30",
           )}

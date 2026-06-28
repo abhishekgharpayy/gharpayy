@@ -15,31 +15,8 @@ import type {
 } from "@/lib/crm10x/types";
 import type { VisitRecord } from "@/lib/visits/war-store";
 
-export interface AdminLeadRow {
-  lead: Lead;
-  tcm?: TCM;
-  profile?: DeepLeadProfile;
-  tours: Tour[];
-  visits: VisitRecord[];
-  bookings: Booking[];
-  calls: CallRecord[];
-  objections: ObjectionRecord[];
-  messages: MessageOutcome[];
-  assignments: AssignmentRecord[];
-  coachNotes: CoachingNote[];
-  followUps: FollowUp[];
-  // derived
-  lastTouchTs: number;
-  lastObjection?: ObjectionRecord;
-  probability: number; // 0-100
-  expectedValue: number; // ₹ projected revenue
-  whyNotClosed: string; // human-readable single line
-  status: "open" | "booked" | "lost" | "dormant";
-  hasVisit: boolean;
-  booked: boolean;
-  dormantBucket: "30d" | "60d" | "90d" | null;
-  reassignedCount: number;
-}
+import type { AdminLeadRow } from "@/hooks/api/useAdminLeads";
+export type { AdminLeadRow };
 
 export interface JoinSources {
   leads: Lead[];

@@ -1,5 +1,5 @@
 import { col } from "../db/mongo.js";
-import { redisPub, REDIS_CHANNELS } from "../db/redis.js";
+import { redisPub, REDIS_CHANNELS, isRedisAvailable } from "../db/redis.js";
 import { ulid } from "../../../src/contracts/ids.js";
 import { DomainEvent } from "../../../src/contracts/events.js";
 import { eventCounter, outboxLag } from "../platform/metrics.js";
@@ -60,6 +60,10 @@ function deriveAggregate(evt: DomainEvent): { type: string | null; id: string | 
       return { type: "tenant", id: (p.tenant as { _id: string })._id };
     }
     if ("tenantId" in p && typeof p.tenantId === "string") return { type: "tenant", id: p.tenantId };
+    if ("payment" in p && typeof p.payment === "object" && p.payment && "_id" in (p.payment as object)) {
+      return { type: "payment", id: (p.payment as { _id: string })._id };
+    }
+    if ("paymentId" in p && typeof p.paymentId === "string") return { type: "payment", id: p.paymentId };
   }
   return { type: null, id: null };
 }
@@ -157,7 +161,10 @@ async function drainOnce(): Promise<number> {
     );
     if (!doc) break;
     try {
-      await redisPub.publish(REDIS_CHANNELS.events, JSON.stringify(stripOutboxFields(doc)));
+      const redisOk = await isRedisAvailable();
+      if (redisOk) {
+        await redisPub.publish(REDIS_CHANNELS.events, JSON.stringify(stripOutboxFields(doc)));
+      }
       await c.updateOne({ _id: doc._id }, { $set: { publishedAt: new Date().toISOString() } });
       const lagMs = Date.now() - new Date(doc.occurredAt).getTime();
       outboxLag.observe(lagMs, { type: doc.type });

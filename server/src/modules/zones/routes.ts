@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { z } from "zod";
 import { col } from "../../db/mongo.js";
 import { requireAuth, requireScope } from "../../middleware/auth.js";
@@ -24,7 +24,7 @@ const ZoneFields = {
 const CreateBody = z.object(ZoneFields);
 const UpdateBody = z.object(ZoneFields);
 
-const SEED_ZONES = ["Zone1", "Zone2", "Zone3", "Zone4", "Zone5"];
+const SEED_ZONES: string[] = [];
 
 export async function ensureSeedZones(tenantId: string): Promise<void> {
   const zones = col<ZoneDoc>("zones");
@@ -61,6 +61,15 @@ export function registerZoneRoutes(app: FastifyInstance) {
   const zones = () => col<ZoneDoc>("zones");
 
   // List zones — any authed user (forms need them)
+  // Alias for legacy client path
+  app.get("/api/myt/zones", { preHandler: [requireAuth] }, async (req, reply) => {
+    await ensureSeedZones(req.user!.tenantId);
+    const list = await zones()
+      .find({ tenantId: req.user!.tenantId })
+      .sort({ name: 1 })
+      .toArray();
+    return reply.send(list.map(zoneOut));
+  });
   app.get("/api/zones", { preHandler: [requireAuth] }, async (req, reply) => {
     await ensureSeedZones(req.user!.tenantId);
     const list = await zones()
@@ -70,8 +79,9 @@ export function registerZoneRoutes(app: FastifyInstance) {
     return reply.send(list.map(zoneOut));
   });
 
-  // Create zone — super_admin only
-  app.post("/api/zones", { preHandler: [requireAuth, requireScope("user.admin")] }, async (req, reply) => {
+  const zoneAuth = { preHandler: [requireAuth, requireScope("user.admin")] };
+
+  const handleCreate = async (req: FastifyRequest, reply: FastifyReply) => {
     try {
       const body = CreateBody.parse(req.body);
       const name = body.name.trim();
@@ -94,10 +104,9 @@ export function registerZoneRoutes(app: FastifyInstance) {
       const err = e as Error;
       return reply.code(400).send({ code: "BAD_REQUEST", message: err.message });
     }
-  });
+  };
 
-  // Update zone — super_admin
-  app.put("/api/zones/:id", { preHandler: [requireAuth, requireScope("user.admin")] }, async (req, reply) => {
+  const handleUpdate = async (req: FastifyRequest, reply: FastifyReply) => {
     try {
       const { id } = req.params as { id: string };
       const body = UpdateBody.parse(req.body);
@@ -123,13 +132,21 @@ export function registerZoneRoutes(app: FastifyInstance) {
       const err = e as Error;
       return reply.code(400).send({ code: "BAD_REQUEST", message: err.message });
     }
-  });
+  };
 
-  // Delete zone — super_admin
-  app.delete("/api/zones/:id", { preHandler: [requireAuth, requireScope("user.admin")] }, async (req, reply) => {
+  const handleDelete = async (req: FastifyRequest, reply: FastifyReply) => {
     const { id } = req.params as { id: string };
     const r = await zones().deleteOne({ _id: id, tenantId: req.user!.tenantId });
     if (r.deletedCount === 0) return reply.code(404).send({ code: "NOT_FOUND", message: "Zone not found" });
     return reply.send({ ok: true });
-  });
+  };
+
+  app.post("/api/zones", zoneAuth, handleCreate);
+  app.post("/api/myt/zones", zoneAuth, handleCreate);
+
+  app.put("/api/zones/:id", zoneAuth, handleUpdate);
+  app.put("/api/myt/zones/:id", zoneAuth, handleUpdate);
+
+  app.delete("/api/zones/:id", zoneAuth, handleDelete);
+  app.delete("/api/myt/zones/:id", zoneAuth, handleDelete);
 }

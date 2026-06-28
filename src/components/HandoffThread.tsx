@@ -46,7 +46,7 @@ export function HandoffThread({ leadId }: { leadId: string }) {
                 h.priority === "urgent"
                   ? "bg-destructive/10 border border-destructive/30 text-foreground"
                   : mine
-                    ? "bg-accent text-accent-foreground"
+                    ? "bg-primary text-primary-foreground shadow-sm"
                     : "bg-muted text-foreground"
               }`}>
                 <div className={`text-[10px] ${mine && h.priority !== "urgent" ? "text-accent-foreground/80" : "text-muted-foreground"} mb-0.5 flex items-center gap-1`}>

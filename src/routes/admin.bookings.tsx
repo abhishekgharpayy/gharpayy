@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { AdminShell } from "@/admin/components/AdminShell";
+
 import { useApp } from "@/lib/store";
 import { useAuthUser } from "@/lib/auth-store";
 import { useOwnerBookings, computeTotals } from "@/lib/owner-bookings/store";
@@ -16,10 +16,6 @@ import { Card } from "@/components/ui/card";
 import { IndianRupee, Clock, CheckCircle2 } from "lucide-react";
 
 export const Route = createFileRoute("/admin/bookings")({
-  beforeLoad: () => {
-    const role = useAuthUser.getState().user?.role;
-    if (role !== "super_admin") throw new Error("Unauthorized");
-  },
   component: AdminBookings,
 });
 
@@ -128,7 +124,7 @@ function AdminBookings() {
   }, [bookings, ownerBookings, statusFilter, search, propName]);
 
   return (
-    <AdminShell title="Bookings" sub="Manage booking lifecycle — from pending to active tenant & owner bookings">
+    <div className="space-y-4">
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         {[
           { label: "Total bookings", value: stats.total, accent: "text-foreground" },
@@ -156,10 +152,10 @@ function AdminBookings() {
             <button
               key={s}
               onClick={() => setStatusFilter(s)}
-              className={`text-[10px] px-2.5 py-1 rounded-full border transition-colors ${
+              className={`text-[11px] font-medium rounded-full px-3 py-1 transition-colors ${
                 statusFilter === s
-                  ? "bg-accent text-accent-foreground border-accent"
-                  : "border-border text-muted-foreground hover:border-foreground/30"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-card text-muted-foreground border border-border hover:bg-muted/50 hover:text-foreground"
               }`}
             >
               {s.charAt(0).toUpperCase() + s.slice(1)}
@@ -254,6 +250,6 @@ function AdminBookings() {
           {detailBooking && <OwnerBookingCard booking={detailBooking} mode="sales" />}
         </DialogContent>
       </Dialog>
-    </AdminShell>
+    </div>
   );
 }

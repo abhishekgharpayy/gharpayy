@@ -32,7 +32,7 @@ export const defaultAdminFilters: AdminFilters = {
   addedBy: [],
 };
 
-import type { AdminLeadRow } from "./selectors";
+import type { AdminLeadRow } from "@/hooks/api/useAdminLeads";
 import { isToday, isYesterday, isThisWeek, isThisMonth } from "date-fns";
 
 export function applyFilters(rows: AdminLeadRow[], f: AdminFilters): AdminLeadRow[] {

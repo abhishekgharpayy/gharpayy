@@ -27,7 +27,8 @@ export type CoachKind =
   | "owner-room-stale"
   | "owner-block-pending"
   | "flowops-handoff-unread"
-  | "flowops-reassign-stuck";
+  | "flowops-reassign-stuck"
+  | "admin-coaching-note";
 
 export interface CoachItem {
   id: string;
@@ -176,6 +177,14 @@ export const HOW_TO: Record<CoachKind, { goal: string; steps: HowToStep[] }> = {
       { step: "Add a one-line reason. The new TCM gets an auto-handoff." },
     ],
   },
+  "admin-coaching-note": {
+    goal: "Execute the specific coaching feedback given by your Admin.",
+    steps: [
+      { step: "Read the Admin's note carefully." },
+      { step: "Open the lead and take the requested action (Call/WhatsApp/Update)." },
+      { step: "Mark this coaching item as done once you have completed the request." },
+    ],
+  },
 };
 
 /* ============== XP TABLE ============== */
@@ -192,6 +201,7 @@ const XP: Record<CoachKind, number> = {
   "owner-block-pending": 15,
   "flowops-handoff-unread": 10,
   "flowops-reassign-stuck": 14,
+  "admin-coaching-note": 30, // High XP for clearing admin feedback
 };
 
 /* ============== INPUTS ============== */
@@ -288,6 +298,24 @@ export function buildCoachReport(input: CoachInput): CoachReport {
       }
     });
 
+  // ADMIN COACHING NOTES
+  activities.forEach(a => {
+    if (a.kind === "coaching_note" && (!filterTcm || (a as any).tcmId === filterTcm)) {
+      const isMandatory = (a.text || (a as any).note || "").includes("[MANDATORY");
+      const leadId = (a as any).leadId;
+      const lead = leads.find(l => l.id === leadId);
+      queueItems.push({
+        id: `coach-note:${a.id}`,
+        kind: "admin-coaching-note",
+        title: `Admin Note: ${lead?.name || "Lead"}`,
+        why: (a.text || (a as any).note || "New coaching feedback."),
+        leadId,
+        score: isMandatory ? 1000 : 800, // Very high priority
+        xp: XP["admin-coaching-note"],
+      });
+    }
+  });
+
   // FLOW-OPS only: unread handoffs, stuck reassignments
   if (role === "flow-ops") {
     const unread = handoffs.filter((h) => h.to === "flow-ops" && !h.read);
@@ -362,6 +390,7 @@ export function buildCoachReport(input: CoachInput): CoachReport {
     "hot-untouched",
     "flowops-reassign-stuck",
     "owner-room-stale",
+    "admin-coaching-note", // Always treat admin notes as SLA breach level priority
   ]);
 
   const missed = ranked.filter((i) => missedKinds.has(i.kind));

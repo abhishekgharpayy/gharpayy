@@ -1,8 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useMemo } from "react";
-import { AdminShell } from "@/admin/components/AdminShell";
-import { useApp } from "@/lib/store";
-import { useCRM10x } from "@/lib/crm10x/store";
+import { useLiveSupremeMetrics } from "@/admin/lib/use-live-supreme";
 import { useAuthUser } from "@/lib/auth-store";
 
 export const Route = createFileRoute("/admin/intelligence")(
@@ -44,8 +42,19 @@ interface ObjectionCorrRow {
 }
 
 function AdminIntelligence() {
-  const { leads, followUps } = useApp();
-  const objections = useCRM10x((s) => s.objections);
+  const { rows, isLoading, isError } = useLiveSupremeMetrics();
+
+  // Derive leads from rows
+  const leads = useMemo(() => rows.map((r) => r.lead), [rows]);
+
+  // Derive objections from rows
+  const objections = useMemo(
+    () => rows.flatMap((r) => r.objections),
+    [rows],
+  );
+
+  // Derive follow-ups from rows
+  const followUps = useMemo(() => rows.flatMap((r) => r.followUps ?? []), [rows]);
 
   const funnel = useMemo(() => {
     const stageIndex = new Map<string, number>(STAGE_ORDER.map((s, i) => [s, i]));
@@ -87,10 +96,11 @@ function AdminIntelligence() {
     const lost = new Map<string, number>();
 
     objections.forEach((o) => {
-      if (o.code === "none") return;
-      raised.set(o.code, (raised.get(o.code) ?? 0) + 1);
-      if (lostLeadIds.has(o.leadId)) {
-        lost.set(o.code, (lost.get(o.code) ?? 0) + 1);
+      if ((o as any).code === "none") return;
+      const code = (o as any).code as string;
+      raised.set(code, (raised.get(code) ?? 0) + 1);
+      if (lostLeadIds.has((o as any).leadId)) {
+        lost.set(code, (lost.get(code) ?? 0) + 1);
       }
     });
 
@@ -102,14 +112,35 @@ function AdminIntelligence() {
       .sort((a, b) => b.lossPct - a.lossPct);
   }, [objections, leads]);
 
+  const cohorts = useMemo(() => {
+    const map = new Map<string, { total: number; converted: number }>();
+    leads.forEach(l => {
+      const d = new Date(l.createdAt);
+      const week = Math.ceil(d.getDate() / 7);
+      const key = `${d.toLocaleString("en-US", { month: "short" })} W${week}`;
+      
+      const entry = map.get(key) ?? { total: 0, converted: 0 };
+      entry.total++;
+      if (l.stage === "booked") entry.converted++;
+      map.set(key, entry);
+    });
+    
+    return [...map.entries()].map(([key, data]) => ({
+      key,
+      total: data.total,
+      converted: data.converted,
+      rate: data.total > 0 ? Math.round((data.converted / data.total) * 100) : 0
+    }));
+  }, [leads]);
+
   const impactAnalytics = useMemo(() => {
-    const tasks = followUps.filter((f) => !f.done);
-    const overdue = tasks.filter((f) => new Date(f.dueAt).getTime() < Date.now());
+    const tasks = followUps.filter((f: any) => !f.done);
+    const overdue = tasks.filter((f: any) => new Date(f.dueAt).getTime() < Date.now());
     const byType = new Map<string, number>();
-    tasks.forEach((t) => {
+    tasks.forEach((t: any) => {
       byType.set(t.reason, (byType.get(t.reason) ?? 0) + 1);
     });
-    const totalAgeHours = tasks.reduce((s, t) => {
+    const totalAgeHours = tasks.reduce((s, t: any) => {
       const age = Date.now() - new Date(t.dueAt).getTime();
       return s + Math.floor(age / 3600000);
     }, 0);
@@ -121,108 +152,189 @@ function AdminIntelligence() {
     };
   }, [followUps]);
 
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <div>
+          <h1 className="text-lg font-semibold">Intelligence</h1>
+          <p className="text-sm text-muted-foreground">Loading…</p>
+        </div>
+        <div className="p-8 text-center text-muted-foreground animate-pulse">Fetching live data from MongoDB…</div>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="space-y-4">
+        <div>
+          <h1 className="text-lg font-semibold">Intelligence</h1>
+          <p className="text-sm text-muted-foreground">Error</p>
+        </div>
+        <div className="p-8 text-center text-destructive">Failed to load. Check backend connection.</div>
+      </div>
+    );
+  }
+
   return (
-    <AdminShell title="Intelligence" sub="Funnel, objections & impact analytics">
-        <div className="grid md:grid-cols-2 gap-4">
-          <div className="rounded-xl border border-border bg-card p-4">
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-3">Funnel Velocity</div>
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b border-border text-muted-foreground">
-                  <th className="text-left px-2 py-1.5 font-medium">Stage</th>
-                  <th className="text-right px-2 py-1.5 font-medium">Leads</th>
-                  <th className="text-right px-2 py-1.5 font-medium">Conv %</th>
-                  <th className="text-right px-2 py-1.5 font-medium">Drop %</th>
-                  <th className="text-right px-2 py-1.5 font-medium">Avg days</th>
+    <div className="space-y-4">
+      <div>
+        <h1 className="text-lg font-semibold">Intelligence</h1>
+        <p className="text-sm text-muted-foreground">Funnel velocity, objection correlation & task analytics — live from MongoDB</p>
+      </div>
+      <div className="grid md:grid-cols-2 gap-4">
+        {/* Funnel Velocity */}
+        <div className="rounded-xl border border-border bg-card p-4">
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-3">Funnel Velocity</div>
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-border text-muted-foreground">
+                <th className="text-left px-2 py-1.5 font-medium">Stage</th>
+                <th className="text-right px-2 py-1.5 font-medium">Leads</th>
+                <th className="text-right px-2 py-1.5 font-medium">Conv %</th>
+                <th className="text-right px-2 py-1.5 font-medium">Drop %</th>
+                <th className="text-right px-2 py-1.5 font-medium">Avg days</th>
+              </tr>
+            </thead>
+            <tbody>
+              {funnel.map((row, i) => (
+                <tr key={row.stage} className={i < funnel.length - 1 ? "border-b border-border/50" : ""}>
+                  <td className="px-2 py-1.5 capitalize">{row.stage.replace(/-/g, " ")}</td>
+                  <td className="px-2 py-1.5 text-right font-mono">{row.leads}</td>
+                  <td
+                    className={`px-2 py-1.5 text-right font-mono ${
+                      row.convPct >= 50 ? "text-success" : row.convPct >= 30 ? "text-warning" : "text-destructive"
+                    }`}
+                  >
+                    {row.convPct}%
+                  </td>
+                  <td
+                    className={`px-2 py-1.5 text-right font-mono ${
+                      row.dropPct >= 50 ? "text-destructive" : row.dropPct >= 30 ? "text-warning" : "text-success"
+                    }`}
+                  >
+                    {row.dropPct}%
+                  </td>
+                  <td className="px-2 py-1.5 text-right font-mono">{row.avgDays}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {funnel.map((row, i) => (
-                  <tr key={row.stage} className={i < funnel.length - 1 ? "border-b border-border/50" : ""}>
-                    <td className="px-2 py-1.5 capitalize">{row.stage.replace(/-/g, " ")}</td>
-                    <td className="px-2 py-1.5 text-right font-mono">{row.leads}</td>
-                    <td className={`px-2 py-1.5 text-right font-mono ${row.convPct >= 50 ? "text-success" : row.convPct >= 30 ? "text-warning" : "text-destructive"}`}>
-                      {row.convPct}%
-                    </td>
-                    <td className={`px-2 py-1.5 text-right font-mono ${row.dropPct >= 50 ? "text-destructive" : row.dropPct >= 30 ? "text-warning" : "text-success"}`}>
-                      {row.dropPct}%
-                    </td>
-                    <td className="px-2 py-1.5 text-right font-mono">{row.avgDays}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="rounded-xl border border-border bg-card p-4">
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-3">
-              Objection &harr; Loss Correlation
-            </div>
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b border-border text-muted-foreground">
-                  <th className="text-left px-2 py-1.5 font-medium">Objection code</th>
-                  <th className="text-right px-2 py-1.5 font-medium">Raised</th>
-                  <th className="text-right px-2 py-1.5 font-medium">Lost</th>
-                  <th className="text-right px-2 py-1.5 font-medium">Loss %</th>
-                </tr>
-              </thead>
-              <tbody>
-                {objCorr.map((row) => (
-                  <tr key={row.code} className="border-b border-border/50">
-                    <td className="px-2 py-1.5 capitalize">{row.code.replace(/-/g, " ")}</td>
-                    <td className="px-2 py-1.5 text-right font-mono">{row.raised}</td>
-                    <td className="px-2 py-1.5 text-right font-mono">{row.lost}</td>
-                    <td className={`px-2 py-1.5 text-right font-mono ${row.lossPct >= 50 ? "text-destructive" : row.lossPct >= 30 ? "text-warning" : "text-success"}`}>
-                      {row.lossPct}%
-                    </td>
-                  </tr>
-                ))}
-                {!objCorr.length && (
-                  <tr>
-                    <td colSpan={4} className="px-2 py-4 text-center text-muted-foreground">No objection data.</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-border bg-card p-4 mt-4">
-          <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-3">Impact Queue Analytics</div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-            <div className="bg-muted/30 rounded-lg p-3">
-              <div className="text-xs text-muted-foreground">Total tasks</div>
-              <div className="text-xl font-display font-semibold">{impactAnalytics.total}</div>
-            </div>
-            <div className="bg-muted/30 rounded-lg p-3">
-              <div className="text-xs text-muted-foreground">Overdue tasks</div>
-              <div className="text-xl font-display font-semibold text-destructive">{impactAnalytics.overdue}</div>
-            </div>
-            <div className="bg-muted/30 rounded-lg p-3">
-              <div className="text-xs text-muted-foreground">Avg task age</div>
-              <div className="text-xl font-display font-semibold">{impactAnalytics.avgAgeHours}h</div>
-            </div>
-            <div className="bg-muted/30 rounded-lg p-3">
-              <div className="text-xs text-muted-foreground">Overdue rate</div>
-              <div className="text-xl font-display font-semibold">{impactAnalytics.total > 0 ? Math.round((impactAnalytics.overdue / impactAnalytics.total) * 100) : 0}%</div>
-            </div>
-          </div>
-          <div>
-            <div className="text-xs font-medium text-muted-foreground mb-2">Tasks by type</div>
-            <ul className="space-y-1 text-xs">
-              {impactAnalytics.byType.map(([type, count]) => (
-                <li key={type} className="flex justify-between gap-2 px-2 py-1 bg-muted/20 rounded">
-                  <span className="capitalize">{type.replace(/-/g, " ")}</span>
-                  <span className="font-mono">{count}</span>
-                </li>
               ))}
-              {!impactAnalytics.byType.length && (
-                <li className="text-muted-foreground px-2">No pending tasks.</li>
+              {!funnel.length && (
+                <tr>
+                  <td colSpan={5} className="px-2 py-4 text-center text-muted-foreground">No lead data.</td>
+                </tr>
               )}
-            </ul>
-          </div>
+            </tbody>
+          </table>
         </div>
-      </AdminShell>
+
+        {/* Objection Correlation */}
+        <div className="rounded-xl border border-border bg-card p-4">
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-3">
+            Objection ↔ Loss Correlation
+          </div>
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-border text-muted-foreground">
+                <th className="text-left px-2 py-1.5 font-medium">Objection code</th>
+                <th className="text-right px-2 py-1.5 font-medium">Raised</th>
+                <th className="text-right px-2 py-1.5 font-medium">Lost</th>
+                <th className="text-right px-2 py-1.5 font-medium">Loss %</th>
+              </tr>
+            </thead>
+            <tbody>
+              {objCorr.map((row) => (
+                <tr key={row.code} className="border-b border-border/50">
+                  <td className="px-2 py-1.5 capitalize">{row.code.replace(/-/g, " ")}</td>
+                  <td className="px-2 py-1.5 text-right font-mono">{row.raised}</td>
+                  <td className="px-2 py-1.5 text-right font-mono">{row.lost}</td>
+                  <td
+                    className={`px-2 py-1.5 text-right font-mono ${
+                      row.lossPct >= 50 ? "text-destructive" : row.lossPct >= 30 ? "text-warning" : "text-success"
+                    }`}
+                  >
+                    {row.lossPct}%
+                  </td>
+                </tr>
+              ))}
+              {!objCorr.length && (
+                <tr>
+                  <td colSpan={4} className="px-2 py-4 text-center text-muted-foreground">
+                    No objection data yet.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Cohort Retention & Impact */}
+      <div className="grid md:grid-cols-2 gap-4">
+        <div className="rounded-xl border border-border bg-card p-4">
+          <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-3">Cohort Retention Waterfall</div>
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-border text-muted-foreground">
+                <th className="text-left px-2 py-1.5 font-medium">Cohort (Week)</th>
+                <th className="text-right px-2 py-1.5 font-medium">Acquired</th>
+                <th className="text-right px-2 py-1.5 font-medium">Converted</th>
+                <th className="text-right px-2 py-1.5 font-medium">Retention %</th>
+              </tr>
+            </thead>
+            <tbody>
+              {cohorts.map((row, i) => (
+                <tr key={row.key} className={i < cohorts.length - 1 ? "border-b border-border/50" : ""}>
+                  <td className="px-2 py-1.5">{row.key}</td>
+                  <td className="px-2 py-1.5 text-right font-mono">{row.total}</td>
+                  <td className="px-2 py-1.5 text-right font-mono text-success">{row.converted}</td>
+                  <td className="px-2 py-1.5 text-right font-mono">{row.rate}%</td>
+                </tr>
+              ))}
+              {!cohorts.length && (
+                <tr>
+                  <td colSpan={4} className="px-2 py-4 text-center text-muted-foreground">No cohort data.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+      {/* Impact Queue Analytics */}
+      <div className="rounded-xl border border-border bg-card p-4">
+        <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-3">Impact Queue Analytics</div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+          {[
+            { label: "Total tasks", value: impactAnalytics.total, color: "" },
+            { label: "Overdue tasks", value: impactAnalytics.overdue, color: "text-destructive" },
+            { label: "Avg task age", value: `${impactAnalytics.avgAgeHours}h`, color: "" },
+            {
+              label: "Overdue rate",
+              value: `${impactAnalytics.total > 0 ? Math.round((impactAnalytics.overdue / impactAnalytics.total) * 100) : 0}%`,
+              color: "",
+            },
+          ].map(({ label, value, color }) => (
+            <div key={label} className="bg-muted/30 rounded-lg p-3">
+              <div className="text-xs text-muted-foreground">{label}</div>
+              <div className={`text-xl font-display font-semibold ${color}`}>{value}</div>
+            </div>
+          ))}
+        </div>
+        <div>
+          <div className="text-xs font-medium text-muted-foreground mb-2">Tasks by type</div>
+          <ul className="space-y-1 text-xs">
+            {impactAnalytics.byType.map(([type, count]) => (
+              <li key={type} className="flex justify-between gap-2 px-2 py-1 bg-muted/20 rounded">
+                <span className="capitalize">{type.replace(/-/g, " ")}</span>
+                <span className="font-mono">{count}</span>
+              </li>
+            ))}
+            {!impactAnalytics.byType.length && (
+              <li className="text-muted-foreground px-2">No pending tasks.</li>
+            )}
+          </ul>
+        </div>
+      </div>
+      </div>
+    </div>
   );
 }

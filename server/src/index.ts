@@ -1,3 +1,7 @@
+// Fix for Node.js v24 DNS resolution issue on Windows — must be first
+import { setServers } from "dns";
+setServers(["8.8.8.8", "8.8.4.4"]);
+
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import cookie from "@fastify/cookie";
@@ -7,6 +11,11 @@ import { connectMongo, disconnectMongo } from "./db/mongo.js";
 import { redis, redisPub, redisSub } from "./db/redis.js";
 import { attachSocketIO, io } from "./realtime/socket.js";
 import { startOutboxPublisher, stopOutboxPublisher } from "./realtime/event-bus.js";
+import { startAlertGenerator, stopAlertGenerator } from "./workers/alert-generator.js";
+import fastifyStatic from "@fastify/static";
+import { existsSync, mkdirSync } from "fs";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
 import { registerAuthRoutes } from "./routes/auth.js";
 import { registerHealthRoutes } from "./routes/health.js";
 import { registerWebhookRoutes } from "./routes/webhooks.js";
@@ -25,6 +34,7 @@ import { registerHandoffsRoutes } from "./modules/handoffs/routes.js";
 import { registerSequencesRoutes } from "./modules/sequences/routes.js";
 import { registerBookingsRoutes } from "./modules/bookings/routes.js";
 import { registerTenantsRoutes } from "./modules/tenants/routes.js";
+import { registerPaymentsRoutes } from "./modules/payments/routes.js";
 import { registerOwnerRoutes } from "./modules/owner/routes.js";
 import { registerAiRoutes } from "./modules/ai/routes.js";
 import { registerAdminSupremeRoutes } from "./modules/admin/supreme.js";
@@ -39,10 +49,6 @@ import { registerAlertsRoutes } from "./modules/alerts/routes.js";
 import { registerFunnelRoutes } from "./modules/funnel/routes.js";
 import { registerPeople360Routes } from "./modules/admin/people360.js";
 import { registerExecutionReportRoutes } from "./modules/admin/execution-report.js";
-import { dirname, join } from "path";
-import { fileURLToPath } from "url";
-import { existsSync, mkdirSync } from "fs";
-import fastifyStatic from "@fastify/static";
 import { ensureDefaultSuperAdmin } from "./auth/auth.js";
 
 async function main() {
@@ -61,17 +67,24 @@ async function main() {
   await app.register(cors, {
     origin: (origin, cb) => {
       if (!origin) return cb(null, true);
-      if (corsOrigins.includes(origin)) return cb(null, true);
+      if (corsOrigins.includes(origin)) return cb(null, origin);
       if (/^https:\/\/[a-z0-9-]+\.trycloudflare\.com$/.test(origin)) {
-        return cb(null, true);
+        return cb(null, origin);
       }
       if (/^https:\/\/[a-z0-9-]+\.vercel\.app$/.test(origin)) {
-        return cb(null, true);
+        return cb(null, origin);
+      }
+      if (/^https:\/\/[a-z0-9-]+\.onrender\.com$/.test(origin)) {
+        return cb(null, origin);
       }
       if (env.NODE_ENV === "development" && /^(https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?)$/.test(origin)) {
-        return cb(null, true);
+        return cb(null, origin);
       }
-      return cb(new Error("Not allowed by CORS"), false);
+      // Allow any origin in local development to avoid port mismatch issues
+      if (env.NODE_ENV === "development") {
+         return cb(null, origin);
+      }
+      return cb(new Error("Not allowed by CORS: " + origin), false);
     },
     credentials: true,
     methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
@@ -129,6 +142,7 @@ h1{margin:0 0 .5rem;font-size:1.5rem;color:#34d399}p{margin:.25rem 0;color:#94a3
   registerSequencesRoutes(app);
   registerBookingsRoutes(app);
   registerTenantsRoutes(app);
+  registerPaymentsRoutes(app);
   registerOwnerRoutes(app);
   registerAiRoutes(app);
   registerAdminSupremeRoutes(app);
@@ -163,6 +177,9 @@ h1{margin:0 0 .5rem;font-size:1.5rem;color:#34d399}p{margin:.25rem 0;color:#94a3
   // Multiple replicas can run; per-row lease prevents double-publish.
   startOutboxPublisher(app.log);
 
+  // Alert generator: periodic checks for overdue rents, pending approvals, etc.
+  startAlertGenerator();
+
   await app.listen({ port: env.PORT, host: env.HOST });
   app.log.info(`✓ Gharpayy server listening on ${env.HOST}:${env.PORT}`);
 
@@ -181,6 +198,7 @@ h1{margin:0 0 .5rem;font-size:1.5rem;color:#34d399}p{margin:.25rem 0;color:#94a3
       await app.close();                // 1 + 2
       if (io) await new Promise<void>((res) => io!.close(() => res()));
       await stopOutboxPublisher();      // 3
+      stopAlertGenerator();
       await disconnectMongo();
       await Promise.allSettled([redis.quit(), redisPub.quit(), redisSub.quit()]);
       app.log.info("shutdown clean");

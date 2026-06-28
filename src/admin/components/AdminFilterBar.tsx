@@ -10,7 +10,7 @@ import { defaultAdminFilters } from "@/admin/lib/filter-schema";
 interface Props {
   filters: AdminFilters;
   onChange: (f: AdminFilters) => void;
-  tcms: Array<{ id: string; name: string; zone: string }>;
+  tcms: Array<{ id: string; name: string; zone?: string; zones?: string[] }>;
   sources?: string[];
   stages?: string[];
   addedByOptions?: string[];
@@ -22,7 +22,14 @@ const BUCKETS: Array<"cold" | "warm" | "hot"> = ["cold", "warm", "hot"];
 
 export function AdminFilterBar({ filters, onChange, tcms, sources = [], stages = STAGES, addedByOptions = [] }: Props) {
   const [savedViewName, setSavedViewName] = useState("");
-  const zones = useMemo(() => Array.from(new Set(tcms.map((t) => t.zone))), [tcms]);
+  const zones = useMemo(() => {
+    const allZones = new Set<string>();
+    tcms.forEach(t => {
+      if (t.zone) allZones.add(t.zone);
+      if (t.zones) t.zones.forEach(z => allZones.add(z));
+    });
+    return Array.from(allZones);
+  }, [tcms]);
 
   const toggle = <K extends keyof AdminFilters>(key: K, value: string) => {
     const cur = filters[key] as unknown as string[];
@@ -116,32 +123,41 @@ export function AdminFilterBar({ filters, onChange, tcms, sources = [], stages =
       <ChipRow label="Dormant" values={["30d", "60d", "90d"]} active={filters.dormant} onToggle={(v) => toggle("dormant", v)} />
       <ChipRow label="Date Added" values={["today", "yesterday", "this-week", "this-month"]} active={filters.dateAdded || []} onToggle={(v) => toggle("dateAdded", v)} />
       {addedByOptions.length > 0 && <ChipRow label="Added By" values={addedByOptions} active={filters.addedBy || []} onToggle={(v) => toggle("addedBy", v)} />}
-      <div className="flex items-center gap-2 text-xs">
-        <span className="text-muted-foreground">Quick:</span>
-        <Button
-          size="sm"
-          variant={filters.hasVisit === true ? "default" : "outline"}
-          className="h-7 text-xs"
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-[10px] uppercase tracking-wider text-muted-foreground w-16">Quick</span>
+        <button
+          className={cn(
+            "text-[11px] font-medium rounded-full px-3 py-1 transition-colors",
+            filters.hasVisit === true
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "bg-card text-muted-foreground border border-border hover:bg-muted/50 hover:text-foreground"
+          )}
           onClick={() => onChange({ ...filters, hasVisit: filters.hasVisit === true ? undefined : true })}
         >
           Has visit
-        </Button>
-        <Button
-          size="sm"
-          variant={filters.booked === true ? "default" : "outline"}
-          className="h-7 text-xs"
+        </button>
+        <button
+          className={cn(
+            "text-[11px] font-medium rounded-full px-3 py-1 transition-colors",
+            filters.booked === true
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "bg-card text-muted-foreground border border-border hover:bg-muted/50 hover:text-foreground"
+          )}
           onClick={() => onChange({ ...filters, booked: filters.booked === true ? undefined : true })}
         >
           Booked
-        </Button>
-        <Button
-          size="sm"
-          variant={filters.booked === false ? "default" : "outline"}
-          className="h-7 text-xs"
+        </button>
+        <button
+          className={cn(
+            "text-[11px] font-medium rounded-full px-3 py-1 transition-colors",
+            filters.booked === false
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "bg-card text-muted-foreground border border-border hover:bg-muted/50 hover:text-foreground"
+          )}
           onClick={() => onChange({ ...filters, booked: filters.booked === false ? undefined : false })}
         >
           Not booked
-        </Button>
+        </button>
       </div>
     </div>
   );
@@ -169,8 +185,10 @@ function ChipRow({
           key={v}
           onClick={() => onToggle(v)}
           className={cn(
-            "text-[11px] px-2 py-0.5 rounded-full border transition-colors",
-            active.includes(v) ? "bg-accent text-accent-foreground border-accent" : "bg-muted/40 text-muted-foreground border-border hover:bg-muted",
+            "text-[11px] font-medium rounded-full px-3 py-1 transition-colors",
+            active.includes(v)
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "bg-card text-muted-foreground border border-border hover:bg-muted/50 hover:text-foreground"
           )}
         >
           {labels?.[v] ?? v}

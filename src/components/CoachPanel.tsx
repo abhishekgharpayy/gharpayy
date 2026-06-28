@@ -13,6 +13,8 @@ import {
   buildCoachReport, HOW_TO, computeBadges,
   type CoachItem, type CoachKind,
 } from "@/lib/coach";
+import { useQuery } from "@tanstack/react-query";
+import { API_URL } from "@/lib/api/client";
 import { CoachAutoPilot } from "./CoachAutoPilot";
 import { TcmCoachView } from "./TcmCoachView";
 import { cn } from "@/lib/utils";
@@ -35,7 +37,7 @@ export function CoachPanel({ compact = false }: Props) {
   const leads           = useApp((s) => s.leads);
   const tours           = useApp((s) => s.tours);
   const followUps       = useApp((s) => s.followUps);
-  const activities      = useApp((s) => s.activities);
+  const activitiesState = useApp((s) => s.activities);
   const bookings        = useApp((s) => s.bookings);
   const handoffs        = useApp((s) => s.handoffs);
   const selectLead      = useApp((s) => s.selectLead);
@@ -57,6 +59,27 @@ export function CoachPanel({ compact = false }: Props) {
   useEffect(() => {
     if (mounted) rolloverIfNeeded(who);
   }, [mounted, who, rolloverIfNeeded]);
+
+  // Fetch real coaching notes from the backend
+  const coachingNotesQuery = useQuery({
+    queryKey: ["tcm", "coaching-notes"],
+    queryFn: async () => {
+      const token = localStorage.getItem("gharpayy.access_token") || localStorage.getItem("auth_token") || "";
+      if (!token) return [];
+      const res = await fetch(`${API_URL}/api/v1/tcm/coaching-notes`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return (data.notes || []) as any[];
+    },
+    refetchInterval: 60_000,
+  });
+
+  const activities = useMemo(() => {
+    const fetchedNotes = coachingNotesQuery.data || [];
+    return [...activitiesState, ...fetchedNotes];
+  }, [activitiesState, coachingNotesQuery.data]);
 
   const report = useMemo(() => {
     if (!mounted) return null;

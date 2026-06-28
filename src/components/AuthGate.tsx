@@ -21,7 +21,10 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
   const signOut = useAuthUser((s) => s.signOut);
 
-  useEffect(() => { hydrate(); }, [hydrate]);
+  useEffect(() => { 
+    console.log("[AuthGate] mount/hydrate");
+    hydrate(); 
+  }, [hydrate]);
 
   useEffect(() => {
     const handleUnauthorized = () => {
@@ -37,9 +40,13 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
   // Redirect unauthenticated users to login
   useEffect(() => {
+    console.log("[AuthGate] redirect check", { user: !!user, isLoginRoute, loading, pathname });
     if (user || isLoginRoute || loading) return;
     const redirect = pathname || "/";
-    void navigate({ to: "/login", search: { redirect }, replace: true }).catch(() => undefined);
+    console.log("[AuthGate] calling navigate to /login");
+    void navigate({ to: "/login", search: { redirect }, replace: true })
+      .then(() => console.log("[AuthGate] navigate succeeded"))
+      .catch((e) => console.error("[AuthGate] navigate failed", e));
   }, [user, isLoginRoute, loading, pathname, navigate]);
 
   // Redirect authenticated owners away from the main CRM shell to their portal
@@ -65,13 +72,23 @@ export function AuthGate({ children }: { children: ReactNode }) {
   );
 
   // Resolving auth: token present but user not yet loaded
-  if (hasToken && !user && loading) return spinner;
+  if (hasToken && !user && loading) {
+    console.log("[AuthGate] rendering spinner: hasToken && !user && loading");
+    return spinner;
+  }
 
   // Not signed in and not already on login → spinner while useEffect redirects
-  if (!user && !isLoginRoute) return spinner;
+  if (!user && !isLoginRoute) {
+    console.log("[AuthGate] rendering spinner: !user && !isLoginRoute");
+    return spinner;
+  }
 
   // Owner is authenticated but not yet on the owner portal → spinner while redirecting
-  if (user?.role === "owner" && !isOwnerRoute && !isLoginRoute) return spinner;
+  if (user?.role === "owner" && !isOwnerRoute && !isLoginRoute) {
+    console.log("[AuthGate] rendering spinner: owner redirecting");
+    return spinner;
+  }
 
+  console.log("[AuthGate] rendering children");
   return <>{children}</>;
 }

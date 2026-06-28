@@ -4,6 +4,8 @@ import { Map as MapIcon, Plus, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { SearchBar } from "@/components/zone/SearchBar";
+import { BulkActionToolbar } from "@/components/zone/BulkActionToolbar";
 import { api, type Zone } from "@/lib/api/client";
 
 const ZONE_COLORS = ["#6366f1", "#f59e0b", "#10b981", "#ef4444", "#8b5cf6", "#06b6d4", "#f97316", "#ec4899"];
@@ -19,6 +21,9 @@ export function ZonesPage() {
   const [editing, setEditing] = useState<Zone | null>(null);
   const [createForm, setCreateForm] = useState<FormState>(emptyForm);
   const [editForm, setEditForm] = useState<FormState>(emptyForm);
+  // New state for search term and bulk selection
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
 
   const load = async () => {
@@ -113,6 +118,30 @@ export function ZonesPage() {
         </h1>
         <p className="text-xs text-muted-foreground mt-1">Geographic routing & team operations</p>
       </div>
+
+      {/* Search Bar */}
+      <SearchBar searchTerm={searchTerm} onSearch={setSearchTerm} />
+
+      {/* Bulk Action Toolbar */}
+      {selectedIds.size > 0 && (
+          <BulkActionToolbar
+            selectedCount={selectedIds.size}
+            onDeleteAll={async () => {
+              // Bulk delete selected zones
+              for (const id of selectedIds) {
+                try {
+                  await api.zones.remove(id);
+                } catch (e) {
+                  toast.error((e as Error).message);
+                }
+              }
+              setSelectedIds(new Set());
+              await load();
+            }}
+            onBulkSetColor={() => {}}
+            onExportSelected={() => {}}
+          />
+      )}
 
       <div className="flex items-center justify-between">
         <p className="text-xs text-muted-foreground">{zones.length} active zones</p>
@@ -218,10 +247,33 @@ export function ZonesPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {zones.map((zone) => (
+          {zones
+            .filter((z) => {
+              const term = (searchTerm || "").toLowerCase();
+              return (
+                (z.name || "").toLowerCase().includes(term) ||
+                ((z.city || "").toLowerCase().includes(term))
+              );
+            })
+            .map((zone) => (
             <div key={zone.id} className="rounded-2xl border border-border bg-card p-4 shadow-sm">
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-2 min-w-0">
+                  {/* Checkbox for bulk selection */}
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.has(zone.id)}
+                    onChange={(e) => {
+                      const newSet = new Set(selectedIds);
+                      if (e.target.checked) {
+                        newSet.add(zone.id);
+                      } else {
+                        newSet.delete(zone.id);
+                      }
+                      setSelectedIds(newSet);
+                    }}
+                    className="mr-2"
+                  />
                   <div
                     className="w-3 h-3 rounded-full shrink-0"
                     style={{ background: zone.color || "#94a3b8" }}

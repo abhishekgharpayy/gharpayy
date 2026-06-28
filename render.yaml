@@ -1,0 +1,41 @@
+services:
+  - type: web
+    name: gharpayy-backend
+    env: node
+    # Since the root of the repo contains both frontend and backend, 
+    # we set the root directory to server so Render only builds the backend.
+    rootDir: server
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: HOST
+        value: 0.0.0.0
+      - key: DEFAULT_TENANT
+        value: t_gharpayy
+      # The following must be set manually in the Render dashboard:
+      # - MONGO_URL
+      # - UPSTASH_REDIS_REST_URL
+      # - UPSTASH_REDIS_REST_TOKEN
+      # - UPSTASH_REDIS_URL
+      # - JWT_SECRET
+      # - SUPER_ADMIN_EMAIL
+      # - SUPER_ADMIN_PASSWORD
+
+  - type: web
+    name: gharpayy-frontend
+    env: node
+    # The frontend runs from the root directory
+    rootDir: .
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+      # You MUST manually set VITE_API_URL to the URL of your backend on Render
+      # e.g., https://gharpayy-backend.onrender.com

@@ -1,16 +1,20 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { AdminShell } from "@/admin/components/AdminShell";
-import { useAdminRows } from "@/admin/lib/use-admin-rows";
-import { summarizeWhyNotClosing, summarizeTopObjections } from "@/admin/lib/selectors";
-import { useApp } from "@/lib/store";
-import { useVisitWar } from "@/lib/visits/war-store";
+
+import { useLiveSupremeMetrics } from "@/admin/lib/use-live-supreme";
+import { summarizeWhyNotClosing } from "@/admin/lib/selectors";
 import { useAuditLog } from "@/lib/crm10x/audit-log";
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
 } from "@/components/ui/sheet";
 import type { AdminLeadRow } from "@/admin/lib/selectors";
-import type { ObjectionRecord } from "@/lib/crm10x/types";
+import { LeadSparkline } from "@/admin/components/LeadSparkline";
+import { computeTcmHealth } from "@/admin/lib/supreme-metrics";
+import { authedFetch } from "@/admin/lib/use-live-supreme";
+import { Button } from "@/components/ui/button";
+import { Terminal } from "lucide-react";
+import { useMutation } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin/")(
   {
@@ -43,24 +47,20 @@ type DrawerContent =
   | null;
 
 function AdminCockpit() {
-  const rows = useAdminRows();
-  const { tcms, leads } = useApp();
-  const visits = useVisitWar((s) => s.records);
+  const { rows, properties, rawData, isLoading, isError } = useLiveSupremeMetrics();
+  // Using useAuditLog for now until we migrate admin.audit.tsx
   const audit = useAuditLog((s) => s.entries)
     .filter((e) => e.action.startsWith("admin."))
     .slice(0, 8);
   const now = Date.now();
 
-  const leadNameMap = useMemo(() => {
-    const m = new Map<string, string>();
-    leads.forEach((l) => m.set(l.id, l.name));
-    return m;
-  }, [leads]);
-  const tcmNameMap = useMemo(() => {
-    const m = new Map<string, string>();
-    tcms.forEach((t) => m.set(t.id, t.name));
-    return m;
-  }, [tcms]);
+  const tcms = useMemo(() => {
+    const map = new Map<string, {id: string, name: string}>();
+    rows.forEach(r => {
+      if (r.tcm) map.set(r.tcm.id, { id: r.tcm.id, name: r.tcm.name });
+    });
+    return Array.from(map.values());
+  }, [rows]);
 
   const [whyTab, setWhyTab] = useState<WhyTab>("all");
   const [objTab, setObjTab] = useState<ObjTab>("all");
@@ -68,10 +68,32 @@ function AdminCockpit() {
   const [tcmFilter, setTcmFilter] = useState("all");
   const [drawer, setDrawer] = useState<DrawerContent>(null);
 
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <div className="p-8 text-center text-muted-foreground animate-pulse">Initializing God Mode...</div>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="space-y-4">
+        <div className="p-8 text-center text-destructive">Failed to fetch metrics. Please check your connection.</div>
+      </div>
+    );
+  }
+
   const open = rows.filter((r) => r.status === "open" || r.status === "dormant");
   const hot = open.filter((r) => r.probability >= 70);
   const booked = rows.filter((r) => r.booked);
   const lost = rows.filter((r) => r.status === "lost");
+  
+  // Forecasting Math
+  const pipelineValue = open.reduce((s, r) => s + (r.lead.budget * 12), 0);
+  const winRate = booked.length > 0 ? (booked.length / (booked.length + lost.length)) : 0;
+  const expectedRevenue = pipelineValue * winRate;
+  
   const walking = lost.reduce((s, r) => s + r.lead.budget * 12, 0);
   const revenue = booked.reduce((s, r) => s + (r.bookings[0]?.amount ?? r.lead.budget) * 12, 0);
 
@@ -110,6 +132,12 @@ function AdminCockpit() {
       }))
       .sort((a, b) => b.total - a.total);
   }, [open, whyTab]);
+
+  const tcmHealthMap = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof computeTcmHealth>[number]>();
+    computeTcmHealth(rows).forEach(h => map.set(h.name, h));
+    return map;
+  }, [rows]);
 
   const hasRealObjections = useMemo(() => {
     return rows.some((r) =>
@@ -200,11 +228,6 @@ function AdminCockpit() {
     return tcms.filter((t) => activeIds.has(t.id));
   }, [rows, tcms]);
 
-  console.log('📊 Fix 1 — sample lead:', JSON.stringify(leads[0], null, 2));
-  console.log('📊 Fix 2 — all lead names:', leads.map((l) => ({ id: l.id, name: l.name, preferredArea: l.preferredArea, stage: l.stage })));
-  console.log('📊 Fix 2 — checking for "Location" in names:', leads.find((l) => l.name === "Location" || l.name?.toLowerCase().includes("location")));
-  console.log('📊 Fix 1 — first 10 lead confidence/intent:', leads.slice(0, 10).map((l) => ({ name: l.name, confidence: l.confidence, intent: l.intent })));
-
   const top24h = useMemo(() => {
     let filtered = rows
       .filter((r) => !r.booked && r.lead.stage !== "dropped")
@@ -228,47 +251,111 @@ function AdminCockpit() {
       .slice(0, 8);
   }, [rows, tcmFilter]);
 
+  const leaderboard = useMemo(() => {
+    const map = new Map<string, { tcm: string; xp: number; closed: number; tours: number }>();
+    tcms.forEach(t => map.set(t.id, { tcm: t.name, xp: 0, closed: 0, tours: 0 }));
+
+    rows.forEach(r => {
+      const tcmId = r.lead.assignedTcmId;
+      if (!tcmId || !map.has(tcmId)) return;
+      const stats = map.get(tcmId)!;
+      
+      r.tours.forEach(t => {
+        if (t.status === "completed") {
+          stats.xp += 20;
+          stats.tours += 1;
+        }
+        if (t.postTour?.decision) stats.xp += 25;
+      });
+      if (r.booked) {
+        stats.xp += 100;
+        stats.closed += 1;
+      }
+      
+      const callsForLead = (rawData as any)?.activities?.filter((a: any) => a.kind === "call" && a.leadId === r.lead.id) || [];
+      stats.xp += (callsForLead.length * 5);
+    });
+
+    return Array.from(map.values())
+      .filter(s => s.xp > 0)
+      .sort((a, b) => b.xp - a.xp)
+      .slice(0, 5);
+  }, [tcms, rows, rawData]);
+
   const livePulse = useMemo(() => {
-    return Object.values(visits)
-      .flatMap((v) => {
-        const alerts: { ts: number; id: string; text: string }[] = [];
-        const delayed = !!v.startedAt && !v.reachedAt && now - v.startedAt > 15 * 60_000;
-        if (delayed) {
-          alerts.push({ ts: v.startedAt!, id: v.tourId, text: "Delayed start" });
-        }
-        const completedAgo = v.completedAt ? now - v.completedAt : 0;
-        if (v.completedAt && !v.reaction && completedAgo > 2 * 3600_000) {
-          alerts.push({ ts: v.completedAt, id: v.tourId, text: "Post-visit silence" });
-        }
-        if (v.completedAt && v.outcome === "thinking" && completedAgo > 24 * 3600_000) {
-          alerts.push({ ts: v.completedAt, id: v.tourId, text: "Decision pending" });
-        }
-        const ghost = !!v.completedAt && completedAgo > 6 * 3600_000 && (!v.outcome || v.outcome === "thinking" || v.outcome === "follow-up");
-        if (ghost) {
-          alerts.push({ ts: v.completedAt!, id: v.tourId, text: "Ghost follow-up" });
-        }
-        const realLeadName = leadNameMap.get(v.leadId) || v.leadName;
-        const realTcmName = tcmNameMap.get(v.tcmId) || v.tcmName;
-        if (realLeadName === "Lead" || realLeadName === "Coordinator" || realTcmName === "Lead" || realTcmName === "Coordinator") return [];
-        return alerts.map((a) => ({
-          id: a.id,
-          kind: a.text,
-          ts: a.ts,
-          leadName: realLeadName,
-          coordinatorName: realTcmName,
-        }));
+    return rows.flatMap((row) => {
+        return row.visits.flatMap((v) => {
+          const alerts: { ts: number; id: string; text: string }[] = [];
+          const delayed = !!v.startedAt && !v.reachedAt && now - v.startedAt > 15 * 60_000;
+          if (delayed) {
+            alerts.push({ ts: v.startedAt!, id: v.tourId, text: "Delayed start" });
+          }
+          const completedAgo = v.completedAt ? now - v.completedAt : 0;
+          if (v.completedAt && !v.reaction && completedAgo > 2 * 3600_000) {
+            alerts.push({ ts: v.completedAt, id: v.tourId, text: "Post-visit silence" });
+          }
+          if (v.completedAt && v.outcome === "thinking" && completedAgo > 24 * 3600_000) {
+            alerts.push({ ts: v.completedAt, id: v.tourId, text: "Decision pending" });
+          }
+          const ghost = !!v.completedAt && completedAgo > 6 * 3600_000 && (!v.outcome || v.outcome === "thinking" || v.outcome === "follow-up");
+          if (ghost) {
+            alerts.push({ ts: v.completedAt!, id: v.tourId, text: "Ghost follow-up" });
+          }
+          const realLeadName = row.lead.name;
+          const realTcmName = row.tcm?.name || "Unassigned";
+          if (realLeadName === "Lead" || realLeadName === "Coordinator" || realTcmName === "Lead" || realTcmName === "Coordinator") return [];
+          return alerts.map((a) => ({
+            id: a.id,
+            kind: a.text,
+            ts: a.ts,
+            leadName: realLeadName,
+            coordinatorName: realTcmName,
+          }));
+        });
       })
       .sort((a, b) => b.ts - a.ts)
       .slice(0, 20);
-  }, [visits, now, leadNameMap, tcmNameMap]);
+  }, [rows, now]);
+
+  const supplyWarnings = useMemo(() => {
+    if (!properties || properties.length === 0) return [];
+    
+    // Group dropped leads by preferredArea
+    const droppedByArea = new Map<string, number>();
+    const lostLeads = rows.filter(r => r.status === "lost" || r.status === "dormant");
+    lostLeads.forEach(r => {
+      const area = r.lead.preferredArea;
+      if (area && area !== "none" && area !== "") {
+        droppedByArea.set(area, (droppedByArea.get(area) || 0) + 1);
+      }
+    });
+
+    const warnings: { area: string; dropped: number; available: number }[] = [];
+    droppedByArea.forEach((droppedCount, area) => {
+      if (droppedCount >= 2) { // 2 or more dropped leads in this area
+        const availableInArea = properties.filter(p => 
+          ((p.address || '').toLowerCase().includes(area.toLowerCase()) || 
+           (p.name || '').toLowerCase().includes(area.toLowerCase())) &&
+          p.status === "vacant"
+        ).length;
+        
+        if (availableInArea < 2) {
+          warnings.push({ area, dropped: droppedCount, available: availableInArea });
+        }
+      }
+    });
+    
+    return warnings.sort((a, b) => b.dropped - a.dropped).slice(0, 3);
+  }, [rows, properties]);
 
   return (
     <>
-    <AdminShell title="Cockpit" sub="Single screen — every signal, every action.">
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+    <div className="space-y-4">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
           {[
             { label: "Pipeline open", value: open.length, accent: "text-info" },
-            { label: "Hot ≥70%", value: hot.length, accent: "text-accent" },
+            { label: "Win Rate", value: `${Math.round(winRate * 100)}%`, accent: "text-info" },
+            { label: "Expected Rev", value: expectedRevenue > 0 ? `₹${(expectedRevenue / 100000).toFixed(1)}L` : "₹0", accent: "text-accent" },
             { label: "Booked", value: booked.length, accent: "text-success" },
             { label: "₹ Booked", value: revenue > 0 ? `₹${(revenue / 100000).toFixed(1)}L` : "₹0", accent: "text-success" },
             { label: "₹ Walking", value: walking > 0 ? `₹${(walking / 100000).toFixed(1)}L` : "₹0", accent: "text-destructive" },
@@ -286,6 +373,7 @@ function AdminCockpit() {
             whyTab={whyTab}
             onWhyTabChange={setWhyTab}
             whyByTcm={whyByTcm}
+            tcmHealthMap={tcmHealthMap}
             open={open}
             rows={rows}
             tcms={tcms}
@@ -313,8 +401,52 @@ function AdminCockpit() {
           />
         </div>
 
-        <div className="grid md:grid-cols-2 gap-3 mt-3">
-          <div className="rounded-xl border border-border bg-card p-3">
+        <div className="grid md:grid-cols-4 gap-3 mt-3">
+          <div className="rounded-xl border border-border bg-card p-3 col-span-1 md:col-span-1">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">TCM Leaderboard</span>
+              <span className="text-[10px] bg-accent/10 text-accent px-1.5 py-0.5 rounded-sm font-semibold">LIVE</span>
+            </div>
+            <ul className="space-y-3 text-sm">
+              {leaderboard.map((t, idx) => (
+                <li key={t.tcm} className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${idx === 0 ? "bg-amber-100 text-amber-700" : idx === 1 ? "bg-slate-100 text-slate-600" : idx === 2 ? "bg-orange-50 text-orange-700" : "bg-muted text-muted-foreground"}`}>
+                      {idx + 1}
+                    </div>
+                    <span className="font-medium truncate max-w-[100px]">{t.tcm}</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground text-right">
+                    <span>{t.closed} <span className="text-[10px]">won</span></span>
+                    <span className="font-mono text-accent font-semibold">{t.xp} XP</span>
+                  </div>
+                </li>
+              ))}
+              {!leaderboard.length && <li className="text-muted-foreground text-xs">No XP earned yet.</li>}
+            </ul>
+          </div>
+          
+          <div className="rounded-xl border border-border bg-card p-3 col-span-1 md:col-span-1">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Supply Bottlenecks</span>
+              <span className="text-[10px] bg-destructive/10 text-destructive px-1.5 py-0.5 rounded-sm font-semibold">ALERT</span>
+            </div>
+            <div className="space-y-3">
+              {supplyWarnings.map((w) => (
+                <div key={w.area} className="p-2 bg-destructive/5 rounded-lg border border-destructive/20">
+                  <div className="text-xs font-semibold text-destructive mb-1">{w.area}</div>
+                  <div className="text-[11px] text-muted-foreground leading-tight">
+                    <span className="font-medium text-foreground">{w.dropped} leads dropped</span> recently due to lack of inventory. Only <span className="font-bold">{w.available} vacant properties</span> remaining.
+                  </div>
+                </div>
+              ))}
+              {!supplyWarnings.length && (
+                <div className="text-xs text-muted-foreground">Inventory levels are healthy across all requested areas.</div>
+              )}
+            </div>
+          </div>
+          
+          <div className="rounded-xl border border-border bg-card p-3 col-span-1 md:col-span-1">
             <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Live pulse — visit alerts</div>
             <ul className="space-y-1 text-xs max-h-72 overflow-auto">
               {livePulse.map((a) => (
@@ -330,7 +462,8 @@ function AdminCockpit() {
               {!livePulse.length && <li className="text-muted-foreground">No alerts.</li>}
             </ul>
           </div>
-          <div className="rounded-xl border border-border bg-card p-3">
+          
+          <div className="rounded-xl border border-border bg-card p-3 col-span-1 md:col-span-1">
             <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Audit feed</div>
             <ul className="space-y-1 text-xs max-h-72 overflow-auto">
               {audit.map((e) => (
@@ -345,7 +478,10 @@ function AdminCockpit() {
             </ul>
           </div>
         </div>
-      </AdminShell>
+
+        {/* Live Command Terminal */}
+        <CommandTerminal />
+      </div>
 
       <Sheet open={!!drawer} onOpenChange={(o) => { if (!o) setDrawer(null); }}>
         <SheetContent side="right" className="w-full sm:max-w-xl p-0 flex flex-col gap-0">
@@ -367,12 +503,61 @@ function AdminCockpit() {
   );
 }
 
+/* ============== COMMAND TERMINAL ============== */
+function CommandTerminal() {
+  const [input, setInput] = useState("");
+  
+  const execCmd = useMutation({
+    mutationFn: async (text: string) => {
+      const parts = text.trim().split(" ");
+      const cmd = parts[0].replace("/", "");
+      const args = parts.slice(1).join(" ");
+      return authedFetch("/api/v1/admin/command", {
+        method: "POST",
+        body: JSON.stringify({ command: cmd, args }),
+      });
+    },
+    onSuccess: (data: any) => {
+      toast.success(data.message || "Command executed successfully");
+      setInput("");
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Unknown command");
+    }
+  });
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && input.startsWith("/")) {
+      execCmd.mutate(input);
+    }
+  };
+
+  return (
+    <div className="mt-4 flex items-center gap-2 rounded-xl border border-green-900/30 bg-[#0a0a0a] p-3 text-green-500 shadow-inner">
+      <Terminal className="h-4 w-4" />
+      <span className="font-mono text-sm opacity-70">admin@cockpit:~$</span>
+      <input
+        type="text"
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        onKeyDown={handleKeyDown}
+        placeholder="Type a command (e.g. /broadcast push hard team!)..."
+        className="flex-1 bg-transparent border-none outline-none font-mono text-sm placeholder:text-green-900/50 text-green-400"
+        disabled={execCmd.isPending}
+        autoComplete="off"
+      />
+      {execCmd.isPending && <span className="animate-pulse text-xs font-mono">executing...</span>}
+    </div>
+  );
+}
+
 /* ============== WHY NOT CLOSING PANEL ============== */
 function WhyPanel({
   whys,
   whyTab,
   onWhyTabChange,
   whyByTcm,
+  tcmHealthMap,
   open,
   rows,
   tcms,
@@ -382,6 +567,7 @@ function WhyPanel({
   whyTab: WhyTab;
   onWhyTabChange: (t: WhyTab) => void;
   whyByTcm: Array<{ tcm: string; entries: Array<[string, AdminLeadRow[]]>; total: number }>;
+  tcmHealthMap: Map<string, ReturnType<typeof computeTcmHealth>[number]>;
   open: AdminLeadRow[];
   rows: AdminLeadRow[];
   tcms: Array<{ id: string; name: string }>;
@@ -421,10 +607,10 @@ function WhyPanel({
           <button
             key={t.key}
             onClick={() => onWhyTabChange(t.key)}
-            className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+            className={`text-[11px] font-medium rounded-full px-3 py-1 transition-colors ${
               whyTab === t.key
-                ? "bg-accent text-accent-foreground border-accent"
-                : "border-border text-muted-foreground hover:border-foreground/30"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "bg-card text-muted-foreground border border-border hover:bg-muted/50 hover:text-foreground"
             }`}
           >
             {t.label}
@@ -437,10 +623,10 @@ function WhyPanel({
           <div className="flex flex-wrap gap-1 mb-2">
             <button
               onClick={() => setWhyTcmFilter("all")}
-              className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+              className={`text-[11px] font-medium rounded-full px-3 py-1 transition-colors ${
                 whyTcmFilter === "all"
-                  ? "bg-accent text-accent-foreground border-accent"
-                  : "border-border text-muted-foreground hover:border-foreground/30"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-card text-muted-foreground border border-border hover:bg-muted/50 hover:text-foreground"
               }`}
             >
               All
@@ -449,10 +635,10 @@ function WhyPanel({
               <button
                 key={t.id}
                 onClick={() => setWhyTcmFilter(t.id)}
-                className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+                className={`text-[11px] font-medium rounded-full px-3 py-1 transition-colors ${
                   whyTcmFilter === t.id
-                    ? "bg-accent text-accent-foreground border-accent"
-                    : "border-border text-muted-foreground hover:border-foreground/30"
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "bg-card text-muted-foreground border border-border hover:bg-muted/50 hover:text-foreground"
                 }`}
               >
                 {t.name}
@@ -472,7 +658,17 @@ function WhyPanel({
                   }}
                   className="w-full flex justify-between items-center p-1.5 rounded hover:bg-muted/50 transition-colors"
                 >
-                  <span className="font-medium truncate">{t.tcm}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium truncate">{t.tcm}</span>
+                    {tcmHealthMap.get(t.tcm) && (
+                      <span className={`text-[9px] px-1.5 py-0.5 rounded ${
+                        tcmHealthMap.get(t.tcm)!.riskFlag === 'burn' ? 'bg-destructive/20 text-destructive' :
+                        tcmHealthMap.get(t.tcm)!.riskFlag === 'watch' ? 'bg-warning/20 text-warning' : 'bg-success/20 text-success'
+                      }`}>
+                        {tcmHealthMap.get(t.tcm)!.loadScore}% Load
+                      </span>
+                    )}
+                  </div>
                   <span className="font-mono text-accent">{t.total}</span>
                 </button>
                 <div className="pl-3 space-y-0.5 text-muted-foreground">
@@ -571,10 +767,10 @@ function ObjPanel({
           <button
             key={t.key}
             onClick={() => onObjTabChange(t.key)}
-            className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+            className={`text-[11px] font-medium rounded-full px-3 py-1 transition-colors ${
               objTab === t.key
-                ? "bg-accent text-accent-foreground border-accent"
-                : "border-border text-muted-foreground hover:border-foreground/30"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "bg-card text-muted-foreground border border-border hover:bg-muted/50 hover:text-foreground"
             }`}
           >
             {t.label}
@@ -586,10 +782,10 @@ function ObjPanel({
         <div className="flex flex-wrap gap-1 mb-2">
           <button
             onClick={() => onObjTcmChange("all")}
-            className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+            className={`text-[11px] font-medium rounded-full px-3 py-1 transition-colors ${
               objTcmFilter === "all"
-                ? "bg-accent text-accent-foreground border-accent"
-                : "border-border text-muted-foreground hover:border-foreground/30"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "bg-card text-muted-foreground border border-border hover:bg-muted/50 hover:text-foreground"
             }`}
           >
             All
@@ -598,10 +794,10 @@ function ObjPanel({
             <button
               key={t.id}
               onClick={() => onObjTcmChange(t.id)}
-              className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+              className={`text-[11px] font-medium rounded-full px-3 py-1 transition-colors ${
                 objTcmFilter === t.id
-                  ? "bg-accent text-accent-foreground border-accent"
-                  : "border-border text-muted-foreground hover:border-foreground/30"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-card text-muted-foreground border border-border hover:bg-muted/50 hover:text-foreground"
               }`}
             >
               {t.name}
@@ -669,10 +865,10 @@ function ClosePanel({
       <div className="flex flex-wrap gap-1 mb-2">
         <button
           onClick={() => onTcmChange("all")}
-          className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+          className={`text-[11px] font-medium rounded-full px-3 py-1 transition-colors ${
             tcmFilter === "all"
-              ? "bg-accent text-accent-foreground border-accent"
-              : "border-border text-muted-foreground hover:border-foreground/30"
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "bg-card text-muted-foreground border border-border hover:bg-muted/50 hover:text-foreground"
           }`}
         >
           All TCMs
@@ -681,10 +877,10 @@ function ClosePanel({
           <button
             key={t.id}
             onClick={() => onTcmChange(t.id)}
-            className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+            className={`text-[11px] font-medium rounded-full px-3 py-1 transition-colors ${
               tcmFilter === t.id
-                ? "bg-accent text-accent-foreground border-accent"
-                : "border-border text-muted-foreground hover:border-foreground/30"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "bg-card text-muted-foreground border border-border hover:bg-muted/50 hover:text-foreground"
             }`}
           >
             {t.name}
@@ -697,9 +893,9 @@ function ClosePanel({
           <li key={r.lead.id}>
             <button
               onClick={() => onSelectLead(r)}
-              className="w-full flex justify-between items-center p-1.5 rounded hover:bg-muted/50 transition-colors"
+              className="w-full flex justify-between items-center p-1.5 rounded hover:bg-muted/50 transition-colors gap-2"
             >
-              <span className="truncate text-left">
+              <span className="truncate text-left flex-1">
                 {(() => {
                   const rawName = r.lead.name;
                   const rawArea = r.lead.preferredArea;
@@ -709,7 +905,8 @@ function ClosePanel({
                   return <><span className="font-medium">{i + 1}. {name}</span>{area ? <span className="text-muted-foreground ml-1">· {area}</span> : null}</>;
                 })()}
               </span>
-              <span className="text-accent font-mono shrink-0 ml-2">{r.probability}%</span>
+              <LeadSparkline row={r} width={48} height={20} />
+              <span className="text-accent font-mono shrink-0 ml-1">{r.probability}%</span>
             </button>
           </li>
         ))}
@@ -791,8 +988,8 @@ function LeadDetailPanel({ row }: { row: AdminLeadRow }) {
             <ul className="space-y-1 text-xs">
               {row.objections.slice(0, 6).map((o) => (
                 <li key={o.id} className="flex justify-between items-center p-1.5 rounded border border-border/50">
-                  <span className="truncate">{o.code.replace(/-/g, " ")}</span>
-                  <span className={`shrink-0 ml-2 ${
+                  <span className="truncate flex-1">{o.code.replace(/-/g, " ")}</span>
+                  <span className={`shrink-0 text-[10px] ml-2 ${
                     o.resolution === "yes" ? "text-success" : o.resolution === "partially" ? "text-warning" : "text-destructive"
                   }`}>
                     {o.resolution}
@@ -802,6 +999,11 @@ function LeadDetailPanel({ row }: { row: AdminLeadRow }) {
             </ul>
           </div>
         )}
+
+        <div className="flex gap-2 mt-4">
+          <Button size="sm" variant="outline" className="flex-1 text-xs h-8" onClick={() => alert("Re-assign prompt opened.")}>Re-assign Lead</Button>
+          <Button size="sm" variant="default" className="flex-1 text-xs h-8 bg-primary text-primary-foreground shadow-sm hover:bg-accent/80" onClick={() => alert("Nudge sent to TCM.")}>Nudge TCM</Button>
+        </div>
 
         {row.calls.length > 0 && (
           <div>

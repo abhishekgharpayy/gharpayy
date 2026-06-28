@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { Lead, Todo, Activity, TourStatus, BookingEntity, TenantEntity } from "./entities.js";
+import { Lead, Todo, Activity, TourStatus, BookingEntity, TenantEntity, PaymentRecord } from "./entities.js";
 
 // Event registry - every event the system can emit. Server publishes, client + workers subscribe.
 export const EventType = z.enum([
@@ -45,6 +45,20 @@ export const EventType = z.enum([
   "evt.room.released",
   // Owner sharing
   "evt.booking.shared_with_owner",
+  // Payments
+  "evt.payment.recorded",
+  "evt.payment.updated",
+  "evt.payment.deleted",
+  "evt.rents.generated",
+  // Alerts
+  "evt.alert.rent_overdue",
+  "evt.alert.booking_approval",
+  "evt.alert.tenant_exited",
+  "evt.alert.vacant_room",
+  "evt.alert.followup_due",
+  "evt.alert.tour_no_show",
+  "evt.alert.sla_breach",
+  "evt.alert.daily_summary",
 ]);
 export type EventType = z.infer<typeof EventType>;
 
@@ -233,6 +247,46 @@ export const TenantStatusChangedEvt = Envelope.extend({
   payload: z.object({ tenantId: z.string(), from: z.string(), to: z.string(), exitDate: z.string().nullable() }),
 });
 
+// ---------- Payment events ----------
+export const PaymentRecordedEvt = Envelope.extend({
+  type: z.literal("evt.payment.recorded"),
+  payload: z.object({ payment: PaymentRecord }),
+});
+export const PaymentUpdatedEvt = Envelope.extend({
+  type: z.literal("evt.payment.updated"),
+  payload: z.object({ paymentId: z.string(), patch: z.record(z.string(), z.unknown()) }),
+});
+export const PaymentDeletedEvt = Envelope.extend({
+  type: z.literal("evt.payment.deleted"),
+  payload: z.object({ paymentId: z.string(), tenantId: z.string() }),
+});
+export const RentsGeneratedEvt = Envelope.extend({
+  type: z.literal("evt.rents.generated"),
+  payload: z.object({ month: z.string(), count: z.number() }),
+});
+
+// ---------- Alert events ----------
+export const AlertRentOverdueEvt = Envelope.extend({
+  type: z.literal("evt.alert.rent_overdue"),
+  payload: z.object({ alertId: z.string(), title: z.string(), severity: z.string() }),
+});
+export const AlertBookingApprovalEvt = Envelope.extend({
+  type: z.literal("evt.alert.booking_approval"),
+  payload: z.object({ alertId: z.string(), title: z.string(), severity: z.string() }),
+});
+export const AlertTenantExitedEvt = Envelope.extend({
+  type: z.literal("evt.alert.tenant_exited"),
+  payload: z.object({ alertId: z.string(), title: z.string(), severity: z.string() }),
+});
+export const SlaBreachAlertEvt = Envelope.extend({
+  type: z.literal("evt.alert.sla_breach"),
+  payload: z.object({ leadId: z.string(), stage: z.string(), breachHours: z.number() }),
+});
+export const DailySummaryAlertEvt = Envelope.extend({
+  type: z.literal("evt.alert.daily_summary"),
+  payload: z.object({ date: z.string(), coldLeadsFlagged: z.number(), slaBreaches: z.number(), toursCompleted: z.number() }),
+});
+
 export const DomainEvent = z.discriminatedUnion("type", [
   LeadCreatedEvt,
   LeadUpdatedEvt,
@@ -267,5 +321,14 @@ export const DomainEvent = z.discriminatedUnion("type", [
   TenantCreatedEvt,
   TenantUpdatedEvt,
   TenantStatusChangedEvt,
+  PaymentRecordedEvt,
+  PaymentUpdatedEvt,
+  PaymentDeletedEvt,
+  RentsGeneratedEvt,
+  AlertRentOverdueEvt,
+  AlertBookingApprovalEvt,
+  AlertTenantExitedEvt,
+  SlaBreachAlertEvt,
+  DailySummaryAlertEvt,
 ]);
 export type DomainEvent = z.infer<typeof DomainEvent>;

@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useAuthUser } from "@/lib/auth-store";
-import { AdminShell } from "@/admin/components/AdminShell";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -42,10 +41,10 @@ function AdminOwnerBookings() {
     return bookings.filter((b) =>
       f(b) &&
       (term === "" ||
-        b.customer.name.toLowerCase().includes(term) ||
-        b.customer.phone.toLowerCase().includes(term) ||
-        b.inventory.propertyName.toLowerCase().includes(term) ||
-        b.inventory.roomNumber.toLowerCase().includes(term))
+        (b.customer?.name || "").toLowerCase().includes(term) ||
+        (b.customer?.phone || "").toLowerCase().includes(term) ||
+        (b.inventory?.propertyName || "").toLowerCase().includes(term) ||
+        (b.inventory?.roomNumber || "").toLowerCase().includes(term))
     );
   }, [bookings, tab, q]);
 
@@ -67,7 +66,11 @@ function AdminOwnerBookings() {
   const open = bookings.find((b) => b.id === openId);
 
   return (
-    <AdminShell title="Owner Bookings" sub="Lifecycle-managed bookings with owner approval gates">
+    <div className="space-y-4">
+      <div>
+        <h1 className="text-lg font-semibold">Owner Bookings</h1>
+        <p className="text-sm text-muted-foreground">Lifecycle-managed bookings with owner approval gates</p>
+      </div>
       <div className="p-4 space-y-4">
         <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
           <Stat label="Total bookings" value={bookings.length.toString()} />
@@ -137,7 +140,7 @@ function AdminOwnerBookings() {
           </div>
         </div>
       </div>
-    </AdminShell>
+    </div>
   );
 }
 

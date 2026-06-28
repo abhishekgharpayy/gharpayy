@@ -416,6 +416,7 @@ export function LeadControlPanel({ subject, trigger, defaultTab = "overview" }: 
                 </div>
               </>
             )}
+
           </TabsContent>
 
           {/* ---- ACTIONS (WhatsApp templates) ---- */}

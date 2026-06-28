@@ -3141,7 +3141,7 @@ function UpcomingTourCard({
             (tour as any).propertyName ??
             (displayLeadName ? `${displayLeadName}'s Tour` : "Property TBD")}
         </div>
-        <Badge className="bg-accent text-accent-foreground capitalize">{tour.status}</Badge>
+        <Badge className="bg-primary text-primary-foreground shadow-sm capitalize">{tour.status}</Badge>
       </div>
 
       {/* Date, time, type */}

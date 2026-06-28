@@ -8,7 +8,12 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "outDir": "dist",
-    "rootDir": ".."
+    "rootDir": "..",
+    "baseUrl": ".",
+    "paths": {
+      "zod": ["node_modules/zod"]
+    }
   },
-  "include": ["src/**/*", "../src/contracts/**/*"]
+  "include": ["src/**/*", "../src/contracts/**/*"],
+  "exclude": ["src/scripts/generate-html-audit.ts", "src/scripts/generate-local-audit.ts"]
 }

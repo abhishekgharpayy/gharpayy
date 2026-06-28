@@ -143,12 +143,14 @@ export default function OwnerVisitsPage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 bg-slate-100 rounded-xl p-1">
+        <div className="flex flex-wrap items-center gap-1.5">
           {(["upcoming", "past"] as const).map(t => (
             <button key={t} onClick={() => setTab(t)}
               className={cn(
-                "flex-1 py-2 text-sm font-bold rounded-lg capitalize transition-all",
-                tab === t ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                "text-[11px] font-medium rounded-full px-3 py-1 transition-colors capitalize",
+                tab === t
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-card text-muted-foreground border border-border hover:bg-muted/50 hover:text-foreground"
               )}>
               {t === "upcoming" ? `Upcoming (${upcoming.length})` : `Past (${past.length})`}
             </button>

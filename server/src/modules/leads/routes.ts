@@ -12,6 +12,7 @@ const ListQuery = z.object({
   stage: z.string().optional(),
   assignedTcmId: z.string().optional(),
   zoneId: z.string().optional(),
+  search: z.string().optional(),
   limit: z.coerce.number().min(1).max(200).default(50),
   cursor: z.string().optional(),       // ULID cursor (createdAt-sorted)
 });
@@ -63,6 +64,7 @@ export function registerLeadsRoutes(app: FastifyInstance) {
       "cmd.tenant.create": ["tenant.create"],
       "cmd.tenant.update": ["tenant.update"],
       "cmd.tenant.update_status": ["tenant.update"],
+      "cmd.lead.flag_intervention": ["lead.update"],
     };
     const need = scopeMap[cmd.type] ?? [];
     if (!need.every((s) => req.user!.scopes.includes(s as never))) {
@@ -80,6 +82,16 @@ export function registerLeadsRoutes(app: FastifyInstance) {
     if (q.assignedTcmId) filter.assignedTcmId = q.assignedTcmId;
     if (q.zoneId) filter.zoneId = q.zoneId;
     if (q.cursor) filter._id = { $lt: q.cursor };
+    
+    if (q.search) {
+      const s = q.search.trim();
+      const numS = s.replace(/\D/g, '');
+      const searchOr: any[] = [ { name: { $regex: s, $options: "i" } } ];
+      if (numS.length > 0) searchOr.push({ phone: { $regex: numS, $options: "i" } });
+      
+      (filter as any).$and = (filter as any).$and || [];
+      (filter as any).$and.push({ $or: searchOr });
+    }
 
     // Role-based visibility:
     //  - super_admin / manager: see everything in tenant
@@ -90,6 +102,8 @@ export function registerLeadsRoutes(app: FastifyInstance) {
     const role = req.user!.role;
     const myId = req.user!.sub;
     const myZones = req.user!.zones ?? [];
+    
+    let roleOr: any[] = [];
     if (role === "admin") {
       if (myZones.length === 0) {
         return reply.send({ items: [], nextCursor: null });
@@ -103,7 +117,7 @@ export function registerLeadsRoutes(app: FastifyInstance) {
       const subordinateIds = subordinates.map((u) => u._id);
       subordinateIds.push(myId); // include self
 
-      filter.$or = [
+      roleOr = [
         { zoneId: { $in: myZones } },
         { zoneCategory: { $in: myZones } },
         { assignedTcmId: { $in: subordinateIds } },
@@ -111,7 +125,7 @@ export function registerLeadsRoutes(app: FastifyInstance) {
         { createdBy: { $in: subordinateIds } },
       ];
     } else if (role === "member") {
-      filter.$or = [
+      roleOr = [
         { assignedTcmId: myId },
         { assigneeId: myId },
         { createdBy: myId },
@@ -138,7 +152,7 @@ export function registerLeadsRoutes(app: FastifyInstance) {
         .filter((t: any) => !pendingTourIds.has(t._id))
         .map((t: any) => t.leadId);
 
-      filter.$or = [
+      roleOr = [
         { assignedTcmId: myId },
         { assigneeId: myId },
         { createdBy: myId },
@@ -146,6 +160,11 @@ export function registerLeadsRoutes(app: FastifyInstance) {
       ];
     }
     // super_admin and manager fall through with no extra filter.
+    
+    if (roleOr.length > 0) {
+      (filter as any).$and = (filter as any).$and || [];
+      (filter as any).$and.push({ $or: roleOr });
+    }
 
     const items = await col<Lead>("leads")
       .find(filter)
@@ -394,10 +413,130 @@ Return exactly this JSON structure:
     const pending = await getPendingAssignmentsForUser(req.user!.sub, req.user!.tenantId);
     return reply.send({ items: pending });
   });
-
   // GET /api/assignment-notifications/passed — recently passed assignments (so assigner is informed)
   app.get("/api/assignment-notifications/passed", { preHandler: [requireAuth] }, async (req, reply) => {
     const passed = await getPassedNotificationsForUser(req.user!.sub, req.user!.tenantId);
     return reply.send({ items: passed });
+  });
+
+  // POST /api/leads/import — bulk import leads from CSV/JSON
+  app.post("/api/leads/import", { preHandler: [requireAuth, requireScope("lead.create")] }, async (req, reply) => {
+    const { leads: incomingLeads } = req.body as { leads: Array<Record<string, unknown>> };
+    if (!Array.isArray(incomingLeads) || incomingLeads.length === 0) {
+      return reply.code(400).send({ code: "VALIDATION_FAILED", message: "leads array required" });
+    }
+    if (incomingLeads.length > 500) {
+      return reply.code(400).send({ code: "VALIDATION_FAILED", message: "Max 500 leads per import" });
+    }
+
+    const tenantId = req.user!.tenantId;
+    const actorId = req.user!.sub;
+    const now = new Date().toISOString();
+
+    // Normalize phone to E.164-ish (strip spaces/dashes, ensure +91 prefix for 10-digit Indian numbers)
+    function normalizePhone(raw: string): string {
+      const digits = (raw || "").replace(/\D/g, "");
+      if (digits.length === 10) return `+91${digits}`;
+      if (digits.length === 12 && digits.startsWith("91")) return `+${digits}`;
+      if (digits.startsWith("+")) return `+${digits.replace(/\D/g, "")}`;
+      return `+${digits}`;
+    }
+
+    // Check existing phones in DB for dedup
+    const phonesToCheck = incomingLeads.map(l => normalizePhone(String(l.phone || l.Phone || ""))).filter(p => p.length > 5);
+    const existingDocs = await col("lead_phone_index")
+      .find({ tenantId, phoneE164: { $in: phonesToCheck } })
+      .project({ phoneE164: 1 })
+      .toArray();
+    const existingPhones = new Set(existingDocs.map((d: any) => d.phoneE164));
+
+    const created: any[] = [];
+    const duplicates: Array<{ phone: string; existingLeadId: string }> = [];
+    const rejected: Array<{ phone: string; reason: string }> = [];
+
+    for (const raw of incomingLeads) {
+      const phone = normalizePhone(String(raw.phone || raw.Phone || raw.Mobile || raw.mobile || ""));
+      if (phone.length < 5) {
+        rejected.push({ phone: String(raw.phone || ""), reason: "Invalid phone number" });
+        continue;
+      }
+      if (existingPhones.has(phone)) {
+        duplicates.push({ phone, existingLeadId: "exists" });
+        continue;
+      }
+
+      const name = String(raw.name || raw.Name || raw.Lead || "").trim() || "Lead name not captured";
+      const source = String(raw.source || raw.Source || "CSV Import").trim();
+      const budget = Number(raw.budget || raw.Budget || 0);
+      const preferredArea = String(raw.preferredArea || raw.area || raw.Area || raw.location || raw.Location || "").trim();
+      const moveInDate = String(raw.moveInDate || raw["Move-in Date"] || raw.move_in || now).trim();
+      const tags = raw.tags ? (Array.isArray(raw.tags) ? raw.tags : String(raw.tags).split(",").map((t: string) => t.trim())) : [];
+
+      const leadId = `upl-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const lead = {
+        _id: leadId,
+        name,
+        phone,
+        source,
+        budget,
+        budgetText: budget > 0 ? `₹${budget}` : "",
+        moveInDate,
+        preferredArea,
+        zoneId: null,
+        assignedTcmId: null,
+        stage: "new",
+        intent: "warm",
+        confidence: 50,
+        tags,
+        nextFollowUpAt: null,
+        responseSpeedMins: 0,
+        email: String(raw.email || raw.Email || ""),
+        areas: preferredArea ? [preferredArea] : [],
+        fullAddress: String(raw.address || raw.Address || ""),
+        type: String(raw.type || raw.Type || ""),
+        room: String(raw.room || raw.Room || ""),
+        need: String(raw.need || raw.Need || ""),
+        inBLR: null,
+        quality: null,
+        specialReqs: String(raw.specialReqs || raw.notes || ""),
+        notes: String(raw.notes || raw.Notes || ""),
+        zoneCategory: "",
+        assigneeId: null,
+        stageLabel: "",
+        createdAt: now,
+        updatedAt: now,
+        createdBy: actorId,
+        tenantId,
+      };
+
+      // Insert into leads collection
+      await col("leads").insertOne(lead);
+
+      // Insert phone index for dedup
+      await col("lead_phone_index").insertOne({
+        _id: `pi_${leadId}`,
+        tenantId,
+        phoneE164: phone,
+        leadId,
+        createdAt: now,
+      });
+
+      // Add to existing set so intra-batch dupes are caught
+      existingPhones.add(phone);
+      created.push({ id: leadId, name, phone });
+    }
+
+    return reply.send({
+      success: true,
+      summary: {
+        total: incomingLeads.length,
+        created: created.length,
+        duplicates: duplicates.length,
+        rejected: rejected.length,
+      },
+      created,
+      duplicates,
+      rejected,
+    });
   });
 }

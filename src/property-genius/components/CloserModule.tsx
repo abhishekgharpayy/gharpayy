@@ -65,7 +65,7 @@ export function CloserModule({ onOpen }: { onOpen: (pg: PG) => void }) {
         </p>
       </div>
 
-      <div className="flex overflow-x-auto rounded-lg border border-border bg-surface-1 p-1 scrollbar-none">
+      <div className="flex flex-wrap items-center gap-1.5">
         {([
           { k: "instant",   l: "Instant Match", I: Zap },
           { k: "send3",     l: "Send 3",        I: Send },
@@ -74,10 +74,12 @@ export function CloserModule({ onOpen }: { onOpen: (pg: PG) => void }) {
         ] as const).map(({ k, l, I }) => (
           <button key={k} onClick={() => setTab(k)}
             className={cn(
-              "flex shrink-0 items-center gap-1.5 rounded-md px-3 py-2 text-xs font-medium transition-smooth",
-              tab === k ? "bg-primary text-primary-foreground shadow-glow" : "text-muted-foreground hover:text-foreground"
+              "text-[11px] font-medium rounded-full px-3 py-1 transition-colors inline-flex items-center gap-1.5",
+              tab === k
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "bg-card text-muted-foreground border border-border hover:bg-muted/50 hover:text-foreground"
             )}>
-            <I className="h-3.5 w-3.5" /> {l}
+            <I className="h-3 w-3" /> {l}
           </button>
         ))}
       </div>

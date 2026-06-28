@@ -4,7 +4,7 @@ import {
   Building2, Search, Sun, Command, Trophy, Sparkles, MessageSquare,
   IndianRupee, MapPin, Zap, Users, Home, Calendar, Store, Swords, Settings, AlertTriangle,
   ShieldCheck, Inbox, Camera, HelpCircle, Layers, HeartPulse, ListTodo, Gauge, Radio,
-  Menu, X, CalendarCheck, Bell,
+  BarChart3, Radar, Menu, X, FileText, CalendarCheck, Bell,
 } from "lucide-react";
 import { MemberDailyReminderPopup } from "@/components/stats/MemberDailyReminderPopup";
 import { NotificationCenter } from "./NotificationCenter";
@@ -262,19 +262,27 @@ export function AppShell({ children }: { children: ReactNode }) {
     ],
     "super-admin": [
       { to: "/admin", label: "Cockpit", icon: Gauge },
-      { to: "/admin/supreme", label: "Supreme \u00B7 God Mode", icon: Zap },
+      { to: "/admin/performance", label: "Performance", icon: BarChart3 },
+      { to: "/admin/supreme", label: "Supreme · God Mode", icon: Zap },
       { to: "/admin/command", label: "Command Bridge", icon: Swords },
-      { to: "/admin/war-room", label: "War-Room TV", icon: Radio },
+      { to: "/admin/warroom", label: "War-Room TV", icon: Radio },
       { to: "/admin/leads", label: "Master Leads", icon: Target },
-      { to: "/admin/visits", label: "Master Visits", icon: CalendarPlus },
       { to: "/admin/bookings", label: "Bookings", icon: IndianRupee },
+      { to: "/admin/rents", label: "Rent Collection", icon: IndianRupee },
+      { to: "/admin/payouts", label: "Owner Payouts", icon: IndianRupee },
+      { to: "/admin/property-gallery", label: "Photo Gallery", icon: Camera },
+      { to: "/admin/whatsapp", label: "WhatsApp", icon: MessageSquare },
+      { to: "/admin/agreements", label: "Agreements", icon: FileText },
       { to: "/admin/owner-bookings", label: "Owner Console", icon: Boxes },
       { to: "/admin/tenants", label: "Tenants", icon: Users },
       { to: "/admin/calendar", label: "Master Calendar", icon: Calendar },
       { to: "/admin/owners", label: "Master Owners", icon: ShieldCheck },
-      { to: "/admin/people", label: "People 360", icon: Users },
+      { to: "/admin/people360", label: "People 360", icon: Sparkles },
+      { to: "/admin/radar", label: "Radar", icon: Radar },
       { to: "/admin/intelligence", label: "Intelligence", icon: Activity },
+      { to: "/admin/health-score", label: "⚡ Health Score", icon: HeartPulse },
       { to: "/admin/property", label: "Property Pulse", icon: Building2 },
+      { to: "/admin/impact-command", label: "Impact Command", icon: ShieldCheck },
       { to: "/admin/impact", label: "Impact Analytics", icon: HeartPulse },
       { to: "/admin/revenue", label: "Revenue Forecast", icon: IndianRupee },
       { to: "/admin/leaderboard", label: "TCM Leaderboard", icon: Trophy },
@@ -398,7 +406,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   <span className={cn(
                     "ml-auto text-[10px] rounded-full px-1.5 py-0.5 font-mono",
                     it.accent
-                      ? "bg-accent text-accent-foreground"
+                      ? "bg-primary text-primary-foreground shadow-sm"
                       : "bg-destructive text-destructive-foreground",
                   )}>
                     {it.badge}

@@ -6,12 +6,13 @@
 // the VPS is provisioned. As soon as VITE_API_URL is set and reachable,
 // real network mode kicks in automatically.
 import { localAdapter, isLocalMode } from "./local-adapter";
+import { ulid } from "@/contracts";
 
 let rawApiUrl = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 if (rawApiUrl && !rawApiUrl.startsWith("http://") && !rawApiUrl.startsWith("https://")) {
   rawApiUrl = "https://" + rawApiUrl;
 }
-const API_URL = rawApiUrl;
+export const API_URL = rawApiUrl;
 
 export class ApiError extends Error {
   constructor(
@@ -125,6 +126,33 @@ async function safe<T>(networkFn: () => Promise<T>, localFn: () => T): Promise<T
   return await networkFn();
 }
 
+export const apiClient = {
+  get: <T>(path: string, opts?: { params?: Record<string, any> }) => {
+    const qs = opts?.params
+      ? `?${new URLSearchParams(Object.entries(opts.params).map(([k, v]) => [k, String(v)])).toString()}`
+      : "";
+    return request<T>(`${path}${qs}`);
+  },
+  post: <T>(path: string, body?: unknown) =>
+    request<T>(path, {
+      method: "POST",
+      body: body != null ? JSON.stringify(body) : undefined,
+    }),
+  put: <T>(path: string, body?: unknown) =>
+    request<T>(path, {
+      method: "PUT",
+      body: body != null ? JSON.stringify(body) : undefined,
+    }),
+  patch: <T>(path: string, body?: unknown) =>
+    request<T>(path, {
+      method: "PATCH",
+      body: body != null ? JSON.stringify(body) : undefined,
+    }),
+  delete: <T>(path: string) =>
+    request<T>(path, { method: "DELETE" }),
+};
+
+
 // ---------- Types shared with Settings UI ----------
 export type ManagedRole = "manager" | "admin" | "member" | "owner" | "tcm";
 export type AnyRole = "super_admin" | ManagedRole;
@@ -154,6 +182,8 @@ export interface Zone {
   city: string;
   areas: string[];
   color: string;
+  ownerId?: string; // admin assignment
+  visibility?: 'public' | 'private' | 'team';
   createdAt?: string;
   updatedAt?: string;
 }
@@ -198,6 +228,9 @@ export const api = {
     tokenStore.set(r.token);
     return r;
   },
+  revenue: {
+    leakage: () => request<{ leakage: { reason: string, amount: number }[] }>("/api/v1/admin/revenue/leakage"),
+  },
 
   logout: async () => {
     await request("/api/auth/logout", { method: "POST" }).catch(() => undefined);
@@ -236,6 +269,7 @@ export const api = {
         },
         () =>
           localAdapter.listLeads({
+            ...q,
             limit: typeof q.limit === "number" ? q.limit : Number(q.limit ?? 100),
           }),
       ),
@@ -356,21 +390,29 @@ export const api = {
     list: () => request<ManagedUser[]>("/api/members"),
   },
   tcms: {
-    list: () => request<ManagedUser[]>("/api/tcms"),
+    list: () =>
+      safe<ManagedUser[]>(
+        () => request<ManagedUser[]>("/api/tcms"),
+        () => [],
+      ),
   },
   owners: {
     list: () => request<ManagedUser[]>("/api/owners"),
   },
   zones: {
-    list: () => request<Zone[]>("/api/zones"),
+    list: () => request<Zone[]>("/api/myt/zones"),
     create: (input: ZoneInput) =>
-      request<Zone>("/api/zones", { method: "POST", body: JSON.stringify(input) }),
+      request<Zone>("/api/myt/zones", { method: "POST", body: JSON.stringify(input) }),
     update: (id: string, input: ZoneInput) =>
-      request<Zone>(`/api/zones/${id}`, { method: "PUT", body: JSON.stringify(input) }),
-    remove: (id: string) => request<{ ok: true }>(`/api/zones/${id}`, { method: "DELETE" }),
+      request<Zone>(`/api/myt/zones/${id}`, { method: "PUT", body: JSON.stringify(input) }),
+    remove: (id: string) => request<{ ok: true }>(`/api/myt/zones/${id}`, { method: "DELETE" }),
   },
   properties: {
-    list: () => request<import("@/lib/types").Property[]>("/api/properties"),
+    list: () =>
+      safe<import("@/lib/types").Property[]>(
+        () => request<import("@/lib/types").Property[]>("/api/properties"),
+        () => [],
+      ),
     create: (input: any) =>
       request<import("@/lib/types").Property>("/api/properties", {
         method: "POST",
@@ -386,10 +428,13 @@ export const api = {
 
   followUps: {
     list: (q: { leadId?: string; done?: boolean; limit?: number } = {}) =>
-      request<{ items: Record<string, unknown>[] }>(
-        `/api/follow-ups?${new URLSearchParams(
-          Object.entries(q).map(([k, v]) => [k, String(v)]),
-        ).toString()}`,
+      safe<{ items: Record<string, unknown>[] }>(
+        () => request<{ items: Record<string, unknown>[] }>(
+          `/api/follow-ups?${new URLSearchParams(
+            Object.entries(q).map(([k, v]) => [k, String(v)]),
+          ).toString()}`,
+        ),
+        () => ({ items: [] })
       ),
     create: (input: {
       leadId: string;
@@ -399,15 +444,21 @@ export const api = {
       priority: "high" | "medium" | "low" | "urgent";
       reason?: string;
     }) =>
-      request<Record<string, unknown>>("/api/follow-ups", {
-        method: "POST",
-        body: JSON.stringify(input),
-      }),
+      safe<Record<string, unknown>>(
+        () => request<Record<string, unknown>>("/api/follow-ups", {
+          method: "POST",
+          body: JSON.stringify(input),
+        }),
+        () => ({ ...input, id: "local-followup" })
+      ),
     update: (id: string, patch: Record<string, unknown>) =>
-      request<Record<string, unknown>>(`/api/follow-ups/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify(patch),
-      }),
+      safe<Record<string, unknown>>(
+        () => request<Record<string, unknown>>(`/api/follow-ups/${id}`, {
+          method: "PATCH",
+          body: JSON.stringify(patch),
+        }),
+        () => ({ id, ...patch })
+      ),
   },
   handoffs: {
     list: (q: { leadId?: string; limit?: number } = {}) =>
@@ -538,6 +589,70 @@ export const api = {
       ),
     get: (id: string) =>
       request<import("@/contracts").TenantEntity>(`/api/tenants/${id}`),
+    create: (input: any) =>
+      safe<import("@/contracts").TenantEntity>(
+        () => request<import("@/contracts").TenantEntity>("/api/tenants", {
+          method: "POST",
+          body: JSON.stringify(input)
+        }),
+        () => {
+          // Mock local implementation
+          return { id: "mock_" + Date.now(), ...input } as any;
+        }
+      ),
+  },
+
+  impactCommand: (q?: { timeFilter?: string; zone?: string }) => {
+    const qs = new URLSearchParams(q as Record<string, string>).toString();
+    return request<any>(`/api/v1/admin/impact-command${qs ? `?${qs}` : ""}`);
+  },
+  watchdog: () => request<any>("/api/v1/admin/watchdog"),
+
+  payments: {
+    list: (q: Record<string, string | number> = {}) =>
+      safe<{ items: any[]; nextCursor: string | null }>(
+        () => {
+          const qs = new URLSearchParams(
+            Object.entries(q).map(([k, v]) => [k, String(v)]),
+          ).toString();
+          return request<{ items: any[]; nextCursor: string | null }>(
+            `/api/payments${qs ? `?${qs}` : ""}`,
+          );
+        },
+        () => ({ items: [], nextCursor: null }),
+      ),
+    get: (id: string) => request<any>(`/api/payments/${id}`),
+    record: (input: {
+      tenantId: string;
+      bookingId?: string;
+      tenantName: string;
+      propertyName?: string;
+      month: string;
+      amount: number;
+      method?: "UPI" | "Cash" | "Bank" | "Card" | null;
+      ref?: string | null;
+      type?: string;
+      notes?: string;
+      paidAt?: string | null;
+      dueAt?: string | null;
+    }) =>
+      request<any>("/api/payments", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+    update: (id: string, patch: Record<string, unknown>) =>
+      request<any>(`/api/payments/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(patch),
+      }),
+    remove: (id: string) =>
+      request<{ ok: true }>(`/api/payments/${id}`, { method: "DELETE" }),
+    generateRents: (month: string) =>
+      request<{ ok: true; generated: number; total: number }>(
+        "/api/payments/generate-rents",
+        { method: "POST", body: JSON.stringify({ month }) },
+      ),
+    stats: () => request<any>("/api/payments/stats"),
   },
 
   assignmentNotifications: {
@@ -555,7 +670,197 @@ export const api = {
         () => ({ items: [] }),
       ),
   },
+  media: {
+    list: (propertyId: string) =>
+      safe<{
+        id: string; propertyId: string; roomId: string; url: string; thumbUrl: string;
+        caption: string; isPrimary: boolean; size: number; mimeType: string; createdAt: string;
+      }[]>(
+        () => request<any[]>(`/api/media/${propertyId}`),
+        () => localAdapter.listMedia(propertyId),
+      ),
+    upload: (input: { propertyId: string; roomId?: string; image: string; caption?: string; isPrimary?: boolean }) =>
+      safe<any>(
+        () => request<any>("/api/media/upload", { method: "POST", body: JSON.stringify(input) }),
+        () => localAdapter.command({ _id: ulid(), type: "cmd.media.upload", payload: input }),
+      ),
+    remove: (id: string) =>
+      safe<{ ok: true }>(
+        () => request<{ ok: true }>(`/api/media/${id}`, { method: "DELETE" }),
+        () => localAdapter.command({ _id: ulid(), type: "cmd.media.delete", payload: { id } }),
+      ),
+    setPrimary: (id: string) =>
+      safe<{ ok: true }>(
+        () => request<{ ok: true }>(`/api/media/${id}/primary`, { method: "PATCH" }),
+        () => localAdapter.command({ _id: ulid(), type: "cmd.media.setPrimary", payload: { id } }),
+      ),
+  },
 
+  whatsapp: {
+    conversations: (q: { status?: string; search?: string; limit?: number; cursor?: string } = {}) =>
+      safe<{ items: any[]; nextCursor: string | null }>(
+        () => {
+          const qs = new URLSearchParams(Object.entries(q).filter(([_, v]) => v != null).map(([k, v]) => [k, String(v)])).toString();
+          return request<{ items: any[]; nextCursor: string | null }>(`/api/whatsapp/conversations${qs ? `?${qs}` : ""}`);
+        },
+        () => localAdapter.listWhatsAppConversations(q),
+      ),
+    messages: (conversationId: string, q: { limit?: number; cursor?: string } = {}) =>
+      safe<{ items: any[]; nextCursor: string | null }>(
+        () => {
+          const qs = new URLSearchParams(Object.entries(q).filter(([_, v]) => v != null).map(([k, v]) => [k, String(v)])).toString();
+          return request<{ items: any[]; nextCursor: string | null }>(`/api/whatsapp/conversations/${conversationId}/messages${qs ? `?${qs}` : ""}`);
+        },
+        () => localAdapter.listWhatsAppMessages(conversationId, q),
+      ),
+    send: (conversationId?: string, text: string, mediaUrl?: string, phone?: string, leadName?: string, leadId?: string) =>
+      safe<any>(
+        () => request<any>("/api/whatsapp/send", { method: "POST", body: JSON.stringify({ conversationId, text, mediaUrl: mediaUrl || "", phone, leadName, leadId }) }),
+        () => localAdapter.command({ _id: ulid(), type: "cmd.whatsapp.send", payload: { conversationId, text, mediaUrl, phone, leadName, leadId } }),
+      ),
+    archive: (id: string, archived: boolean) =>
+      safe<{ ok: true }>(
+        () => request<{ ok: true }>(`/api/whatsapp/conversations/${id}/archive`, { method: "PATCH", body: JSON.stringify({ archived }) }),
+        () => localAdapter.command({ _id: ulid(), type: "cmd.whatsapp.archive", payload: { id, archived } }),
+      ),
+  },
+
+  agreements: {
+    list: (q: { status?: string; search?: string; limit?: number; cursor?: string } = {}) =>
+      safe<{ items: any[]; nextCursor: string | null }>(
+        () => {
+          const qs = new URLSearchParams(Object.entries(q).filter(([_, v]) => v != null).map(([k, v]) => [k, String(v)])).toString();
+          return request<{ items: any[]; nextCursor: string | null }>(`/api/agreements${qs ? `?${qs}` : ""}`);
+        },
+        () => localAdapter.listAgreements(q),
+      ),
+    get: (id: string) =>
+      safe<any>(
+        () => request<any>(`/api/agreements/${id}`),
+        () => localAdapter.getAgreement(id),
+      ),
+    create: (input: {
+      bookingId: string; leadId: string; tenantName: string; tenantPhone: string;
+      propertyName: string; propertyAddress: string; roomNumber?: string;
+      rent: number; deposit: number; moveInDate: string; duration?: number; noticePeriod?: number;
+    }) =>
+      safe<any>(
+        () => request<any>("/api/agreements", { method: "POST", body: JSON.stringify(input) }),
+        () => localAdapter.command({ _id: ulid(), type: "cmd.agreement.create", payload: input }),
+      ),
+    update: (id: string, patch: Record<string, unknown>) =>
+      safe<{ ok: true }>(
+        () => request<{ ok: true }>(`/api/agreements/${id}`, { method: "PUT", body: JSON.stringify(patch) }),
+        () => localAdapter.command({ _id: ulid(), type: "cmd.agreement.update", payload: { id, patch } }),
+      ),
+    savePdf: (id: string, pdfData: string) =>
+      safe<{ ok: true }>(
+        () => request<{ ok: true }>(`/api/agreements/${id}/pdf`, { method: "PATCH", body: JSON.stringify({ pdfData }) }),
+        () => localAdapter.command({ _id: ulid(), type: "cmd.agreement.savePdf", payload: { id, pdfData } }),
+      ),
+    sign: (id: string, role: "tenant" | "owner") =>
+      safe<{ ok: true; status: string }>(
+        () => request<{ ok: true; status: string }>(`/api/agreements/${id}/sign`, { method: "PATCH", body: JSON.stringify({ role }) }),
+        () => localAdapter.command({ _id: ulid(), type: "cmd.agreement.sign", payload: { id, role } }),
+      ),
+    remove: (id: string) =>
+      safe<{ ok: true }>(
+        () => request<{ ok: true }>(`/api/agreements/${id}`, { method: "DELETE" }),
+        () => localAdapter.command({ _id: ulid(), type: "cmd.agreement.delete", payload: { id } }),
+      ),
+  },
+
+  alerts: {
+    list: (q: { type?: string; severity?: string; includeDismissed?: boolean; limit?: number } = {}) =>
+      safe<{ items: any[]; unreadCount: number }>(
+        () => {
+          const qs = new URLSearchParams(Object.entries(q).filter(([_, v]) => v != null).map(([k, v]) => [k, String(v)])).toString();
+          return request<{ items: any[]; unreadCount: number }>(`/api/alerts${qs ? `?${qs}` : ""}`);
+        },
+        () => localAdapter.listAlerts(q),
+      ),
+    markRead: (id: string) =>
+      safe<{ ok: true }>(
+        () => request<{ ok: true }>(`/api/alerts/${id}/read`, { method: "PATCH" }),
+        () => localAdapter.command({ _id: ulid(), type: "cmd.alert.markRead", payload: { id } }),
+      ),
+    markAllRead: () =>
+      safe<{ ok: true }>(
+        () => request<{ ok: true }>("/api/alerts/mark-all-read", { method: "POST" }),
+        () => localAdapter.command({ _id: ulid(), type: "cmd.alert.markAllRead", payload: {} }),
+      ),
+    dismiss: (id: string) =>
+      safe<{ ok: true }>(
+        () => request<{ ok: true }>(`/api/alerts/${id}/dismiss`, { method: "PATCH" }),
+        () => localAdapter.command({ _id: ulid(), type: "cmd.alert.dismiss", payload: { id } }),
+      ),
+    unreadCount: () =>
+      safe<{ unreadCount: number }>(
+        () => request<{ unreadCount: number }>("/api/alerts/unread-count"),
+        () => { const r = localAdapter.listAlerts({}); return { unreadCount: r.unreadCount }; },
+      ),
+  },
+
+  funnel: {
+    process: (input: { tours: any[]; bookings: any[] }) =>
+      safe<any>(
+        () => request<any>("/api/myt/funnel/process", { method: "POST", body: JSON.stringify(input) }),
+        () => localAdapter.processFunnel(input),
+      ),
+  },
+
+  performance: {
+    tcm: (q?: { startDate?: string; endDate?: string }) => {
+      const qs = new URLSearchParams(q as Record<string, string>).toString();
+      return request<any[]>(`/api/v1/admin/performance/tcm${qs ? `?${qs}` : ""}`);
+    },
+    tcmDetail: (userId: string, q?: { startDate?: string; endDate?: string }) => {
+      const qs = new URLSearchParams(q as Record<string, string>).toString();
+      return request<any>(`/api/v1/admin/performance/tcm/${userId}${qs ? `?${qs}` : ""}`);
+    },
+    flowops: (q?: { startDate?: string; endDate?: string }) => {
+      const qs = new URLSearchParams(q as Record<string, string>).toString();
+      return request<any[]>(`/api/v1/admin/performance/flowops${qs ? `?${qs}` : ""}`);
+    },
+    flowopsDetail: (userId: string, q?: { startDate?: string; endDate?: string }) => {
+      const qs = new URLSearchParams(q as Record<string, string>).toString();
+      return request<any>(`/api/v1/admin/performance/flowops/${userId}${qs ? `?${qs}` : ""}`);
+    },
+    propertyowners: (q?: { startDate?: string; endDate?: string }) => {
+      const qs = new URLSearchParams(q as Record<string, string>).toString();
+      return request<any[]>(`/api/v1/admin/performance/propertyowners${qs ? `?${qs}` : ""}`);
+    },
+    propertyownerDetail: (userId: string, q?: { startDate?: string; endDate?: string }) => {
+      const qs = new URLSearchParams(q as Record<string, string>).toString();
+      return request<any>(`/api/v1/admin/performance/propertyowner/${userId}${qs ? `?${qs}` : ""}`);
+    },
+    summary: (q?: { startDate?: string; endDate?: string }) => {
+      const qs = new URLSearchParams(q as Record<string, string>).toString();
+      return request<{
+        totalTours: number;
+        totalLeads: number;
+        totalBookings: number;
+        overallConversionRate: number;
+        totalRevenue: number;
+        activeTCMs: number;
+        activeFlowOps: number;
+        activePropertyOwners: number;
+      }>(`/api/v1/admin/performance/summary${qs ? `?${qs}` : ""}`);
+    },
+  },
+
+  people360: {
+    workload: () =>
+      request<{ items: any[] }>("/api/v1/admin/people360/workload"),
+    pulse: (q?: { limit?: number; kind?: string }) => {
+      const qs = new URLSearchParams(
+        Object.entries(q ?? {}).filter(([, v]) => v != null).map(([k, v]) => [k, String(v)])
+      ).toString();
+      return request<{ items: any[] }>(`/api/v1/admin/people360/pulse${qs ? `?${qs}` : ""}`);
+    },
+    risk: () =>
+      request<{ items: any[] }>("/api/v1/admin/people360/risk"),
+  },
   ai: {
     getCoachAdvice: (payload: { tours: any[], leads: any[], role: string, userName?: string }) =>
       request<{ advice: string; tours: { tourId: string; briefing: string }[] }>("/api/ai/coach", {
