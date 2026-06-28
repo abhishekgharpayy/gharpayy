@@ -117,19 +117,19 @@ function fmtMins(mins: number | null): string {
 
 function stageColor(stage: string): string {
   const map: Record<string, string> = {
-    "new": "bg-slate-500 text-white",
-    "contacted": "bg-blue-500 text-white",
-    "tour-scheduled": "bg-violet-500 text-white",
+    "new": "bg-slate-500 text-foreground",
+    "contacted": "bg-blue-500 text-foreground",
+    "tour-scheduled": "bg-violet-500 text-foreground",
     "on-tour": "bg-amber-500 text-amber-950",
     "tour-done": "bg-teal-500 text-teal-950",
-    "negotiation": "bg-orange-500 text-white",
-    "quote-sent": "bg-green-500 text-white",
+    "negotiation": "bg-orange-500 text-foreground",
+    "quote-sent": "bg-green-500 text-foreground",
     "not-responding-3d": "bg-red-400 text-red-950",
-    "not-responding-7d": "bg-red-600 text-white",
-    "booked": "bg-emerald-600 text-white",
+    "not-responding-7d": "bg-red-600 text-foreground",
+    "booked": "bg-emerald-600 text-foreground",
     "dropped": "bg-gray-400 text-gray-900",
   };
-  return map[stage] ?? "bg-slate-400 text-white";
+  return map[stage] ?? "bg-slate-400 text-foreground";
 }
 
 const STAGE_LABEL: Record<string, string> = {
@@ -395,7 +395,7 @@ function ExecutionMonitorPage() {
 
   if (!report && loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[500px] text-slate-400">
+      <div className="flex flex-col items-center justify-center min-h-[500px] text-muted-foreground">
         <RefreshCw className="w-8 h-8 animate-spin mb-4 opacity-50" />
         <p>Generating real-time execution report...</p>
       </div>
@@ -426,24 +426,24 @@ function ExecutionMonitorPage() {
       {/* ── Header ── */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-black text-white tracking-tight flex items-center gap-3">
-            <Activity className="w-8 h-8 text-violet-500" />
+          <h1 className="text-3xl font-black text-foreground tracking-tight flex items-center gap-3">
+            <Activity className="w-8 h-8 text-primary" />
             Command Center
           </h1>
-          <p className="text-slate-400 mt-2">
-            Live Execution Monitoring • Window: <span className="font-bold text-white">{report.windowMinutes}m</span>
+          <p className="text-muted-foreground mt-2">
+            Live Execution Monitoring • Window: <span className="font-bold text-foreground">{report.windowMinutes}m</span>
           </p>
         </div>
 
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 text-sm text-slate-400 bg-slate-800/50 px-4 py-2 rounded-full border border-slate-700/50">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground bg-card/50 px-4 py-2 rounded-full border border-border">
             <Clock className="w-4 h-4" />
             <span>Updated {fmtTime(report.generatedAt)}</span>
           </div>
           <Button
             onClick={fetchReport}
             variant="outline"
-            className="bg-slate-800/50 border-slate-700 hover:bg-slate-700 hover:text-white"
+            className="bg-card/50 border-border hover:bg-muted hover:text-foreground"
             disabled={loading}
           >
             <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
@@ -451,40 +451,40 @@ function ExecutionMonitorPage() {
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="bg-slate-800/50 border-slate-700 hover:bg-slate-700 hover:text-white">
+              <Button variant="outline" className="bg-card/50 border-border hover:bg-muted hover:text-foreground">
                 <Download className="w-4 h-4 mr-2" />
                 Download
                 <ChevronDownIcon className="w-4 h-4 ml-2" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-64 bg-slate-800 border-slate-700 text-slate-200">
-              <DropdownMenuItem onClick={exportSummaryToPDF} className="cursor-pointer hover:bg-slate-700 font-bold text-violet-300">
+            <DropdownMenuContent align="end" className="w-64 bg-card border-border text-foreground">
+              <DropdownMenuItem onClick={exportSummaryToPDF} className="cursor-pointer hover:bg-muted font-bold text-primary/90">
                 <FileText className="w-4 h-4 mr-2" />
                 Download Summary (PDF)
               </DropdownMenuItem>
-              <div className="h-px bg-slate-700 my-1 mx-2" />
-              <DropdownMenuItem onClick={exportMemberSummary} className="cursor-pointer hover:bg-slate-700">
-                <LayoutGrid className="w-4 h-4 mr-2 text-violet-400" />
+              <div className="h-px bg-muted my-1 mx-2" />
+              <DropdownMenuItem onClick={exportMemberSummary} className="cursor-pointer hover:bg-muted">
+                <LayoutGrid className="w-4 h-4 mr-2 text-primary" />
                 30-Min Dashboard (CSV)
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={exportLeadStageMatrix} className="cursor-pointer hover:bg-slate-700">
-                <BarChart2 className="w-4 h-4 mr-2 text-violet-400" />
+              <DropdownMenuItem onClick={exportLeadStageMatrix} className="cursor-pointer hover:bg-muted">
+                <BarChart2 className="w-4 h-4 mr-2 text-primary" />
                 Lead Stage Matrix (CSV)
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={exportEODScoreboard} className="cursor-pointer hover:bg-slate-700">
-                <TrendingUp className="w-4 h-4 mr-2 text-violet-400" />
+              <DropdownMenuItem onClick={exportEODScoreboard} className="cursor-pointer hover:bg-muted">
+                <TrendingUp className="w-4 h-4 mr-2 text-primary" />
                 EOD Scoreboard (CSV)
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={exportLowActivityAlerts} className="cursor-pointer hover:bg-slate-700">
+              <DropdownMenuItem onClick={exportLowActivityAlerts} className="cursor-pointer hover:bg-muted">
                 <AlertTriangle className="w-4 h-4 mr-2 text-red-400" />
                 Low Activity Alerts (CSV)
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={exportFeatureUsage} className="cursor-pointer hover:bg-slate-700">
-                <PieChart className="w-4 h-4 mr-2 text-violet-400" />
+              <DropdownMenuItem onClick={exportFeatureUsage} className="cursor-pointer hover:bg-muted">
+                <PieChart className="w-4 h-4 mr-2 text-primary" />
                 Feature Usage (CSV)
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={exportRawActivity} className="cursor-pointer hover:bg-slate-700">
-                <List className="w-4 h-4 mr-2 text-violet-400" />
+              <DropdownMenuItem onClick={exportRawActivity} className="cursor-pointer hover:bg-muted">
+                <List className="w-4 h-4 mr-2 text-primary" />
                 Raw Activity Log (CSV)
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -511,110 +511,110 @@ function ExecutionMonitorPage() {
 
       {/* ── KPI Grid ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-slate-800/50 border border-slate-700/50 p-5 rounded-xl">
-          <div className="text-slate-400 text-sm font-medium mb-1 flex items-center justify-between">
+        <div className="bg-card/50 border border-border p-5 rounded-xl">
+          <div className="text-muted-foreground text-sm font-medium mb-1 flex items-center justify-between">
             Total Members
             <Users className="w-4 h-4 text-blue-400" />
           </div>
-          <div className="text-3xl font-black text-white">{report.summary.totalMembers}</div>
-          <div className="text-xs text-slate-500 mt-1">Active on floor today</div>
+          <div className="text-3xl font-black text-foreground">{report.summary.totalMembers}</div>
+          <div className="text-xs text-muted-foreground mt-1">Active on floor today</div>
         </div>
-        <div className="bg-slate-800/50 border border-slate-700/50 p-5 rounded-xl">
-          <div className="text-slate-400 text-sm font-medium mb-1 flex items-center justify-between">
+        <div className="bg-card/50 border border-border p-5 rounded-xl">
+          <div className="text-muted-foreground text-sm font-medium mb-1 flex items-center justify-between">
             Inactive ({report.windowMinutes}m)
             <UserX className="w-4 h-4 text-red-400" />
           </div>
           <div className={`text-3xl font-black ${report.summary.inactiveMembers > 0 ? "text-red-400" : "text-emerald-400"}`}>
             {report.summary.inactiveMembers}
           </div>
-          <div className="text-xs text-slate-500 mt-1">Require immediate manager action</div>
+          <div className="text-xs text-muted-foreground mt-1">Require immediate manager action</div>
         </div>
-        <div className="bg-slate-800/50 border border-slate-700/50 p-5 rounded-xl">
-          <div className="text-slate-400 text-sm font-medium mb-1 flex items-center justify-between">
+        <div className="bg-card/50 border border-border p-5 rounded-xl">
+          <div className="text-muted-foreground text-sm font-medium mb-1 flex items-center justify-between">
             Stuck Leads
             <Target className="w-4 h-4 text-orange-400" />
           </div>
           <div className={`text-3xl font-black ${report.summary.stuckMembers > 0 ? "text-orange-400" : "text-emerald-400"}`}>
             {report.summary.stuckMembers} members
           </div>
-          <div className="text-xs text-slate-500 mt-1">Have leads stuck &gt; 30m</div>
+          <div className="text-xs text-muted-foreground mt-1">Have leads stuck &gt; 30m</div>
         </div>
-        <div className="bg-slate-800/50 border border-slate-700/50 p-5 rounded-xl">
-          <div className="text-slate-400 text-sm font-medium mb-1 flex items-center justify-between">
+        <div className="bg-card/50 border border-border p-5 rounded-xl">
+          <div className="text-muted-foreground text-sm font-medium mb-1 flex items-center justify-between">
             Behind Targets
             <TrendingUp className="w-4 h-4 text-amber-400" />
           </div>
           <div className={`text-3xl font-black ${report.summary.behindOnTargets > 0 ? "text-amber-400" : "text-emerald-400"}`}>
             {report.summary.behindOnTargets}
           </div>
-          <div className="text-xs text-slate-500 mt-1">Missed daily execution targets</div>
+          <div className="text-xs text-muted-foreground mt-1">Missed daily execution targets</div>
         </div>
       </div>
 
       {/* ── Tabs for Sheets ── */}
       <Tabs defaultValue="summary" className="w-full">
-        <TabsList className="bg-slate-800/50 border border-slate-700/50 mb-6 flex flex-wrap h-auto gap-2 p-1">
-          <TabsTrigger value="summary" className="data-[state=active]:bg-violet-600 data-[state=active]:text-white font-bold">
+        <TabsList className="bg-card/50 border border-border mb-6 flex flex-wrap h-auto gap-2 p-1">
+          <TabsTrigger value="summary" className="data-[state=active]:bg-primary data-[state=active]:text-foreground font-bold">
             <FileText className="w-4 h-4 mr-2" /> Overall Summary
           </TabsTrigger>
-          <TabsTrigger value="dashboard" className="data-[state=active]:bg-violet-600 data-[state=active]:text-white">
+          <TabsTrigger value="dashboard" className="data-[state=active]:bg-primary data-[state=active]:text-foreground">
             <LayoutGrid className="w-4 h-4 mr-2" /> 30-Min Dashboard
           </TabsTrigger>
-          <TabsTrigger value="matrix" className="data-[state=active]:bg-violet-600 data-[state=active]:text-white">
+          <TabsTrigger value="matrix" className="data-[state=active]:bg-primary data-[state=active]:text-foreground">
             <BarChart2 className="w-4 h-4 mr-2" /> Lead Stage Matrix
           </TabsTrigger>
-          <TabsTrigger value="scoreboard" className="data-[state=active]:bg-violet-600 data-[state=active]:text-white">
+          <TabsTrigger value="scoreboard" className="data-[state=active]:bg-primary data-[state=active]:text-foreground">
             <TrendingUp className="w-4 h-4 mr-2" /> EOD Scoreboard
           </TabsTrigger>
-          <TabsTrigger value="low-activity" className="data-[state=active]:bg-red-600 data-[state=active]:text-white">
+          <TabsTrigger value="low-activity" className="data-[state=active]:bg-red-600 data-[state=active]:text-foreground">
             <AlertTriangle className="w-4 h-4 mr-2" /> Low Activity Alerts
           </TabsTrigger>
-          <TabsTrigger value="features" className="data-[state=active]:bg-violet-600 data-[state=active]:text-white">
+          <TabsTrigger value="features" className="data-[state=active]:bg-primary data-[state=active]:text-foreground">
             <PieChart className="w-4 h-4 mr-2" /> Feature Usage
           </TabsTrigger>
-          <TabsTrigger value="raw" className="data-[state=active]:bg-violet-600 data-[state=active]:text-white">
+          <TabsTrigger value="raw" className="data-[state=active]:bg-primary data-[state=active]:text-foreground">
             <List className="w-4 h-4 mr-2" /> Raw Activity
           </TabsTrigger>
         </TabsList>
 
         {/* ── Sheet 0: Overall Summary ── */}
         <TabsContent value="summary">
-          <div id="summary-report-container" className="bg-slate-900 border border-slate-800 rounded-xl p-8 space-y-8">
-            <div className="border-b border-slate-800 pb-6 flex justify-between items-end">
+          <div id="summary-report-container" className="bg-card border border-border rounded-xl p-8 space-y-8">
+            <div className="border-b border-border pb-6 flex justify-between items-end">
               <div>
-                <h2 className="text-3xl font-black text-white">Gharpayy Execution Summary</h2>
-                <p className="text-slate-400 mt-2">Generated At: {new Date(report.generatedAt).toLocaleString()}</p>
+                <h2 className="text-3xl font-black text-foreground">Gharpayy Execution Summary</h2>
+                <p className="text-muted-foreground mt-2">Generated At: {new Date(report.generatedAt).toLocaleString()}</p>
               </div>
               <div className="text-right">
-                <div className="text-xl font-bold text-violet-400">Total Actions: {report.members.reduce((acc, m) => acc + m.totalActions, 0)}</div>
-                <div className="text-sm text-slate-500">Active Window: {report.windowMinutes} mins</div>
+                <div className="text-xl font-bold text-primary">Total Actions: {report.members.reduce((acc, m) => acc + m.totalActions, 0)}</div>
+                <div className="text-sm text-muted-foreground">Active Window: {report.windowMinutes} mins</div>
               </div>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-              <div className="bg-slate-800/40 p-4 rounded-lg">
-                <div className="text-slate-400 text-sm mb-1">Total Leads Added</div>
-                <div className="text-2xl font-bold text-white">{report.members.reduce((acc, m) => acc + m.totalLeadsAdded, 0)}</div>
+              <div className="bg-card/40 p-4 rounded-lg">
+                <div className="text-muted-foreground text-sm mb-1">Total Leads Added</div>
+                <div className="text-2xl font-bold text-foreground">{report.members.reduce((acc, m) => acc + m.totalLeadsAdded, 0)}</div>
               </div>
-              <div className="bg-slate-800/40 p-4 rounded-lg">
-                <div className="text-slate-400 text-sm mb-1">Total Scheduled</div>
-                <div className="text-2xl font-bold text-white">{report.members.reduce((acc, m) => acc + (m.scheduledStageCount || 0), 0)}</div>
+              <div className="bg-card/40 p-4 rounded-lg">
+                <div className="text-muted-foreground text-sm mb-1">Total Scheduled</div>
+                <div className="text-2xl font-bold text-foreground">{report.members.reduce((acc, m) => acc + (m.scheduledStageCount || 0), 0)}</div>
               </div>
-              <div className="bg-slate-800/40 p-4 rounded-lg">
-                <div className="text-slate-400 text-sm mb-1">Total Quotations</div>
-                <div className="text-2xl font-bold text-white">{report.members.reduce((acc, m) => acc + m.totalQuotations, 0)}</div>
+              <div className="bg-card/40 p-4 rounded-lg">
+                <div className="text-muted-foreground text-sm mb-1">Total Quotations</div>
+                <div className="text-2xl font-bold text-foreground">{report.members.reduce((acc, m) => acc + m.totalQuotations, 0)}</div>
               </div>
-              <div className="bg-slate-800/40 p-4 rounded-lg">
-                <div className="text-slate-400 text-sm mb-1">Active Team Members</div>
-                <div className="text-2xl font-bold text-white">{report.summary.totalMembers}</div>
+              <div className="bg-card/40 p-4 rounded-lg">
+                <div className="text-muted-foreground text-sm mb-1">Active Team Members</div>
+                <div className="text-2xl font-bold text-foreground">{report.summary.totalMembers}</div>
               </div>
             </div>
 
             <div>
-              <h3 className="text-xl font-bold text-white mb-4">Top Performers (Most Actions)</h3>
-              <div className="bg-slate-800/40 rounded-lg overflow-hidden">
+              <h3 className="text-xl font-bold text-foreground mb-4">Top Performers (Most Actions)</h3>
+              <div className="bg-card/40 rounded-lg overflow-hidden">
                 <Table>
-                  <TableHeader className="bg-slate-800/80">
+                  <TableHeader className="bg-card/80">
                     <TableRow>
                       <TableHead>Employee</TableHead>
                       <TableHead className="text-right">Total Actions</TableHead>
@@ -624,11 +624,11 @@ function ExecutionMonitorPage() {
                   </TableHeader>
                   <TableBody>
                     {[...report.members].sort((a, b) => b.totalActions - a.totalActions).slice(0, 5).map(m => (
-                      <TableRow key={m.userId} className="border-slate-800">
-                        <TableCell className="font-bold text-white">{m.name}</TableCell>
-                        <TableCell className="text-right text-slate-300">{m.totalActions}</TableCell>
-                        <TableCell className="text-right text-slate-300">{m.scheduledStageCount || 0}</TableCell>
-                        <TableCell className="text-right text-slate-300">{m.totalQuotations}</TableCell>
+                      <TableRow key={m.userId} className="border-border">
+                        <TableCell className="font-bold text-foreground">{m.name}</TableCell>
+                        <TableCell className="text-right text-muted-foreground">{m.totalActions}</TableCell>
+                        <TableCell className="text-right text-muted-foreground">{m.scheduledStageCount || 0}</TableCell>
+                        <TableCell className="text-right text-muted-foreground">{m.totalQuotations}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -653,9 +653,9 @@ function ExecutionMonitorPage() {
 
         {/* ── Sheet 1: Raw CRM Activity ── */}
         <TabsContent value="raw">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+          <div className="bg-card border border-border rounded-xl overflow-hidden">
             <Table>
-              <TableHeader className="bg-slate-800/80">
+              <TableHeader className="bg-card/80">
                 <TableRow>
                   <TableHead>Time</TableHead>
                   <TableHead>Employee</TableHead>
@@ -665,18 +665,18 @@ function ExecutionMonitorPage() {
               </TableHeader>
               <TableBody>
                 {report.rawActivityLog.map((log, i) => (
-                  <TableRow key={i} className="border-slate-800">
-                    <TableCell className="text-slate-300 font-mono text-xs">{fmtTime(log.time)}</TableCell>
-                    <TableCell className="text-white font-medium">{log.employee}</TableCell>
+                  <TableRow key={i} className="border-border">
+                    <TableCell className="text-muted-foreground font-mono text-xs">{fmtTime(log.time)}</TableCell>
+                    <TableCell className="text-foreground font-medium">{log.employee}</TableCell>
                     <TableCell>
-                      <Badge variant="outline" className="bg-slate-800 text-slate-300">{log.action}</Badge>
+                      <Badge variant="outline" className="bg-card text-muted-foreground">{log.action}</Badge>
                     </TableCell>
-                    <TableCell className="text-slate-400 text-xs truncate max-w-[300px]">{log.detail || "—"}</TableCell>
+                    <TableCell className="text-muted-foreground text-xs truncate max-w-[300px]">{log.detail || "—"}</TableCell>
                   </TableRow>
                 ))}
                 {report.rawActivityLog.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center py-8 text-slate-500">No recent activity.</TableCell>
+                    <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">No recent activity.</TableCell>
                   </TableRow>
                 )}
               </TableBody>
@@ -686,9 +686,9 @@ function ExecutionMonitorPage() {
 
         {/* ── Sheet 2: 30-Minute Dashboard ── */}
         <TabsContent value="dashboard">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+          <div className="bg-card border border-border rounded-xl overflow-hidden">
             <Table>
-              <TableHeader className="bg-slate-800/80">
+              <TableHeader className="bg-card/80">
                 <TableRow>
                   <TableHead>Employee</TableHead>
                   <TableHead className="text-right">Leads Added (30m)</TableHead>
@@ -703,23 +703,23 @@ function ExecutionMonitorPage() {
               </TableHeader>
               <TableBody>
                 {report.members.map((m) => (
-                  <TableRow key={m.userId} className={`border-slate-800 ${m.isInactive ? "bg-red-950/10" : ""}`}>
-                    <TableCell className="font-bold text-white">{m.name}</TableCell>
-                    <TableCell className="text-right text-slate-300">{m.leadsAddedLast30}</TableCell>
-                    <TableCell className="text-right text-slate-300">{m.actionsLast30}</TableCell>
-                    <TableCell className="text-right text-slate-300">{m.propertiesSharedLast30 || 0}</TableCell>
-                    <TableCell className="text-right text-slate-300">{m.scheduledLast30 || 0}</TableCell>
-                    <TableCell className="text-right text-slate-300">{m.quotationsLast30}</TableCell>
+                  <TableRow key={m.userId} className={`border-border ${m.isInactive ? "bg-red-950/10" : ""}`}>
+                    <TableCell className="font-bold text-foreground">{m.name}</TableCell>
+                    <TableCell className="text-right text-muted-foreground">{m.leadsAddedLast30}</TableCell>
+                    <TableCell className="text-right text-muted-foreground">{m.actionsLast30}</TableCell>
+                    <TableCell className="text-right text-muted-foreground">{m.propertiesSharedLast30 || 0}</TableCell>
+                    <TableCell className="text-right text-muted-foreground">{m.scheduledLast30 || 0}</TableCell>
+                    <TableCell className="text-right text-muted-foreground">{m.quotationsLast30}</TableCell>
                     <TableCell>
                       {m.mostUsedActions.length > 0 ? (
-                        <span className="text-xs text-slate-400 bg-slate-800 px-2 py-1 rounded">{m.mostUsedActions[0].action}</span>
+                        <span className="text-xs text-muted-foreground bg-card px-2 py-1 rounded">{m.mostUsedActions[0].action}</span>
                       ) : "—"}
                     </TableCell>
                     <TableCell>
                       {m.isInactive ? <Badge className="bg-red-500/20 text-red-400 border-red-500/30">Yes</Badge> : <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">No</Badge>}
                     </TableCell>
                     <TableCell>
-                      {m.stuckLeads.length > 0 ? <span className="text-orange-400 font-bold">{m.stuckLeads.length}</span> : <span className="text-slate-500">0</span>}
+                      {m.stuckLeads.length > 0 ? <span className="text-orange-400 font-bold">{m.stuckLeads.length}</span> : <span className="text-muted-foreground">0</span>}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -730,9 +730,9 @@ function ExecutionMonitorPage() {
 
         {/* ── Sheet 3: Lead Stage Matrix ── */}
         <TabsContent value="matrix">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden overflow-x-auto">
+          <div className="bg-card border border-border rounded-xl overflow-hidden overflow-x-auto">
             <Table>
-              <TableHeader className="bg-slate-800/80">
+              <TableHeader className="bg-card/80">
                 <TableRow>
                   <TableHead>Employee</TableHead>
                   {Object.values(STAGE_LABEL).map(label => <TableHead key={label} className="text-center text-xs">{label}</TableHead>)}
@@ -741,8 +741,8 @@ function ExecutionMonitorPage() {
               </TableHeader>
               <TableBody>
                 {report.members.map((m) => (
-                  <TableRow key={m.userId} className="border-slate-800">
-                    <TableCell className="font-medium text-white">{m.name}</TableCell>
+                  <TableRow key={m.userId} className="border-border">
+                    <TableCell className="font-medium text-foreground">{m.name}</TableCell>
                     {Object.keys(STAGE_LABEL).map(stageKey => (
                       <TableCell key={stageKey} className="text-center">
                         {m.stageDistribution[stageKey] ? (
@@ -754,7 +754,7 @@ function ExecutionMonitorPage() {
                         )}
                       </TableCell>
                     ))}
-                    <TableCell className="text-center font-bold text-violet-400">{m.totalActiveLeads}</TableCell>
+                    <TableCell className="text-center font-bold text-primary">{m.totalActiveLeads}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -764,9 +764,9 @@ function ExecutionMonitorPage() {
 
         {/* ── Sheet 4: Low Activity Alert ── */}
         <TabsContent value="low-activity">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+          <div className="bg-card border border-border rounded-xl overflow-hidden">
             <Table>
-              <TableHeader className="bg-slate-800/80">
+              <TableHeader className="bg-card/80">
                 <TableRow>
                   <TableHead>Employee</TableHead>
                   <TableHead>Last Activity</TableHead>
@@ -779,9 +779,9 @@ function ExecutionMonitorPage() {
               </TableHeader>
               <TableBody>
                 {report.members.filter(m => m.isInactive || m.stuckLeads.length > 0 || m.followUpsRequired.length > 0).map((m) => (
-                  <TableRow key={m.userId} className="border-slate-800 bg-red-950/5">
-                    <TableCell className="font-bold text-white">{m.name}</TableCell>
-                    <TableCell className="text-slate-300">{fmtTime(m.lastActionAt)}</TableCell>
+                  <TableRow key={m.userId} className="border-border bg-red-950/5">
+                    <TableCell className="font-bold text-foreground">{m.name}</TableCell>
+                    <TableCell className="text-muted-foreground">{fmtTime(m.lastActionAt)}</TableCell>
                     <TableCell>
                       {m.isInactive ? (
                         <span className="text-red-400 font-bold">{m.minutesSinceLastAction} min</span>
@@ -789,15 +789,15 @@ function ExecutionMonitorPage() {
                         <span className="text-emerald-400">{m.minutesSinceLastAction} min</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-slate-300">{m.totalLeadsAdded}</TableCell>
-                    <TableCell className="text-slate-300">{m.totalActions}</TableCell>
+                    <TableCell className="text-muted-foreground">{m.totalLeadsAdded}</TableCell>
+                    <TableCell className="text-muted-foreground">{m.totalActions}</TableCell>
                     <TableCell>
                       {m.stuckLeads.map((s, i) => (
                         <div key={i} className="text-xs text-orange-400 mb-1">
                           {s.leadName} ({s.minutesInStage}m in {STAGE_LABEL[s.stage] || s.stage})
                         </div>
                       ))}
-                      {m.stuckLeads.length === 0 && <span className="text-slate-500">—</span>}
+                      {m.stuckLeads.length === 0 && <span className="text-muted-foreground">—</span>}
                     </TableCell>
                     <TableCell>
                       {m.followUpsRequired.map((f, i) => (
@@ -819,9 +819,9 @@ function ExecutionMonitorPage() {
 
         {/* ── Sheet 5: Feature Usage Analytics ── */}
         <TabsContent value="features">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+          <div className="bg-card border border-border rounded-xl overflow-hidden">
             <Table>
-              <TableHeader className="bg-slate-800/80">
+              <TableHeader className="bg-card/80">
                 <TableRow>
                   <TableHead>Feature / Action</TableHead>
                   <TableHead className="text-right">Total Clicks</TableHead>
@@ -831,11 +831,11 @@ function ExecutionMonitorPage() {
               </TableHeader>
               <TableBody>
                 {report.featureUsage.map((f, i) => (
-                  <TableRow key={i} className="border-slate-800">
-                    <TableCell className="font-medium text-white">{f.feature}</TableCell>
-                    <TableCell className="text-right text-violet-400 font-mono">{f.totalClicks}</TableCell>
-                    <TableCell className="text-right text-slate-300">{f.uniqueUsers}</TableCell>
-                    <TableCell className="text-right text-slate-400">{f.avgPerUser}</TableCell>
+                  <TableRow key={i} className="border-border">
+                    <TableCell className="font-medium text-foreground">{f.feature}</TableCell>
+                    <TableCell className="text-right text-primary font-mono">{f.totalClicks}</TableCell>
+                    <TableCell className="text-right text-muted-foreground">{f.uniqueUsers}</TableCell>
+                    <TableCell className="text-right text-muted-foreground">{f.avgPerUser}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -845,9 +845,9 @@ function ExecutionMonitorPage() {
 
         {/* ── Sheet 6: End-of-Day Scoreboard ── */}
         <TabsContent value="scoreboard">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+          <div className="bg-card border border-border rounded-xl overflow-hidden">
             <Table>
-              <TableHeader className="bg-slate-800/80">
+              <TableHeader className="bg-card/80">
                 <TableRow>
                   <TableHead>Employee</TableHead>
                   <TableHead className="text-right">Leads Added</TableHead>
@@ -863,20 +863,20 @@ function ExecutionMonitorPage() {
               </TableHeader>
               <TableBody>
                 {report.members.map((m) => (
-                  <TableRow key={m.userId} className="border-slate-800">
-                    <TableCell className="font-bold text-white">{m.name}</TableCell>
-                    <TableCell className="text-right text-slate-300">{m.totalLeadsAdded}</TableCell>
+                  <TableRow key={m.userId} className="border-border">
+                    <TableCell className="font-bold text-foreground">{m.name}</TableCell>
+                    <TableCell className="text-right text-muted-foreground">{m.totalLeadsAdded}</TableCell>
                     <TableCell className={`text-right font-medium ${m.scheduledStageCount >= report.successCriteria.scheduledTarget ? "text-emerald-400" : "text-amber-400"}`}>{m.scheduledStageCount}</TableCell>
                     <TableCell className={`text-right font-medium ${m.totalQuotations >= report.successCriteria.quotationTarget ? "text-emerald-400" : "text-amber-400"}`}>{m.totalQuotations}</TableCell>
-                    <TableCell className="text-right text-violet-400 font-bold">{m.visitsToday || 0}</TableCell>
+                    <TableCell className="text-right text-primary font-bold">{m.visitsToday || 0}</TableCell>
                     <TableCell className="text-right text-emerald-400 font-bold">{m.bookingsToday || 0}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
                         <span className={m.crmCompletionPct >= 100 ? "text-emerald-400" : "text-amber-400"}>{m.crmCompletionPct || 0}%</span>
                       </div>
                     </TableCell>
-                    <TableCell className={`text-right ${m.missingOwners > 0 ? "text-red-400 font-bold" : "text-slate-500"}`}>{m.missingOwners || 0}</TableCell>
-                    <TableCell className={`text-right ${m.missingNextActions > 0 ? "text-red-400 font-bold" : "text-slate-500"}`}>{m.missingNextActions || 0}</TableCell>
+                    <TableCell className={`text-right ${m.missingOwners > 0 ? "text-red-400 font-bold" : "text-muted-foreground"}`}>{m.missingOwners || 0}</TableCell>
+                    <TableCell className={`text-right ${m.missingNextActions > 0 ? "text-red-400 font-bold" : "text-muted-foreground"}`}>{m.missingNextActions || 0}</TableCell>
                     <TableCell className="text-center">
                       {m.allCriteriaMet ? (
                         <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">Target Met</Badge>
