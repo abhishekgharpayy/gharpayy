@@ -495,7 +495,7 @@ function ExecutionMonitorPage() {
       {/* ── Critical Alerts ── */}
       {report.summary.criticalAlerts.length > 0 && (
         <div className="bg-red-950/30 border border-red-500/30 rounded-xl p-4">
-          <div className="flex items-center gap-2 text-red-400 font-bold mb-3">
+          <div className="flex items-center gap-2 text-black font-bold mb-3">
             <AlertTriangle className="w-5 h-5" />
             CRITICAL ALERTS
           </div>
@@ -638,7 +638,7 @@ function ExecutionMonitorPage() {
             
             {report.summary.criticalAlerts.length > 0 && (
               <div>
-                <h3 className="text-xl font-bold text-black</h3>
+                <h3 className="text-xl font-bold text-black mb-4">Critical Action Required</h3>
                 <div className="space-y-2">
                   {report.summary.criticalAlerts.map((alert, i) => (
                     <div key={i} className="bg-red-950/20 text-black p-3 rounded border border-red-900/50 text-sm">
