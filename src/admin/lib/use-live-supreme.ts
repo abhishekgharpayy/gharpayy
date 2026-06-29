@@ -5,15 +5,12 @@ import { useApp } from "@/lib/store";
 import { isLocalMode } from "@/lib/auth-store";
 
 export async function authedFetch(path: string, opts?: RequestInit) {
-  const token =
-    localStorage.getItem("gharpayy.access_token") ||
-    localStorage.getItem("auth_token") ||
-    localStorage.getItem("token") || "";
   const res = await fetch(`${API_URL}${path}`, {
     ...opts,
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
+      "Accept": "application/json",
       ...(opts?.headers ?? {}),
     },
   });

@@ -61,15 +61,10 @@ async function fetchClient<T>(endpoint: string, options: RequestOptions = {}): P
     if (qs) url += `?${qs}`;
   }
 
-  const token = getAuthToken();
   const defaultHeaders: HeadersInit = {
     "Content-Type": "application/json",
     Accept: "application/json",
   };
-
-  if (token) {
-    defaultHeaders["Authorization"] = `Bearer ${token}`;
-  }
 
   const config: RequestInit = {
     ...customConfig,

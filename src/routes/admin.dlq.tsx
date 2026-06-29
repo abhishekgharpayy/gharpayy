@@ -17,7 +17,7 @@ function AdminDlqPage() {
     queryFn: async () => {
       // Create a temporary fetch since this endpoint isn't fully typed in client.ts
       const res = await fetch("/api/admin/dlq", {
-        headers: { "Authorization": `Bearer ${localStorage.getItem("gharpayy.access_token")}` }
+        credentials: "include",
       });
       if (!res.ok) throw new Error("Failed to load DLQ");
       return res.json() as Promise<{ items: any[]; total: number }>;
@@ -29,7 +29,7 @@ function AdminDlqPage() {
     mutationFn: async (id: string) => {
       const res = await fetch(`/api/admin/dlq/${id}/retry`, {
         method: "POST",
-        headers: { "Authorization": `Bearer ${localStorage.getItem("gharpayy.access_token")}` }
+        credentials: "include",
       });
       if (!res.ok) throw new Error("Failed to retry job");
       return res.json();

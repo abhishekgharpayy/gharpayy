@@ -64,10 +64,8 @@ export function CoachPanel({ compact = false }: Props) {
   const coachingNotesQuery = useQuery({
     queryKey: ["tcm", "coaching-notes"],
     queryFn: async () => {
-      const token = localStorage.getItem("gharpayy.access_token") || localStorage.getItem("auth_token") || "";
-      if (!token) return [];
       const res = await fetch(`${API_URL}/api/v1/tcm/coaching-notes`, {
-        headers: { "Authorization": `Bearer ${token}` }
+        credentials: "include",
       });
       if (!res.ok) return [];
       const data = await res.json();
