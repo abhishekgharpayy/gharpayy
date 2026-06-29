@@ -229,8 +229,22 @@ export function PipMount({ children }: { children: ReactNode }) {
   }, [pipWindow]);
 
   if (!pipWindow) return <>{children}</>;
-  if (mode === "capture") return createPortal(<LeadCapturePipPanel />, ensurePipMount(pipWindow, containerRef));
-  if (mode === "manage") return createPortal(<LeadManagePipPanel />, ensurePipMount(pipWindow, containerRef));
+  if (mode === "capture") {
+    return (
+      <>
+        {children}
+        {createPortal(<LeadCapturePipPanel />, ensurePipMount(pipWindow, containerRef))}
+      </>
+    );
+  }
+  if (mode === "manage") {
+    return (
+      <>
+        {children}
+        {createPortal(<LeadManagePipPanel />, ensurePipMount(pipWindow, containerRef))}
+      </>
+    );
+  }
   if (!containerRef.current) {
     const mount = pipWindow.document.createElement("div");
     mount.id = "pip-root";
