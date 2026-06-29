@@ -1,4 +1,6 @@
 import type { FastifyInstance } from "fastify";
+import { col } from "../../db/mongo.js";
+import { requireAuth } from "../../middleware/auth.js";
 
 /**
  * MYT Funnel — Revenue Intelligence Engine.
@@ -332,6 +334,110 @@ export function registerFunnelRoutes(app: FastifyInstance) {
       tcmAreaMatrix: computeTcmAreaMatrix(tours, bookings),
       staleTours: computeStaleTours(tours),
       conversionVelocity: computeConversionVelocity(tours, bookings),
+      processedAt: new Date().toISOString(),
+    });
+  });
+
+  app.get("/api/v1/admin/funnel/intelligence", { preHandler: [requireAuth] }, async (req, reply) => {
+    const tenantId = req.user!.tenantId;
+    const { startDate, endDate, tcmId, zoneId, area } = req.query as {
+      startDate?: string;
+      endDate?: string;
+      tcmId?: string;
+      zoneId?: string;
+      area?: string;
+    };
+
+    const dateFilter: any = {};
+    if (startDate) dateFilter.$gte = startDate;
+    if (endDate) dateFilter.$lte = endDate;
+
+    // 1. Build Leads Filter
+    const leadsFilter: any = { tenantId };
+    if (Object.keys(dateFilter).length > 0) leadsFilter.createdAt = dateFilter;
+    if (tcmId) leadsFilter.assignedTcmId = tcmId;
+    if (zoneId) leadsFilter.zoneId = zoneId;
+    if (area) leadsFilter.preferredArea = area;
+
+    // Fetch matching leads
+    const dbLeads = await col("leads").find(leadsFilter).toArray();
+    const leadIds = dbLeads.map((l: any) => l.id || l._id?.toString());
+
+    // 2. Build Tours Filter matching the queried leads
+    const toursFilter: any = { tenantId, leadId: { $in: leadIds } };
+    if (Object.keys(dateFilter).length > 0) toursFilter.createdAt = dateFilter;
+    if (tcmId) toursFilter.assignedTo = tcmId;
+
+    // 3. Build Bookings Filter matching the queried leads
+    const bookingsFilter: any = { tenantId, leadId: { $in: leadIds } };
+    if (Object.keys(dateFilter).length > 0) bookingsFilter.createdAt = dateFilter;
+    if (tcmId) bookingsFilter.tcmId = tcmId;
+
+    // Query data in parallel
+    const [dbTours, dbBookings, dbProperties, dbTcms] = await Promise.all([
+      col("tours").find(toursFilter).toArray(),
+      col("bookings").find(bookingsFilter).toArray(),
+      col("properties").find({ tenantId }).toArray(),
+      col("users").find({ tenantId, role: { $in: ["tcm", "member"] } }).toArray(),
+    ]);
+
+    // Perform mapped joins
+    const mappedTours: TourInput[] = dbTours.map((t: any) => {
+      const lead = dbLeads.find((l: any) => (l.id || l._id?.toString()) === t.leadId);
+      const property = dbProperties.find((p: any) => (p.id || p._id?.toString()) === t.propertyId);
+      const tcm = dbTcms.find((u: any) => u._id?.toString() === t.assignedTo);
+      
+      const tourDateStr = t.scheduledAt ? new Date(t.scheduledAt).toISOString().split('T')[0] : '';
+      const tourTimeStr = t.scheduledAt ? new Date(t.scheduledAt).toTimeString().split(' ')[0].slice(0, 5) : '';
+
+      return {
+        id: t.id || t._id?.toString(),
+        leadName: lead?.name || "Unknown",
+        assignedTo: t.assignedTo || "",
+        assignedToName: tcm?.fullName || tcm?.username || "Unknown",
+        propertyName: property?.name || t.customPropertyName || "Unknown",
+        area: property?.area || "",
+        zoneId: lead?.zoneCategory || "",
+        tourDate: tourDateStr,
+        tourTime: tourTimeStr,
+        status: t.status || "",
+        showUp: t.showUp,
+        outcome: t.decision || t.postTour?.outcome || null,
+        budget: lead?.budget || 0,
+        createdAt: t.createdAt || new Date().toISOString(),
+        whyLost: t.postTour?.objection || null,
+        intent: lead?.intent || "warm",
+        confirmationStrength: t.postTour?.confidence ? String(t.postTour.confidence) : "50",
+      };
+    });
+
+    const mappedBookings: BookingInput[] = dbBookings.map((b: any) => {
+      const lead = dbLeads.find((l: any) => (l.id || l._id?.toString()) === b.leadId);
+      const property = dbProperties.find((p: any) => (p.id || p._id?.toString()) === b.propertyId);
+      const tcm = dbTcms.find((u: any) => u._id?.toString() === b.tcmId);
+
+      return {
+        id: b.id || b._id?.toString(),
+        leadName: lead?.name || b.tenantName || "Unknown",
+        propertyName: property?.name || "Unknown",
+        area: property?.area || "",
+        rentValue: b.amount || 0,
+        viaTour: !!b.tourId,
+        tourId: b.tourId || null,
+        closedBy: b.tcmId || "",
+        closedByName: tcm?.fullName || tcm?.username || "Unknown",
+        createdAt: b.ts || b.updatedAt || new Date().toISOString(),
+      };
+    });
+
+    return reply.send({
+      waterfall: computeWaterfall(mappedTours, mappedBookings),
+      timeHeatmap: computeTimeHeatmap(mappedTours),
+      lossReasons: computeLossReasons(mappedTours),
+      budgetVsActual: computeBudgetVsActual(mappedTours, mappedBookings),
+      tcmAreaMatrix: computeTcmAreaMatrix(mappedTours, mappedBookings),
+      staleTours: computeStaleTours(mappedTours),
+      conversionVelocity: computeConversionVelocity(mappedTours, mappedBookings),
       processedAt: new Date().toISOString(),
     });
   });

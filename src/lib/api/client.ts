@@ -817,6 +817,14 @@ export const api = {
         () => request<any>("/api/myt/funnel/process", { method: "POST", body: JSON.stringify(input) }),
         () => localAdapter.processFunnel(input),
       ),
+    getIntelligence: (q?: { startDate?: string; endDate?: string; tcmId?: string; zoneId?: string; area?: string }) =>
+      safe<any>(
+        () => {
+          const qs = new URLSearchParams(q as Record<string, string>).toString();
+          return request<any>(`/api/v1/admin/funnel/intelligence${qs ? `?${qs}` : ""}`);
+        },
+        () => localAdapter.processFunnel({ tours: [], bookings: [] }),
+      ),
   },
 
   performance: {
