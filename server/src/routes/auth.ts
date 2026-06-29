@@ -82,8 +82,8 @@ export function registerAuthRoutes(app: FastifyInstance) {
       const token = await signAccessToken(claims);
       reply.setCookie("access_token", token, {
         httpOnly: true,
-        sameSite: "lax",
-        secure: process.env.NODE_ENV === "production",
+        sameSite: "none",
+        secure: true,
         path: "/",
         maxAge: 60 * 60 * 24,
       });
@@ -145,7 +145,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
 
   // ---------- LOGOUT ----------
   app.post("/api/auth/logout", { preHandler: [requireAuth] }, async (req, reply) => {
-    reply.clearCookie("access_token", { path: "/" });
+    reply.clearCookie("access_token", { path: "/", sameSite: "none", secure: true, httpOnly: true });
     if (req.user) {
       await auditAuthEvent({
         type: "evt.user.logout",
