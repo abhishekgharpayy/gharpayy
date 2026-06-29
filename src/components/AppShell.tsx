@@ -331,14 +331,14 @@ export function AppShell({ children }: { children: ReactNode }) {
         <button
           type="button"
           aria-label="Close sidebar"
-          className="fixed inset-0 z-40 bg-background/70 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-40 bg-background/70 backdrop-blur-sm"
           onClick={() => setSidebarOpen(false)}
         />
       )}
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-72 max-w-[86vw] flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border shadow-xl transition-transform duration-200 lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-50 flex w-72 max-w-[86vw] flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border shadow-xl transition-transform duration-200",
           sidebarOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
@@ -359,7 +359,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <button
             type="button"
             aria-label="Close sidebar"
-            className="ml-auto inline-flex h-8 w-8 items-center justify-center rounded-md border border-sidebar-border bg-sidebar-accent/60 text-sidebar-foreground hover:bg-sidebar-accent lg:hidden"
+            className="ml-auto inline-flex h-8 w-8 items-center justify-center rounded-md border border-sidebar-border bg-sidebar-accent/60 text-sidebar-foreground hover:bg-sidebar-accent"
             onClick={() => setSidebarOpen(false)}
           >
             <X className="h-4 w-4" />
@@ -490,18 +490,18 @@ export function AppShell({ children }: { children: ReactNode }) {
       </aside>
 
       {/* Main */}
-      <div className="flex min-h-0 flex-1 flex-col lg:pl-72 w-full">
+      <div className="flex min-h-0 flex-1 flex-col w-full">
         <div className="md:hidden bg-amber-500/10 text-amber-500 text-xs text-center py-1 border-b border-amber-500/20 font-medium">
           Best viewed on desktop (1024px+)
         </div>
         <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-3 border-b border-border bg-background/95 px-4 backdrop-blur">
           <button
             onClick={() => setSidebarOpen(true)}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-md hover:bg-muted text-muted-foreground lg:hidden"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-md hover:bg-muted text-muted-foreground"
           >
             <Menu className="h-4 w-4" />
           </button>
-          <div className="font-display font-semibold lg:hidden">Gharpayy</div>
+          <div className="font-display font-semibold">Gharpayy</div>
           <button
             onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }))}
             className="md:hidden inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-card text-muted-foreground"
