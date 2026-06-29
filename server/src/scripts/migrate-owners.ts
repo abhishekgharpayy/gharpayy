@@ -107,6 +107,7 @@ async function run() {
         deletedAt: null,
         createdAt: now,
         updatedAt: now,
+        __v: 1,
       };
       try {
         await users.insertOne(doc);
