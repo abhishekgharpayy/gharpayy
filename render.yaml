@@ -37,5 +37,7 @@ services:
         value: production
       - key: PORT
         value: 3001
+      - key: HOST
+        value: 0.0.0.0
       # You MUST manually set VITE_API_URL to the URL of your backend on Render
       # e.g., https://gharpayy-backend.onrender.com

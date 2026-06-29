@@ -29,12 +29,18 @@ export function registerActivityFeedRoutes(app: FastifyInstance) {
   // System-wide event feed (super_admin)
   app.get("/api/activity/all", { preHandler: [requireAuth, requireScope("user.admin")] }, async (req, reply) => {
     const q = z.object({ limit: z.coerce.number().min(1).max(500).default(200) }).parse(req.query);
+    
+    // Fallback logic as requested
+    const { outboxBacklog } = await import("../../realtime/event-bus.js");
+    const lag = await outboxBacklog(5000);
+    const isFallback = lag > 50;
+
     const items = await events()
       .find({ tenantId: req.user!.tenantId })
-      .sort({ occurredAt: -1 })
+      .sort(isFallback ? { _id: -1 } as any : { occurredAt: -1 })
       .limit(q.limit)
       .toArray();
-    return reply.send({ items });
+    return reply.send({ items, fallback: isFallback });
   });
 
   // Per-lead activity stream

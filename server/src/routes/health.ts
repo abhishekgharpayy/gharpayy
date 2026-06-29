@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { col, getDb } from "../db/mongo.js";
 import { redis } from "../db/redis.js";
-import { outboxBacklog } from "../realtime/event-bus.js";
+import { outboxBacklog, getLastFlushedAt } from "../realtime/event-bus.js";
 import { render as renderMetrics } from "../platform/metrics.js";
 
 export function registerHealthRoutes(app: FastifyInstance) {
@@ -11,7 +11,7 @@ export function registerHealthRoutes(app: FastifyInstance) {
   // Readiness — refuses traffic when downstreams are degraded. Used by load
   // balancers to drain a sick node without killing it.
   app.get("/readyz", async (_req, reply) => {
-    const checks: Record<string, { ok: boolean; detail?: string }> = {};
+    const checks: Record<string, { ok: boolean; detail?: string; lastFlushedAt?: string | null }> = {};
 
     // Mongo
     try {
@@ -32,7 +32,8 @@ export function registerHealthRoutes(app: FastifyInstance) {
     // Outbox backlog — > 50 pending events older than 5s = degraded.
     try {
       const lag = await outboxBacklog(5000);
-      checks.outbox = { ok: lag < 50, detail: `${lag} pending > 5s` };
+      const lastFlushedAt = await getLastFlushedAt();
+      checks.outbox = { ok: lag < 50, detail: `${lag} pending > 5s`, lastFlushedAt };
     } catch (e) {
       checks.outbox = { ok: false, detail: (e as Error).message };
     }

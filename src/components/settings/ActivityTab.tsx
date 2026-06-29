@@ -15,12 +15,14 @@ export function ActivityTab() {
   const [tab, setTab] = useState<Sub>("login");
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isFallback, setIsFallback] = useState(false);
 
   const load = async (which: Sub) => {
     setLoading(true);
     try {
       const r = which === "login" ? await api.activity.login(150) : await api.activity.all(200);
       setItems(r.items as Item[]);
+      if ("fallback" in r) setIsFallback(!!r.fallback);
     } catch (e) { toast.error((e as Error).message); }
     finally { setLoading(false); }
   };
@@ -42,6 +44,13 @@ export function ActivityTab() {
           >{t === "login" ? "Logins" : "All events"}</button>
         ))}
       </div>
+      
+      {isFallback && tab === "all" && (
+        <div className="bg-destructive/15 text-destructive text-xs p-3 rounded border border-destructive/20 flex items-start gap-2">
+          <span>⚠️</span>
+          <span>The outbox publisher is currently delayed (Redis might be unavailable). You are viewing raw events from the database which might not have been fully processed by the system yet.</span>
+        </div>
+      )}
 
       {loading ? (
         <div className="flex items-center justify-center py-12"><Loader2 className="animate-spin" /></div>

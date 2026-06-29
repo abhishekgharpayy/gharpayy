@@ -103,6 +103,7 @@ async function ensureIndexes(db: Db) {
       run: () => db.collection("sessions").createIndex({ userId: 1 }, { name: "by_user" }),
     },
     { name: "users.email", run: () => db.collection("users").createIndex({ email: 1 }, { unique: true }) },
+    { name: "users.tenant_status", run: () => db.collection("users").createIndex({ tenantId: 1, status: 1 }) },
     { name: "user_roles.userId", run: () => db.collection("user_roles").createIndex({ userId: 1 }) },
     { name: "sessions.token", run: () => db.collection("sessions").createIndex({ token: 1 }, { unique: true }) },
     {

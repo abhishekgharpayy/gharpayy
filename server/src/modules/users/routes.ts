@@ -10,7 +10,7 @@ const CreateBody = z.object({
   fullName: z.string().min(1).max(120),
   email: z.string().email(),
   phone: z.string().min(0).max(40).optional(),
-  password: z.string().min(8).max(72),
+  password: z.string().min(8).max(72).regex(/[A-Z]/, "Password must contain at least one uppercase letter").regex(/[0-9]/, "Password must contain at least one number"),
   role: z.enum(["manager", "admin", "member", "owner", "tcm"]),
   zones: z.array(z.string()).optional(),
 });
@@ -23,6 +23,7 @@ const UpdateBody = z.object({
   managerId: z.string().nullable().optional(),
   adminId: z.string().nullable().optional(),
   isTcm: z.boolean().optional(),
+  __v: z.number(),
 });
 
 const PatchBody = z.object({
@@ -52,6 +53,7 @@ function userOut(u: UserDoc) {
     deletedAt: u.deletedAt ?? null,
     createdAt: u.createdAt,
     updatedAt: u.updatedAt,
+    __v: u.__v ?? 1,
   };
 }
 
@@ -157,12 +159,20 @@ export function registerUserRoutes(app: FastifyInstance) {
     if (body.managerId !== undefined) patch.managerId = body.managerId;
     if (body.adminId !== undefined) patch.adminId = body.adminId;
     if (body.isTcm !== undefined) patch.isTcm = body.isTcm;
+    
     const r = await users().findOneAndUpdate(
-      { _id: id, tenantId: req.user!.tenantId },
-      { $set: patch },
+      { _id: id, tenantId: req.user!.tenantId, __v: body.__v },
+      { $set: patch, $inc: { __v: 1 } },
       { returnDocument: "after" },
     );
-    if (!r) return reply.code(404).send({ code: "NOT_FOUND", message: "User not found" });
+    if (!r) {
+      // Check if it exists but version mismatched
+      const exists = await users().findOne({ _id: id, tenantId: req.user!.tenantId });
+      if (exists) {
+        return reply.code(409).send({ code: "CONFLICT", message: "User was modified concurrently. Please refresh." });
+      }
+      return reply.code(404).send({ code: "NOT_FOUND", message: "User not found" });
+    }
     return reply.send(userOut(r));
   });
 

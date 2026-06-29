@@ -193,6 +193,15 @@ export async function outboxBacklog(olderThanMs = 5000): Promise<number> {
   return col<EventDoc>(EVENTS).countDocuments({ publishedAt: null, occurredAt: { $lt: cutoff } });
 }
 
+export async function getLastFlushedAt(): Promise<string | null> {
+  const doc = await col<EventDoc>(EVENTS)
+    .find({ publishedAt: { $ne: null } })
+    .sort({ publishedAt: -1 })
+    .limit(1)
+    .toArray();
+  return doc[0]?.publishedAt ?? null;
+}
+
 /**
  * Replay support — used by the WS layer on reconnect.
  * Returns events for an aggregate strictly after `afterSeq`, capped.

@@ -41,6 +41,18 @@ export function AddUserForm({ onSuccess }: { onSuccess: () => void }) {
       toast.error("Name, email, password, role are required");
       return;
     }
+    if (form.password.length < 8) {
+      toast.error("Password must be at least 8 characters long");
+      return;
+    }
+    if (!/[A-Z]/.test(form.password)) {
+      toast.error("Password must contain at least one uppercase letter");
+      return;
+    }
+    if (!/[0-9]/.test(form.password)) {
+      toast.error("Password must contain at least one number");
+      return;
+    }
     if (needsZone && !zoneName) {
       toast.error("Select a zone");
       return;

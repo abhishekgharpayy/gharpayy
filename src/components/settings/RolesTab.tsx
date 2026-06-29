@@ -35,12 +35,13 @@ export function RolesTab() {
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState<EditForm>({
+  const [editForm, setEditForm] = useState({
     fullName: "",
     email: "",
     phone: "",
     role: "",
-    zones: [],
+    zones: [] as string[],
+    __v: 1,
   });
   const [updating, setUpdating] = useState(false);
 
@@ -109,6 +110,7 @@ export function RolesTab() {
       phone: u.phone || "",
       role: u.role || fallbackRole,
       zones: Array.isArray(u.zones) && u.zones.length > 0 ? [u.zones[0]] : [],
+      __v: u.__v || 1,
     });
   };
 
@@ -127,6 +129,7 @@ export function RolesTab() {
         fullName: editForm.fullName,
         email: editForm.email,
         phone: editForm.phone,
+        __v: editForm.__v,
       };
       if (editForm.role === "admin" || editForm.role === "member" || editForm.role === "tcm") {
         payload.zones = editForm.zones;
@@ -136,7 +139,14 @@ export function RolesTab() {
       setEditingId(null);
       loadData();
     } catch (e) {
-      toast.error((e as Error).message);
+      const err = e as { message?: string };
+      if (err.message && err.message.includes("concurrently")) {
+        toast.error("User was modified concurrently. Please review the latest changes.");
+        setEditingId(null);
+        loadData();
+      } else {
+        toast.error(err.message || "Update failed");
+      }
     } finally {
       setUpdating(false);
     }

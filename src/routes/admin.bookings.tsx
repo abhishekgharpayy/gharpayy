@@ -2,7 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 
 import { useApp } from "@/lib/store";
-import { useAuthUser } from "@/lib/auth-store";
+import { useQuery } from "@tanstack/react-query";
+import { apiClient } from "@/lib/api/client";
 import { useOwnerBookings, computeTotals } from "@/lib/owner-bookings/store";
 import { LIFECYCLE_LABEL } from "@/lib/owner-bookings/types";
 import type { OwnerBooking } from "@/lib/owner-bookings/types";
@@ -53,7 +54,31 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 function AdminBookings() {
-  const { bookings, tenants, tcms, properties } = useApp();
+  const { tenants, tcms, properties } = useApp();
+  
+  const { data, isLoading } = useQuery({
+    queryKey: ["admin_bookings"],
+    queryFn: async () => {
+      const res = await apiClient.get("/api/bookings", { params: { limit: 200 } });
+      const items = res.items || [];
+      return items.map((lead: any) => ({
+        id: lead._id || lead.id,
+        leadId: lead._id || lead.id,
+        tenantName: lead.name || "Unknown",
+        tenantPhone: lead.phone || "",
+        propertyId: lead.propertyId || lead.preferredArea || "",
+        tcmId: lead.assignedTcmId || "",
+        amount: lead.budget || 0,
+        deposit: (lead.budget || 0) * 2,
+        status: "active", // Since stage is 'booked'
+        ts: lead.updatedAt || lead.createdAt || new Date().toISOString(),
+      }));
+    },
+    refetchInterval: 15000,
+  });
+  
+  const bookings = data || [];
+  
   const { bookings: ownerBookings } = useOwnerBookings();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");

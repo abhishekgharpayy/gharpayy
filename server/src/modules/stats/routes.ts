@@ -5,6 +5,7 @@ import { requireAuth } from "../../middleware/auth.js";
 import type { UserDoc } from "../../auth/auth.js";
 import type { Lead } from "../../../../src/contracts/entities.js";
 import type { Tour } from "../../../../src/contracts/entities.js";
+import { redis } from "../../db/redis.js";
 import { buildIstDayRange, getPeriodBounds, GOALS, type LeaderboardPeriod } from "./ist.js";
 
 const STAFF_ROLES = ["super_admin", "manager", "admin", "member", "tcm"] as const;
@@ -233,6 +234,16 @@ export function registerStatsRoutes(app: FastifyInstance) {
       to = bounds.to;
     }
 
+    const cacheKey = `stats:leaderboard:${tenantId}:${period}:${zoneQuery || "all"}:${from || "null"}:${to || "null"}`;
+    try {
+      const cached = await redis.get(cacheKey);
+      if (cached) {
+        return reply.send(JSON.parse(cached));
+      }
+    } catch (e) {
+      // Ignore cache read errors
+    }
+
     // We want to count both: who scheduled the tour AND who completed it.
     // For scheduling we use `scheduledAt`, for completions we use `updatedAt` when status === 'completed'.
     // Match any tour that was either scheduled in-range or completed in-range (when period bounds provided).
@@ -349,14 +360,19 @@ export function registerStatsRoutes(app: FastifyInstance) {
           },
         },
         { $lookup: { from: "users", localField: "_id", foreignField: "_id", as: "user" } },
-        { $unwind: "$user" },
-        { $match: { "user.role": { $in: ["member", "tcm"] }, "user.status": { $ne: "deleted" }, "user.tenantId": tenantId } },
+        { $unwind: { path: "$user", preserveNullAndEmptyArrays: true } },
+        { $match: { 
+            $or: [
+              { "user.role": { $in: ["member", "tcm"] }, "user.status": { $ne: "deleted" }, "user.tenantId": tenantId },
+              { _id: null }
+            ]
+        } },
         {
           $project: {
             _id: 0,
-            userId: "$_id",
-            name: { $ifNull: ["$user.fullName", "$user.username"] },
-            role: "$user.role",
+            userId: { $ifNull: ["$_id", "unassigned"] },
+            name: { $ifNull: ["$user.fullName", { $ifNull: ["$user.username", "Unassigned"] }] },
+            role: { $ifNull: ["$user.role", "unassigned"] },
             scheduledCount: 1,
             completedCount: 1,
             toursCount: { $add: ["$scheduledCount", "$completedCount"] },
@@ -383,12 +399,20 @@ export function registerStatsRoutes(app: FastifyInstance) {
       }),
     }));
 
-    return reply.send({
+    const response = {
       period,
       from,
       to,
       generatedAt: new Date().toISOString(),
       rankings,
-    });
+    };
+    
+    try {
+      await redis.setex(cacheKey, 60, JSON.stringify(response));
+    } catch (e) {
+      // Ignore cache write errors
+    }
+
+    return reply.send(response);
   });
 }

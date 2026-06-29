@@ -32,6 +32,7 @@ export interface UserDoc {
   deletedAt?: string | null;
   createdAt: string;
   updatedAt: string;
+  __v: number;
 }
 
 export interface JwtClaims {
@@ -150,6 +151,7 @@ export async function ensureDefaultSuperAdmin(): Promise<void> {
     deletedAt: null,
     createdAt: now,
     updatedAt: now,
+    __v: 1,
   });
 }
 
@@ -225,6 +227,7 @@ export async function createManagedUser(opts: {
     deletedAt: null,
     createdAt: now,
     updatedAt: now,
+    __v: 1,
   };
   await users.insertOne(doc);
   return doc;

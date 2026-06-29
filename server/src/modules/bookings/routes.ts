@@ -19,14 +19,11 @@ export function registerBookingsRoutes(app: FastifyInstance) {
   // ── GET /api/bookings ────────────────────────────────────────────────────
   app.get("/api/bookings", { preHandler: [requireAuth, requireScope("booking.read")] }, async (req, reply) => {
     const q = ListQuery.parse(req.query);
-    const filter: Record<string, unknown> = { tenantId: req.user!.tenantId };
+    const filter: Record<string, unknown> = { tenantId: req.user!.tenantId, stage: "booked" };
     if (q.status) filter.status = q.status;
-    if (q.propertyId) filter.propertyId = q.propertyId;
-    if (q.ownerId) filter.ownerId = q.ownerId;
-    if (q.lifecycle) filter.ownerLifecycle = q.lifecycle;
     if (q.cursor) filter._id = { $lt: q.cursor };
 
-    const items = await col<BookingEntity>("bookings")
+    const items = await col("leads")
       .find(filter)
       .sort({ _id: -1 })
       .limit(q.limit)
@@ -37,7 +34,7 @@ export function registerBookingsRoutes(app: FastifyInstance) {
   // ── GET /api/bookings/:id ────────────────────────────────────────────────
   app.get("/api/bookings/:id", { preHandler: [requireAuth, requireScope("booking.read")] }, async (req, reply) => {
     const { id } = req.params as { id: string };
-    const booking = await col<BookingEntity>("bookings").findOne({ _id: id, tenantId: req.user!.tenantId });
+    const booking = await col("leads").findOne({ _id: id, tenantId: req.user!.tenantId, stage: "booked" });
     if (!booking) return reply.code(404).send({ code: "NOT_FOUND", message: "Booking not found" });
     return reply.send(booking);
   });
@@ -52,7 +49,7 @@ export function registerBookingsRoutes(app: FastifyInstance) {
       const { id } = req.params as { id: string };
       const now = new Date().toISOString();
 
-      const booking = await col("bookings").findOne({ _id: id, tenantId: req.user!.tenantId });
+      const booking = await col("leads").findOne({ _id: id, tenantId: req.user!.tenantId });
       if (!booking) return reply.code(404).send({ code: "NOT_FOUND", message: "Booking not found" });
 
       // Only advance if still at "created"
@@ -61,7 +58,7 @@ export function registerBookingsRoutes(app: FastifyInstance) {
         return reply.send({ ok: true, alreadyShared: true, ownerLifecycle: currentLifecycle });
       }
 
-      await col("bookings").updateOne(
+      await col("leads").updateOne(
         { _id: id },
         {
           $set: {

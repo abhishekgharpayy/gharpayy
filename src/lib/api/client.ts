@@ -27,9 +27,18 @@ export class ApiError extends Error {
 
 const TOKEN_KEY = "gharpayy.access_token";
 export const tokenStore = {
-  get: () => (typeof window === "undefined" ? null : localStorage.getItem(TOKEN_KEY)),
-  set: (t: string) => localStorage.setItem(TOKEN_KEY, t),
-  clear: () => localStorage.removeItem(TOKEN_KEY),
+  get: () => null,
+  set: (t: string) => {
+    // Only clear old token to migrate, we now rely entirely on httpOnly cookie
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(TOKEN_KEY);
+    }
+  },
+  clear: () => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(TOKEN_KEY);
+    }
+  },
 };
 
 const inFlightGetRequests = new Map<string, Promise<unknown>>();
@@ -40,12 +49,11 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (init.body != null && !headers.has("Content-Type"))
     headers.set("Content-Type", "application/json");
   if (!headers.has("Accept")) headers.set("Accept", "application/json");
-  const t = tokenStore.get();
-  if (t) headers.set("Authorization", `Bearer ${t}`);
+  // We no longer send Authorization header, relying entirely on the httpOnly cookie sent via credentials: "include"
 
   const method = (init.method ?? "GET").toUpperCase();
   const dedupeKey =
-    method === "GET" && init.body == null ? `${API_URL}${path}::${t ?? "anon"}` : null;
+    method === "GET" && init.body == null ? `${API_URL}${path}` : null;
   if (dedupeKey) {
     const existing = inFlightGetRequests.get(dedupeKey);
     if (existing) return existing as Promise<T>;
@@ -174,6 +182,7 @@ export interface ManagedUser {
   adminIds?: string[];
   memberIds?: string[];
   createdAt: string;
+  __v: number;
 }
 
 export interface Zone {
@@ -545,6 +554,7 @@ export const api = {
           occurredAt: string;
           payload: Record<string, unknown>;
         }[];
+        fallback?: boolean;
       }>(`/api/activity/all?limit=${limit}`),
     lead: (leadId: string, limit = 200) =>
       request<{
