@@ -5,13 +5,27 @@ import { ShieldAlert, RefreshCw, CheckCircle2, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export const Route = createFileRoute("/admin/dlq")({
   component: AdminDlqPage,
 });
 
+import { useState } from "react";
+
 function AdminDlqPage() {
   const queryClient = useQueryClient();
+  const [visibleCount, setVisibleCount] = useState(10);
   const { data, isLoading } = useQuery({
     queryKey: ["admin-dlq"],
     queryFn: async () => {
@@ -36,6 +50,22 @@ function AdminDlqPage() {
     },
     onSuccess: () => {
       toast.success("Job queued for retry");
+      queryClient.invalidateQueries({ queryKey: ["admin-dlq"] });
+    },
+    onError: (e) => toast.error((e as Error).message),
+  });
+
+  const discardMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/admin/dlq/${id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to discard job");
+      return res.json();
+    },
+    onSuccess: () => {
+      toast.success("Job discarded permanently");
       queryClient.invalidateQueries({ queryKey: ["admin-dlq"] });
     },
     onError: (e) => toast.error((e as Error).message),
@@ -70,7 +100,7 @@ function AdminDlqPage() {
         </div>
       ) : (
         <div className="grid gap-4">
-          {items.map((job) => (
+          {items.slice(0, visibleCount).map((job) => (
             <div key={job._id} className="border border-red-900/30 bg-red-950/10 rounded-xl p-5 hover:bg-red-950/20 transition-colors">
               <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                 <div className="space-y-2 flex-1">
@@ -90,13 +120,42 @@ function AdminDlqPage() {
                   </div>
                 </div>
                 
-                <div className="flex-shrink-0">
+                <div className="flex-shrink-0 flex gap-2">
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        className="border-red-800/50 hover:bg-red-900/30 text-red-300"
+                        disabled={discardMutation.isPending}
+                      >
+                        Discard
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will permanently delete the failed job {job._id} from the dead letter queue. This action cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction 
+                          onClick={() => discardMutation.mutate(job._id)}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          Discard Job
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+
                   <Button 
-                    variant="outline" 
+                    variant="default" 
                     size="sm" 
                     onClick={() => retryMutation.mutate(job._id)}
                     disabled={retryMutation.isPending}
-                    className="border-red-800/50 hover:bg-red-900/30 text-red-300"
                   >
                     <RefreshCw className={`w-4 h-4 mr-2 ${retryMutation.isPending ? 'animate-spin' : ''}`} />
                     Retry Job
@@ -105,6 +164,18 @@ function AdminDlqPage() {
               </div>
             </div>
           ))}
+          {items.length > visibleCount && (
+            <div className="pt-2 text-center pb-4">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="text-xs"
+                onClick={() => setVisibleCount(v => v + 10)}
+              >
+                Load More ({items.length - visibleCount} remaining)
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </div>

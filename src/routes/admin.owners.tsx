@@ -13,6 +13,7 @@ export const Route = createFileRoute("/admin/owners")({
 
 function OwnersList() {
   const [search, setSearch] = useState("");
+  const [visibleCount, setVisibleCount] = useState(10);
 
   const { data, isLoading } = useQuery({
     queryKey: ["owners"],
@@ -78,7 +79,7 @@ function OwnersList() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredOwners.map((owner) => (
+                filteredOwners.slice(0, visibleCount).map((owner) => (
                   <TableRow
                     key={owner.id}
                     className="border-b border-[#FFE0C2] hover:bg-[#FFF3E8] transition-colors"
@@ -121,6 +122,16 @@ function OwnersList() {
               )}
             </TableBody>
           </Table>
+          {filteredOwners.length > visibleCount && (
+            <div className="p-3 text-center border-t border-[#FFE0C2]">
+              <button 
+                className="text-xs bg-[#FFF1E6] hover:bg-[#FFE0C2] text-[#F97316] border border-[#FFE0C2] px-4 py-1.5 rounded transition-colors font-medium"
+                onClick={() => setVisibleCount(v => v + 10)}
+              >
+                Load More ({filteredOwners.length - visibleCount} remaining)
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

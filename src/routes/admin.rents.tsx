@@ -40,6 +40,7 @@ function AdminRents() {
   const [selectedMonth, setSelectedMonth] = useState(currentMonth());
   const [statusFilter, setStatusFilter] = useState("all");
   const [recordOpen, setRecordOpen] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(10);
   const [recordForm, setRecordForm] = useState({
     tenantId: "",
     tenantName: "",
@@ -283,7 +284,7 @@ function AdminRents() {
                   No payments for this month. Click "Generate Rents" to create monthly rent records.
                 </TableCell></TableRow>
               ) : (
-                filtered.map((p: any) => (
+                filtered.slice(0, visibleCount).map((p: any) => (
                   <TableRow key={p.id} className="border-border/50">
                     <TableCell className="font-medium">{p.tenantName}</TableCell>
                     <TableCell className="text-muted-foreground">{formatMonth(p.month)}</TableCell>
@@ -316,6 +317,13 @@ function AdminRents() {
               )}
             </TableBody>
           </Table>
+          {filtered.length > visibleCount && (
+            <div className="p-3 text-center border-t border-border bg-muted/10">
+              <Button variant="outline" size="sm" onClick={() => setVisibleCount(v => v + 10)}>
+                Load More ({filtered.length - visibleCount} remaining)
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 

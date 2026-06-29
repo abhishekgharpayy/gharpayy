@@ -12,6 +12,7 @@ import {
   AlertCircle, UserX, ArrowRight, Download, List, BarChart2,
   PieChart, LayoutGrid, FileText, ChevronDown as ChevronDownIcon
 } from "lucide-react";
+import { toast } from "sonner";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -154,6 +155,7 @@ function ExecutionMonitorPage() {
   const [error, setError] = useState<string | null>(null);
   const [windowMins, setWindowMins] = useState(30);
   const [nextRefreshAt, setNextRefreshAt] = useState<number>(Date.now() + 30000);
+  const [visibleCount, setVisibleCount] = useState(10);
 
   const fetchReport = useCallback(async () => {
     try {
@@ -389,7 +391,7 @@ function ExecutionMonitorPage() {
       doc.save(`overall-summary-${report.generatedAt}.pdf`);
     } catch (e) {
       console.error("Failed to generate PDF", e);
-      alert("Failed to generate PDF report.");
+      toast.error("Failed to generate PDF report.");
     }
   };
 
@@ -664,8 +666,8 @@ function ExecutionMonitorPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {report.rawActivityLog.map((log, i) => (
-                  <TableRow key={i} className="border-border">
+                {report.rawActivityLog.slice(0, visibleCount).map((log, i) => (
+                  <TableRow key={i} className="hover:bg-muted/30">
                     <TableCell className="text-muted-foreground font-mono text-xs">{fmtTime(log.time)}</TableCell>
                     <TableCell className="text-foreground font-medium">{log.employee}</TableCell>
                     <TableCell>
@@ -681,6 +683,13 @@ function ExecutionMonitorPage() {
                 )}
               </TableBody>
             </Table>
+            {report.rawActivityLog.length > visibleCount && (
+              <div className="p-3 text-center border-t border-border bg-muted/10">
+                <Button variant="outline" size="sm" onClick={() => setVisibleCount(v => v + 10)}>
+                  Load More ({report.rawActivityLog.length - visibleCount} remaining)
+                </Button>
+              </div>
+            )}
           </div>
         </TabsContent>
 

@@ -132,6 +132,8 @@ function WorkloadTab() {
     refetchInterval: 60_000,
   });
 
+  const [visibleCount, setVisibleCount] = useState(10);
+
   if (isLoading) return <LoadingState label="Calculating workload distribution…" />;
   if (isError) return <ErrorState />;
 
@@ -164,7 +166,7 @@ function WorkloadTab() {
             </tr>
           </thead>
           <tbody>
-            {items.map((row) => (
+            {items.slice(0, visibleCount).map((row) => (
               <tr key={row.userId} className="border-b border-border hover:bg-muted/30 transition-colors">
                 <td className="px-3 py-2.5">
                   <div className="flex items-center gap-2">
@@ -190,6 +192,16 @@ function WorkloadTab() {
             )}
           </tbody>
         </table>
+        {items.length > visibleCount && (
+          <div className="p-3 text-center border-t border-border bg-muted/10">
+            <button 
+              className="text-xs bg-background hover:bg-muted text-foreground border border-border px-4 py-1.5 rounded transition-colors"
+              onClick={() => setVisibleCount(v => v + 10)}
+            >
+              Load More ({items.length - visibleCount} remaining)
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -378,6 +390,8 @@ function RiskTab() {
     return all.filter((r) => r.riskLevel === filter);
   }, [data, filter]);
 
+  const [visibleCount, setVisibleCount] = useState(10);
+
   const filters: { key: RiskFilter; label: string }[] = [
     { key: "all", label: "All" },
     { key: "critical", label: "Critical" },
@@ -430,9 +444,19 @@ function RiskTab() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {items.map((row) => (
+          {items.slice(0, visibleCount).map((row) => (
             <RiskCard key={row.userId} row={row} />
           ))}
+        </div>
+      )}
+      {items.length > visibleCount && (
+        <div className="pt-2 text-center">
+          <button 
+            className="text-xs bg-card hover:bg-muted text-foreground border border-border px-4 py-1.5 rounded transition-colors shadow-sm"
+            onClick={() => setVisibleCount(v => v + 10)}
+          >
+            Load More ({items.length - visibleCount} remaining)
+          </button>
         </div>
       )}
     </div>

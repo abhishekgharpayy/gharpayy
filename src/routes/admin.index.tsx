@@ -68,26 +68,6 @@ function AdminCockpit() {
   const [tcmFilter, setTcmFilter] = useState("all");
   const [drawer, setDrawer] = useState<DrawerContent>(null);
 
-  if (isLoading) {
-    return (
-      <div className="space-y-4">
-        <div className="p-8 text-center text-muted-foreground animate-pulse">Initializing God Mode...</div>
-      </div>
-    );
-  }
-
-  if (isError) {
-    return (
-      <div className="space-y-4">
-        <div className="p-8 text-center">
-          <div className="text-destructive mb-3">Failed to fetch metrics. Please check your connection.</div>
-          <Button variant="outline" size="sm" onClick={() => refetch()}>
-            <Terminal className="w-3.5 h-3.5 mr-1.5" /> Retry
-          </Button>
-        </div>
-      </div>
-    );
-  }
 
   const open = rows.filter((r) => r.status === "open" || r.status === "dormant");
   const hot = open.filter((r) => r.probability >= 70);
@@ -352,6 +332,27 @@ function AdminCockpit() {
     
     return warnings.sort((a, b) => b.dropped - a.dropped).slice(0, 3);
   }, [rows, properties]);
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <div className="p-8 text-center text-muted-foreground animate-pulse">Initializing God Mode...</div>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="space-y-4">
+        <div className="p-8 text-center">
+          <div className="text-destructive mb-3">Failed to fetch metrics. Please check your connection.</div>
+          <Button variant="outline" size="sm" onClick={() => refetch()}>
+            <Terminal className="w-3.5 h-3.5 mr-1.5" /> Retry
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>

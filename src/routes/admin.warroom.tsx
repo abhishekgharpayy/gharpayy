@@ -42,6 +42,7 @@ function WarRoomTV() {
   const [dataTick, setDataTick] = useState(0);
   const [bigWin, setBigWin] = useState<{ leadName: string, amount: number, tcmName: string } | null>(null);
   const [pingPulse, setPingPulse] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(10);
   
   const lastProcessedActivityId = useRef<string | null>(null);
   const pingTimeout = useRef<NodeJS.Timeout | null>(null);
@@ -173,10 +174,20 @@ function WarRoomTV() {
 
         <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Wall title="MOST LIKELY TO CLOSE" icon="">
-            {hot.map((r, i) => (
+            {hot.slice(0, visibleCount).map((r, i) => (
               <Row key={r.lead.id} idx={i + 1} left={r.lead.name} mid={r.tcm?.name ?? "-"} right={`${r.probability}%`} />
             ))}
             {!hot.length && <Empty>NO HOT LEADS DETECTED</Empty>}
+            {hot.length > visibleCount && (
+              <li className="mt-4 pt-2 text-center border-t border-blue-900/30">
+                <button
+                  onClick={() => setVisibleCount(v => v + 10)}
+                  className="text-[10px] uppercase font-bold tracking-wider text-blue-400 hover:text-blue-300 transition-colors bg-blue-950/30 hover:bg-blue-900/50 px-4 py-2 rounded border border-blue-800/50"
+                >
+                  LOAD MORE ({hot.length - visibleCount})
+                </button>
+              </li>
+            )}
           </Wall>
           
           <Wall title="SLA BREACHES (HIGH VALUE)" icon="️" borderTone="danger">

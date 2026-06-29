@@ -11,6 +11,7 @@ import { useAuthUser } from "@/lib/auth-store";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api/client";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import type { AdminLeadRow } from "@/admin/lib/selectors";
 
 export const Route = createFileRoute("/admin/supreme")({
@@ -38,6 +39,7 @@ type DrawerState =
 function SupremePage() {
   const { rows, isLoading, isError } = useLiveSupremeMetrics();
   const [drawer, setDrawer] = useState<DrawerState>(null);
+  const [visibleCount, setVisibleCount] = useState(10);
 
   const { data: watchdogData, isLoading: loadingWatchdog } = useQuery({
     queryKey: ["watchdog_feed"],
@@ -124,7 +126,7 @@ function SupremePage() {
                 <tr><th className="text-left py-1.5">Lead</th><th className="text-left">TCM</th><th className="text-left">Breach</th><th className="text-right">Age</th><th className="text-right">Prob</th><th className="text-right">EV</th><th className="text-right">Actions</th></tr>
               </thead>
               <tbody>
-                {breaches.map((b) => (
+                {breaches.slice(0, visibleCount).map((b) => (
                   <tr key={b.leadId + b.type} className="border-b border-border/60 hover:bg-muted/40 cursor-pointer" onClick={() => {
                     const r = rows.find(x => x.lead.id === b.leadId);
                     if (r) setDrawer({ kind: "lead", row: r });
@@ -136,14 +138,25 @@ function SupremePage() {
                     <td className="text-right font-mono">{b.probability}%</td>
                     <td className="text-right font-mono text-accent">{inrL(b.expectedValue)}</td>
                     <td className="text-right py-1">
-                      <Button size="sm" variant="outline" className="h-6 text-[10px] px-2 mr-1" onClick={(e) => { e.stopPropagation(); alert(`Re-assigned ${b.leadName}`); }}>Re-assign</Button>
-                      <Button size="sm" variant="destructive" className="h-6 text-[10px] px-2" onClick={(e) => { e.stopPropagation(); alert(`Forced SLA resolve for ${b.leadName}`); }}>Resolve</Button>
+                      <Button size="sm" variant="outline" className="h-6 text-[10px] px-2 mr-1" onClick={(e) => { e.stopPropagation(); toast.info(`Re-assigned ${b.leadName}`); }}>Re-assign</Button>
+                      <Button size="sm" variant="destructive" className="h-6 text-[10px] px-2" onClick={(e) => { e.stopPropagation(); toast.success(`Forced SLA resolve for ${b.leadName}`); }}>Resolve</Button>
                     </td>
                   </tr>
                 ))}
                 {!breaches.length && <tr><td colSpan={6} className="text-center text-muted-foreground py-4">No breaches. Clean slate.</td></tr>}
               </tbody>
             </table>
+            {breaches.length > visibleCount && (
+              <div className="p-3 text-center border-t border-border mt-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setVisibleCount(v => v + 10)}
+                >
+                  Load More ({breaches.length - visibleCount} remaining)
+                </Button>
+              </div>
+            )}
           </div>
         </Panel>
 

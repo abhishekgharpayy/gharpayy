@@ -102,6 +102,7 @@ import { Route as AdminImpactRouteImport } from './routes/admin.impact'
 import { Route as AdminHealthScoreRouteImport } from './routes/admin.health-score'
 import { Route as AdminExportsRouteImport } from './routes/admin.exports'
 import { Route as AdminExecutionReportRouteImport } from './routes/admin.execution-report'
+import { Route as AdminDlqRouteImport } from './routes/admin.dlq'
 import { Route as AdminCommandRouteImport } from './routes/admin.command'
 import { Route as AdminCalendarRouteImport } from './routes/admin.calendar'
 import { Route as AdminBookingsRouteImport } from './routes/admin.bookings'
@@ -588,6 +589,11 @@ const AdminExecutionReportRoute = AdminExecutionReportRouteImport.update({
   path: '/execution-report',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminDlqRoute = AdminDlqRouteImport.update({
+  id: '/dlq',
+  path: '/dlq',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminCommandRoute = AdminCommandRouteImport.update({
   id: '/command',
   path: '/command',
@@ -730,6 +736,7 @@ export interface FileRoutesByFullPath {
   '/admin/bookings': typeof AdminBookingsRoute
   '/admin/calendar': typeof AdminCalendarRoute
   '/admin/command': typeof AdminCommandRoute
+  '/admin/dlq': typeof AdminDlqRoute
   '/admin/execution-report': typeof AdminExecutionReportRoute
   '/admin/exports': typeof AdminExportsRoute
   '/admin/health-score': typeof AdminHealthScoreRoute
@@ -843,6 +850,7 @@ export interface FileRoutesByTo {
   '/admin/bookings': typeof AdminBookingsRoute
   '/admin/calendar': typeof AdminCalendarRoute
   '/admin/command': typeof AdminCommandRoute
+  '/admin/dlq': typeof AdminDlqRoute
   '/admin/execution-report': typeof AdminExecutionReportRoute
   '/admin/exports': typeof AdminExportsRoute
   '/admin/health-score': typeof AdminHealthScoreRoute
@@ -958,6 +966,7 @@ export interface FileRoutesById {
   '/admin/bookings': typeof AdminBookingsRoute
   '/admin/calendar': typeof AdminCalendarRoute
   '/admin/command': typeof AdminCommandRoute
+  '/admin/dlq': typeof AdminDlqRoute
   '/admin/execution-report': typeof AdminExecutionReportRoute
   '/admin/exports': typeof AdminExportsRoute
   '/admin/health-score': typeof AdminHealthScoreRoute
@@ -1074,6 +1083,7 @@ export interface FileRouteTypes {
     | '/admin/bookings'
     | '/admin/calendar'
     | '/admin/command'
+    | '/admin/dlq'
     | '/admin/execution-report'
     | '/admin/exports'
     | '/admin/health-score'
@@ -1187,6 +1197,7 @@ export interface FileRouteTypes {
     | '/admin/bookings'
     | '/admin/calendar'
     | '/admin/command'
+    | '/admin/dlq'
     | '/admin/execution-report'
     | '/admin/exports'
     | '/admin/health-score'
@@ -1301,6 +1312,7 @@ export interface FileRouteTypes {
     | '/admin/bookings'
     | '/admin/calendar'
     | '/admin/command'
+    | '/admin/dlq'
     | '/admin/execution-report'
     | '/admin/exports'
     | '/admin/health-score'
@@ -2094,6 +2106,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminExecutionReportRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/dlq': {
+      id: '/admin/dlq'
+      path: '/dlq'
+      fullPath: '/admin/dlq'
+      preLoaderRoute: typeof AdminDlqRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/command': {
       id: '/admin/command'
       path: '/command'
@@ -2287,6 +2306,7 @@ interface AdminRouteChildren {
   AdminBookingsRoute: typeof AdminBookingsRoute
   AdminCalendarRoute: typeof AdminCalendarRoute
   AdminCommandRoute: typeof AdminCommandRoute
+  AdminDlqRoute: typeof AdminDlqRoute
   AdminExecutionReportRoute: typeof AdminExecutionReportRoute
   AdminExportsRoute: typeof AdminExportsRoute
   AdminHealthScoreRoute: typeof AdminHealthScoreRoute
@@ -2319,6 +2339,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminBookingsRoute: AdminBookingsRoute,
   AdminCalendarRoute: AdminCalendarRoute,
   AdminCommandRoute: AdminCommandRoute,
+  AdminDlqRoute: AdminDlqRoute,
   AdminExecutionReportRoute: AdminExecutionReportRoute,
   AdminExportsRoute: AdminExportsRoute,
   AdminHealthScoreRoute: AdminHealthScoreRoute,

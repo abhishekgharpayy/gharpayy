@@ -26,6 +26,7 @@ export const Route = createFileRoute("/admin/property")({
 function AdminPropertyCommandCenter() {
   const { data, isLoading } = useLiveSupremeMetrics();
   const [searchTerm, setSearchTerm] = useState("");
+  const [visibleCount, setVisibleCount] = useState(10);
 
   const liveProperties = data?.properties ?? [];
   const leads = data?.leads ?? [];
@@ -262,8 +263,8 @@ function AdminPropertyCommandCenter() {
             <AreaChart data={forecastData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
               <defs>
                 <linearGradient id="colorOcc" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="var(--color-primary)" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="var(--color-primary)" stopOpacity={0} />
+                  <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="opacity-10" />
@@ -277,14 +278,14 @@ function AdminPropertyCommandCenter() {
                 className="text-muted-foreground"
               />
               <RechartsTooltip 
-                contentStyle={{ borderRadius: "8px", border: "1px solid var(--border)", backgroundColor: "var(--card)", color: "var(--foreground)" }}
-                itemStyle={{ color: "var(--color-primary)" }}
+                contentStyle={{ borderRadius: "8px", border: "1px solid hsl(var(--border))", backgroundColor: "hsl(var(--card))", color: "hsl(var(--foreground))" }}
+                itemStyle={{ color: "hsl(var(--primary))" }}
                 formatter={(val: number) => [`${val.toFixed(1)}%`, "Predicted Occupancy"]}
               />
               <Area 
                 type="monotone" 
                 dataKey="occupancy" 
-                stroke="var(--color-primary)" 
+                stroke="hsl(var(--primary))" 
                 strokeWidth={3} 
                 fillOpacity={1} 
                 fill="url(#colorOcc)" 
@@ -309,7 +310,7 @@ function AdminPropertyCommandCenter() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {filteredStats.map((s) => (
+              {filteredStats.slice(0, visibleCount).map((s) => (
                 <tr key={s.id} className="hover:bg-muted/10 transition-colors group">
                   <td className="px-4 py-4">
                     <div className="font-semibold flex items-center gap-2">
@@ -394,6 +395,16 @@ function AdminPropertyCommandCenter() {
               )}
             </tbody>
           </table>
+          {filteredStats.length > visibleCount && (
+            <div className="p-3 text-center border-t border-border mt-2 bg-muted/10">
+              <button 
+                className="text-xs bg-background hover:bg-muted text-foreground border border-border px-4 py-1.5 rounded transition-colors"
+                onClick={() => setVisibleCount(v => v + 10)}
+              >
+                Load More ({filteredStats.length - visibleCount} remaining)
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

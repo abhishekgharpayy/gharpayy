@@ -5,7 +5,7 @@ import { useAuthUser } from "@/lib/auth-store";
 import { useApp } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { AdminLeadRow } from "@/admin/lib/selectors";
 import { toast } from "sonner";
 
@@ -20,6 +20,10 @@ export const Route = createFileRoute("/admin/radar")({
 
 function RadarPage() {
   const { rows, isLoading, isError } = useLiveSupremeMetrics();
+  
+  const [visibleCountHeatmap, setVisibleCountHeatmap] = useState(10);
+  const [visibleCountChurn, setVisibleCountChurn] = useState(10);
+  const [visibleCountSource, setVisibleCountSource] = useState(10);
 
   const churnRadar = useMemo(() => {
     if (!rows) return [];
@@ -140,7 +144,7 @@ function RadarPage() {
           </div>
           
           <div className="space-y-3">
-            {heatmap.map((h, i) => (
+            {heatmap.slice(0, visibleCountHeatmap).map((h, i) => (
               <div key={h.area} className="relative group">
                 <div className="flex justify-between items-center text-xs mb-1">
                   <span className="font-medium flex items-center gap-2">
@@ -166,6 +170,13 @@ function RadarPage() {
               </div>
             ))}
             {!heatmap.length && <div className="text-sm text-muted-foreground">No spatial data available.</div>}
+            {heatmap.length > visibleCountHeatmap && (
+              <div className="pt-2 text-center">
+                <Button variant="outline" size="sm" onClick={() => setVisibleCountHeatmap(v => v + 10)}>
+                  Load More ({heatmap.length - visibleCountHeatmap} remaining)
+                </Button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -180,7 +191,7 @@ function RadarPage() {
           </div>
 
           <div className="space-y-2">
-            {churnRadar.map((c) => (
+            {churnRadar.slice(0, visibleCountChurn).map((c) => (
               <div key={c.row.lead.id} className="p-3 rounded-lg border border-destructive/10 bg-destructive/5 hover:border-destructive/30 transition-colors">
                 <div className="flex justify-between items-start mb-2">
                   <div>
@@ -228,6 +239,13 @@ function RadarPage() {
               </div>
             ))}
             {!churnRadar.length && <div className="text-sm text-muted-foreground">No high-risk leads detected! Your pipeline is healthy.</div>}
+            {churnRadar.length > visibleCountChurn && (
+              <div className="pt-2 text-center">
+                <Button variant="outline" size="sm" onClick={() => setVisibleCountChurn(v => v + 10)}>
+                  Load More ({churnRadar.length - visibleCountChurn} remaining)
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -243,7 +261,7 @@ function RadarPage() {
         </div>
         
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {sourceQuality.map(s => (
+          {sourceQuality.slice(0, visibleCountSource).map(s => (
             <div key={s.source} className="p-3 bg-card rounded-lg border border-border">
               <div className="flex justify-between mb-2">
                 <span className="font-semibold text-sm capitalize">{s.source}</span>
@@ -268,6 +286,13 @@ function RadarPage() {
           ))}
           {!sourceQuality.length && <div className="text-sm text-muted-foreground">No source data.</div>}
         </div>
+        {sourceQuality.length > visibleCountSource && (
+          <div className="mt-4 text-center">
+            <Button variant="outline" size="sm" onClick={() => setVisibleCountSource(v => v + 10)}>
+              Load More ({sourceQuality.length - visibleCountSource} remaining)
+            </Button>
+          </div>
+        )}
       </div>
 
     </div>

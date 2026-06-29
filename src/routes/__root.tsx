@@ -12,6 +12,7 @@ import { AppProvider as MYTAppProvider } from "@/myt/lib/app-context";
 import { SettingsProvider as MYTSettingsProvider } from "@/myt/lib/settings-context";
 import { TourDataProvider as MYTTourDataProvider } from "@/myt/lib/tour-data-context";
 import { AuthGate } from "@/components/AuthGate";
+import { ThemeProvider } from "@/components/theme-provider";
 
 import appCss from "../styles.css?url";
 
@@ -63,22 +64,9 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 
 function RootShell({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              try {
-                if (localStorage.getItem('gharpayy.theme') === 'dark' || (!('gharpayy.theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-                  document.documentElement.classList.add('dark')
-                } else {
-                  document.documentElement.classList.remove('dark')
-                }
-              } catch (_) {}
-            `,
-          }}
-        />
       </head>
       <body>
         {children}
@@ -91,18 +79,20 @@ function RootShell({ children }: { children: React.ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   return (
-    <QueryClientProvider client={queryClient}>
-      <MYTSettingsProvider>
-        <MYTTourDataProvider>
-          <MYTAppProvider>
-            <AuthGate>
-              <Outlet />
-              <KeyboardShortcuts />
-            </AuthGate>
-            <Toaster />
-          </MYTAppProvider>
-        </MYTTourDataProvider>
-      </MYTSettingsProvider>
-    </QueryClientProvider>
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+      <QueryClientProvider client={queryClient}>
+        <MYTSettingsProvider>
+          <MYTTourDataProvider>
+            <MYTAppProvider>
+              <AuthGate>
+                <Outlet />
+                <KeyboardShortcuts />
+                <Toaster richColors position="top-right" />
+              </AuthGate>
+            </MYTAppProvider>
+          </MYTTourDataProvider>
+        </MYTSettingsProvider>
+      </QueryClientProvider>
+    </ThemeProvider>
   );
 }

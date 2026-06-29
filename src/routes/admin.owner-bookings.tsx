@@ -4,6 +4,7 @@ import { useAuthUser } from "@/lib/auth-store";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useOwnerBookings, computeTotals } from "@/lib/owner-bookings/store";
 import { LIFECYCLE_LABEL } from "@/lib/owner-bookings/types";
@@ -33,7 +34,8 @@ function AdminOwnerBookings() {
   const { bookings } = useOwnerBookings();
   const [tab, setTab] = useState("all");
   const [q, setQ] = useState("");
-  const [openId, setOpenId] = useState<string | null>(bookings[0]?.id ?? null);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [visibleCount, setVisibleCount] = useState(10);
 
   const filtered = useMemo(() => {
     const f = TAB_FILTERS.find((t) => t.id === tab)!.match;
@@ -100,7 +102,7 @@ function AdminOwnerBookings() {
             {filtered.length === 0 && (
               <Card className="p-6 text-center text-xs text-muted-foreground">No bookings here.</Card>
             )}
-            {filtered.map((b) => {
+            {filtered.slice(0, visibleCount).map((b) => {
               const t = computeTotals(b);
               return (
                 <Card key={b.id}
@@ -129,6 +131,18 @@ function AdminOwnerBookings() {
                 </Card>
               );
             })}
+            {filtered.length > visibleCount && (
+              <div className="pt-2 text-center pb-4">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="w-full text-xs"
+                  onClick={() => setVisibleCount(v => v + 10)}
+                >
+                  Load More ({filtered.length - visibleCount} remaining)
+                </Button>
+              </div>
+            )}
           </div>
 
           <div className="min-w-0">

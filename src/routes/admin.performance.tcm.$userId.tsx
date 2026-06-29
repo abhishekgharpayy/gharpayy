@@ -120,7 +120,7 @@ function TCMDetail() {
                 <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10 }} />
                 <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', borderRadius: '8px' }} />
                 <Line yAxisId="left" type="monotone" dataKey="toursCompleted" name="Tours" stroke="hsl(var(--primary))" strokeWidth={2} />
-                <Line yAxisId="right" type="monotone" dataKey="bookings" name="Bookings" stroke="hsl(var(--emerald-500))" strokeWidth={2} />
+                <Line yAxisId="right" type="monotone" dataKey="bookings" name="Bookings" stroke="hsl(var(--chart-2))" strokeWidth={2} />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>

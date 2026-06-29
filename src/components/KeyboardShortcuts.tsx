@@ -2,6 +2,18 @@ import { useEffect, useRef } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useApp } from "@/lib/store";
 import { toast } from "sonner";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { create } from "zustand";
+
+interface ShortcutStore {
+  isOpen: boolean;
+  setOpen: (open: boolean) => void;
+}
+
+export const useShortcutModal = create<ShortcutStore>((set) => ({
+  isOpen: false,
+  setOpen: (open) => set({ isOpen: open }),
+}));
 
 /**
  * Global keyboard shortcuts.
@@ -15,6 +27,7 @@ import { toast } from "sonner";
 export function KeyboardShortcuts() {
   const navigate = useNavigate();
   const { selectedLeadId, leads, logCall, sendMessage, setLeadFollowUp } = useApp();
+  const { isOpen, setOpen } = useShortcutModal();
   const lastKey = useRef<{ key: string; at: number }>({ key: "", at: 0 });
 
   useEffect(() => {
@@ -89,16 +102,50 @@ export function KeyboardShortcuts() {
 
       if (key === "?") {
         e.preventDefault();
-        toast("Keyboard shortcuts", {
-          description: "g t Today · g d Dashboard · g l Leads · g h Handoffs · g r Revival · g v Revenue · g m Heatmap · g b Leaderboard · g s Sequences · c log call · w whatsapp · n new follow-up · ⌘K palette",
-          duration: 8000,
-        });
+        setOpen(true);
       }
     }
 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [navigate, selectedLeadId, leads, logCall, sendMessage, setLeadFollowUp]);
+  }, [navigate, selectedLeadId, leads, logCall, sendMessage, setLeadFollowUp, setOpen]);
 
-  return null;
+  return (
+    <Dialog open={isOpen} onOpenChange={setOpen}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Keyboard Shortcuts</DialogTitle>
+          <DialogDescription>
+            Navigate and perform actions quickly using your keyboard.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-4 text-sm">
+          <div className="grid grid-cols-2 gap-2">
+            <span className="text-muted-foreground">Global Search</span>
+            <kbd className="justify-self-end bg-muted px-2 py-0.5 rounded font-mono text-xs">Cmd + K</kbd>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <span className="text-muted-foreground">Go to Dashboard</span>
+            <kbd className="justify-self-end bg-muted px-2 py-0.5 rounded font-mono text-xs">g then d</kbd>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <span className="text-muted-foreground">Go to Leads</span>
+            <kbd className="justify-self-end bg-muted px-2 py-0.5 rounded font-mono text-xs">g then l</kbd>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <span className="text-muted-foreground">Go to Leaderboard</span>
+            <kbd className="justify-self-end bg-muted px-2 py-0.5 rounded font-mono text-xs">g then b</kbd>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <span className="text-muted-foreground">Log Call (selected lead)</span>
+            <kbd className="justify-self-end bg-muted px-2 py-0.5 rounded font-mono text-xs">c</kbd>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <span className="text-muted-foreground">Create User (on People page)</span>
+            <kbd className="justify-self-end bg-muted px-2 py-0.5 rounded font-mono text-xs">Cmd + N</kbd>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
 }

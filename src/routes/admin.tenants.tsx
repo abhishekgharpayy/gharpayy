@@ -44,6 +44,7 @@ function TenantControlTower() {
 
   const [search, setSearch] = useState("");
   const [viewMode, setViewMode] = useState<"all" | "notice" | "risk">("all");
+  const [visibleCount, setVisibleCount] = useState(10);
 
   const { data: tenantsData, isLoading: loadingTenants } = useQuery({
     queryKey: ["admin", "tenants"],
@@ -262,7 +263,7 @@ function TenantControlTower() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {filteredStats.map((s) => (
+              {filteredStats.slice(0, visibleCount).map((s) => (
                 <tr key={s.id} className="hover:bg-muted/10 transition-colors group">
                   <td className="px-4 py-4">
                     <div className="font-semibold text-foreground flex items-center gap-2">
@@ -345,6 +346,16 @@ function TenantControlTower() {
               )}
             </tbody>
           </table>
+          {filteredStats.length > visibleCount && (
+            <div className="p-3 text-center border-t border-border mt-2 bg-muted/10">
+              <button 
+                className="text-xs bg-background hover:bg-muted text-foreground border border-border px-4 py-1.5 rounded transition-colors"
+                onClick={() => setVisibleCount(v => v + 10)}
+              >
+                Load More ({filteredStats.length - visibleCount} remaining)
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

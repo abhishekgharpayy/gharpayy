@@ -30,6 +30,7 @@ function CommandBridge() {
   const [impersonateId, setImpersonateId] = useState<string>("");
   const [broadcast, setBroadcast] = useState("");
   const [paused, setPaused] = useState<boolean>(false);
+  const [visibleCount, setVisibleCount] = useState(10);
 
   // Derive TCM list from live rows
   const tcms = useMemo(() => {
@@ -254,7 +255,7 @@ function CommandBridge() {
             </tr>
           </thead>
           <tbody>
-            {stuckHot.map((r) => (
+            {stuckHot.slice(0, visibleCount).map((r) => (
               <tr key={r.lead.id} className="border-b border-border/60">
                 <td className="py-1.5">{r.lead.name}</td>
                 <td className="text-muted-foreground">{r.tcm?.name ?? "—"}</td>
@@ -281,6 +282,16 @@ function CommandBridge() {
             )}
           </tbody>
         </table>
+        {stuckHot.length > visibleCount && (
+          <div className="p-3 text-center border-t border-border mt-2">
+            <button
+              onClick={() => setVisibleCount(v => v + 10)}
+              className="text-xs bg-muted hover:bg-muted/80 text-foreground px-4 py-1.5 rounded transition-colors"
+            >
+              Load More ({stuckHot.length - visibleCount} remaining)
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
