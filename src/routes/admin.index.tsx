@@ -7,12 +7,17 @@ import { useAuditLog } from "@/lib/crm10x/audit-log";
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
 } from "@/components/ui/sheet";
+import {
+  Popover, PopoverContent, PopoverTrigger,
+} from "@/components/ui/popover";
+import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
+import { Check, ChevronDown, Terminal } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { AdminLeadRow } from "@/admin/lib/selectors";
 import { LeadSparkline } from "@/admin/components/LeadSparkline";
 import { computeTcmHealth } from "@/admin/lib/supreme-metrics";
 import { authedFetch } from "@/admin/lib/use-live-supreme";
 import { Button } from "@/components/ui/button";
-import { Terminal } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -607,7 +612,12 @@ function WhyPanel({
 
   return (
     <div className="rounded-xl border border-border bg-card p-3">
-      <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Why leads aren't closing</div>
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Why leads aren't closing</div>
+        {whyTab === "by-tcm" && (
+          <DropdownFilter value={whyTcmFilter} onChange={setWhyTcmFilter} options={tcms} placeholder="All TCMs" />
+        )}
+      </div>
       <div className="flex flex-wrap gap-1 mb-2">
         {WHY_TABS.map((t) => (
           <button
@@ -626,31 +636,7 @@ function WhyPanel({
 
       {whyTab === "by-tcm" ? (
         <>
-          <div className="flex flex-wrap gap-1 mb-2">
-            <button
-              onClick={() => setWhyTcmFilter("all")}
-              className={`text-[11px] font-medium rounded-full px-3 py-1 transition-colors ${
-                whyTcmFilter === "all"
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "bg-card text-muted-foreground border border-border hover:bg-muted/50 hover:text-foreground"
-              }`}
-            >
-              All
-            </button>
-            {tcms.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => setWhyTcmFilter(t.id)}
-                className={`text-[11px] font-medium rounded-full px-3 py-1 transition-colors ${
-                  whyTcmFilter === t.id
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "bg-card text-muted-foreground border border-border hover:bg-muted/50 hover:text-foreground"
-                }`}
-              >
-                {t.name}
-              </button>
-            ))}
-          </div>
+
           <ul className="space-y-1 text-xs">
             {(whyTcmFilter === "all" ? whyByTcm : whyByTcm.filter((t) => {
               const matched = tcms.find((tcm) => tcm.id === whyTcmFilter);
@@ -767,7 +753,12 @@ function ObjPanel({
 
   return (
     <div className="rounded-xl border border-border bg-card p-3">
-      <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Top objection codes</div>
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Top objection codes</div>
+        {objTab === "by-tcm" && (
+          <DropdownFilter value={objTcmFilter} onChange={onObjTcmChange} options={objTcmOptions} placeholder="All TCMs" />
+        )}
+      </div>
       <div className="flex flex-wrap gap-1 mb-2">
         {OBJ_TABS.map((t) => (
           <button
@@ -784,33 +775,7 @@ function ObjPanel({
         ))}
       </div>
 
-      {objTab === "by-tcm" && (
-        <div className="flex flex-wrap gap-1 mb-2">
-          <button
-            onClick={() => onObjTcmChange("all")}
-            className={`text-[11px] font-medium rounded-full px-3 py-1 transition-colors ${
-              objTcmFilter === "all"
-                ? "bg-primary text-primary-foreground shadow-sm"
-                : "bg-card text-muted-foreground border border-border hover:bg-muted/50 hover:text-foreground"
-            }`}
-          >
-            All
-          </button>
-          {objTcmOptions.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => onObjTcmChange(t.id)}
-              className={`text-[11px] font-medium rounded-full px-3 py-1 transition-colors ${
-                objTcmFilter === t.id
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "bg-card text-muted-foreground border border-border hover:bg-muted/50 hover:text-foreground"
-              }`}
-            >
-              {t.name}
-            </button>
-          ))}
-        </div>
-      )}
+
 
       <ul className="space-y-1 text-xs">
         {objectionDetails.map((o) => (
@@ -867,33 +832,11 @@ function ClosePanel({
 }) {
   return (
     <div className="rounded-xl border border-border bg-card p-3">
-      <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Most likely to close in 24h</div>
-      <div className="flex flex-wrap gap-1 mb-2">
-        <button
-          onClick={() => onTcmChange("all")}
-          className={`text-[11px] font-medium rounded-full px-3 py-1 transition-colors ${
-            tcmFilter === "all"
-              ? "bg-primary text-primary-foreground shadow-sm"
-              : "bg-card text-muted-foreground border border-border hover:bg-muted/50 hover:text-foreground"
-          }`}
-        >
-          All TCMs
-        </button>
-        {tcmOptions.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => onTcmChange(t.id)}
-            className={`text-[11px] font-medium rounded-full px-3 py-1 transition-colors ${
-              tcmFilter === t.id
-                ? "bg-primary text-primary-foreground shadow-sm"
-                : "bg-card text-muted-foreground border border-border hover:bg-muted/50 hover:text-foreground"
-            }`}
-          >
-            {t.name}
-          </button>
-        ))}
-        {!tcmOptions.length && null}
+      <div className="flex items-center justify-between mb-3">
+        <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Most likely to close in 24h</div>
+        <DropdownFilter value={tcmFilter} onChange={onTcmChange} options={tcmOptions} placeholder="All TCMs" />
       </div>
+
       <ol className="space-y-1 text-xs">
         {top24h.map((r, i) => (
           <li key={r.lead.id}>
@@ -1062,5 +1005,67 @@ function Stat({ k, v }: { k: string; v: React.ReactNode }) {
       <div className="text-[10px] uppercase text-muted-foreground">{k}</div>
       <div className="font-medium">{v}</div>
     </div>
+  );
+}
+
+function DropdownFilter({
+  value,
+  onChange,
+  options,
+  placeholder = "Select...",
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: Array<{ id: string; name: string }>;
+  placeholder?: string;
+}) {
+  const selectedName = value === "all" ? placeholder : options.find((o) => o.id === value)?.name || value;
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-7 text-[11px] rounded-full px-3 bg-background hover:border-primary/50 hover:text-primary shrink-0"
+        >
+          {selectedName} <ChevronDown className="ml-1 h-3 w-3 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[220px] p-0" align="end">
+        <Command>
+          <CommandInput placeholder="Search..." className="text-[11px]" />
+          <CommandList>
+            <CommandEmpty className="py-3 text-center text-xs text-muted-foreground">No options found.</CommandEmpty>
+            <CommandGroup>
+              <CommandItem value="All" onSelect={() => onChange("all")} className="text-[11px] cursor-pointer">
+                <div
+                  className={cn(
+                    "mr-2 flex h-3.5 w-3.5 items-center justify-center rounded-sm border border-primary",
+                    value === "all" ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible",
+                  )}
+                >
+                  <Check className={cn("h-3 w-3")} />
+                </div>
+                {placeholder}
+              </CommandItem>
+              {options.map((opt) => (
+                <CommandItem key={opt.id} value={opt.name} onSelect={() => onChange(opt.id)} className="text-[11px] cursor-pointer">
+                  <div
+                    className={cn(
+                      "mr-2 flex h-3.5 w-3.5 items-center justify-center rounded-sm border border-primary",
+                      value === opt.id ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible",
+                    )}
+                  >
+                    <Check className={cn("h-3 w-3")} />
+                  </div>
+                  {opt.name}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 }
