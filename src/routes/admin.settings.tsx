@@ -36,7 +36,7 @@ function AdminSettings() {
         <div className="rounded-xl border border-border bg-card p-4 space-y-4 md:col-span-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Activity className="h-4 w-4 text-accent" />
+              <Activity className="h-4 w-4 text-primary" />
               <span className="text-xs font-semibold uppercase tracking-wider">System Diagnostics</span>
               {diag && (
                 <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-success/15 text-success font-mono">
@@ -81,7 +81,7 @@ function AdminSettings() {
                   {Object.entries(diag.counts).map(([key, val]) => (
                     <div key={key} className="bg-muted/30 rounded-lg p-2.5">
                       <div className="text-[10px] text-muted-foreground capitalize">{key}</div>
-                      <div className="text-lg font-display font-semibold font-mono text-accent">{val}</div>
+                      <div className="text-lg font-display font-semibold font-mono text-primary">{val}</div>
                     </div>
                   ))}
                 </div>

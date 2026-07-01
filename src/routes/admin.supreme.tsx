@@ -131,12 +131,12 @@ function SupremePage() {
                     const r = rows.find(x => x.lead.id === b.leadId);
                     if (r) setDrawer({ kind: "lead", row: r });
                   }}>
-                    <td className="py-1.5 font-medium hover:underline text-accent">{b.leadName}</td>
+                    <td className="py-1.5 font-medium hover:underline text-primary">{b.leadName}</td>
                     <td className="text-muted-foreground">{b.tcm}</td>
                     <td><span className="px-1.5 py-0.5 rounded bg-destructive/15 text-destructive text-[10px]">{b.type}</span></td>
                     <td className="text-right font-mono">{Math.round(b.ageHrs)}h</td>
                     <td className="text-right font-mono">{b.probability}%</td>
-                    <td className="text-right font-mono text-accent">{inrL(b.expectedValue)}</td>
+                    <td className="text-right font-mono text-primary">{inrL(b.expectedValue)}</td>
                     <td className="text-right py-1">
                       <Button size="sm" variant="outline" className="h-6 text-[10px] px-2 mr-1" onClick={(e) => { e.stopPropagation(); toast.info(`Re-assigned ${b.leadName}`); }}>Re-assign</Button>
                       <Button size="sm" variant="destructive" className="h-6 text-[10px] px-2" onClick={(e) => { e.stopPropagation(); toast.success(`Forced SLA resolve for ${b.leadName}`); }}>Resolve</Button>
@@ -229,7 +229,7 @@ function SupremePage() {
                 <tr key={a.area} className="border-b border-border/60">
                   <td className="py-1.5 font-medium">{a.area}</td>
                   <td className="text-right font-mono">{a.leads}</td>
-                  <td className="text-right font-mono text-accent">{a.hot}</td>
+                  <td className="text-right font-mono text-primary">{a.hot}</td>
                   <td className="text-right font-mono text-success">{a.booked}</td>
                   <td className={cn("text-right font-mono", a.lostRate > 0.4 && "text-destructive")}>{pct(a.lostRate)}</td>
                   <td className="text-right font-mono">{inrL(a.revenue)}</td>
@@ -252,7 +252,7 @@ function SupremePage() {
                   <td className="text-right font-mono text-success">{s.booked}</td>
                   <td className="text-right font-mono">{pct(s.cvr)}</td>
                   <td className="text-right font-mono">{inrL(s.avgBudget)}</td>
-                  <td className="text-right font-mono text-accent">{inrL(s.revenue)}</td>
+                  <td className="text-right font-mono text-primary">{inrL(s.revenue)}</td>
                 </tr>
               ))}
             </tbody>
@@ -268,7 +268,7 @@ function SupremePage() {
 
 function Tile({ label, value, tone }: { label: string; value: string; tone: "success" | "info" | "accent" | "warn" | "danger" }) {
   const cls = {
-    success: "text-success", info: "text-info", accent: "text-accent",
+    success: "text-success", info: "text-info", accent: "text-primary",
     warn: "text-warning", danger: "text-destructive",
   }[tone];
   return (
@@ -295,7 +295,7 @@ function Stat({ k, v, accent }: { k: string; v: string | number; accent?: boolea
   return (
     <div>
       <div className="text-[9px] uppercase text-muted-foreground">{k}</div>
-      <div className={cn("font-mono text-sm", accent && "text-accent")}>{v}</div>
+      <div className={cn("font-mono text-sm", accent && "text-primary")}>{v}</div>
     </div>
   );
 }
@@ -396,7 +396,7 @@ function TcmDrawer({ tcmId, name, rows, onClose }: { tcmId: string; name: string
             {activeLeads.flatMap(r => r.coachNotes).sort((a,b) => +new Date(b.ts) - +new Date(a.ts)).map((cn) => {
               const leadName = activeLeads.find(r => r.lead.id === cn.leadId)?.lead.name || "Unknown Lead";
               return (
-                <div key={cn.id} className="text-xs border-l-2 border-accent pl-2 py-1">
+                <div key={cn.id} className="text-xs border-l-2 border-primary pl-2 py-1">
                   <div className="text-foreground">{cn.text}</div>
                   <div className="text-[10px] text-muted-foreground mt-1">Lead: {leadName}</div>
                 </div>

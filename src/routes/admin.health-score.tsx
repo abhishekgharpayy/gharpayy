@@ -16,11 +16,11 @@ export const Route = createFileRoute("/admin/health-score")({
 });
 
 const GRADE_STYLE: Record<TcmHealthScore["grade"], { bg: string; text: string; border: string }> = {
-  S: { bg: "bg-purple-500/15", text: "text-purple-400", border: "border-purple-500/40" },
+  S: { bg: "bg-purple-500/15", text: "text-purple-600", border: "border-purple-500/40" },
   A: { bg: "bg-success/15",    text: "text-success",    border: "border-success/40" },
   B: { bg: "bg-info/15",       text: "text-info",        border: "border-info/40" },
-  C: { bg: "bg-warning/15",    text: "text-warning",     border: "border-warning/40" },
-  D: { bg: "bg-orange-500/15", text: "text-orange-400",  border: "border-orange-500/40" },
+  C: { bg: "bg-amber-500/15",  text: "text-amber-600",   border: "border-amber-500/40" },
+  D: { bg: "bg-orange-500/15", text: "text-orange-600",  border: "border-orange-500/40" },
   F: { bg: "bg-destructive/15",text: "text-destructive", border: "border-destructive/40" },
 };
 
@@ -128,7 +128,7 @@ function TcmCard({ s, rank }: { s: TcmHealthScore; rank: number }) {
           {/* Pipeline value */}
           <div className="flex items-center justify-between text-xs pt-1 border-t border-border">
             <span className="text-muted-foreground">Pipeline value</span>
-            <span className="font-mono font-semibold text-accent">
+            <span className="font-mono font-semibold text-primary">
               ₹{(s.pipelineValue / 100_000).toFixed(1)}L
             </span>
           </div>
@@ -139,7 +139,7 @@ function TcmCard({ s, rank }: { s: TcmHealthScore; rank: number }) {
             <ul className="space-y-1.5">
               {s.tips.map((tip, i) => (
                 <li key={i} className="text-xs text-muted-foreground flex gap-2">
-                  <span className="text-accent shrink-0">→</span>
+                  <span className="text-primary shrink-0">→</span>
                   <span>{tip}</span>
                 </li>
               ))}
@@ -210,7 +210,7 @@ function HealthScorePage() {
         </div>
         <div className="rounded-xl border border-border bg-card p-3">
           <div className="text-[10px] uppercase text-muted-foreground tracking-wider">TCMs scored</div>
-          <div className="text-3xl font-bold font-mono mt-1 text-accent">{scores.length}</div>
+          <div className="text-3xl font-bold font-mono mt-1 text-primary">{scores.length}</div>
         </div>
         <div className="rounded-xl border border-border bg-card p-3 md:col-span-2">
           <div className="text-[10px] uppercase text-muted-foreground tracking-wider mb-2">Grade distribution</div>

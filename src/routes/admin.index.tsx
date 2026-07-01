@@ -366,7 +366,7 @@ function AdminCockpit() {
           {[
             { label: "Pipeline open", value: open.length, accent: "text-info" },
             { label: "Win Rate", value: `${Math.round(winRate * 100)}%`, accent: "text-info" },
-            { label: "Expected Rev", value: expectedRevenue > 0 ? `₹${(expectedRevenue / 100000).toFixed(1)}L` : "₹0", accent: "text-accent" },
+            { label: "Expected Rev", value: expectedRevenue > 0 ? `₹${(expectedRevenue / 100000).toFixed(1)}L` : "₹0", accent: "text-primary" },
             { label: "Booked", value: booked.length, accent: "text-success" },
             { label: "₹ Booked", value: revenue > 0 ? `₹${(revenue / 100000).toFixed(1)}L` : "₹0", accent: "text-success" },
             { label: "₹ Walking", value: walking > 0 ? `₹${(walking / 100000).toFixed(1)}L` : "₹0", accent: "text-destructive" },
@@ -416,7 +416,7 @@ function AdminCockpit() {
           <div className="rounded-xl border border-border bg-card p-3 col-span-1 md:col-span-1">
             <div className="flex items-center gap-2 mb-3">
               <span className="text-[10px] uppercase tracking-wider text-muted-foreground">TCM Leaderboard</span>
-              <span className="text-[10px] bg-accent/10 text-accent px-1.5 py-0.5 rounded-sm font-semibold">LIVE</span>
+              <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-sm font-semibold">LIVE</span>
             </div>
             <ul className="space-y-3 text-sm">
               {leaderboard.map((t, idx) => (
@@ -429,7 +429,7 @@ function AdminCockpit() {
                   </div>
                   <div className="flex items-center gap-3 text-xs text-muted-foreground text-right">
                     <span>{t.closed} <span className="text-[10px]">won</span></span>
-                    <span className="font-mono text-accent font-semibold">{t.xp} XP</span>
+                    <span className="font-mono text-primary font-semibold">{t.xp} XP</span>
                   </div>
                 </li>
               ))}
@@ -661,7 +661,7 @@ function WhyPanel({
                       </span>
                     )}
                   </div>
-                  <span className="font-mono text-accent">{t.total}</span>
+                  <span className="font-mono text-primary">{t.total}</span>
                 </button>
                 <div className="pl-3 space-y-0.5 text-muted-foreground">
                   {t.entries.map(([reason, leads]) => (
@@ -692,7 +692,7 @@ function WhyPanel({
                 className="w-full flex justify-between items-center p-1.5 rounded hover:bg-muted/50 transition-colors"
               >
                 <span className="truncate">{w.reason}</span>
-                <span className="font-mono text-accent shrink-0 ml-2">{w.count}</span>
+                <span className="font-mono text-primary shrink-0 ml-2">{w.count}</span>
               </button>
               {w.reason.startsWith("Fresh lead") && freshLeadStats && (
                 <>
