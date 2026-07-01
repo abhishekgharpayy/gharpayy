@@ -1,3 +1,4 @@
+import { ulid } from "../../../../src/contracts/ids.js";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { col } from "../../db/mongo.js";
@@ -91,12 +92,12 @@ export function registerHrRoutes(app: FastifyInstance) {
     const now = new Date().toISOString();
     
     // Generate ULID for _id
-    const { ulid } = await import("ulid");
+    
 
     const leave = {
       _id: ulid(),
       tenantId: user.tenantId,
-      employeeId: user._id,
+      employeeId: user.sub,
       employeeName: user.fullName,
       type: body.type,
       status: "pending",
@@ -122,7 +123,7 @@ export function registerHrRoutes(app: FastifyInstance) {
     
     const query: any = { tenantId: user.tenantId };
     if (user.role !== "hr" && user.role !== "super_admin") {
-      query.employeeId = user._id; // enforce viewing own leaves
+      query.employeeId = user.sub; // enforce viewing own leaves
     } else if (employeeId) {
       query.employeeId = employeeId;
     }
@@ -147,7 +148,7 @@ export function registerHrRoutes(app: FastifyInstance) {
 
     // Cancel logic: an employee can cancel their own pending leave
     if (body.status === "cancelled") {
-      if (target.employeeId !== user._id && user.role !== "hr") {
+      if (target.employeeId !== user.sub && user.role !== "hr") {
         return reply.code(403).send({ code: "FORBIDDEN", message: "Cannot cancel others leave" });
       }
       if (target.status !== "pending" && target.status !== "approved") {
@@ -160,7 +161,7 @@ export function registerHrRoutes(app: FastifyInstance) {
       status: body.status,
     };
     if (body.status === "approved" || body.status === "rejected") {
-      patch.managerId = user._id;
+      patch.managerId = user.sub;
     }
     if (body.managerNote !== undefined) patch.managerNote = body.managerNote;
 
@@ -182,7 +183,7 @@ export function registerHrRoutes(app: FastifyInstance) {
     
     const query: any = { tenantId: user.tenantId };
     if (user.role !== "hr" && user.role !== "super_admin") {
-      query.employeeId = user._id; // enforce viewing own attendance
+      query.employeeId = user.sub; // enforce viewing own attendance
     } else if (employeeId) {
       query.employeeId = employeeId;
     }
@@ -206,15 +207,15 @@ export function registerHrRoutes(app: FastifyInstance) {
     const dateStr = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(now);
     const isoString = now.toISOString();
 
-    const existing = await attendance().findOne({ tenantId: user.tenantId, employeeId: user._id, date: dateStr });
+    const existing = await attendance().findOne({ tenantId: user.tenantId, employeeId: user.sub, date: dateStr });
     
     if (!existing) {
       // First punch of the day -> Check In
-      const { ulid } = await import("ulid");
+      
       const record = {
         _id: ulid(),
         tenantId: user.tenantId,
-        employeeId: user._id,
+        employeeId: user.sub,
         employeeName: user.fullName,
         date: dateStr,
         checkIn: isoString,
@@ -298,7 +299,7 @@ export function registerHrRoutes(app: FastifyInstance) {
     const user = req.user!;
     const now = new Date().toISOString();
     
-    const { ulid } = await import("ulid");
+    
     const record = {
       _id: ulid(),
       tenantId: user.tenantId,
@@ -371,7 +372,7 @@ export function registerHrRoutes(app: FastifyInstance) {
   app.post("/api/hr/payroll/generate", { preHandler: [requireAuth, requireScope("employee.write")] }, async (req, reply) => {
     const body = GeneratePayrollBody.parse(req.body);
     const user = req.user!;
-    const { ulid } = await import("ulid");
+    
     const now = new Date().toISOString();
 
     const existingRun = await payrollRuns().findOne({ tenantId: user.tenantId, month: body.month });
@@ -449,7 +450,7 @@ export function registerHrRoutes(app: FastifyInstance) {
   // Get my payslips (for normal employee view)
   app.get("/api/hr/my-payslips", { preHandler: [requireAuth] }, async (req, reply) => {
     const user = req.user!;
-    const slips = await payslips().find({ tenantId: user.tenantId, employeeId: user._id }).sort({ month: -1 }).toArray();
+    const slips = await payslips().find({ tenantId: user.tenantId, employeeId: user.sub }).sort({ month: -1 }).toArray();
     return reply.send(slips);
   });
 
@@ -513,7 +514,7 @@ export function registerHrRoutes(app: FastifyInstance) {
     const existing = await reviews().findOne({ 
       tenantId: user.tenantId, 
       employeeId: body.employeeId, 
-      reviewerId: user._id, 
+      reviewerId: user.sub, 
       cycle: body.cycle,
       type: body.type
     });
@@ -522,13 +523,13 @@ export function registerHrRoutes(app: FastifyInstance) {
       return reply.code(400).send({ code: "ALREADY_EXISTS", message: "You have already submitted this review" });
     }
 
-    const { ulid } = await import("ulid");
+    
     const record = {
       _id: ulid(),
       tenantId: user.tenantId,
       employeeId: target._id,
       employeeName: target.fullName,
-      reviewerId: user._id,
+      reviewerId: user.sub,
       reviewerName: user.fullName,
       type: body.type,
       cycle: body.cycle,
@@ -551,7 +552,7 @@ export function registerHrRoutes(app: FastifyInstance) {
     
     // Only HR or managers can see all reviews. Normal users only see their own (or ones they wrote).
     if (user.role !== "hr" && user.role !== "super_admin") {
-      query.$or = [{ employeeId: user._id }, { reviewerId: user._id }];
+      query.$or = [{ employeeId: user.sub }, { reviewerId: user.sub }];
     } else if (employeeId) {
       query.employeeId = employeeId;
     }
