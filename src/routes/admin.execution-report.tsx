@@ -193,7 +193,12 @@ function ExecutionMonitorPage() {
   const [report, setReport] = useState<ExecutionReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [windowMins, setWindowMins] = useState(30);
+  const [startTime, setStartTime] = useState<string>(() => {
+    const d = new Date();
+    d.setHours(9, 0, 0, 0);
+    const tzOffset = d.getTimezoneOffset() * 60000;
+    return new Date(d.getTime() - tzOffset).toISOString().slice(0, 16);
+  });
   const [endTime, setEndTime] = useState<string>("");
   const [nextRefreshAt, setNextRefreshAt] = useState<number>(Date.now() + 30000);
   const [visibleCount, setVisibleCount] = useState(10);
@@ -202,28 +207,42 @@ function ExecutionMonitorPage() {
     try {
       setLoading(true);
       setError(null);
-      const params: any = { window_minutes: windowMins };
+      
+      let calculatedWindow = 30;
+      if (startTime) {
+         const endMs = endTime ? new Date(endTime).getTime() : Date.now();
+         calculatedWindow = Math.round((endMs - new Date(startTime).getTime()) / 60000);
+      }
+      
+      const windowMinutes = Math.max(5, calculatedWindow);
+      const params: any = { window_minutes: windowMinutes };
       if (endTime) params.end_time = new Date(endTime).toISOString();
+      
       const res = await apiClient.get<ExecutionReport>("/api/admin/execution-report", {
         params,
       });
       setReport(res);
-      setNextRefreshAt(Date.now() + windowMins * 60000);
+      setNextRefreshAt(Date.now() + windowMinutes * 60000);
     } catch (e: any) {
       setError(e.response?.data?.message || e.message);
     } finally {
       setLoading(false);
     }
-  }, [windowMins]);
+  }, [startTime, endTime]);
 
   useEffect(() => {
     fetchReport();
     if (endTime) return; // Don't auto-refresh historical reports
+    let calculatedWindow = 30;
+    if (startTime) {
+       const endMs = endTime ? new Date(endTime).getTime() : Date.now();
+       calculatedWindow = Math.round((endMs - new Date(startTime).getTime()) / 60000);
+    }
     const interval = setInterval(() => {
       fetchReport();
-    }, windowMins * 60000);
+    }, Math.max(5, calculatedWindow) * 60000);
     return () => clearInterval(interval);
-  }, [fetchReport, windowMins, endTime]);
+  }, [fetchReport, startTime, endTime]);
 
   const downloadCSV = (filename: string, content: string) => {
     const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
@@ -543,16 +562,23 @@ function ExecutionMonitorPage() {
             <Clock className="w-4 h-4" />
             <span>Updated {fmtTime(report.generatedAt)}</span>
           </div>
-          <div className="flex items-center gap-2 bg-card/50 border border-border px-3 py-1.5 rounded-md">
-             <span className="text-sm font-medium text-muted-foreground">End Time:</span>
+          <div className="flex flex-wrap items-center gap-2 bg-card/50 border border-border px-3 py-1.5 rounded-md">
+             <span className="text-sm font-medium text-muted-foreground">Start:</span>
+             <input 
+               type="datetime-local" 
+               className="bg-transparent text-sm text-foreground outline-none border-none focus:ring-0 cursor-pointer"
+               value={startTime}
+               onChange={(e) => setStartTime(e.target.value)}
+             />
+             <span className="text-sm font-medium text-muted-foreground ml-2">End:</span>
              <input 
                type="datetime-local" 
                className="bg-transparent text-sm text-foreground outline-none border-none focus:ring-0 cursor-pointer"
                value={endTime}
                onChange={(e) => setEndTime(e.target.value)}
              />
-             {endTime && (
-               <Button variant="ghost" size="sm" className="h-6 px-2 py-0 text-red-400 hover:text-red-500 hover:bg-red-400/10 ml-1" onClick={() => setEndTime("")}>
+             {(startTime || endTime) && (
+               <Button variant="ghost" size="sm" className="h-6 px-2 py-0 text-red-400 hover:text-red-500 hover:bg-red-400/10 ml-1" onClick={() => { setStartTime(""); setEndTime(""); }}>
                  Clear
                </Button>
              )}

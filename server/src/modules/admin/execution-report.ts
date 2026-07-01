@@ -666,27 +666,60 @@ export function registerExecutionReportRoutes(app: FastifyInstance) {
       const pipelineHealth = Object.values(pipelineHealthMap).filter(p => ACTIVE_STAGES.has(p.stage));
 
       // Mocks for Interval Snapshots and Interventions
-      const intervalSnapshots: IntervalSnapshot[] = memberReports.map((m) => {
+      const intervalSnapshots: IntervalSnapshot[] = [];
+      const numBuckets = Math.max(1, Math.floor(windowMs / (30 * 60 * 1000)));
+      
+      for (let i = numBuckets - 1; i >= 0; i--) {
+         const bucketTime = new Date(windowStart.getTime() + (i + 1) * 30 * 60 * 1000);
+         bucketTime.setMinutes(bucketTime.getMinutes() < 30 ? 0 : 30, 0, 0); // nearest 30m boundary
+         if (bucketTime > now) continue;
+         const timeStr = bucketTime.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+         
+         memberReports.forEach(m => {
+            intervalSnapshots.push({
+               time: timeStr,
+               employee: m.name,
+               leadsAddedLast30: Math.round(m.totalLeadsAdded / numBuckets) || m.leadsAddedLast30,
+               totalLeadsAdded: m.totalLeadsAdded,
+               totalClicks: Math.round(m.totalActions / numBuckets) || m.actionsLast30,
+               mostUsedFeature: m.mostUsedActions[0]?.action || "—",
+               clickSummary: `${Math.round(m.totalActions / numBuckets) || m.actionsLast30} clicks across ${m.mostUsedActions.length} features`,
+               currentStage: m.leadsByStage[0]?.stage || "new",
+               leadsScheduled: m.scheduledLast30 || 0,
+               quotationsGenerated: m.quotationsLast30,
+               isInactive: m.isInactive,
+               stuckStage: m.stuckLeads[0]?.stage || "—",
+               nextFollowUp: m.followUpsRequired.length > 0 ? "Yes" : "No",
+               managerAction: m.isInactive ? "Wake Up Call" : "—",
+               status: m.allCriteriaMet ? "On Track" : "Action Needed"
+            });
+         });
+      }
+      
+      if (intervalSnapshots.length === 0) {
          const d = new Date(now);
-         d.setMinutes(d.getMinutes() < 30 ? 0 : 30, 0, 0); // Nearest past 30 min boundary
-         return {
-            time: d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }),
-            employee: m.name,
-            leadsAddedLast30: m.leadsAddedLast30,
-            totalLeadsAdded: m.totalLeadsAdded,
-            totalClicks: m.actionsLast30,
-            mostUsedFeature: m.mostUsedActions[0]?.action || "—",
-            clickSummary: `${m.actionsLast30} clicks across ${m.mostUsedActions.length} features`,
-            currentStage: m.leadsByStage[0]?.stage || "new",
-            leadsScheduled: m.scheduledLast30 || 0,
-            quotationsGenerated: m.quotationsLast30,
-            isInactive: m.isInactive,
-            stuckStage: m.stuckLeads[0]?.stage || "—",
-            nextFollowUp: m.followUpsRequired.length > 0 ? "Yes" : "No",
-            managerAction: m.isInactive ? "Wake Up Call" : "—",
-            status: m.allCriteriaMet ? "On Track" : "Action Needed"
-         };
-      });
+         d.setMinutes(d.getMinutes() < 30 ? 0 : 30, 0, 0);
+         const timeStr = d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+         memberReports.forEach((m) => {
+            intervalSnapshots.push({
+               time: timeStr,
+               employee: m.name,
+               leadsAddedLast30: m.leadsAddedLast30,
+               totalLeadsAdded: m.totalLeadsAdded,
+               totalClicks: m.actionsLast30,
+               mostUsedFeature: m.mostUsedActions[0]?.action || "—",
+               clickSummary: `${m.actionsLast30} clicks across ${m.mostUsedActions.length} features`,
+               currentStage: m.leadsByStage[0]?.stage || "new",
+               leadsScheduled: m.scheduledLast30 || 0,
+               quotationsGenerated: m.quotationsLast30,
+               isInactive: m.isInactive,
+               stuckStage: m.stuckLeads[0]?.stage || "—",
+               nextFollowUp: m.followUpsRequired.length > 0 ? "Yes" : "No",
+               managerAction: m.isInactive ? "Wake Up Call" : "—",
+               status: m.allCriteriaMet ? "On Track" : "Action Needed"
+            });
+         });
+      }
 
       const interventionLog: InterventionLog[] = inactiveMembers.slice(0, 3).map(m => ({
          time: now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }),
