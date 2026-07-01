@@ -27,6 +27,7 @@ export interface UserDoc {
   adminId?: string | null; // for member
   adminIds?: string[]; // for manager
   memberIds?: string[]; // for admin
+  department?: string; // for hr
   tenantId: string;
   invitedAt?: string | null;
   deletedAt?: string | null;

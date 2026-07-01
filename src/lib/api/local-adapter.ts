@@ -336,6 +336,7 @@ export const localAdapter = {
           priorityState: "COLD",
           nextBestAction: null,
           priorityReason: null,
+          suggestedProperties: [],
           createdAt: nowISO(), updatedAt: nowISO(),
           createdBy: USER, tenantId: TENANT,
         };
@@ -419,6 +420,7 @@ export const localAdapter = {
           bookingSource: p.bookingSource ?? "whatsapp",
           tourType: p.tourType ?? "physical",
           postTour: { outcome: null, confidence: 0, objection: null, objectionNote: "", expectedDecisionAt: null, nextFollowUpAt: null, filledAt: null },
+          location: null,
           createdAt: nowISO(),
           updatedAt: nowISO(),
           tenantId: TENANT,

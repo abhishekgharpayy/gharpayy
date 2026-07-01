@@ -402,3 +402,109 @@ export const PaymentRecord = z.object({
   updatedAt: z.string(),
 });
 export type PaymentRecord = z.infer<typeof PaymentRecord>;
+
+// ------------------- LEAVE ENTITY -------------------
+export const LeaveType = z.enum(["casual", "sick", "earned", "unpaid"]);
+export type LeaveType = z.infer<typeof LeaveType>;
+
+export const LeaveStatus = z.enum(["pending", "approved", "rejected", "cancelled"]);
+export type LeaveStatus = z.infer<typeof LeaveStatus>;
+
+export const LeaveEntity = z.object({
+  _id: z.string(),
+  employeeId: z.string(), // Refers to the User _id who requested it
+  employeeName: z.string(),
+  type: LeaveType,
+  status: LeaveStatus.default("pending"),
+  startDate: z.string(), // YYYY-MM-DD
+  endDate: z.string(),   // YYYY-MM-DD
+  days: z.number().min(0.5),
+  reason: z.string().max(2000),
+  managerId: z.string().nullable(), // The person who approved/rejected
+  managerNote: z.string().max(2000).nullable().default(null),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type LeaveEntity = z.infer<typeof LeaveEntity>;
+
+// ------------------- ATTENDANCE ENTITY -------------------
+export const AttendanceStatus = z.enum(["present", "absent", "half-day", "late", "on-leave"]);
+export type AttendanceStatus = z.infer<typeof AttendanceStatus>;
+
+export const AttendanceEntity = z.object({
+  _id: z.string(),
+  employeeId: z.string(),
+  employeeName: z.string(),
+  date: z.string(), // YYYY-MM-DD
+  checkIn: z.string().nullable(), // ISO String
+  checkOut: z.string().nullable(), // ISO String
+  status: AttendanceStatus.default("absent"),
+  workHours: z.number().min(0).default(0),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type AttendanceEntity = z.infer<typeof AttendanceEntity>;
+
+// ------------------- ATS (CANDIDATE) ENTITY -------------------
+export const CandidateStage = z.enum(["applied", "screening", "interview", "offer", "hired", "rejected"]);
+export type CandidateStage = z.infer<typeof CandidateStage>;
+
+export const CandidateEntity = z.object({
+  _id: z.string(),
+  roleAppliedFor: z.string().min(1).max(120),
+  name: z.string().min(1).max(120),
+  email: z.string().email(),
+  phone: z.string().min(7).max(20),
+  resumeUrl: z.string().url().nullable().optional(),
+  stage: CandidateStage.default("applied"),
+  notes: z.string().max(2000).default(""),
+  interviewerId: z.string().nullable().default(null),
+  interviewDate: z.string().nullable().default(null), // ISO String
+  rating: z.number().min(1).max(5).nullable().default(null),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type CandidateEntity = z.infer<typeof CandidateEntity>;
+
+// ------------------- PAYROLL & COMPENSATION -------------------
+export const PayrollRunEntity = z.object({
+  _id: z.string(),
+  month: z.string(), // YYYY-MM
+  status: z.enum(["draft", "processing", "paid"]),
+  totalAmount: z.number().min(0),
+  processedAt: z.string().nullable().default(null),
+  createdAt: z.string(),
+});
+export type PayrollRunEntity = z.infer<typeof PayrollRunEntity>;
+
+export const PayslipEntity = z.object({
+  _id: z.string(),
+  payrollRunId: z.string(),
+  employeeId: z.string(),
+  employeeName: z.string(),
+  month: z.string(), // YYYY-MM
+  baseSalary: z.number().min(0),
+  allowances: z.number().min(0).default(0),
+  deductions: z.number().min(0).default(0),
+  netPay: z.number().min(0),
+  status: z.enum(["draft", "paid"]),
+  createdAt: z.string(),
+});
+export type PayslipEntity = z.infer<typeof PayslipEntity>;
+
+// ------------------- PERFORMANCE REVIEWS -------------------
+export const ReviewEntity = z.object({
+  _id: z.string(),
+  employeeId: z.string(),
+  employeeName: z.string(),
+  reviewerId: z.string(),
+  reviewerName: z.string(),
+  type: z.enum(["self", "manager", "peer"]),
+  cycle: z.string(), // e.g. "Q3 2026"
+  rating: z.number().min(1).max(5),
+  feedback: z.string().max(3000),
+  status: z.enum(["draft", "submitted"]),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type ReviewEntity = z.infer<typeof ReviewEntity>;

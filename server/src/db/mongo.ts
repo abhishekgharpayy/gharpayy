@@ -300,6 +300,53 @@ async function ensureIndexes(db: Db) {
         ]),
     },
     {
+      name: "leaves",
+      run: () =>
+        db.collection("leaves").createIndexes([
+          { key: { employeeId: 1, createdAt: -1 } },
+          { key: { status: 1 } },
+        ]),
+    },
+    {
+      name: "attendance",
+      run: () =>
+        db.collection("attendance").createIndexes([
+          { key: { employeeId: 1, date: -1 }, unique: true, name: "uniq_emp_date" },
+          { key: { date: -1 } },
+        ]),
+    },
+    {
+      name: "candidates",
+      run: () =>
+        db.collection("candidates").createIndexes([
+          { key: { stage: 1 } },
+          { key: { createdAt: -1 } },
+        ]),
+    },
+    {
+      name: "payroll_runs",
+      run: () =>
+        db.collection("payroll_runs").createIndexes([
+          { key: { month: -1 }, unique: true, name: "uniq_payroll_month" },
+        ]),
+    },
+    {
+      name: "payslips",
+      run: () =>
+        db.collection("payslips").createIndexes([
+          { key: { payrollRunId: 1 } },
+          { key: { employeeId: 1, month: -1 }, unique: true, name: "uniq_emp_month_payslip" },
+        ]),
+    },
+    {
+      name: "reviews",
+      run: () =>
+        db.collection("reviews").createIndexes([
+          { key: { employeeId: 1, cycle: -1 } },
+          { key: { reviewerId: 1 } },
+        ]),
+    },
+    {
       name: "alerts",
       run: () =>
         db.collection("alerts").createIndexes([

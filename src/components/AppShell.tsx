@@ -370,7 +370,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           const roleMeta = {
             "flow-ops": { label: "Flow Ops", dot: "bg-info" },
             tcm: { label: "TCM Desk", dot: "bg-accent" },
-            hr: { label: "HR / Leadership", dot: "bg-success" },
+            hr: { label: "Manager / Admin", dot: "bg-success" },
             "super-admin": { label: "Super Admin", dot: "bg-destructive" },
             owner: { label: "Property Owner", dot: "bg-primary" },
           } as const;
@@ -454,7 +454,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             const labels: Record<string, string> = {
               "flow-ops": "Flow Ops",
               tcm: "TCM",
-              hr: "HR / Leadership",
+              hr: "Manager / Admin",
               owner: "Property Owner",
               "super-admin": "Super Admin",
             };
@@ -544,7 +544,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
 
         <PipMount>
-          <main className="flex-1 flex flex-col min-h-0 w-full max-w-350 mx-auto p-4 pb-24 md:p-6 md:pb-6">{children}</main>
+          <main className="flex-1 flex flex-col min-h-0 w-full p-4 pb-24 md:p-6 md:pb-6">{children}</main>
         </PipMount>
       </div>
 

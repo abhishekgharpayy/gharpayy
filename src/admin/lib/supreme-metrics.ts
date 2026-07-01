@@ -15,10 +15,10 @@ export function computeMoneyMap(rows: AdminLeadRow[]): MoneyMap {
   const now = Date.now();
   let booked = 0, pipeline = 0, walking = 0, atRisk = 0, hot = 0;
   for (const r of rows) {
-    const annual = (r.bookings[0]?.amount ?? r.lead.budget) * 12;
-    if (r.booked) booked += annual;
+    const value = (r.bookings[0]?.amount ?? r.lead.budget);
+    if (r.booked) booked += value;
     else if (r.status === "lost") {
-      if (now - r.lastTouchTs <= 30 * DAY) walking += r.lead.budget * 12;
+      if (now - r.lastTouchTs <= 30 * DAY) walking += r.lead.budget;
     } else {
       pipeline += r.expectedValue;
       if (r.probability >= 70) hot += r.expectedValue;
@@ -97,7 +97,7 @@ export function computeAreaPulse(rows: AdminLeadRow[]): AreaPulse[] {
     const booked = rs.filter((r) => r.booked).length;
     const lost = rs.filter((r) => r.status === "lost").length;
     const hot = rs.filter((r) => r.probability >= 70 && !r.booked).length;
-    const revenue = rs.reduce((s, r) => s + (r.booked ? (r.bookings[0]?.amount ?? r.lead.budget) * 12 : 0), 0);
+    const revenue = rs.reduce((s, r) => s + (r.booked ? (r.bookings[0]?.amount ?? r.lead.budget) : 0), 0);
     const objs = new Map<string, number>();
     rs.forEach((r) => r.objections.filter((o) => o.code !== "none").forEach((o) => objs.set(o.code, (objs.get(o.code) ?? 0) + 1)));
     const topObjection = [...objs.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "\u2014";
@@ -128,7 +128,7 @@ export function computeSourceROI(rows: AdminLeadRow[]): SourceROI[] {
   const out: SourceROI[] = [];
   by.forEach((rs, source) => {
     const booked = rs.filter((r) => r.booked).length;
-    const revenue = rs.reduce((s, r) => s + (r.booked ? (r.bookings[0]?.amount ?? r.lead.budget) * 12 : 0), 0);
+    const revenue = rs.reduce((s, r) => s + (r.booked ? (r.bookings[0]?.amount ?? r.lead.budget) : 0), 0);
     const avgBudget = Math.round(rs.reduce((s, r) => s + (r.lead.budget || 0), 0) / Math.max(1, rs.length));
     out.push({ source, leads: rs.length, booked, cvr: rs.length ? booked / rs.length : 0, revenue, avgBudget });
   });

@@ -57,6 +57,14 @@ export function AuthGate({ children }: { children: ReactNode }) {
     }
   }, [user, loading, isOwnerRoute, isLoginRoute, navigate]);
 
+  // Redirect authenticated HR users away from the main CRM shell to their portal
+  useEffect(() => {
+    if (!user || loading || pathname.startsWith("/hr") || isLoginRoute) return;
+    if (user.role === "hr") {
+      void navigate({ to: "/hr/employees", replace: true }).catch(() => undefined);
+    }
+  }, [user, loading, pathname, isLoginRoute, navigate]);
+
   // Redirect TCM from root to /inbox
   useEffect(() => {
     if (!user || loading || isLoginRoute || pathname !== "/") return;
@@ -86,6 +94,12 @@ export function AuthGate({ children }: { children: ReactNode }) {
   // Owner is authenticated but not yet on the owner portal → spinner while redirecting
   if (user?.role === "owner" && !isOwnerRoute && !isLoginRoute) {
     console.log("[AuthGate] rendering spinner: owner redirecting");
+    return spinner;
+  }
+
+  // HR is authenticated but not yet on the HR portal → spinner while redirecting
+  if (user?.role === "hr" && !pathname.startsWith("/hr") && !isLoginRoute) {
+    console.log("[AuthGate] rendering spinner: hr redirecting");
     return spinner;
   }
 

@@ -162,7 +162,7 @@ export const apiClient = {
 
 
 // ---------- Types shared with Settings UI ----------
-export type ManagedRole = "manager" | "admin" | "member" | "owner" | "tcm";
+export type ManagedRole = "manager" | "admin" | "hr" | "member" | "owner" | "tcm";
 export type AnyRole = "super_admin" | ManagedRole;
 export type UserStatus = "active" | "inactive" | "invited" | "deleted";
 
@@ -404,6 +404,49 @@ export const api = {
         () => request<ManagedUser[]>("/api/tcms"),
         () => [],
       ),
+  },
+  hr: {
+    employees: () => request<ManagedUser[]>("/api/hr/employees"),
+    updateEmployee: (id: string, patch: Record<string, unknown>) => 
+      request<ManagedUser>(`/api/hr/employees/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+    leaves: (employeeId?: string) => 
+      request<import("@/contracts").LeaveEntity[]>(`/api/hr/leaves${employeeId ? `?employeeId=${employeeId}` : ""}`),
+    requestLeave: (body: { type: string; startDate: string; endDate: string; days: number; reason: string }) =>
+      request<import("@/contracts").LeaveEntity>("/api/hr/leaves", { method: "POST", body: JSON.stringify(body) }),
+    updateLeave: (id: string, patch: { status: string; managerNote?: string }) =>
+      request<import("@/contracts").LeaveEntity>(`/api/hr/leaves/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+    attendance: (params?: { date?: string; month?: string; employeeId?: string }) => {
+      const qs = new URLSearchParams(params as Record<string, string>).toString();
+      return request<import("@/contracts").AttendanceEntity[]>(`/api/hr/attendance${qs ? `?${qs}` : ""}`);
+    },
+    punchAttendance: () =>
+      request<import("@/contracts").AttendanceEntity>("/api/hr/attendance/punch", { method: "POST" }),
+    updateAttendance: (id: string, patch: { status: string; checkIn?: string | null; checkOut?: string | null }) =>
+      request<import("@/contracts").AttendanceEntity>(`/api/hr/attendance/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+    candidates: () =>
+      request<import("@/contracts").CandidateEntity[]>("/api/hr/candidates"),
+    addCandidate: (body: { name: string; email: string; phone: string; roleAppliedFor: string; resumeUrl?: string; notes?: string }) =>
+      request<import("@/contracts").CandidateEntity>("/api/hr/candidates", { method: "POST", body: JSON.stringify(body) }),
+    updateCandidate: (id: string, patch: { stage?: string; interviewerId?: string | null; interviewDate?: string | null; rating?: number | null; notes?: string }) =>
+      request<import("@/contracts").CandidateEntity>(`/api/hr/candidates/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+    
+    // Payroll
+    payrollRuns: () => request<import("@/contracts").PayrollRunEntity[]>("/api/hr/payroll"),
+    generatePayroll: (month: string) => request<import("@/contracts").PayrollRunEntity>("/api/hr/payroll/generate", { method: "POST", body: JSON.stringify({ month }) }),
+    payslips: (runId: string) => request<import("@/contracts").PayslipEntity[]>(`/api/hr/payroll/${runId}/payslips`),
+    processPayroll: (runId: string) => request<{ success: true }>(`/api/hr/payroll/${runId}/process`, { method: "POST" }),
+    myPayslips: () => request<import("@/contracts").PayslipEntity[]>("/api/hr/my-payslips"),
+    
+    // Reviews
+    reviews: (params?: { cycle?: string; employeeId?: string }) => {
+      const qs = new URLSearchParams(params as Record<string, string>).toString();
+      return request<import("@/contracts").ReviewEntity[]>(`/api/hr/reviews${qs ? `?${qs}` : ""}`);
+    },
+    submitReview: (body: { employeeId: string; type: string; cycle: string; rating: number; feedback: string }) =>
+      request<import("@/contracts").ReviewEntity>("/api/hr/reviews", { method: "POST", body: JSON.stringify(body) }),
+      
+    // Analytics
+    analytics: () => request<any>("/api/hr/analytics"),
   },
   owners: {
     list: () => request<ManagedUser[]>("/api/owners"),
@@ -723,7 +766,7 @@ export const api = {
         },
         () => localAdapter.listWhatsAppMessages(conversationId, q),
       ),
-    send: (conversationId?: string, text: string, mediaUrl?: string, phone?: string, leadName?: string, leadId?: string) =>
+    send: (conversationId: string | undefined, text: string, mediaUrl?: string, phone?: string, leadName?: string, leadId?: string) =>
       safe<any>(
         () => request<any>("/api/whatsapp/send", { method: "POST", body: JSON.stringify({ conversationId, text, mediaUrl: mediaUrl || "", phone, leadName, leadId }) }),
         () => localAdapter.command({ _id: ulid(), type: "cmd.whatsapp.send", payload: { conversationId, text, mediaUrl, phone, leadName, leadId } }),

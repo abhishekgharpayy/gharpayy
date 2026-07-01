@@ -59,7 +59,7 @@ function AdminBookings() {
   const { data, isLoading } = useQuery({
     queryKey: ["admin_bookings"],
     queryFn: async () => {
-      const res = await apiClient.get("/api/bookings", { params: { limit: 200 } });
+      const res = await apiClient.get<any>("/api/bookings", { params: { limit: 200 } });
       const items = res.items || [];
       return items.map((lead: any) => ({
         id: lead._id || lead.id,
@@ -77,7 +77,7 @@ function AdminBookings() {
     refetchInterval: 15000,
   });
   
-  const bookings = data || [];
+  const bookings: any[] = data || [];
   
   const { bookings: ownerBookings } = useOwnerBookings();
   const [search, setSearch] = useState("");

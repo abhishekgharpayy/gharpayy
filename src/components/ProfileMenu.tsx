@@ -32,14 +32,16 @@ import {
   Building2,
   ShieldCheck,
   Target,
+  Headphones,
+  Key,
 } from "lucide-react";
 import { toast } from "sonner";
 
 const ROLE_META = {
   "flow-ops": { label: "Flow Ops", dot: "bg-info", initials: "FO", icon: Target },
-  tcm: { label: "TCM", dot: "bg-accent", initials: "TC", icon: Users },
-  hr: { label: "HR / Leadership", dot: "bg-success", initials: "HR", icon: ShieldCheck },
-  owner: { label: "Owner Portal", dot: "bg-warning", initials: "OW", icon: Building2 },
+  tcm: { label: "TCM Desk", dot: "bg-accent", initials: "TM", icon: Headphones },
+  hr: { label: "Manager / Admin", dot: "bg-success", initials: "MA", icon: ShieldCheck },
+  owner: { label: "Property Owner", dot: "bg-primary", initials: "PO", icon: Key },
   "super-admin": { label: "Super Admin", dot: "bg-destructive", initials: "SA", icon: ShieldCheck },
 } as const;
 

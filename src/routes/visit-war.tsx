@@ -202,8 +202,8 @@ function VisitWarRoom() {
       vacantBeds: 0,
       daysSinceLastBooking: 0,
       pricePerBed: pg.prices?.triple || pg.prices?.double || pg.prices?.min || 0,
-      lat: pg.lat,
-      lng: pg.lng,
+      lat: pg.lat ?? undefined,
+      lng: pg.lng ?? undefined,
     }));
     setProperties(fromPgs);
     console.debug("[VisitWar] properties seeded from PGS catalog:", fromPgs.length);
@@ -234,8 +234,8 @@ function VisitWarRoom() {
             vacantBeds: apiProp.vacantBeds ?? p.vacantBeds,
             daysSinceLastBooking: apiProp.daysSinceLastBooking ?? p.daysSinceLastBooking,
             pricePerBed: apiProp.pricePerBed ?? p.pricePerBed,
-            lat: apiProp.lat ?? p.lat,
-            lng: apiProp.lng ?? p.lng,
+            lat: (apiProp.lat ?? p.lat) ?? undefined,
+            lng: (apiProp.lng ?? p.lng) ?? undefined,
           };
         });
         // Also add any API-only properties not in PGS
@@ -252,8 +252,8 @@ function VisitWarRoom() {
               vacantBeds: p.vacantBeds || 0,
               daysSinceLastBooking: p.daysSinceLastBooking || 0,
               pricePerBed: p.pricePerBed || 0,
-              lat: p.lat,
-              lng: p.lng,
+              lat: p.lat ?? undefined,
+              lng: p.lng ?? undefined,
             });
           }
         });

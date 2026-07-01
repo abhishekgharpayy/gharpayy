@@ -62,7 +62,7 @@ function TenantControlTower() {
 
   const { data: propertiesData } = useQuery({
     queryKey: ["admin", "properties"],
-    queryFn: () => api.properties.list({ limit: 1000 }),
+    queryFn: () => api.properties.list(),
     enabled: !localMode,
   });
 
@@ -78,8 +78,8 @@ function TenantControlTower() {
     return supremeData.rawData.leads
       .filter((l: any) => l.stage === "booked")
       .map((l: any) => {
-        const booking = supremeData.rawData.bookings?.find((b: any) => b.leadId === (l._id || l.id));
-        const prop = supremeData.rawData.properties?.find((p: any) => p._id === booking?.propertyId || p.id === booking?.propertyId);
+        const booking = supremeData?.rawData?.bookings?.find((b: any) => b.leadId === (l._id || l.id));
+        const prop = supremeData?.rawData?.properties?.find((p: any) => p._id === booking?.propertyId || p.id === booking?.propertyId);
         
         return {
           id: l._id || l.id,
@@ -96,11 +96,11 @@ function TenantControlTower() {
 
   const rawTenants = [...impactTenants, ...rawTenantsBase];
   const rawPayments = localMode ? appState.payments : (paymentsData?.items ?? []);
-  const rawProperties = localMode ? appState.properties : (propertiesData?.items ?? []);
+  const rawProperties = localMode ? appState.properties : (Array.isArray(propertiesData) ? propertiesData : ((propertiesData as any)?.items ?? []));
 
   const stats = useMemo(() => {
-    return rawTenants.map((t) => {
-      const prop = rawProperties.find(p => p.id === t.propertyId || p._id === t.propertyId);
+    return rawTenants.map((t: any) => {
+      const prop = rawProperties.find((p: any) => p.id === t.propertyId || p._id === t.propertyId);
       // Give Impact Queue tenants a perfect score since they just arrived
       const healthScore = t.propertyId === "impact_queue" ? 100 : calculateHealthScore(t, rawPayments);
       

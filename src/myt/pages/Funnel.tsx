@@ -54,12 +54,12 @@ export default function Funnel() {
 
   // Extract unique options for filter dropdowns from preloaded store
   const tcmOptions = useMemo(() => {
-    return tcms.map((t) => ({ id: t.id, name: t.fullName || t.name }));
+    return tcms.map((t: any) => ({ id: t.id, name: t.fullName || t.name }));
   }, [tcms]);
 
   const zoneOptions = useMemo(() => {
     const all = new Set<string>();
-    tcms.forEach((t) => {
+    tcms.forEach((t: any) => {
       if (t.zone) all.add(t.zone);
       if (t.zones) t.zones.forEach((z: string) => all.add(z));
     });
@@ -117,7 +117,7 @@ export default function Funnel() {
   };
 
   const handleTcmAreaClick = (tcmId: string, areaName: string) => {
-    const tcm = tcms.find((t) => t.id === tcmId);
+    const tcm: any = tcms.find((t) => t.id === tcmId);
     const filteredLeads = leads.filter(
       (l) => l.assignedTcmId === tcmId && l.preferredArea === areaName
     );
@@ -129,7 +129,7 @@ export default function Funnel() {
 
   const handleLossReasonClick = (reason: string) => {
     const filteredLeads = leads.filter(
-      (l) => l.stage === "dropped" && l.whyNotClosed?.toLowerCase().includes(reason.toLowerCase())
+      (l: any) => l.stage === "dropped" && l.whyNotClosed?.toLowerCase().includes(reason.toLowerCase())
     );
     setSelectedDrillDown({
       title: `Lost Due to ${reason.toUpperCase()} (${filteredLeads.length})`,
@@ -720,7 +720,7 @@ export default function Funnel() {
 
           <div className="space-y-3">
             {selectedDrillDown?.leads.map((l: any, idx: number) => {
-              const tcm = tcms.find((t) => t.id === l.assignedTcmId);
+              const tcm: any = tcms.find((t) => t.id === l.assignedTcmId);
               return (
                 <div
                   key={l.id || idx}

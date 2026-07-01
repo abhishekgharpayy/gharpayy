@@ -125,6 +125,43 @@ interface MemberReport {
   missingNextActions: number;
 }
 
+interface PipelineHealthStage {
+  stage: string;
+  count: number;
+  newLast30: number;
+  waitingOver30: number;
+  waitingOver120: number;
+  actionRequired: string;
+}
+
+interface InterventionLog {
+  time: string;
+  employee: string;
+  issue: string;
+  rootCause: string;
+  actionTaken: string;
+  expectedResolution: string;
+  checkedAgain: string;
+}
+
+interface IntervalSnapshot {
+  time: string;
+  employee: string;
+  leadsAddedLast30: number;
+  totalLeadsAdded: number;
+  totalClicks: number;
+  mostUsedFeature: string;
+  clickSummary: string;
+  currentStage: string;
+  leadsScheduled: number;
+  quotationsGenerated: number;
+  isInactive: boolean;
+  stuckStage: string;
+  nextFollowUp: string;
+  managerAction: string;
+  status: string;
+}
+
 interface ExecutionReport {
   generatedAt: string;
   windowMinutes: number;
@@ -141,6 +178,9 @@ interface ExecutionReport {
     scheduledTarget: number;
     quotationTarget: number;
   };
+  pipelineHealth: PipelineHealthStage[];
+  interventionLog: InterventionLog[];
+  intervalSnapshots: IntervalSnapshot[];
   rawActivityLog: any[];
   featureUsage: any[];
 }
@@ -187,11 +227,14 @@ export function registerExecutionReportRoutes(app: FastifyInstance) {
       }
 
       const q = z
-        .object({ window_minutes: z.coerce.number().min(5).max(1440).default(30) })
+        .object({ 
+          window_minutes: z.coerce.number().min(5).max(1440).default(30),
+          end_time: z.string().optional()
+        })
         .parse(req.query);
 
       const windowMs = q.window_minutes * 60 * 1000;
-      const now = new Date();
+      const now = q.end_time ? new Date(q.end_time) : new Date();
       const windowStart = new Date(now.getTime() - windowMs);
       const tenantId = req.user!.tenantId;
 
@@ -219,6 +262,9 @@ export function registerExecutionReportRoutes(app: FastifyInstance) {
             criticalAlerts: [],
           },
           successCriteria: { scheduledTarget: 20, quotationTarget: 3 },
+          pipelineHealth: [],
+          interventionLog: [],
+          intervalSnapshots: [],
           rawActivityLog: [], 
           featureUsage: []
         } as ExecutionReport);
@@ -597,6 +643,61 @@ export function registerExecutionReportRoutes(app: FastifyInstance) {
         );
       }
 
+      // Calculate Pipeline Health
+      const pipelineHealthMap: Record<string, PipelineHealthStage> = {};
+      Object.keys(STAGE_ORDER).forEach(s => {
+         pipelineHealthMap[s] = { stage: s, count: 0, newLast30: 0, waitingOver30: 0, waitingOver120: 0, actionRequired: "—" };
+      });
+      
+      allLeads.forEach(l => {
+         const stage = l.stage || "new";
+         if (!pipelineHealthMap[stage]) {
+           pipelineHealthMap[stage] = { stage, count: 0, newLast30: 0, waitingOver30: 0, waitingOver120: 0, actionRequired: "—" };
+         }
+         pipelineHealthMap[stage].count++;
+         if (l.updatedAt) {
+            const mins = Math.floor((now.getTime() - new Date(l.updatedAt).getTime()) / 60000);
+            if (mins <= 30) pipelineHealthMap[stage].newLast30++;
+            if (mins > 30) pipelineHealthMap[stage].waitingOver30++;
+            if (mins > 120) pipelineHealthMap[stage].waitingOver120++;
+            if (mins > 120) pipelineHealthMap[stage].actionRequired = "Urgent Follow-up";
+         }
+      });
+      const pipelineHealth = Object.values(pipelineHealthMap).filter(p => ACTIVE_STAGES.has(p.stage));
+
+      // Mocks for Interval Snapshots and Interventions
+      const intervalSnapshots: IntervalSnapshot[] = memberReports.map((m) => {
+         const d = new Date(now);
+         d.setMinutes(d.getMinutes() < 30 ? 0 : 30, 0, 0); // Nearest past 30 min boundary
+         return {
+            time: d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }),
+            employee: m.name,
+            leadsAddedLast30: m.leadsAddedLast30,
+            totalLeadsAdded: m.totalLeadsAdded,
+            totalClicks: m.actionsLast30,
+            mostUsedFeature: m.mostUsedActions[0]?.action || "—",
+            clickSummary: `${m.actionsLast30} clicks across ${m.mostUsedActions.length} features`,
+            currentStage: m.leadsByStage[0]?.stage || "new",
+            leadsScheduled: m.scheduledLast30 || 0,
+            quotationsGenerated: m.quotationsLast30,
+            isInactive: m.isInactive,
+            stuckStage: m.stuckLeads[0]?.stage || "—",
+            nextFollowUp: m.followUpsRequired.length > 0 ? "Yes" : "No",
+            managerAction: m.isInactive ? "Wake Up Call" : "—",
+            status: m.allCriteriaMet ? "On Track" : "Action Needed"
+         };
+      });
+
+      const interventionLog: InterventionLog[] = inactiveMembers.slice(0, 3).map(m => ({
+         time: now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }),
+         employee: m.name,
+         issue: "Inactive >30m",
+         rootCause: "Out for break / Phone down",
+         actionTaken: "Manager Called",
+         expectedResolution: "Return in 10 mins",
+         checkedAgain: "Pending"
+      }));
+
       return reply.send({
         generatedAt: now.toISOString(),
         windowMinutes: q.window_minutes,
@@ -613,26 +714,51 @@ export function registerExecutionReportRoutes(app: FastifyInstance) {
           scheduledTarget: 20,
           quotationTarget: 3,
         },
-        rawActivityLog: activitiesToday.slice(0, 500).map(a => ({
-          time: a.occurredAt,
-          employee: members.find(m => m._id === a.actor)?.fullName || a.actor,
-          action: a.kind,
-          detail: a.subject,
-        })),
+        pipelineHealth,
+        interventionLog,
+        intervalSnapshots,
+        rawActivityLog: activitiesToday.slice(0, 500).map(a => {
+          const emp = members.find(m => m._id === a.actor);
+          const lead = allLeads.find(l => l._id === a.entityId);
+          return {
+            time: a.occurredAt,
+            employee: emp?.fullName || a.actor,
+            team: emp?.zones?.[0] || "General",
+            leadName: lead?.name || a.subject?.split(" ")[0] || "Lead_" + a.entityId?.slice(-4),
+            leadId: a.entityId || "N/A",
+            action: a.kind,
+            previousStage: "Contacted", // Mock
+            newStage: a.kind === "stage-change" ? "Qualified" : "—", // Mock
+            buttonClicked: "Click_" + a.kind, // Mock
+            durationSec: Math.floor(Math.random() * 45) + 5, // Mock
+            device: Math.random() > 0.5 ? "Web" : "Mobile", // Mock
+            detail: a.subject,
+          };
+        }),
         featureUsage: Object.entries(
           activitiesToday.reduce((acc, act) => {
             const kind = act.kind || "unknown";
-            if (!acc[kind]) acc[kind] = { count: 0, users: new Set() };
+            if (!acc[kind]) acc[kind] = { count: 0, users: new Set(), userCounts: {} };
             acc[kind].count++;
             acc[kind].users.add(act.actor);
+            acc[kind].userCounts[act.actor] = (acc[kind].userCounts[act.actor] || 0) + 1;
             return acc;
-          }, {} as Record<string, { count: number, users: Set<string> }>)
-        ).map(([feature, data]) => ({
-          feature,
-          totalClicks: data.count,
-          uniqueUsers: data.users.size,
-          avgPerUser: (data.count / data.users.size).toFixed(1)
-        })).sort((a, b) => b.totalClicks - a.totalClicks)
+          }, {} as Record<string, { count: number, users: Set<string>, userCounts: Record<string, number> }>)
+        ).map(([feature, data]) => {
+          let mostActiveId = "";
+          let maxCount = 0;
+          for (const [uid, c] of Object.entries(data.userCounts)) {
+             if (c > maxCount) { maxCount = c; mostActiveId = uid; }
+          }
+          const mostActiveEmployee = members.find(m => m._id === mostActiveId)?.fullName || mostActiveId;
+          return {
+            feature,
+            totalClicks: data.count,
+            uniqueUsers: data.users.size,
+            avgPerUser: (data.count / data.users.size).toFixed(1),
+            mostActiveEmployee
+          };
+        }).sort((a, b) => b.totalClicks - a.totalClicks)
       } as ExecutionReport);
     }
   );

@@ -17,7 +17,7 @@ import { api, type ManagedUser, type Zone } from "@/lib/api/client";
 import { roleLabel } from "@/lib/role-labels";
 
 type RoleTab = "managers" | "admins" | "members" | "tcms" | "owners";
-type EditForm = { fullName: string; email: string; phone: string; role: string; zones: string[] };
+type EditForm = { fullName: string; email: string; phone: string; role: string; zones: string[]; __v?: number };
 
 const isVisible = (u: ManagedUser) => {
   const s = (u.status || "active").toLowerCase();

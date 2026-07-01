@@ -293,8 +293,8 @@ export function registerAdminSupremeRoutes(app: FastifyInstance) {
       }
       probability = Math.max(0, Math.min(100, Math.round(probability)));
 
-      // Expected value (12-month revenue weighted by probability)
-      const expectedValue = Math.round(((lead as any).budget || 0) * 12 * (probability / 100));
+      // Expected value (MRR weighted by probability)
+      const expectedValue = Math.round(((lead as any).budget || 0) * (probability / 100));
 
       // Status
       const booked = lead.stage === "booked" || leadBookings.length > 0;

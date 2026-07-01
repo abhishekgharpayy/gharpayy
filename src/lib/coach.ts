@@ -300,7 +300,7 @@ export function buildCoachReport(input: CoachInput): CoachReport {
 
   // ADMIN COACHING NOTES
   activities.forEach(a => {
-    if (a.kind === "coaching_note" && (!filterTcm || (a as any).tcmId === filterTcm)) {
+    if ((a.kind as string) === "coaching_note" && (!filterTcm || (a as any).tcmId === filterTcm)) {
       const isMandatory = (a.text || (a as any).note || "").includes("[MANDATORY");
       const leadId = (a as any).leadId;
       const lead = leads.find(l => l.id === leadId);

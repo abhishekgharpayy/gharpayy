@@ -10,6 +10,8 @@ import { buildDoNextQueue, liveConfidence, intentFor } from "@/lib/engine";
 import { scanRevivals } from "@/lib/revival";
 import { QuickActionRow } from "@/components/QuickActionRow";
 
+import { useAuthUser } from "@/lib/auth-store";
+
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [

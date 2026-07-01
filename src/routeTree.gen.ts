@@ -31,6 +31,7 @@ import { Route as LeaderboardRouteImport } from './routes/leaderboard'
 import { Route as InventoryRouteImport } from './routes/inventory'
 import { Route as InboxRouteImport } from './routes/inbox'
 import { Route as ImpactRouteImport } from './routes/impact'
+import { Route as HrRouteImport } from './routes/hr'
 import { Route as HelpRouteImport } from './routes/help'
 import { Route as HeatmapRouteImport } from './routes/heatmap'
 import { Route as HealthRouteImport } from './routes/health'
@@ -79,6 +80,13 @@ import { Route as MytDraftsRouteImport } from './routes/myt/drafts'
 import { Route as MytCalendarRouteImport } from './routes/myt/calendar'
 import { Route as MytBookingsRouteImport } from './routes/myt/bookings'
 import { Route as LeadsAddRouteImport } from './routes/leads.add'
+import { Route as HrReviewsRouteImport } from './routes/hr.reviews'
+import { Route as HrPayrollRouteImport } from './routes/hr.payroll'
+import { Route as HrLeavesRouteImport } from './routes/hr.leaves'
+import { Route as HrHiringRouteImport } from './routes/hr.hiring'
+import { Route as HrEmployeesRouteImport } from './routes/hr.employees'
+import { Route as HrAttendanceRouteImport } from './routes/hr.attendance'
+import { Route as HrAnalyticsRouteImport } from './routes/hr.analytics'
 import { Route as AdminWhatsappRouteImport } from './routes/admin.whatsapp'
 import { Route as AdminWarroomRouteImport } from './routes/admin.warroom'
 import { Route as AdminTenantsRouteImport } from './routes/admin.tenants'
@@ -231,6 +239,11 @@ const InboxRoute = InboxRouteImport.update({
 const ImpactRoute = ImpactRouteImport.update({
   id: '/impact',
   path: '/impact',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HrRoute = HrRouteImport.update({
+  id: '/hr',
+  path: '/hr',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HelpRoute = HelpRouteImport.update({
@@ -474,6 +487,41 @@ const LeadsAddRoute = LeadsAddRouteImport.update({
   path: '/add',
   getParentRoute: () => LeadsRoute,
 } as any)
+const HrReviewsRoute = HrReviewsRouteImport.update({
+  id: '/reviews',
+  path: '/reviews',
+  getParentRoute: () => HrRoute,
+} as any)
+const HrPayrollRoute = HrPayrollRouteImport.update({
+  id: '/payroll',
+  path: '/payroll',
+  getParentRoute: () => HrRoute,
+} as any)
+const HrLeavesRoute = HrLeavesRouteImport.update({
+  id: '/leaves',
+  path: '/leaves',
+  getParentRoute: () => HrRoute,
+} as any)
+const HrHiringRoute = HrHiringRouteImport.update({
+  id: '/hiring',
+  path: '/hiring',
+  getParentRoute: () => HrRoute,
+} as any)
+const HrEmployeesRoute = HrEmployeesRouteImport.update({
+  id: '/employees',
+  path: '/employees',
+  getParentRoute: () => HrRoute,
+} as any)
+const HrAttendanceRoute = HrAttendanceRouteImport.update({
+  id: '/attendance',
+  path: '/attendance',
+  getParentRoute: () => HrRoute,
+} as any)
+const HrAnalyticsRoute = HrAnalyticsRouteImport.update({
+  id: '/analytics',
+  path: '/analytics',
+  getParentRoute: () => HrRoute,
+} as any)
 const AdminWhatsappRoute = AdminWhatsappRouteImport.update({
   id: '/whatsapp',
   path: '/whatsapp',
@@ -709,6 +757,7 @@ export interface FileRoutesByFullPath {
   '/health': typeof HealthRoute
   '/heatmap': typeof HeatmapRoute
   '/help': typeof HelpRoute
+  '/hr': typeof HrRouteWithChildren
   '/impact': typeof ImpactRoute
   '/inbox': typeof InboxRoute
   '/inventory': typeof InventoryRoute
@@ -760,6 +809,13 @@ export interface FileRoutesByFullPath {
   '/admin/tenants': typeof AdminTenantsRouteWithChildren
   '/admin/warroom': typeof AdminWarroomRoute
   '/admin/whatsapp': typeof AdminWhatsappRoute
+  '/hr/analytics': typeof HrAnalyticsRoute
+  '/hr/attendance': typeof HrAttendanceRoute
+  '/hr/employees': typeof HrEmployeesRoute
+  '/hr/hiring': typeof HrHiringRoute
+  '/hr/leaves': typeof HrLeavesRoute
+  '/hr/payroll': typeof HrPayrollRoute
+  '/hr/reviews': typeof HrReviewsRoute
   '/leads/add': typeof LeadsAddRoute
   '/myt/bookings': typeof MytBookingsRoute
   '/myt/calendar': typeof MytCalendarRoute
@@ -823,6 +879,7 @@ export interface FileRoutesByTo {
   '/health': typeof HealthRoute
   '/heatmap': typeof HeatmapRoute
   '/help': typeof HelpRoute
+  '/hr': typeof HrRouteWithChildren
   '/impact': typeof ImpactRoute
   '/inbox': typeof InboxRoute
   '/inventory': typeof InventoryRoute
@@ -874,6 +931,13 @@ export interface FileRoutesByTo {
   '/admin/tenants': typeof AdminTenantsRouteWithChildren
   '/admin/warroom': typeof AdminWarroomRoute
   '/admin/whatsapp': typeof AdminWhatsappRoute
+  '/hr/analytics': typeof HrAnalyticsRoute
+  '/hr/attendance': typeof HrAttendanceRoute
+  '/hr/employees': typeof HrEmployeesRoute
+  '/hr/hiring': typeof HrHiringRoute
+  '/hr/leaves': typeof HrLeavesRoute
+  '/hr/payroll': typeof HrPayrollRoute
+  '/hr/reviews': typeof HrReviewsRoute
   '/leads/add': typeof LeadsAddRoute
   '/myt/bookings': typeof MytBookingsRoute
   '/myt/calendar': typeof MytCalendarRoute
@@ -939,6 +1003,7 @@ export interface FileRoutesById {
   '/health': typeof HealthRoute
   '/heatmap': typeof HeatmapRoute
   '/help': typeof HelpRoute
+  '/hr': typeof HrRouteWithChildren
   '/impact': typeof ImpactRoute
   '/inbox': typeof InboxRoute
   '/inventory': typeof InventoryRoute
@@ -990,6 +1055,13 @@ export interface FileRoutesById {
   '/admin/tenants': typeof AdminTenantsRouteWithChildren
   '/admin/warroom': typeof AdminWarroomRoute
   '/admin/whatsapp': typeof AdminWhatsappRoute
+  '/hr/analytics': typeof HrAnalyticsRoute
+  '/hr/attendance': typeof HrAttendanceRoute
+  '/hr/employees': typeof HrEmployeesRoute
+  '/hr/hiring': typeof HrHiringRoute
+  '/hr/leaves': typeof HrLeavesRoute
+  '/hr/payroll': typeof HrPayrollRoute
+  '/hr/reviews': typeof HrReviewsRoute
   '/leads/add': typeof LeadsAddRoute
   '/myt/bookings': typeof MytBookingsRoute
   '/myt/calendar': typeof MytCalendarRoute
@@ -1056,6 +1128,7 @@ export interface FileRouteTypes {
     | '/health'
     | '/heatmap'
     | '/help'
+    | '/hr'
     | '/impact'
     | '/inbox'
     | '/inventory'
@@ -1107,6 +1180,13 @@ export interface FileRouteTypes {
     | '/admin/tenants'
     | '/admin/warroom'
     | '/admin/whatsapp'
+    | '/hr/analytics'
+    | '/hr/attendance'
+    | '/hr/employees'
+    | '/hr/hiring'
+    | '/hr/leaves'
+    | '/hr/payroll'
+    | '/hr/reviews'
     | '/leads/add'
     | '/myt/bookings'
     | '/myt/calendar'
@@ -1170,6 +1250,7 @@ export interface FileRouteTypes {
     | '/health'
     | '/heatmap'
     | '/help'
+    | '/hr'
     | '/impact'
     | '/inbox'
     | '/inventory'
@@ -1221,6 +1302,13 @@ export interface FileRouteTypes {
     | '/admin/tenants'
     | '/admin/warroom'
     | '/admin/whatsapp'
+    | '/hr/analytics'
+    | '/hr/attendance'
+    | '/hr/employees'
+    | '/hr/hiring'
+    | '/hr/leaves'
+    | '/hr/payroll'
+    | '/hr/reviews'
     | '/leads/add'
     | '/myt/bookings'
     | '/myt/calendar'
@@ -1285,6 +1373,7 @@ export interface FileRouteTypes {
     | '/health'
     | '/heatmap'
     | '/help'
+    | '/hr'
     | '/impact'
     | '/inbox'
     | '/inventory'
@@ -1336,6 +1425,13 @@ export interface FileRouteTypes {
     | '/admin/tenants'
     | '/admin/warroom'
     | '/admin/whatsapp'
+    | '/hr/analytics'
+    | '/hr/attendance'
+    | '/hr/employees'
+    | '/hr/hiring'
+    | '/hr/leaves'
+    | '/hr/payroll'
+    | '/hr/reviews'
     | '/leads/add'
     | '/myt/bookings'
     | '/myt/calendar'
@@ -1401,6 +1497,7 @@ export interface RootRouteChildren {
   HealthRoute: typeof HealthRoute
   HeatmapRoute: typeof HeatmapRoute
   HelpRoute: typeof HelpRoute
+  HrRoute: typeof HrRouteWithChildren
   ImpactRoute: typeof ImpactRoute
   InboxRoute: typeof InboxRoute
   InventoryRoute: typeof InventoryRoute
@@ -1607,6 +1704,13 @@ declare module '@tanstack/react-router' {
       path: '/impact'
       fullPath: '/impact'
       preLoaderRoute: typeof ImpactRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/hr': {
+      id: '/hr'
+      path: '/hr'
+      fullPath: '/hr'
+      preLoaderRoute: typeof HrRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/help': {
@@ -1944,6 +2048,55 @@ declare module '@tanstack/react-router' {
       fullPath: '/leads/add'
       preLoaderRoute: typeof LeadsAddRouteImport
       parentRoute: typeof LeadsRoute
+    }
+    '/hr/reviews': {
+      id: '/hr/reviews'
+      path: '/reviews'
+      fullPath: '/hr/reviews'
+      preLoaderRoute: typeof HrReviewsRouteImport
+      parentRoute: typeof HrRoute
+    }
+    '/hr/payroll': {
+      id: '/hr/payroll'
+      path: '/payroll'
+      fullPath: '/hr/payroll'
+      preLoaderRoute: typeof HrPayrollRouteImport
+      parentRoute: typeof HrRoute
+    }
+    '/hr/leaves': {
+      id: '/hr/leaves'
+      path: '/leaves'
+      fullPath: '/hr/leaves'
+      preLoaderRoute: typeof HrLeavesRouteImport
+      parentRoute: typeof HrRoute
+    }
+    '/hr/hiring': {
+      id: '/hr/hiring'
+      path: '/hiring'
+      fullPath: '/hr/hiring'
+      preLoaderRoute: typeof HrHiringRouteImport
+      parentRoute: typeof HrRoute
+    }
+    '/hr/employees': {
+      id: '/hr/employees'
+      path: '/employees'
+      fullPath: '/hr/employees'
+      preLoaderRoute: typeof HrEmployeesRouteImport
+      parentRoute: typeof HrRoute
+    }
+    '/hr/attendance': {
+      id: '/hr/attendance'
+      path: '/attendance'
+      fullPath: '/hr/attendance'
+      preLoaderRoute: typeof HrAttendanceRouteImport
+      parentRoute: typeof HrRoute
+    }
+    '/hr/analytics': {
+      id: '/hr/analytics'
+      path: '/analytics'
+      fullPath: '/hr/analytics'
+      preLoaderRoute: typeof HrAnalyticsRouteImport
+      parentRoute: typeof HrRoute
     }
     '/admin/whatsapp': {
       id: '/admin/whatsapp'
@@ -2368,6 +2521,28 @@ const AdminRouteChildren: AdminRouteChildren = {
 
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
+interface HrRouteChildren {
+  HrAnalyticsRoute: typeof HrAnalyticsRoute
+  HrAttendanceRoute: typeof HrAttendanceRoute
+  HrEmployeesRoute: typeof HrEmployeesRoute
+  HrHiringRoute: typeof HrHiringRoute
+  HrLeavesRoute: typeof HrLeavesRoute
+  HrPayrollRoute: typeof HrPayrollRoute
+  HrReviewsRoute: typeof HrReviewsRoute
+}
+
+const HrRouteChildren: HrRouteChildren = {
+  HrAnalyticsRoute: HrAnalyticsRoute,
+  HrAttendanceRoute: HrAttendanceRoute,
+  HrEmployeesRoute: HrEmployeesRoute,
+  HrHiringRoute: HrHiringRoute,
+  HrLeavesRoute: HrLeavesRoute,
+  HrPayrollRoute: HrPayrollRoute,
+  HrReviewsRoute: HrReviewsRoute,
+}
+
+const HrRouteWithChildren = HrRoute._addFileChildren(HrRouteChildren)
+
 interface LeadsRouteChildren {
   LeadsAddRoute: typeof LeadsAddRoute
 }
@@ -2474,6 +2649,7 @@ const rootRouteChildren: RootRouteChildren = {
   HealthRoute: HealthRoute,
   HeatmapRoute: HeatmapRoute,
   HelpRoute: HelpRoute,
+  HrRoute: HrRouteWithChildren,
   ImpactRoute: ImpactRoute,
   InboxRoute: InboxRoute,
   InventoryRoute: InventoryRoute,

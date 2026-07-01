@@ -7,6 +7,7 @@ export const ROLE_LABELS: Record<ManagedRole, string> = {
   member: "Flow Ops",
   owner: "Property Owner",
   tcm: "TCM",
+  hr: "HR",
 };
 
 export function roleLabel(role: string | undefined | null): string {

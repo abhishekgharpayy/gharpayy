@@ -89,8 +89,7 @@ function useCountUp(target: number, durationMs = 1200, delayMs = 0) {
 }
 
 function formatCrore(n: number) {
-  if (n === 0) return "₹0";
-  return `₹${(n / 10_000_000).toFixed(2)}Cr`;
+  return formatMoney(n);
 }
 
 function formatMoney(n: number) {
@@ -101,7 +100,10 @@ function formatMoney(n: number) {
 }
 
 function eventFormatter(item: any) {
-  const type = item.type;
+  let type = item.type || "";
+  if (type.startsWith("evt.")) {
+    type = type.slice(4).replace(/\./g, "_");
+  }
   const p = item.payload || {};
   const tcm = p.tcmName || "TCM";
   const name = p.leadName || p.customerName || "Lead";
@@ -272,10 +274,12 @@ function WarRoomTV() {
         if (latestId !== lastProcessedActivityId.current) {
           setBackendAlerts((prev) => {
             const merged = [
-              ...newItems.map((item: any) => {
-                const fmt = eventFormatter(item);
-                return { id: item._id, ts: item.occurredAt, text: fmt.text, bold: fmt.bold, cat: fmt.cat };
-              }),
+              ...newItems
+                .filter((item: any) => item.type !== "evt.user.action")
+                .map((item: any) => {
+                  const fmt = eventFormatter(item);
+                  return { id: item._id, ts: item.occurredAt, text: fmt.text, bold: fmt.bold, cat: fmt.cat };
+                }),
               ...prev,
             ];
             const unique = Array.from(new Map(merged.map((item) => [item.id, item])).values());
@@ -305,26 +309,44 @@ function WarRoomTV() {
     return () => clearInterval(i);
   }, [refreshData]);
 
-  // Derived metrics
-  const money = useMemo(() => computeMoneyMap(rows), [rows]);
-  const allBreaches = useMemo(() => computeSlaBreaches(rows), [rows]);
-  const hot = useMemo(() => rows.filter((r) => !r.booked && r.probability >= 70), [rows]);
+  // Deduplicate rows by lead ID to prevent duplicate values in metrics and CR
+  const uniqueRows = useMemo(() => {
+    const seen = new Set<string>();
+    return rows.filter(r => {
+      if (!r || !r.lead) return false;
+      const id = r.lead.id || r.lead._id;
+      if (!id) return false;
+      if (seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+  }, [rows]);
+
+  // Derived metrics using uniqueRows
+  const money = useMemo(() => computeMoneyMap(uniqueRows), [uniqueRows]);
+  const allBreaches = useMemo(() => computeSlaBreaches(uniqueRows), [uniqueRows]);
+  const hot = useMemo(() => uniqueRows.filter((r) => !r.booked && r.probability >= 70), [uniqueRows]);
 
   const leaderboard = useMemo(() => {
-    const map = new Map<string, { name: string; zone: string; total: number; won: number }>();
-    rows.forEach((r) => {
+    const map = new Map<string, { name: string; zone: string; total: number; won: number; lost: number }>();
+    uniqueRows.forEach((r) => {
       if (!r.tcm) return;
       if (!map.has(r.tcm.id))
-        map.set(r.tcm.id, { name: r.tcm.name, zone: r.tcm.zones?.[0] || "Network", total: 0, won: 0 });
+        map.set(r.tcm.id, { name: r.tcm.name, zone: r.tcm.zones?.[0] || "Network", total: 0, won: 0, lost: 0 });
       const entry = map.get(r.tcm.id)!;
       entry.total++;
       if (r.booked) entry.won++;
+      else if (r.status === "lost") entry.lost++;
     });
     return Array.from(map.values())
       .filter((x) => x.total > 0)
-      .map((x) => ({ ...x, cvr: Math.round((x.won / x.total) * 100) }))
+      .map((x) => {
+        const closed = x.won + x.lost;
+        const cvr = closed > 0 ? Math.round((x.won / closed) * 100) : 0;
+        return { ...x, cvr };
+      })
       .sort((a, b) => b.cvr - a.cvr);
-  }, [rows]);
+  }, [uniqueRows]);
 
   const cvrColor = (cvr: number) => (cvr >= 70 ? C.success : cvr >= 40 ? C.accent : C.danger);
 
@@ -445,10 +467,10 @@ function WarRoomTV() {
 
         {/* ═══ ROW 2: KPI STRIP ═══ */}
         <div className="flex gap-3 w-full h-full">
-          <KPICard label="WEIGHTED PIPELINE" tone="accent" countVal={money.pipelineRevenue} formatFn={formatCrore} sub="Total active pipeline" delay={0} />
-          <KPICard label="HOT LEADS (≥70%)" tone="success" countVal={money.hotRevenue} formatFn={formatCrore} sub="High probability closes" chip={`${hot.length} leads`} delay={150} />
-          <KPICard label="AT RISK" tone="danger" countVal={money.atRiskRevenue} formatFn={formatCrore} sub="SLA breached, needs action" chip={`${allBreaches.length} leads`} delay={300} />
-          <KPICard label="WALKING 30D" tone="warning" countVal={money.walkingRevenue} formatFn={formatCrore} sub="Dormant 30 days" delay={450} />
+          <KPICard label="WEIGHTED PIPELINE" tone="accent" countVal={money.pipelineRevenue} formatFn={formatMoney} sub="Total active pipeline" delay={0} />
+          <KPICard label="HOT LEADS (≥70%)" tone="success" countVal={money.hotRevenue} formatFn={formatMoney} sub="High probability closes" chip={`${hot.length} leads`} delay={150} />
+          <KPICard label="AT RISK" tone="danger" countVal={money.atRiskRevenue} formatFn={formatMoney} sub="SLA breached, needs action" chip={`${allBreaches.length} leads`} delay={300} />
+          <KPICard label="WALKING 30D" tone="warning" countVal={money.walkingRevenue} formatFn={formatMoney} sub="Dormant 30 days" delay={450} />
         </div>
 
         {/* ═══ ROW 3: THREE PANELS ═══ */}
@@ -560,7 +582,7 @@ function WarRoomTV() {
             </div>
 
             <div className="px-4 py-2 text-xs font-mono mt-auto" style={{ background: "rgba(69,10,10,0.4)", color: C.danger, borderTop: `1px solid ${C.border}` }}>
-              {formatCrore(money.atRiskRevenue)} total at risk across {allBreaches.length} leads
+              {formatMoney(money.atRiskRevenue)} total at risk across {allBreaches.length} leads
             </div>
           </div>
 

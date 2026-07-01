@@ -94,15 +94,20 @@ export async function emit(event: DomainEvent): Promise<void> {
   let seq: number | null = null;
   if (agg.type && agg.id) seq = await nextSeq(agg.type, agg.id);
 
-  const doc: EventDoc = {
+  const doc: Partial<EventDoc> = {
     ...parsed,
-    aggregateType: agg.type,
-    aggregateId: agg.id,
-    seq,
+    aggregateType: agg.type !== null ? agg.type : undefined,
+    aggregateId: agg.id !== null ? agg.id : undefined,
+    seq: seq !== null ? seq : undefined,
     publishedAt: null,
     publishAttempts: 0,
-  } as EventDoc;
-  await col<EventDoc>(EVENTS).insertOne(doc);
+  };
+  // MongoDB sparse index treats explicit nulls as values, so we delete undefined fields
+  if (doc.aggregateType === undefined) delete doc.aggregateType;
+  if (doc.aggregateId === undefined) delete doc.aggregateId;
+  if (doc.seq === undefined) delete doc.seq;
+
+  await col<EventDoc>(EVENTS).insertOne(doc as EventDoc);
   eventCounter.inc({ type: parsed.type });
 }
 

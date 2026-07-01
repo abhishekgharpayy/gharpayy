@@ -11,7 +11,7 @@ const CreateBody = z.object({
   email: z.string().email(),
   phone: z.string().min(0).max(40).optional(),
   password: z.string().min(8).max(72).regex(/[A-Z]/, "Password must contain at least one uppercase letter").regex(/[0-9]/, "Password must contain at least one number"),
-  role: z.enum(["manager", "admin", "member", "owner", "tcm"]),
+  role: z.enum(["manager", "admin", "member", "owner", "tcm", "hr"]),
   zones: z.array(z.string()).optional(),
 });
 
@@ -120,6 +120,11 @@ export function registerUserRoutes(app: FastifyInstance) {
 
   app.get("/api/owners", { preHandler: [requireAuth, requireScope("user.read")] }, async (req, reply) => {
     const list = await roleList(req, "owner");
+    return reply.send(list.map(userOut));
+  });
+
+  app.get("/api/hrs", { preHandler: [requireAuth, requireScope("user.read")] }, async (req, reply) => {
+    const list = await roleList(req, "hr");
     return reply.send(list.map(userOut));
   });
 

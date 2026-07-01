@@ -36,7 +36,7 @@ export function registerActivityFeedRoutes(app: FastifyInstance) {
     const isFallback = lag > 50;
 
     const items = await events()
-      .find({ tenantId: req.user!.tenantId })
+      .find({ tenantId: req.user!.tenantId, type: { $ne: "evt.user.action" } })
       .sort(isFallback ? { _id: -1 } as any : { occurredAt: -1 })
       .limit(q.limit)
       .toArray();

@@ -57,6 +57,8 @@ function LoginPage() {
       setUser(r.user);
       if (r.user.role === "owner") {
         nav({ to: search.redirect?.startsWith("/property-owner") ? search.redirect : "/property-owner/dashboard" });
+      } else if (r.user.role === "hr") {
+        nav({ to: search.redirect?.startsWith("/hr") ? search.redirect : "/hr/employees" });
       } else {
         nav({ to: search.redirect || "/" });
       }
