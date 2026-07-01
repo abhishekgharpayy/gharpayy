@@ -11,7 +11,7 @@ export default function TCMActions() {
     : tours.filter(t => t.assignedTo === 'm5' || t.assignedTo === 'm6');
 
   const sortByIntent = (list: Tour[]) =>
-    [...list].sort((a, b) => intentRank[a.intent] - intentRank[b.intent] || a.tourTime.localeCompare(b.tourTime));
+    [...list].sort((a, b) => intentRank[a.intent] - intentRank[b.intent] || (a.tourTime || "").localeCompare(b.tourTime || ""));
 
   const toConfirm = sortByIntent(myTours.filter(t => t.status === 'scheduled'));
   const missed = sortByIntent(myTours.filter(t => t.status === 'no-show'));

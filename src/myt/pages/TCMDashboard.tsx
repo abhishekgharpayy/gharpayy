@@ -66,7 +66,7 @@ export default function TCMDashboard() {
   // Sort: hard first, then by time
   const sortedTours = [...myTours].sort((a, b) => {
     const r = intentRank[a.intent] - intentRank[b.intent];
-    return r !== 0 ? r : a.tourTime.localeCompare(b.tourTime);
+    return r !== 0 ? r : (a.tourTime || "").localeCompare(b.tourTime || "");
   });
 
   const completed = myTours.filter(t => t.status === 'completed').length;

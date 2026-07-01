@@ -61,7 +61,7 @@ export function AdminFilterBar({ filters, onChange, tcms, sources = [], stages =
   const deduplicatedTcms = useMemo(() => {
     const map = new Map<string, typeof tcms[0]>();
     tcms.forEach(t => map.set(t.id, t));
-    return Array.from(map.values()).sort((a,b) => a.name.localeCompare(b.name));
+    return Array.from(map.values()).sort((a,b) => (a.name || (a as any).fullName || "").localeCompare(b.name || (b as any).fullName || ""));
   }, [tcms]);
 
   const tcmLabels = useMemo(() => {

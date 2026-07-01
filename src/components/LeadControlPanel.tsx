@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { api } from "@/lib/api/client";
+import { api, apiClient } from "@/lib/api/client";
 import { useAuthUser } from "@/lib/auth-store";
 import { useApp, getProperty, getTcm } from "@/lib/store";
 import type { Tour as CrmTour } from "@/lib/types";
@@ -326,10 +326,46 @@ export function LeadControlPanel() {
     }
   };
 
-  const lead = useMemo(
+  const storeLead = useMemo(
     () => leads.find((l) => l.id === selectedLeadId) ?? null,
     [leads, selectedLeadId],
   );
+
+  useEffect(() => {
+    if (selectedLeadId && !storeLead) {
+      apiClient.get<Lead>(`/api/leads/${selectedLeadId}`)
+        .then(l => {
+          useApp.setState(s => {
+            if (s.leads.some(existing => existing.id === l.id)) return s;
+            return { leads: [...s.leads, l] };
+          });
+        })
+        .catch(err => {
+          console.error("Failed to fetch missing lead:", err);
+          toast.error("Failed to load lead details. You may not have permission to view it.");
+          useApp.setState({ selectedLeadId: null });
+        });
+    }
+  }, [selectedLeadId, storeLead]);
+
+  const lead = storeLead;
+
+  if (selectedLeadId && !lead) {
+    return (
+      <Sheet open={true} onOpenChange={(o) => !o && selectLead(null)}>
+        <SheetContent
+          side="right"
+          className="w-full p-6 flex flex-col items-center justify-center text-center space-y-4 transition-all duration-300"
+          style={{ maxWidth: 560 }}
+        >
+          <div className="animate-pulse flex flex-col items-center gap-4">
+            <div className="h-8 w-8 rounded-full border-4 border-primary border-t-transparent animate-spin" />
+            <div className="text-muted-foreground text-sm font-medium">Loading lead details...</div>
+          </div>
+        </SheetContent>
+      </Sheet>
+    );
+  }
   const { data: drawerQuotes = [] } = useQuotationsQuery(selectedLeadId || "__none__");
   const hasPaidQuote = useMemo(
     () => drawerQuotes.some((quote) => quote.status === "paid"),
@@ -390,9 +426,9 @@ export function LeadControlPanel() {
           role: a.role ?? "tcm",
           zones: a.zones ?? (a.zone ? [a.zone] : []),
         }))
-        .sort((a: any, b: any) => a.name.localeCompare(b.name));
+        .sort((a: any, b: any) => (a.name || a.fullName || "").localeCompare(b.name || b.fullName || ""));
     }
-    const allTcms = orgMembers.sort((a: any, b: any) => a.name.localeCompare(b.name));
+    const allTcms = orgMembers.sort((a: any, b: any) => (a.name || a.fullName || "").localeCompare(b.name || b.fullName || ""));
     
     // Get the property's area from the selected propertyId
     const scheduledPropertyId = propertyId;
@@ -447,7 +483,7 @@ export function LeadControlPanel() {
     for (const tcm of tcmUsers) unique.set(tcm.id, tcm);
     // Include the current user as an option only if they have TCM capability
     if (authUser?.isTcm) unique.set(selfOption.id, selfOption);
-    return Array.from(unique.values()).sort((a, b) => a.name.localeCompare(b.name));
+    return Array.from(unique.values()).sort((a, b) => (a.name || (a as any).fullName || "").localeCompare(b.name || (b as any).fullName || ""));
   }, [authUser, orgMembers, tcmUsers]);
   const defaultSelfAssigneeId = useMemo(() => {
     if (!authUser?.id) return "";

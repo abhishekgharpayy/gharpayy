@@ -510,7 +510,7 @@ export function ImpactQueue() {
       .map((m) => ({ id: m.id, name: m.name }));
     if (fromDirectory.length > 0) {
       return Array.from(new Map(fromDirectory.map((m) => [m.id, m])).values()).sort((a, b) =>
-        a.name.localeCompare(b.name),
+        (a.name || "").localeCompare(b.name || ""),
       );
     }
     return tcmOptions
@@ -521,7 +521,7 @@ export function ImpactQueue() {
       })
       .map((t: any) => ({
         id: t.id,
-        name: t.fullName ?? t.name,
+        name: t.fullName ?? t.name ?? "",
         zones: t.zones ?? (t.zone ? [t.zone] : []),
       }))
       .sort((a, b) => a.name.localeCompare(b.name));

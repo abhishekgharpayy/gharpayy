@@ -132,7 +132,7 @@ function TCMDetail() {
           </CardHeader>
           <CardContent className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data.peakHours.sort((a:any,b:any)=>a.hour.localeCompare(b.hour))} margin={{ top: 5, right: 20, bottom: 5, left: -20 }}>
+              <BarChart data={data.peakHours.sort((a:any,b:any)=>(a.hour || "").localeCompare(b.hour || ""))} margin={{ top: 5, right: 20, bottom: 5, left: -20 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
                 <XAxis dataKey="hour" tick={{ fontSize: 10 }} />
                 <YAxis tick={{ fontSize: 10 }} />

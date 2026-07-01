@@ -44,11 +44,11 @@ function AdminTenantDetail() {
     [bookings, tenant],
   );
   const tenantRents = useMemo(
-    () => rents.filter((r) => r.tenantId === id).sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+    () => rents.filter((r) => r.tenantId === id).sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || "")),
     [rents, id],
   );
   const tenantPayments = useMemo(
-    () => payments.filter((p) => p.tenantId === id).sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+    () => payments.filter((p) => p.tenantId === id).sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || "")),
     [payments, id],
   );
 

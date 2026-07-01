@@ -85,9 +85,9 @@ export function applyFilters(rows: AdminLeadRow[], f: AdminFilters): AdminLeadRo
   out = [...out].sort((a, b) => {
     switch (field) {
       case "name":
-        return mul * a.lead.name.localeCompare(b.lead.name);
+        return mul * (a.lead.name || "").localeCompare(b.lead.name || "");
       case "stage":
-        return mul * a.lead.stage.localeCompare(b.lead.stage);
+        return mul * (a.lead.stage || "").localeCompare(b.lead.stage || "");
       case "prob":
         return mul * (a.probability - b.probability);
       case "value":

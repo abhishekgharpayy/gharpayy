@@ -207,7 +207,7 @@ export function buildDoNextQueue(
   // de-dup by lead+kind, sort (deterministic with leadId tiebreaker)
   const seen = new Set<string>();
   return actions
-    .sort((a, b) => b.score - a.score || a.leadId.localeCompare(b.leadId))
+    .sort((a, b) => b.score - a.score || (a.leadId || "").localeCompare(b.leadId || ""))
     .filter((a) => {
       const k = `${a.leadId}:${a.kind}`;
       if (seen.has(k)) return false;

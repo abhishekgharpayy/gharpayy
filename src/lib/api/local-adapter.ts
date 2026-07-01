@@ -106,7 +106,7 @@ export const localAdapter = {
     if (q.entityType) items = items.filter((t) => t.entityType === q.entityType);
     if (q.entityId) items = items.filter((t) => t.entityId === q.entityId);
     if (q.scope === "mine") items = items.filter((t) => t.assignedTo === USER || (t.createdBy === USER && !t.assignedTo));
-    return { items: items.sort((a, b) => b._id.localeCompare(a._id)) };
+    return { items: items.sort((a, b) => (b._id || b.id || "").localeCompare(a._id || a.id || "")) };
   },
 
   listActivities(q: { entityType: string; entityId: string; kind?: string; limit?: number }) {

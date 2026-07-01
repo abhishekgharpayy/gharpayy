@@ -194,8 +194,7 @@ export function registerLeadsRoutes(app: FastifyInstance) {
     }
 
     const allowed =
-      role === "super_admin" || role === "manager" ||
-      (role === "admin" && (inMyZone || isMine)) ||
+      role === "super_admin" || role === "manager" || role === "admin" ||
       (role === "member" && (isMine || hasTour)) ||
       (role === "tcm" && (isMine || isTcmOwned || hasTour));
     if (!allowed) return reply.code(404).send({ code: "NOT_FOUND", message: "Lead not found" });

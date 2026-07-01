@@ -137,7 +137,7 @@ export default function TourCalendar() {
       {/* Mobile: day-by-day stack */}
       <div className="md:hidden space-y-3">
         {days.map(d => {
-          const dayTours = filtered.filter(t => t.tourDate === d.iso).sort((a,b) => a.tourTime.localeCompare(b.tourTime));
+          const dayTours = filtered.filter(t => t.tourDate === d.iso).sort((a,b) => (a.tourTime || "").localeCompare(b.tourTime || ""));
           return (
             <div key={d.iso} className="glass-card p-3">
               <div className="flex items-baseline gap-2 mb-2">

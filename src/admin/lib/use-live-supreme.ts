@@ -71,11 +71,11 @@ export function useLiveSupremeMetrics() {
 
   const rows: AdminLeadRow[] = query.data
     ? joinAdmin({
-        leads: query.data.leads || [],
-        tours: query.data.tours || [],
-        tcms: query.data.tcms || [],
-        bookings: query.data.bookings || [],
-        followUps: query.data.followUps || [],
+        leads: (query.data.leads || []).map((x: any) => ({ ...x, id: x.id || x._id })),
+        tours: (query.data.tours || []).map((x: any) => ({ ...x, id: x.id || x._id })),
+        tcms: (query.data.tcms || []).map((x: any) => ({ ...x, id: x.id || x._id })),
+        bookings: (query.data.bookings || []).map((x: any) => ({ ...x, id: x.id || x._id })),
+        followUps: (query.data.followUps || []).map((x: any) => ({ ...x, id: x.id || x._id })),
         profiles: {},
         objections: (query.data as any).activities?.filter((a: any) => a.kind === "objection") || [],
         calls: (query.data as any).activities?.filter((a: any) => a.kind === "call") || [],

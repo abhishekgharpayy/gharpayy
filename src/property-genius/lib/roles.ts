@@ -69,5 +69,5 @@ export function listOwners() {
     if (ex) ex.pgCount++;
     else m.set(code, { code, name: p.owner?.name || p.groupName || "Owner", phone: p.owner?.phone || "", pgCount: 1, pgId: p.id });
   }
-  return Array.from(m.values()).sort((a, b) => a.name.localeCompare(b.name));
+  return Array.from(m.values()).sort((a, b) => (a.name || "").localeCompare(b.name || ""));
 }

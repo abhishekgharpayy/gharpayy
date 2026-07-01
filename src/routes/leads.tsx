@@ -249,7 +249,7 @@ function LeadsPage() {
       groups[band].sort((a, b) => {
         const da = a.moveInDate ? new Date(a.moveInDate).getTime() : Infinity;
         const db = b.moveInDate ? new Date(b.moveInDate).getTime() : Infinity;
-        return da - db || a.id.localeCompare(b.id);
+        return da - db || (a.id || (a as any)._id || "").localeCompare(b.id || (b as any)._id || "");
       });
     }
     return groups;
