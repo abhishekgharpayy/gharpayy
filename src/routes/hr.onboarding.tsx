@@ -34,7 +34,7 @@ function OnboardingPage() {
   const completeMutation = useMutation({
     mutationFn: (vars: { planId: string; taskId: string }) =>
       api.command({
-        _id: Math.random().toString(36).substring(7),
+        _id: crypto.randomUUID(),
         type: "cmd.onboarding.complete_task",
         payload: { planId: vars.planId, taskId: vars.taskId },
       }),
@@ -173,7 +173,7 @@ function AssignPlanDialog({ open, onOpenChange, employees }: { open: boolean, on
       });
 
       await api.command({
-        _id: Math.random().toString(36).substring(7),
+        _id: crypto.randomUUID(),
         type: "cmd.onboarding.assign",
         payload: {
           employeeId,

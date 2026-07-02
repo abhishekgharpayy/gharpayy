@@ -104,7 +104,7 @@ function SubmitReviewDialog({ open, onOpenChange, employees, defaultCycle }: { o
       if (cmdType === "cmd.review.submit_manager") payload.employeeId = form.employeeId;
 
       await api.command({
-        _id: Math.random().toString(36).substring(7),
+        _id: crypto.randomUUID(),
         type: cmdType,
         payload
       });

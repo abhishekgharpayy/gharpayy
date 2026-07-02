@@ -30,7 +30,7 @@ function GrievancesPage() {
   const updateMutation = useMutation({
     mutationFn: (vars: { grievanceId: string; status: "open" | "investigating" | "resolved" | "dismissed"; hrNotes?: string }) =>
       api.command({
-        _id: Math.random().toString(36).substring(7),
+        _id: crypto.randomUUID(),
         type: "cmd.grievance.update_status",
         payload: vars,
       }),
@@ -185,7 +185,7 @@ function RaiseGrievanceDialog({ open, onOpenChange }: { open: boolean, onOpenCha
     setBusy(true);
     try {
       await api.command({
-        _id: Math.random().toString(36).substring(7),
+        _id: crypto.randomUUID(),
         type: "cmd.grievance.raise",
         payload: {
           title,

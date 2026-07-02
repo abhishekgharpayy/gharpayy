@@ -35,7 +35,7 @@ function OffboardingPage() {
   const completeMutation = useMutation({
     mutationFn: (vars: { workflowId: string; taskId: string }) =>
       api.command({
-        _id: Math.random().toString(36).substring(7),
+        _id: crypto.randomUUID(),
         type: "cmd.offboarding.complete_task",
         payload: { workflowId: vars.workflowId, taskId: vars.taskId },
       }),
@@ -173,7 +173,7 @@ function InitiateOffboardingDialog({ open, onOpenChange, employees }: { open: bo
     setBusy(true);
     try {
       await api.command({
-        _id: Math.random().toString(36).substring(7),
+        _id: crypto.randomUUID(),
         type: "cmd.offboarding.initiate",
         payload: {
           employeeId,

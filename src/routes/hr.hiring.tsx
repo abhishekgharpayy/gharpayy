@@ -36,7 +36,7 @@ function HiringPage() {
 
   const updateMutation = useMutation({
     mutationFn: (vars: { id: string; patch: any }) => api.command({
-      _id: Math.random().toString(36).substring(7), // dummy idempotency key
+      _id: crypto.randomUUID(), // dummy idempotency key
       type: "cmd.candidate.move_stage",
       payload: { candidateId: vars.id, stage: vars.patch.stage }
     }),
@@ -198,7 +198,7 @@ function AddCandidateDialog({ open, onOpenChange }: { open: boolean, onOpenChang
       if (form.notes.trim()) payload.notes = form.notes.trim();
 
       await api.command({
-        _id: Math.random().toString(36).substring(7),
+        _id: crypto.randomUUID(),
         type: "cmd.candidate.create",
         payload
       });

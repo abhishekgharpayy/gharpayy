@@ -35,7 +35,7 @@ function DocumentsPage() {
   const verifyMutation = useMutation({
     mutationFn: (vars: { documentId: string; status: "verified" | "rejected"; notes?: string }) =>
       api.command({
-        _id: Math.random().toString(36).substring(7),
+        _id: crypto.randomUUID(),
         type: "cmd.document.verify",
         payload: { documentId: vars.documentId, status: vars.status, notes: vars.notes },
       }),
@@ -181,7 +181,7 @@ function UploadDocumentDialog({ open, onOpenChange, employees, userRole, userId 
     setBusy(true);
     try {
       await api.command({
-        _id: Math.random().toString(36).substring(7),
+        _id: crypto.randomUUID(),
         type: "cmd.document.upload",
         payload: {
           employeeId,

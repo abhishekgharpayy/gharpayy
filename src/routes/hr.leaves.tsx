@@ -40,7 +40,7 @@ function LeavesPage() {
       if (vars.patch.status === "rejected") type = "cmd.leave.reject";
       if (vars.patch.status === "cancelled") type = "cmd.leave.cancel";
       return api.command({
-        _id: Math.random().toString(36).substring(7),
+        _id: crypto.randomUUID(),
         type,
         payload: { leaveId: vars.id, note: vars.patch.managerNote }
       });
@@ -238,7 +238,7 @@ function RequestLeaveDialog({ open, onOpenChange }: { open: boolean, onOpenChang
     setBusy(true);
     try {
       await api.command({
-        _id: Math.random().toString(36).substring(7),
+        _id: crypto.randomUUID(),
         type: "cmd.leave.apply",
         payload: {
           type: type as any,

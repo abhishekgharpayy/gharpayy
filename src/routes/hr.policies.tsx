@@ -29,7 +29,7 @@ function PoliciesPage() {
   const acknowledgeMutation = useMutation({
     mutationFn: (vars: { policyId: string }) =>
       api.command({
-        _id: Math.random().toString(36).substring(7),
+        _id: crypto.randomUUID(),
         type: "cmd.policy.acknowledge",
         payload: { policyId: vars.policyId, employeeId: user?.id! },
       }),
@@ -142,7 +142,7 @@ function PublishPolicyDialog({ open, onOpenChange }: { open: boolean, onOpenChan
     setBusy(true);
     try {
       await api.command({
-        _id: Math.random().toString(36).substring(7),
+        _id: crypto.randomUUID(),
         type: "cmd.policy.publish",
         payload: {
           title,
