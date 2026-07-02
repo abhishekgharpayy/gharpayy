@@ -81,10 +81,16 @@ import { Route as MytCalendarRouteImport } from './routes/myt/calendar'
 import { Route as MytBookingsRouteImport } from './routes/myt/bookings'
 import { Route as LeadsAddRouteImport } from './routes/leads.add'
 import { Route as HrReviewsRouteImport } from './routes/hr.reviews'
+import { Route as HrPoliciesRouteImport } from './routes/hr.policies'
 import { Route as HrPayrollRouteImport } from './routes/hr.payroll'
+import { Route as HrOrgChartRouteImport } from './routes/hr.org-chart'
+import { Route as HrOnboardingRouteImport } from './routes/hr.onboarding'
+import { Route as HrOffboardingRouteImport } from './routes/hr.offboarding'
 import { Route as HrLeavesRouteImport } from './routes/hr.leaves'
 import { Route as HrHiringRouteImport } from './routes/hr.hiring'
+import { Route as HrGrievancesRouteImport } from './routes/hr.grievances'
 import { Route as HrEmployeesRouteImport } from './routes/hr.employees'
+import { Route as HrDocumentsRouteImport } from './routes/hr.documents'
 import { Route as HrAttendanceRouteImport } from './routes/hr.attendance'
 import { Route as HrAnalyticsRouteImport } from './routes/hr.analytics'
 import { Route as AdminWhatsappRouteImport } from './routes/admin.whatsapp'
@@ -492,9 +498,29 @@ const HrReviewsRoute = HrReviewsRouteImport.update({
   path: '/reviews',
   getParentRoute: () => HrRoute,
 } as any)
+const HrPoliciesRoute = HrPoliciesRouteImport.update({
+  id: '/policies',
+  path: '/policies',
+  getParentRoute: () => HrRoute,
+} as any)
 const HrPayrollRoute = HrPayrollRouteImport.update({
   id: '/payroll',
   path: '/payroll',
+  getParentRoute: () => HrRoute,
+} as any)
+const HrOrgChartRoute = HrOrgChartRouteImport.update({
+  id: '/org-chart',
+  path: '/org-chart',
+  getParentRoute: () => HrRoute,
+} as any)
+const HrOnboardingRoute = HrOnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
+  getParentRoute: () => HrRoute,
+} as any)
+const HrOffboardingRoute = HrOffboardingRouteImport.update({
+  id: '/offboarding',
+  path: '/offboarding',
   getParentRoute: () => HrRoute,
 } as any)
 const HrLeavesRoute = HrLeavesRouteImport.update({
@@ -507,9 +533,19 @@ const HrHiringRoute = HrHiringRouteImport.update({
   path: '/hiring',
   getParentRoute: () => HrRoute,
 } as any)
+const HrGrievancesRoute = HrGrievancesRouteImport.update({
+  id: '/grievances',
+  path: '/grievances',
+  getParentRoute: () => HrRoute,
+} as any)
 const HrEmployeesRoute = HrEmployeesRouteImport.update({
   id: '/employees',
   path: '/employees',
+  getParentRoute: () => HrRoute,
+} as any)
+const HrDocumentsRoute = HrDocumentsRouteImport.update({
+  id: '/documents',
+  path: '/documents',
   getParentRoute: () => HrRoute,
 } as any)
 const HrAttendanceRoute = HrAttendanceRouteImport.update({
@@ -811,10 +847,16 @@ export interface FileRoutesByFullPath {
   '/admin/whatsapp': typeof AdminWhatsappRoute
   '/hr/analytics': typeof HrAnalyticsRoute
   '/hr/attendance': typeof HrAttendanceRoute
+  '/hr/documents': typeof HrDocumentsRoute
   '/hr/employees': typeof HrEmployeesRoute
+  '/hr/grievances': typeof HrGrievancesRoute
   '/hr/hiring': typeof HrHiringRoute
   '/hr/leaves': typeof HrLeavesRoute
+  '/hr/offboarding': typeof HrOffboardingRoute
+  '/hr/onboarding': typeof HrOnboardingRoute
+  '/hr/org-chart': typeof HrOrgChartRoute
   '/hr/payroll': typeof HrPayrollRoute
+  '/hr/policies': typeof HrPoliciesRoute
   '/hr/reviews': typeof HrReviewsRoute
   '/leads/add': typeof LeadsAddRoute
   '/myt/bookings': typeof MytBookingsRoute
@@ -933,10 +975,16 @@ export interface FileRoutesByTo {
   '/admin/whatsapp': typeof AdminWhatsappRoute
   '/hr/analytics': typeof HrAnalyticsRoute
   '/hr/attendance': typeof HrAttendanceRoute
+  '/hr/documents': typeof HrDocumentsRoute
   '/hr/employees': typeof HrEmployeesRoute
+  '/hr/grievances': typeof HrGrievancesRoute
   '/hr/hiring': typeof HrHiringRoute
   '/hr/leaves': typeof HrLeavesRoute
+  '/hr/offboarding': typeof HrOffboardingRoute
+  '/hr/onboarding': typeof HrOnboardingRoute
+  '/hr/org-chart': typeof HrOrgChartRoute
   '/hr/payroll': typeof HrPayrollRoute
+  '/hr/policies': typeof HrPoliciesRoute
   '/hr/reviews': typeof HrReviewsRoute
   '/leads/add': typeof LeadsAddRoute
   '/myt/bookings': typeof MytBookingsRoute
@@ -1057,10 +1105,16 @@ export interface FileRoutesById {
   '/admin/whatsapp': typeof AdminWhatsappRoute
   '/hr/analytics': typeof HrAnalyticsRoute
   '/hr/attendance': typeof HrAttendanceRoute
+  '/hr/documents': typeof HrDocumentsRoute
   '/hr/employees': typeof HrEmployeesRoute
+  '/hr/grievances': typeof HrGrievancesRoute
   '/hr/hiring': typeof HrHiringRoute
   '/hr/leaves': typeof HrLeavesRoute
+  '/hr/offboarding': typeof HrOffboardingRoute
+  '/hr/onboarding': typeof HrOnboardingRoute
+  '/hr/org-chart': typeof HrOrgChartRoute
   '/hr/payroll': typeof HrPayrollRoute
+  '/hr/policies': typeof HrPoliciesRoute
   '/hr/reviews': typeof HrReviewsRoute
   '/leads/add': typeof LeadsAddRoute
   '/myt/bookings': typeof MytBookingsRoute
@@ -1182,10 +1236,16 @@ export interface FileRouteTypes {
     | '/admin/whatsapp'
     | '/hr/analytics'
     | '/hr/attendance'
+    | '/hr/documents'
     | '/hr/employees'
+    | '/hr/grievances'
     | '/hr/hiring'
     | '/hr/leaves'
+    | '/hr/offboarding'
+    | '/hr/onboarding'
+    | '/hr/org-chart'
     | '/hr/payroll'
+    | '/hr/policies'
     | '/hr/reviews'
     | '/leads/add'
     | '/myt/bookings'
@@ -1304,10 +1364,16 @@ export interface FileRouteTypes {
     | '/admin/whatsapp'
     | '/hr/analytics'
     | '/hr/attendance'
+    | '/hr/documents'
     | '/hr/employees'
+    | '/hr/grievances'
     | '/hr/hiring'
     | '/hr/leaves'
+    | '/hr/offboarding'
+    | '/hr/onboarding'
+    | '/hr/org-chart'
     | '/hr/payroll'
+    | '/hr/policies'
     | '/hr/reviews'
     | '/leads/add'
     | '/myt/bookings'
@@ -1427,10 +1493,16 @@ export interface FileRouteTypes {
     | '/admin/whatsapp'
     | '/hr/analytics'
     | '/hr/attendance'
+    | '/hr/documents'
     | '/hr/employees'
+    | '/hr/grievances'
     | '/hr/hiring'
     | '/hr/leaves'
+    | '/hr/offboarding'
+    | '/hr/onboarding'
+    | '/hr/org-chart'
     | '/hr/payroll'
+    | '/hr/policies'
     | '/hr/reviews'
     | '/leads/add'
     | '/myt/bookings'
@@ -2056,11 +2128,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HrReviewsRouteImport
       parentRoute: typeof HrRoute
     }
+    '/hr/policies': {
+      id: '/hr/policies'
+      path: '/policies'
+      fullPath: '/hr/policies'
+      preLoaderRoute: typeof HrPoliciesRouteImport
+      parentRoute: typeof HrRoute
+    }
     '/hr/payroll': {
       id: '/hr/payroll'
       path: '/payroll'
       fullPath: '/hr/payroll'
       preLoaderRoute: typeof HrPayrollRouteImport
+      parentRoute: typeof HrRoute
+    }
+    '/hr/org-chart': {
+      id: '/hr/org-chart'
+      path: '/org-chart'
+      fullPath: '/hr/org-chart'
+      preLoaderRoute: typeof HrOrgChartRouteImport
+      parentRoute: typeof HrRoute
+    }
+    '/hr/onboarding': {
+      id: '/hr/onboarding'
+      path: '/onboarding'
+      fullPath: '/hr/onboarding'
+      preLoaderRoute: typeof HrOnboardingRouteImport
+      parentRoute: typeof HrRoute
+    }
+    '/hr/offboarding': {
+      id: '/hr/offboarding'
+      path: '/offboarding'
+      fullPath: '/hr/offboarding'
+      preLoaderRoute: typeof HrOffboardingRouteImport
       parentRoute: typeof HrRoute
     }
     '/hr/leaves': {
@@ -2077,11 +2177,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HrHiringRouteImport
       parentRoute: typeof HrRoute
     }
+    '/hr/grievances': {
+      id: '/hr/grievances'
+      path: '/grievances'
+      fullPath: '/hr/grievances'
+      preLoaderRoute: typeof HrGrievancesRouteImport
+      parentRoute: typeof HrRoute
+    }
     '/hr/employees': {
       id: '/hr/employees'
       path: '/employees'
       fullPath: '/hr/employees'
       preLoaderRoute: typeof HrEmployeesRouteImport
+      parentRoute: typeof HrRoute
+    }
+    '/hr/documents': {
+      id: '/hr/documents'
+      path: '/documents'
+      fullPath: '/hr/documents'
+      preLoaderRoute: typeof HrDocumentsRouteImport
       parentRoute: typeof HrRoute
     }
     '/hr/attendance': {
@@ -2524,20 +2638,32 @@ const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 interface HrRouteChildren {
   HrAnalyticsRoute: typeof HrAnalyticsRoute
   HrAttendanceRoute: typeof HrAttendanceRoute
+  HrDocumentsRoute: typeof HrDocumentsRoute
   HrEmployeesRoute: typeof HrEmployeesRoute
+  HrGrievancesRoute: typeof HrGrievancesRoute
   HrHiringRoute: typeof HrHiringRoute
   HrLeavesRoute: typeof HrLeavesRoute
+  HrOffboardingRoute: typeof HrOffboardingRoute
+  HrOnboardingRoute: typeof HrOnboardingRoute
+  HrOrgChartRoute: typeof HrOrgChartRoute
   HrPayrollRoute: typeof HrPayrollRoute
+  HrPoliciesRoute: typeof HrPoliciesRoute
   HrReviewsRoute: typeof HrReviewsRoute
 }
 
 const HrRouteChildren: HrRouteChildren = {
   HrAnalyticsRoute: HrAnalyticsRoute,
   HrAttendanceRoute: HrAttendanceRoute,
+  HrDocumentsRoute: HrDocumentsRoute,
   HrEmployeesRoute: HrEmployeesRoute,
+  HrGrievancesRoute: HrGrievancesRoute,
   HrHiringRoute: HrHiringRoute,
   HrLeavesRoute: HrLeavesRoute,
+  HrOffboardingRoute: HrOffboardingRoute,
+  HrOnboardingRoute: HrOnboardingRoute,
+  HrOrgChartRoute: HrOrgChartRoute,
   HrPayrollRoute: HrPayrollRoute,
+  HrPoliciesRoute: HrPoliciesRoute,
   HrReviewsRoute: HrReviewsRoute,
 }
 

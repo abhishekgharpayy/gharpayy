@@ -29,9 +29,22 @@ function LeavesPage() {
     queryFn: () => api.hr.leaves(),
   });
 
+  const { data: balances } = useQuery({
+    queryKey: ["hr-leaves-balances"],
+    queryFn: () => api.hr.leavesBalances(),
+  });
+
   const updateMutation = useMutation({
-    mutationFn: (vars: { id: string; patch: { status: string; managerNote?: string } }) => 
-      api.hr.updateLeave(vars.id, vars.patch),
+    mutationFn: (vars: { id: string; patch: { status: string; managerNote?: string } }) => {
+      let type = "cmd.leave.approve";
+      if (vars.patch.status === "rejected") type = "cmd.leave.reject";
+      if (vars.patch.status === "cancelled") type = "cmd.leave.cancel";
+      return api.command({
+        _id: Math.random().toString(36).substring(7),
+        type,
+        payload: { leaveId: vars.id, note: vars.patch.managerNote }
+      });
+    },
     onSuccess: () => {
       toast.success("Leave status updated");
       queryClient.invalidateQueries({ queryKey: ["hr-leaves"] });
@@ -68,6 +81,27 @@ function LeavesPage() {
           <RequestLeaveDialog open={isRequestOpen} onOpenChange={setIsRequestOpen} />
         </div>
       </header>
+
+      {balances && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-2">
+          <div className="p-4 rounded-xl border border-border bg-card shadow-sm">
+            <div className="text-sm font-medium text-muted-foreground mb-1">Casual Leaves</div>
+            <div className="text-2xl font-bold">{balances.casual.remaining} <span className="text-sm font-normal text-muted-foreground">/ {balances.casual.quota}</span></div>
+          </div>
+          <div className="p-4 rounded-xl border border-border bg-card shadow-sm">
+            <div className="text-sm font-medium text-muted-foreground mb-1">Sick Leaves</div>
+            <div className="text-2xl font-bold">{balances.sick.remaining} <span className="text-sm font-normal text-muted-foreground">/ {balances.sick.quota}</span></div>
+          </div>
+          <div className="p-4 rounded-xl border border-border bg-card shadow-sm">
+            <div className="text-sm font-medium text-muted-foreground mb-1">Earned Leaves</div>
+            <div className="text-2xl font-bold">{balances.earned.remaining} <span className="text-sm font-normal text-muted-foreground">/ {balances.earned.quota}</span></div>
+          </div>
+          <div className="p-4 rounded-xl border border-border bg-card shadow-sm">
+            <div className="text-sm font-medium text-muted-foreground mb-1">Unpaid Leaves</div>
+            <div className="text-2xl font-bold">{balances.unpaid.used} <span className="text-sm font-normal text-muted-foreground">taken</span></div>
+          </div>
+        </div>
+      )}
 
       <div className="rounded-xl border border-border bg-card overflow-hidden">
         <Table>
@@ -185,16 +219,34 @@ function RequestLeaveDialog({ open, onOpenChange }: { open: boolean, onOpenChang
   const [busy, setBusy] = useState(false);
   const queryClient = useQueryClient();
 
+  const { data: balances } = useQuery({
+    queryKey: ["hr-leaves-balances"],
+    queryFn: () => api.hr.leavesBalances(),
+  });
+
   const submit = async () => {
     if (!startDate || !endDate || !reason) return toast.error("Please fill all fields");
+    
+    const requestedDays = parseFloat(days);
+    if (type !== "unpaid" && balances) {
+      const remaining = balances[type].remaining;
+      if (requestedDays > remaining) {
+        return toast.error(`Insufficient balance. You only have ${remaining} ${type} leaves remaining.`);
+      }
+    }
+
     setBusy(true);
     try {
-      await api.hr.requestLeave({
-        type,
-        startDate,
-        endDate,
-        days: parseFloat(days),
-        reason
+      await api.command({
+        _id: Math.random().toString(36).substring(7),
+        type: "cmd.leave.apply",
+        payload: {
+          type: type as any,
+          startDate,
+          endDate,
+          days: parseFloat(days),
+          reason
+        }
       });
       toast.success("Leave requested successfully");
       onOpenChange(false);
@@ -234,6 +286,9 @@ function RequestLeaveDialog({ open, onOpenChange }: { open: boolean, onOpenChang
                 <SelectItem value="unpaid">Unpaid Leave (LWP)</SelectItem>
               </SelectContent>
             </Select>
+            {balances && type !== "unpaid" && (
+              <p className="text-xs text-muted-foreground mt-1">Remaining: {balances[type].remaining}</p>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">

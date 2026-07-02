@@ -508,3 +508,121 @@ export const ReviewEntity = z.object({
   updatedAt: z.string(),
 });
 export type ReviewEntity = z.infer<typeof ReviewEntity>;
+
+// ------------------- NEW HR ENTITIES (ONBOARDING, DOCUMENTS, POLICY, GRIEVANCE, OFFBOARDING) -------------------
+
+export const OnboardingTask = z.object({
+  id: z.string(), // generated uuid/ulid
+  title: z.string(),
+  assigneeId: z.string().nullable().default(null),
+  dueDate: z.string().nullable().default(null),
+  status: z.enum(["pending", "in_progress", "done", "overdue"]).default("pending"),
+  completedAt: z.string().nullable().default(null),
+});
+export type OnboardingTask = z.infer<typeof OnboardingTask>;
+
+export const OnboardingPlan = z.object({
+  _id: z.string(),
+  employeeId: z.string(),
+  tasks: z.array(OnboardingTask).default([]),
+  createdBy: z.string(),
+  status: z.enum(["in_progress", "completed", "overdue"]).default("in_progress"),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type OnboardingPlan = z.infer<typeof OnboardingPlan>;
+
+export const DocumentType = z.enum(["offer_letter", "contract", "appraisal", "id_proof", "nda", "increment"]);
+export type DocumentType = z.infer<typeof DocumentType>;
+
+export const EmployeeDocument = z.object({
+  _id: z.string(),
+  employeeId: z.string(),
+  type: DocumentType,
+  fileUrl: z.string().url(),
+  filename: z.string(),
+  version: z.number().int().min(1).default(1),
+  expiryDate: z.string().nullable().default(null),
+  uploadedBy: z.string(),
+  uploadedAt: z.string(),
+  updatedAt: z.string(),
+});
+export type EmployeeDocument = z.infer<typeof EmployeeDocument>;
+
+export const GrievanceCategory = z.enum(["harassment", "pay_dispute", "work_env", "manager_behaviour", "other"]);
+export type GrievanceCategory = z.infer<typeof GrievanceCategory>;
+
+export const GrievanceStatus = z.enum(["raised", "under_review", "resolved", "escalated"]);
+export type GrievanceStatus = z.infer<typeof GrievanceStatus>;
+
+export const GrievanceNote = z.object({
+  text: z.string(),
+  addedBy: z.string(),
+  addedAt: z.string(),
+});
+export type GrievanceNote = z.infer<typeof GrievanceNote>;
+
+export const Grievance = z.object({
+  _id: z.string(),
+  raisedBy: z.string(),
+  isAnonymous: z.boolean().default(false),
+  category: GrievanceCategory,
+  description: z.string().min(50),
+  status: GrievanceStatus.default("raised"),
+  internalNotes: z.array(GrievanceNote).default([]),
+  resolutionNote: z.string().nullable().default(null),
+  raisedAt: z.string(),
+  resolvedAt: z.string().nullable().default(null),
+  updatedAt: z.string(),
+});
+export type Grievance = z.infer<typeof Grievance>;
+
+export const PolicyStatus = z.enum(["draft", "published", "archived"]);
+export type PolicyStatus = z.infer<typeof PolicyStatus>;
+
+export const Policy = z.object({
+  _id: z.string(),
+  title: z.string(),
+  description: z.string(),
+  pdfUrl: z.string().url(),
+  version: z.number().int().min(1).default(1),
+  effectiveDate: z.string(),
+  publishedBy: z.string(),
+  publishedAt: z.string(),
+  status: PolicyStatus.default("published"),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type Policy = z.infer<typeof Policy>;
+
+export const PolicyAcknowledgement = z.object({
+  _id: z.string(),
+  policyId: z.string(),
+  employeeId: z.string(),
+  acknowledgedAt: z.string(),
+});
+export type PolicyAcknowledgement = z.infer<typeof PolicyAcknowledgement>;
+
+export const OffboardingTask = z.object({
+  id: z.string(),
+  title: z.string(),
+  assignedTeam: z.string(),
+  dueDate: z.string(),
+  status: z.enum(["pending", "done"]).default("pending"),
+  completedAt: z.string().nullable().default(null),
+});
+export type OffboardingTask = z.infer<typeof OffboardingTask>;
+
+export const OffboardingWorkflow = z.object({
+  _id: z.string(),
+  employeeId: z.string(),
+  initiatedBy: z.string(),
+  exitDate: z.string(),
+  tasks: z.array(OffboardingTask).default([]),
+  exitInterview: z.record(z.string(), z.unknown()).nullable().default(null),
+  status: z.enum(["in_progress", "completed"]).default("in_progress"),
+  createdAt: z.string(),
+  completedAt: z.string().nullable().default(null),
+  updatedAt: z.string(),
+});
+export type OffboardingWorkflow = z.infer<typeof OffboardingWorkflow>;

@@ -11,6 +11,9 @@ const UpdateEmployeeBody = z.object({
   status: UserStatus.optional(),
   department: z.string().max(120).optional(),
   managerId: z.string().nullable().optional(),
+  baseSalary: z.number().min(0).optional(),
+  allowances: z.number().min(0).optional(),
+  isManaged: z.boolean().optional(),
 });
 
 function employeeOut(u: UserDoc) {
@@ -23,6 +26,9 @@ function employeeOut(u: UserDoc) {
     status: u.status,
     department: u.department ?? "",
     managerId: u.managerId ?? null,
+    baseSalary: u.baseSalary ?? 0,
+    allowances: u.allowances ?? 0,
+    isManaged: u.isManaged ?? false,
     createdAt: u.createdAt,
     updatedAt: u.updatedAt,
   };
@@ -39,6 +45,49 @@ export function registerHrRoutes(app: FastifyInstance) {
       .sort({ createdAt: -1 })
       .toArray();
     return reply.send(list.map(employeeOut));
+  });
+
+  // ---------- INVITE EMPLOYEE ----------
+  const InviteEmployeeBody = z.object({
+    fullName: z.string().min(1).max(120),
+    email: z.string().email(),
+    role: TopRole,
+    department: z.string().max(120).optional(),
+    baseSalary: z.number().min(0).optional(),
+    allowances: z.number().min(0).optional(),
+  });
+
+  app.post("/api/hr/employees/invite", { preHandler: [requireAuth, requireScope("employee.write")] }, async (req, reply) => {
+    const body = InviteEmployeeBody.parse(req.body);
+    const user = req.user!;
+    
+    const existing = await users().findOne({ email: body.email });
+    if (existing) {
+      return reply.code(400).send({ code: "CONFLICT", message: "Email already registered" });
+    }
+
+    const now = new Date().toISOString();
+    const doc: UserDoc = {
+      _id: ulid(),
+      username: body.email,
+      email: body.email,
+      fullName: body.fullName,
+      passwordHash: "", // Will be set on acceptance
+      role: body.role,
+      status: "invited",
+      department: body.department,
+      baseSalary: body.baseSalary ?? 0,
+      allowances: body.allowances ?? 0,
+      isManaged: true, // employees added via HR are managed
+      tenantId: user.tenantId,
+      zones: [],
+      createdAt: now,
+      updatedAt: now,
+      __v: 1,
+    };
+
+    await users().insertOne(doc);
+    return reply.code(201).send(employeeOut(doc));
   });
 
   // ---------- UPDATE EMPLOYEE ----------
@@ -64,6 +113,9 @@ export function registerHrRoutes(app: FastifyInstance) {
     }
     if (body.department !== undefined) patch.department = body.department;
     if (body.managerId !== undefined) patch.managerId = body.managerId;
+    if (body.baseSalary !== undefined) patch.baseSalary = body.baseSalary;
+    if (body.allowances !== undefined) patch.allowances = body.allowances;
+    if (body.isManaged !== undefined) patch.isManaged = body.isManaged;
 
     const r = await users().findOneAndUpdate(
       { _id: id },
@@ -85,12 +137,63 @@ export function registerHrRoutes(app: FastifyInstance) {
     reason: z.string().max(2000),
   });
 
+  const QUOTAS: Record<string, number> = {
+    casual: 12,
+    sick: 12,
+    earned: 15,
+  };
+
+  app.get("/api/hr/leaves/balances", { preHandler: [requireAuth] }, async (req, reply) => {
+    const user = req.user!;
+    const { employeeId } = req.query as { employeeId?: string };
+    const targetId = (user.role === "hr" || user.role === "super_admin") && employeeId ? employeeId : user.sub;
+
+    // Get all approved or pending leaves for this year
+    const currentYear = new Date().getFullYear().toString();
+    const existingLeaves = await leaves().find({
+      tenantId: user.tenantId,
+      employeeId: targetId,
+      status: { $in: ["approved", "pending"] },
+      startDate: { $regex: `^${currentYear}` }
+    }).toArray();
+
+    const used: Record<string, number> = { casual: 0, sick: 0, earned: 0, unpaid: 0 };
+    for (const l of existingLeaves) {
+      used[l.type] = (used[l.type] || 0) + l.days;
+    }
+
+    return reply.send({
+      casual: { quota: QUOTAS.casual, used: used.casual, remaining: QUOTAS.casual - used.casual },
+      sick: { quota: QUOTAS.sick, used: used.sick, remaining: QUOTAS.sick - used.sick },
+      earned: { quota: QUOTAS.earned, used: used.earned, remaining: QUOTAS.earned - used.earned },
+      unpaid: { used: used.unpaid },
+    });
+  });
+
   app.post("/api/hr/leaves", { preHandler: [requireAuth] }, async (req, reply) => {
     // Any authenticated user can request a leave
     const body = RequestLeaveBody.parse(req.body);
     const user = req.user!;
     const now = new Date().toISOString();
+    const currentYear = new Date().getFullYear().toString();
     
+    // Check balance if not unpaid
+    if (body.type !== "unpaid") {
+      const existingLeaves = await leaves().find({
+        tenantId: user.tenantId,
+        employeeId: user.sub,
+        status: { $in: ["approved", "pending"] },
+        type: body.type,
+        startDate: { $regex: `^${currentYear}` }
+      }).toArray();
+      const used = existingLeaves.reduce((sum, l) => sum + l.days, 0);
+      const remaining = QUOTAS[body.type] - used;
+      
+      if (body.days > remaining) {
+        return reply.code(400).send({ code: "BAD_REQUEST", message: `Insufficient balance for ${body.type} leave. Remaining: ${remaining}` });
+      }
+    }
+
     // Generate ULID for _id
     
 
@@ -294,7 +397,7 @@ export function registerHrRoutes(app: FastifyInstance) {
     notes: z.string().max(2000).optional(),
   });
 
-  app.post("/api/hr/candidates", { preHandler: [requireAuth, requireScope("employee.write")] }, async (req, reply) => {
+  app.post("/api/hr/candidates", { preHandler: [requireAuth, requireScope("candidate.write")] }, async (req, reply) => {
     const body = AddCandidateBody.parse(req.body);
     const user = req.user!;
     const now = new Date().toISOString();
@@ -334,7 +437,7 @@ export function registerHrRoutes(app: FastifyInstance) {
     notes: z.string().max(2000).optional(),
   });
 
-  app.patch("/api/hr/candidates/:id", { preHandler: [requireAuth, requireScope("employee.write")] }, async (req, reply) => {
+  app.patch("/api/hr/candidates/:id", { preHandler: [requireAuth, requireScope("candidate.write")] }, async (req, reply) => {
     const { id } = req.params as { id: string };
     const body = UpdateCandidateBody.parse(req.body);
     const user = req.user!;
@@ -383,11 +486,27 @@ export function registerHrRoutes(app: FastifyInstance) {
     // Get all active employees
     const allEmployees = await users().find({ tenantId: user.tenantId, status: "active", isManaged: true }).toArray();
     
-    // Generate simple payslips for them (mocked base salary for demo purposes)
+    // Calculate LWP (Leave Without Pay) based on attendance for the month
+    const monthPrefix = body.month; // e.g. "2026-07"
+    const monthRecords = await attendance().find({ 
+      tenantId: user.tenantId, 
+      date: { $regex: `^${monthPrefix}` } 
+    }).toArray();
+
     const newSlips = allEmployees.map(emp => {
-      const baseSalary = 50000; // Mock base
-      const allowances = 5000;
-      const deductions = 2000;
+      const baseSalary = emp.baseSalary ?? 0;
+      const allowances = emp.allowances ?? 0;
+      
+      // Calculate LWP days
+      const empAttendance = monthRecords.filter(r => r.employeeId === emp._id);
+      const absentDays = empAttendance.filter(r => r.status === "absent" || r.status === "on-leave").length; // simplified LWP calculation
+      const workingDays = 22; // Assume 22 working days per month for calculation
+      
+      let deductions = 0;
+      if (absentDays > 0 && baseSalary > 0) {
+         deductions = Math.round((baseSalary / workingDays) * absentDays);
+      }
+
       return {
         _id: ulid(),
         tenantId: user.tenantId,
@@ -397,7 +516,7 @@ export function registerHrRoutes(app: FastifyInstance) {
         baseSalary,
         allowances,
         deductions,
-        netPay: baseSalary + allowances - deductions,
+        netPay: Math.max(0, baseSalary + allowances - deductions),
         status: "draft",
         createdAt: now,
       };
@@ -561,5 +680,60 @@ export function registerHrRoutes(app: FastifyInstance) {
 
     const list = await reviews().find(query).sort({ createdAt: -1 }).toArray();
     return reply.send(list);
+  });
+
+  // ---------- ONBOARDING ----------
+  const onboarding = () => col("hr_onboarding");
+  app.get("/api/hr/onboarding", { preHandler: [requireAuth] }, async (req, reply) => {
+    const user = req.user!;
+    const list = await onboarding().find({ tenantId: user.tenantId }).sort({ createdAt: -1 }).toArray();
+    return reply.send(list);
+  });
+
+  // ---------- DOCUMENTS ----------
+  const documents = () => col("hr_documents");
+  app.get("/api/hr/documents", { preHandler: [requireAuth] }, async (req, reply) => {
+    const user = req.user!;
+    const query: any = { tenantId: user.tenantId };
+    if (user.role !== "hr" && user.role !== "super_admin") {
+      query.employeeId = user.sub;
+    }
+    const list = await documents().find(query).sort({ uploadedAt: -1 }).toArray();
+    return reply.send(list);
+  });
+
+  // ---------- POLICIES ----------
+  const policies = () => col("hr_policies");
+  app.get("/api/hr/policies", { preHandler: [requireAuth] }, async (req, reply) => {
+    const user = req.user!;
+    const list = await policies().find({ tenantId: user.tenantId }).sort({ createdAt: -1 }).toArray();
+    return reply.send(list);
+  });
+
+  // ---------- GRIEVANCES ----------
+  const grievances = () => col("hr_grievances");
+  app.get("/api/hr/grievances", { preHandler: [requireAuth] }, async (req, reply) => {
+    const user = req.user!;
+    const query: any = { tenantId: user.tenantId };
+    if (user.role !== "hr" && user.role !== "super_admin") {
+      query.employeeId = user.sub;
+    }
+    const list = await grievances().find(query).sort({ createdAt: -1 }).toArray();
+    return reply.send(list);
+  });
+
+  // ---------- OFFBOARDING ----------
+  const offboarding = () => col("hr_offboarding");
+  app.get("/api/hr/offboarding", { preHandler: [requireAuth] }, async (req, reply) => {
+    const user = req.user!;
+    const list = await offboarding().find({ tenantId: user.tenantId }).sort({ createdAt: -1 }).toArray();
+    return reply.send(list);
+  });
+
+  // ---------- ORG CHART ----------
+  app.get("/api/hr/org-chart", { preHandler: [requireAuth] }, async (req, reply) => {
+    const user = req.user!;
+    const allUsers = await users().find({ tenantId: user.tenantId, isManaged: true }).toArray();
+    return reply.send(allUsers);
   });
 }

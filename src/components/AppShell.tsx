@@ -4,7 +4,7 @@ import {
   Building2, Search, Sun, Command, Trophy, Sparkles, MessageSquare,
   IndianRupee, MapPin, Zap, Users, Home, Calendar, Store, Swords, Settings, AlertTriangle,
   ShieldCheck, Inbox, Camera, HelpCircle, Layers, HeartPulse, ListTodo, Gauge, Radio,
-  BarChart3, Radar, Menu, X, FileText, CalendarCheck, Bell, Keyboard
+  BarChart3, Radar, Menu, X, FileText, CalendarCheck, Bell, Keyboard, Network, BookOpen, AlertCircle, LogOut, CheckSquare, FolderOpen
 } from "lucide-react";
 import { MemberDailyReminderPopup } from "@/components/stats/MemberDailyReminderPopup";
 import { NotificationCenter } from "./NotificationCenter";
@@ -224,20 +224,19 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const navByRole: Record<typeof role, NavItem[]> = {
     hr: withTailNav([
-      { to: "/today", label: "Today", icon: Sun, badge: queue.length },
-      { to: "/leads", label: "Leads", icon: Target },
-      { to: "/myt/tours", label: "Tours", icon: CalendarPlus },
-      { to: "/impact", label: "Impact Queue", icon: HeartPulse },
-      { to: "/property-hub", label: "Property Hub", icon: Building2 },
-      { to: "/myt/war-room", label: "War Room", icon: Swords },
-      { to: "/visit-war", label: "Visit War Room", icon: Radio },
-      { to: "/myt/team", label: "Team", icon: Users },
-      { to: "/revenue", label: "Revenue", icon: IndianRupee },
-      { to: "/myt/funnel", label: "Funnel", icon: Activity },
-      { to: "/myt/zones", label: "Zones", icon: MapPin },
-      { to: "/myt/owners-compare", label: "Owners", icon: ShieldCheck },
-      { to: "/supply-hub", label: "Supply Hub", icon: Layers },
-      { to: "/my-tasks", label: "My Tasks", icon: ListTodo },
+      { to: "/hr/analytics", label: "Dashboard", icon: Activity },
+      { to: "/hr/employees", label: "Directory", icon: Users },
+      { to: "/hr/leaves", label: "Leaves", icon: CalendarPlus },
+      { to: "/hr/attendance", label: "Attendance", icon: CalendarCheck },
+      { to: "/hr/hiring", label: "Hiring", icon: ClipboardList },
+      { to: "/hr/payroll", label: "Payroll", icon: IndianRupee },
+      { to: "/hr/reviews", label: "Reviews", icon: Sparkles },
+      { to: "/hr/onboarding", label: "Onboarding", icon: CheckSquare },
+      { to: "/hr/documents", label: "Documents", icon: FolderOpen },
+      { to: "/hr/org-chart", label: "Org Chart", icon: Network },
+      { to: "/hr/policies", label: "Policies", icon: BookOpen },
+      { to: "/hr/grievances", label: "Grievances", icon: AlertCircle },
+      { to: "/hr/offboarding", label: "Offboarding", icon: LogOut },
     ]),
     "flow-ops": withTailNav([
       { to: "/today", label: "Today", icon: Sun, badge: queue.length },
@@ -300,7 +299,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const [superAdminMode, setSuperAdminMode] = useState<"admin" | "manager">("manager");
   const items = role === "super-admin" 
-    ? (superAdminMode === "admin" ? navByRole["super-admin"] : navByRole["hr"]) 
+    ? (superAdminMode === "admin" ? navByRole["super-admin"] : navByRole["flow-ops"]) 
     : [...navByRole[role]];
   
 
@@ -370,7 +369,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           const roleMeta = {
             "flow-ops": { label: "Flow Ops", dot: "bg-info" },
             tcm: { label: "TCM Desk", dot: "bg-accent" },
-            hr: { label: "Manager / Admin", dot: "bg-success" },
+            hr: { label: "HR / Leadership", dot: "bg-success" },
             "super-admin": { label: "Super Admin", dot: "bg-destructive" },
             owner: { label: "Property Owner", dot: "bg-primary" },
           } as const;
@@ -454,7 +453,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             const labels: Record<string, string> = {
               "flow-ops": "Flow Ops",
               tcm: "TCM",
-              hr: "Manager / Admin",
+              hr: "HR / Leadership",
               owner: "Property Owner",
               "super-admin": "Super Admin",
             };

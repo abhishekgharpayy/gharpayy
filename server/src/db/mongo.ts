@@ -365,6 +365,48 @@ async function ensureIndexes(db: Db) {
           { key: { tenantId_scope: 1, type: 1, month: -1 } },
         ]),
     },
+    {
+      name: "onboarding_plans",
+      run: () =>
+        db.collection("onboarding_plans").createIndexes([
+          { key: { employeeId: 1 } },
+        ]),
+    },
+    {
+      name: "employee_documents",
+      run: () =>
+        db.collection("employee_documents").createIndexes([
+          { key: { employeeId: 1, expiryDate: 1 } },
+        ]),
+    },
+    {
+      name: "grievances",
+      run: () =>
+        db.collection("grievances").createIndexes([
+          { key: { raisedBy: 1, status: 1 } },
+        ]),
+    },
+    {
+      name: "policies",
+      run: () =>
+        db.collection("policies").createIndexes([
+          { key: { status: 1, effectiveDate: -1 } },
+        ]),
+    },
+    {
+      name: "policy_acknowledgements",
+      run: () =>
+        db.collection("policy_acknowledgements").createIndexes([
+          { key: { policyId: 1, employeeId: 1 }, unique: true, name: "uniq_policy_emp" },
+        ]),
+    },
+    {
+      name: "offboarding_workflows",
+      run: () =>
+        db.collection("offboarding_workflows").createIndexes([
+          { key: { employeeId: 1 } },
+        ]),
+    },
   ];
 
   // Run sequentially with isolation: a single bad index must NOT prevent boot.

@@ -46,6 +46,36 @@ export const CommandType = z.enum([
   "cmd.payment.update",
   "cmd.payment.delete",
   "cmd.payment.generate_rents",
+  // HR Onboarding
+  "cmd.onboarding.create_plan",
+  "cmd.onboarding.complete_task",
+  // HR Documents
+  "cmd.document.upload",
+  "cmd.document.delete",
+  // HR Leaves
+  "cmd.leave.apply",
+  "cmd.leave.approve",
+  "cmd.leave.reject",
+  // HR Candidates
+  "cmd.candidate.create",
+  "cmd.candidate.move_stage",
+  "cmd.candidate.convert_to_employee",
+  // HR Payroll
+  "cmd.payroll.finalize_month",
+  // HR Reviews
+  "cmd.review.create_cycle",
+  "cmd.review.submit_self",
+  "cmd.review.submit_manager",
+  "cmd.review.close",
+  // HR Policies
+  "cmd.policy.publish",
+  "cmd.policy.acknowledge",
+  // HR Grievances
+  "cmd.grievance.raise",
+  "cmd.grievance.update_status",
+  // HR Offboarding
+  "cmd.offboarding.initiate",
+  "cmd.offboarding.complete_task",
 ]);
 export type CommandType = z.infer<typeof CommandType>;
 
@@ -436,6 +466,151 @@ export const FlagInterventionCmd = Base.extend({
   }),
 });
 
+// ---------- HR Modules ----------
+export const CreateOnboardingPlanCmd = Base.extend({
+  type: z.literal("cmd.onboarding.create_plan"),
+  payload: z.object({ employeeId: z.string() }),
+});
+
+export const CompleteOnboardingTaskCmd = Base.extend({
+  type: z.literal("cmd.onboarding.complete_task"),
+  payload: z.object({ planId: z.string(), taskId: z.string() }),
+});
+
+export const UploadDocumentCmd = Base.extend({
+  type: z.literal("cmd.document.upload"),
+  payload: z.object({
+    employeeId: z.string(),
+    type: z.enum(["offer_letter", "contract", "appraisal", "id_proof", "nda", "increment"]),
+    fileUrl: z.string().url(),
+    filename: z.string(),
+    expiryDate: z.string().nullable().optional(),
+  }),
+});
+
+export const DeleteDocumentCmd = Base.extend({
+  type: z.literal("cmd.document.delete"),
+  payload: z.object({ documentId: z.string() }),
+});
+
+export const ApplyLeaveCmd = Base.extend({
+  type: z.literal("cmd.leave.apply"),
+  payload: z.object({
+    type: z.enum(["casual", "sick", "earned", "unpaid"]),
+    startDate: z.string(),
+    endDate: z.string(),
+    days: z.number().min(0.5),
+    reason: z.string().max(2000),
+  }),
+});
+
+export const ApproveLeaveCmd = Base.extend({
+  type: z.literal("cmd.leave.approve"),
+  payload: z.object({ leaveId: z.string(), note: z.string().max(2000).optional() }),
+});
+
+export const RejectLeaveCmd = Base.extend({
+  type: z.literal("cmd.leave.reject"),
+  payload: z.object({ leaveId: z.string(), reason: z.string().max(2000) }),
+});
+
+export const CreateCandidateCmd = Base.extend({
+  type: z.literal("cmd.candidate.create"),
+  payload: z.object({
+    name: z.string().min(1).max(120),
+    email: z.string().email(),
+    phone: z.string().min(7).max(20),
+    roleAppliedFor: z.string().min(1).max(120),
+    resumeUrl: z.string().url().nullable().optional(),
+  }),
+});
+
+export const MoveCandidateStageCmd = Base.extend({
+  type: z.literal("cmd.candidate.move_stage"),
+  payload: z.object({
+    candidateId: z.string(),
+    stage: z.enum(["applied", "screening", "interview", "offer", "hired", "rejected"]),
+  }),
+});
+
+export const ConvertCandidateCmd = Base.extend({
+  type: z.literal("cmd.candidate.convert_to_employee"),
+  payload: z.object({ candidateId: z.string() }),
+});
+
+export const FinalizePayrollCmd = Base.extend({
+  type: z.literal("cmd.payroll.finalize_month"),
+  payload: z.object({ month: z.string().regex(/^\d{4}-\d{2}$/) }),
+});
+
+export const CreateReviewCycleCmd = Base.extend({
+  type: z.literal("cmd.review.create_cycle"),
+  payload: z.object({
+    name: z.string(),
+    period: z.enum(["Q1", "Q2", "Q3", "Q4", "Annual"]),
+    startDate: z.string(),
+    endDate: z.string(),
+  }),
+});
+
+export const SubmitSelfReviewCmd = Base.extend({
+  type: z.literal("cmd.review.submit_self"),
+  payload: z.object({ cycleId: z.string(), rating: z.number().min(1).max(5), feedback: z.string() }),
+});
+
+export const SubmitManagerReviewCmd = Base.extend({
+  type: z.literal("cmd.review.submit_manager"),
+  payload: z.object({ cycleId: z.string(), employeeId: z.string(), rating: z.number().min(1).max(5), feedback: z.string() }),
+});
+
+export const CloseReviewCycleCmd = Base.extend({
+  type: z.literal("cmd.review.close"),
+  payload: z.object({ cycleId: z.string(), hrNote: z.string().optional() }),
+});
+
+export const PublishPolicyCmd = Base.extend({
+  type: z.literal("cmd.policy.publish"),
+  payload: z.object({
+    title: z.string(),
+    description: z.string(),
+    pdfUrl: z.string().url(),
+    effectiveDate: z.string(),
+  }),
+});
+
+export const AcknowledgePolicyCmd = Base.extend({
+  type: z.literal("cmd.policy.acknowledge"),
+  payload: z.object({ policyId: z.string() }),
+});
+
+export const RaiseGrievanceCmd = Base.extend({
+  type: z.literal("cmd.grievance.raise"),
+  payload: z.object({
+    category: z.enum(["harassment", "pay_dispute", "work_env", "manager_behaviour", "other"]),
+    description: z.string().min(50),
+    isAnonymous: z.boolean().default(false),
+  }),
+});
+
+export const UpdateGrievanceStatusCmd = Base.extend({
+  type: z.literal("cmd.grievance.update_status"),
+  payload: z.object({
+    grievanceId: z.string(),
+    status: z.enum(["raised", "under_review", "resolved", "escalated"]),
+    resolutionNote: z.string().optional(),
+  }),
+});
+
+export const InitiateOffboardingCmd = Base.extend({
+  type: z.literal("cmd.offboarding.initiate"),
+  payload: z.object({ employeeId: z.string(), exitDate: z.string() }),
+});
+
+export const CompleteOffboardingTaskCmd = Base.extend({
+  type: z.literal("cmd.offboarding.complete_task"),
+  payload: z.object({ workflowId: z.string(), taskId: z.string() }),
+});
+
 export const Command = z.discriminatedUnion("type", [
   CreateLeadCmd,
   UpdateLeadCmd,
@@ -475,5 +650,27 @@ export const Command = z.discriminatedUnion("type", [
   DeletePaymentCmd,
   GenerateRentsCmd,
   FlagInterventionCmd,
+  // HR Commands
+  CreateOnboardingPlanCmd,
+  CompleteOnboardingTaskCmd,
+  UploadDocumentCmd,
+  DeleteDocumentCmd,
+  ApplyLeaveCmd,
+  ApproveLeaveCmd,
+  RejectLeaveCmd,
+  CreateCandidateCmd,
+  MoveCandidateStageCmd,
+  ConvertCandidateCmd,
+  FinalizePayrollCmd,
+  CreateReviewCycleCmd,
+  SubmitSelfReviewCmd,
+  SubmitManagerReviewCmd,
+  CloseReviewCycleCmd,
+  PublishPolicyCmd,
+  AcknowledgePolicyCmd,
+  RaiseGrievanceCmd,
+  UpdateGrievanceStatusCmd,
+  InitiateOffboardingCmd,
+  CompleteOffboardingTaskCmd,
 ]);
 export type Command = z.infer<typeof Command>;

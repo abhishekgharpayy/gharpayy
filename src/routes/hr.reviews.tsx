@@ -99,7 +99,15 @@ function SubmitReviewDialog({ open, onOpenChange, employees, defaultCycle }: { o
     if (!form.employeeId || !form.feedback) return toast.error("Employee and feedback are required");
     setBusy(true);
     try {
-      await api.hr.submitReview(form);
+      const cmdType = form.type === "self" ? "cmd.review.submit_self" : "cmd.review.submit_manager";
+      const payload: any = { cycleId: form.cycle, rating: form.rating, feedback: form.feedback };
+      if (cmdType === "cmd.review.submit_manager") payload.employeeId = form.employeeId;
+
+      await api.command({
+        _id: Math.random().toString(36).substring(7),
+        type: cmdType,
+        payload
+      });
       toast.success("Review submitted successfully");
       onOpenChange(false);
       setForm({ ...form, employeeId: "", feedback: "", rating: 3 });

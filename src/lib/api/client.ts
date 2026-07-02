@@ -181,6 +181,10 @@ export interface ManagedUser {
   adminId?: string | null;
   adminIds?: string[];
   memberIds?: string[];
+  department?: string;
+  baseSalary?: number;
+  allowances?: number;
+  isManaged?: boolean;
   createdAt: string;
   __v: number;
 }
@@ -407,10 +411,13 @@ export const api = {
   },
   hr: {
     employees: () => request<ManagedUser[]>("/api/hr/employees"),
+    inviteEmployee: (body: any) => request<ManagedUser>("/api/hr/employees/invite", { method: "POST", body: JSON.stringify(body) }),
     updateEmployee: (id: string, patch: Record<string, unknown>) => 
       request<ManagedUser>(`/api/hr/employees/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
     leaves: (employeeId?: string) => 
       request<import("@/contracts").LeaveEntity[]>(`/api/hr/leaves${employeeId ? `?employeeId=${employeeId}` : ""}`),
+    leavesBalances: (employeeId?: string) => 
+      request<any>(`/api/hr/leaves/balances${employeeId ? `?employeeId=${employeeId}` : ""}`),
     requestLeave: (body: { type: string; startDate: string; endDate: string; days: number; reason: string }) =>
       request<import("@/contracts").LeaveEntity>("/api/hr/leaves", { method: "POST", body: JSON.stringify(body) }),
     updateLeave: (id: string, patch: { status: string; managerNote?: string }) =>
@@ -447,6 +454,14 @@ export const api = {
       
     // Analytics
     analytics: () => request<any>("/api/hr/analytics"),
+
+    // New HR Modules
+    onboarding: () => request<any[]>("/api/hr/onboarding"),
+    documents: () => request<any[]>("/api/hr/documents"),
+    policies: () => request<any[]>("/api/hr/policies"),
+    grievances: () => request<any[]>("/api/hr/grievances"),
+    offboarding: () => request<any[]>("/api/hr/offboarding"),
+    orgChart: () => request<ManagedUser[]>("/api/hr/org-chart"),
   },
   owners: {
     list: () => request<ManagedUser[]>("/api/owners"),

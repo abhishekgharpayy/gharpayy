@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
-import { UserPlus, Search, Mail, Phone, Calendar, FileText, ChevronRight } from "lucide-react";
+import { UserPlus, Search, Mail, Phone, Calendar, FileText, ChevronRight, CheckCircle2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -27,6 +27,7 @@ function HiringPage() {
   const [search, setSearch] = useState("");
   const queryClient = useQueryClient();
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [onboardCandidate, setOnboardCandidate] = useState<any>(null);
 
   const { data: candidates = [], isLoading } = useQuery({
     queryKey: ["hr-candidates"],
@@ -34,7 +35,11 @@ function HiringPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (vars: { id: string; patch: any }) => api.hr.updateCandidate(vars.id, vars.patch),
+    mutationFn: (vars: { id: string; patch: any }) => api.command({
+      _id: Math.random().toString(36).substring(7), // dummy idempotency key
+      type: "cmd.candidate.move_stage",
+      payload: { candidateId: vars.id, stage: vars.patch.stage }
+    }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["hr-candidates"] }),
     onError: (err: any) => toast.error(err.message || "Failed to update candidate")
   });
@@ -122,17 +127,30 @@ function HiringPage() {
                       </div>
 
                       {/* Move to next stage dropdown */}
-                      <div className="mt-3 pt-3 border-t border-border flex items-center justify-between gap-2">
-                        <span className="text-[10px] uppercase font-semibold text-muted-foreground">Move to:</span>
-                        <select 
-                          className="bg-transparent text-xs outline-none border border-border rounded p-1 w-full"
-                          value={c.stage}
-                          onChange={(e) => changeStage(c._id, e.target.value)}
-                        >
-                          {STAGES.map(s => (
-                            <option key={s.id} value={s.id}>{s.label}</option>
-                          ))}
-                        </select>
+                      <div className="mt-3 pt-3 border-t border-border flex flex-col gap-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[10px] uppercase font-semibold text-muted-foreground">Move to:</span>
+                          <select 
+                            className="bg-transparent text-xs outline-none border border-border rounded p-1 w-full"
+                            value={c.stage}
+                            onChange={(e) => changeStage(c._id, e.target.value)}
+                          >
+                            {STAGES.map(s => (
+                              <option key={s.id} value={s.id}>{s.label}</option>
+                            ))}
+                          </select>
+                        </div>
+                        {c.stage === "hired" && (
+                          <Button 
+                            variant="default" 
+                            size="sm" 
+                            className="w-full text-xs h-7 mt-1"
+                            onClick={() => setOnboardCandidate(c)}
+                          >
+                            <CheckCircle2 className="w-3 h-3 mr-1.5" />
+                            Start Onboarding
+                          </Button>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -145,6 +163,14 @@ function HiringPage() {
           })}
         </div>
       )}
+
+      {onboardCandidate && (
+        <OnboardCandidateDialog 
+          open={!!onboardCandidate} 
+          onOpenChange={(o) => !o && setOnboardCandidate(null)}
+          candidate={onboardCandidate}
+        />
+      )}
     </div>
   );
 }
@@ -156,9 +182,26 @@ function AddCandidateDialog({ open, onOpenChange }: { open: boolean, onOpenChang
 
   const submit = async () => {
     if (!form.name || !form.email || !form.roleAppliedFor) return toast.error("Name, email, and role are required");
+    
+    // Quick frontend email validation
+    if (!form.email.includes("@")) return toast.error("Please enter a valid email address");
+
     setBusy(true);
     try {
-      await api.hr.addCandidate(form);
+      const payload: any = {
+        name: form.name,
+        email: form.email,
+        phone: form.phone,
+        roleAppliedFor: form.roleAppliedFor,
+      };
+      if (form.resumeUrl.trim()) payload.resumeUrl = form.resumeUrl.trim();
+      if (form.notes.trim()) payload.notes = form.notes.trim();
+
+      await api.command({
+        _id: Math.random().toString(36).substring(7),
+        type: "cmd.candidate.create",
+        payload
+      });
       toast.success("Candidate added successfully");
       onOpenChange(false);
       setForm({ name: "", email: "", phone: "", roleAppliedFor: "", resumeUrl: "", notes: "" });
@@ -213,6 +256,99 @@ function AddCandidateDialog({ open, onOpenChange }: { open: boolean, onOpenChang
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button onClick={submit} disabled={busy || !form.name || !form.email || !form.roleAppliedFor}>
             {busy ? "Adding..." : "Add Candidate"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function OnboardCandidateDialog({ open, onOpenChange, candidate }: { open: boolean, onOpenChange: (o: boolean) => void, candidate: any }) {
+  const [form, setForm] = useState({ fullName: "", email: "", role: "member", department: "", baseSalary: "0", allowances: "0" });
+  const [busy, setBusy] = useState(false);
+  const queryClient = useQueryClient();
+
+  import("react").then(React => {
+    React.useEffect(() => {
+      if (candidate) {
+        setForm(f => ({
+          ...f,
+          fullName: candidate.name || "",
+          email: candidate.email || "",
+          role: "member",
+        }));
+      }
+    }, [candidate]);
+  });
+
+  const submit = async () => {
+    if (!form.fullName || !form.email) return toast.error("Name and email are required");
+    setBusy(true);
+    try {
+      await api.hr.inviteEmployee({
+        ...form,
+        baseSalary: Number(form.baseSalary),
+        allowances: Number(form.allowances)
+      });
+      toast.success("Employee invited successfully. They can now log in.");
+      onOpenChange(false);
+      queryClient.invalidateQueries({ queryKey: ["hr-employees"] });
+    } catch (e: any) {
+      toast.error(e.message || "Failed to invite employee");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Onboard {candidate?.name}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-xs font-medium">Full Name</label>
+              <Input value={form.fullName} onChange={e => setForm({...form, fullName: e.target.value})} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-medium">Email</label>
+              <Input type="email" value={form.email} onChange={e => setForm({...form, email: e.target.value})} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-medium">Role</label>
+              <select 
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                value={form.role} 
+                onChange={e => setForm({...form, role: e.target.value})}
+              >
+                <option value="manager">Manager</option>
+                <option value="admin">Admin</option>
+                <option value="member">Member</option>
+                <option value="owner">Owner</option>
+                <option value="tcm">TCM</option>
+                <option value="hr">HR</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-medium">Department</label>
+              <Input value={form.department} onChange={e => setForm({...form, department: e.target.value})} placeholder="Engineering" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-medium">Base Salary (Monthly)</label>
+              <Input type="number" value={form.baseSalary} onChange={e => setForm({...form, baseSalary: e.target.value})} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-medium">Allowances (Monthly)</label>
+              <Input type="number" value={form.allowances} onChange={e => setForm({...form, allowances: e.target.value})} />
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button onClick={submit} disabled={busy || !form.fullName || !form.email}>
+            {busy ? "Inviting..." : "Send Invite"}
           </Button>
         </DialogFooter>
       </DialogContent>

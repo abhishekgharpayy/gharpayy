@@ -64,6 +64,16 @@ export const Scope = z.enum([
   "hr.stats",
   "review.read",
   "review.write",
+  "onboarding.read",
+  "onboarding.write",
+  "document.read",
+  "document.write",
+  "policy.read",
+  "policy.write",
+  "grievance.read",
+  "grievance.write",
+  "offboarding.write",
+  "hr.org-chart",
 ]);
 export type Scope = z.infer<typeof Scope>;
 
@@ -79,6 +89,14 @@ export const DEFAULT_SCOPES: Record<TopRole, Scope[]> = {
     "activity.read", "activity.log",
     "booking.read", "booking.create", "booking.update",
     "tenant.read", "tenant.create", "tenant.update", "tenant.write",
+    // HR scopes (Manager has HR permissions)
+    "employee.read", "employee.write",
+    "leave.read", "leave.approve",
+    "attendance.read", "attendance.write",
+    "candidate.read", "candidate.write",
+    "payroll.read", "payroll.write",
+    "hr.stats",
+    "review.read", "review.write",
   ],
   admin: [
     "lead.read", "lead.create", "lead.update", "lead.assign",
@@ -119,10 +137,15 @@ export const DEFAULT_SCOPES: Record<TopRole, Scope[]> = {
   hr: [
     "employee.read", "employee.write",
     "leave.read", "leave.approve",
-    "attendance.read", "attendance.write",
+    "attendance.read",
+    "onboarding.read", "onboarding.write",
+    "document.read", "document.write",
     "candidate.read", "candidate.write",
     "payroll.read", "payroll.write",
-    "hr.stats",
     "review.read", "review.write",
+    "policy.read", "policy.write",
+    "grievance.read", "grievance.write",
+    "offboarding.write",
+    "hr.stats", "hr.org-chart",
   ],
 };

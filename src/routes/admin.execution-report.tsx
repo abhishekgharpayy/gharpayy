@@ -1,16 +1,20 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { apiClient } from "@/lib/api/client";
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import {
   AlertTriangle, Clock, Users, TrendingUp, CheckCircle2, XCircle,
   Activity, RefreshCw, ChevronDown, ChevronUp, Flame, Target,
-  AlertCircle, UserX, ArrowRight, Download, List, BarChart2,
-  PieChart, LayoutGrid, FileText, ChevronDown as ChevronDownIcon
+  AlertCircle, UserX, Download, List, BarChart2,
+  PieChart, LayoutGrid, FileText, ChevronDown as ChevronDownIcon,
+  Search, X, Filter, ArrowUpDown
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -201,7 +205,23 @@ function ExecutionMonitorPage() {
   });
   const [endTime, setEndTime] = useState<string>("");
   const [nextRefreshAt, setNextRefreshAt] = useState<number>(Date.now() + 30000);
-  const [visibleCount, setVisibleCount] = useState(10);
+  const [visibleCount, setVisibleCount] = useState(10); // Deprecated by pagination
+
+  // New Filter State
+  const [searchQuery, setSearchQuery] = useState("");
+  const [teamFilter, setTeamFilter] = useState("all");
+  const [activityFilter, setActivityFilter] = useState<"all" | "active" | "inactive">("all");
+  const [stageFilter, setStageFilter] = useState("all");
+  const [stuckDurationFilter, setStuckDurationFilter] = useState<"all" | ">30m" | ">1h" | ">3h">("all");
+  const [needsActionOnly, setNeedsActionOnly] = useState(false);
+
+  // Sorting State for Raw Activity
+  const [rawSortField, setRawSortField] = useState<string>("time");
+  const [rawSortDir, setRawSortDir] = useState<"asc" | "desc">("desc");
+
+  // Pagination State for Raw Activity
+  const [rawPage, setRawPage] = useState(1);
+  const RAW_ITEMS_PER_PAGE = 25;
 
   const fetchReport = useCallback(async () => {
     try {
@@ -243,6 +263,87 @@ function ExecutionMonitorPage() {
     }, Math.max(5, calculatedWindow) * 60000);
     return () => clearInterval(interval);
   }, [fetchReport, startTime, endTime]);
+
+  // --- Filtering Logic ---
+  const filteredData = useMemo(() => {
+    if (!report) return null;
+    
+    // 1. Filter Members
+    let fMembers = report.members.filter(m => {
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        if (!m.name.toLowerCase().includes(q) && !m.userId.toLowerCase().includes(q)) return false;
+      }
+      if (teamFilter !== "all") {
+         if (!m.zones?.includes(teamFilter)) return false;
+      }
+      if (activityFilter === "inactive" && !m.isInactive) return false;
+      if (activityFilter === "active" && m.isInactive) return false;
+      if (stageFilter !== "all" && m.stageDistribution[stageFilter] === 0) return false;
+      if (stuckDurationFilter !== "all") {
+         const thresh = stuckDurationFilter === ">30m" ? 30 : stuckDurationFilter === ">1h" ? 60 : 180;
+         if (!m.stuckLeads.some(s => s.minutesInStage > thresh)) return false;
+      }
+      if (needsActionOnly && m.allCriteriaMet && !m.isInactive && m.stuckLeads.length === 0 && m.followUpsRequired.length === 0) return false;
+      return true;
+    });
+
+    const memberNames = new Set(fMembers.map(m => m.name));
+
+    // 2. Filter Interval Snapshots
+    let fSnapshots = report.intervalSnapshots.filter(s => {
+      if (!memberNames.has(s.employee)) return false;
+      if (needsActionOnly && s.status === "On Track") return false;
+      return true;
+    });
+
+    // 3. Filter Raw Activity
+    let fRaw = report.rawActivityLog.filter(log => {
+      if (!memberNames.has(log.employee)) return false;
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        if (!log.leadName?.toLowerCase().includes(q) && !log.leadId?.toLowerCase().includes(q) && !log.employee.toLowerCase().includes(q)) return false;
+      }
+      if (stageFilter !== "all" && log.newStage !== stageFilter) return false;
+      return true;
+    });
+    
+    // Sort Raw Activity
+    fRaw.sort((a, b) => {
+      let valA = a[rawSortField];
+      let valB = b[rawSortField];
+      
+      if (rawSortField === "time") {
+         valA = new Date(valA).getTime();
+         valB = new Date(valB).getTime();
+      } else if (rawSortField === "durationSec") {
+         valA = Number(valA) || 0;
+         valB = Number(valB) || 0;
+      } else {
+         valA = String(valA || "").toLowerCase();
+         valB = String(valB || "").toLowerCase();
+      }
+
+      if (valA < valB) return rawSortDir === "asc" ? -1 : 1;
+      if (valA > valB) return rawSortDir === "asc" ? 1 : -1;
+      return 0;
+    });
+
+    // 4. Filter Interventions
+    let fInterventions = report.interventionLog.filter(log => memberNames.has(log.employee));
+
+    return { members: fMembers, snapshots: fSnapshots, raw: fRaw, interventions: fInterventions };
+  }, [report, searchQuery, teamFilter, activityFilter, stageFilter, stuckDurationFilter, needsActionOnly, rawSortField, rawSortDir]);
+
+  const rawPageCount = filteredData ? Math.ceil(filteredData.raw.length / RAW_ITEMS_PER_PAGE) : 0;
+  const paginatedRaw = filteredData ? filteredData.raw.slice((rawPage - 1) * RAW_ITEMS_PER_PAGE, rawPage * RAW_ITEMS_PER_PAGE) : [];
+  
+  const clearFilters = () => {
+    setSearchQuery(""); setTeamFilter("all"); setActivityFilter("all"); setStageFilter("all"); setStuckDurationFilter("all"); setNeedsActionOnly(false); setRawPage(1);
+  };
+  const hasActiveFilters = searchQuery || teamFilter !== "all" || activityFilter !== "all" || stageFilter !== "all" || stuckDurationFilter !== "all" || needsActionOnly;
+  const uniqueTeams = report ? Array.from(new Set(report.members.flatMap(m => m.zones || []))).filter(Boolean) : [];
+  const uniqueStages = report ? Array.from(new Set(report.members.flatMap(m => Object.keys(m.stageDistribution)))).filter(Boolean) : [];
 
   const downloadCSV = (filename: string, content: string) => {
     const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
@@ -544,7 +645,7 @@ function ExecutionMonitorPage() {
   if (!report) return null;
 
   return (
-    <div className="max-w-[1600px] mx-auto p-4 sm:p-6 lg:p-8 space-y-6 animate-in fade-in duration-500">
+    <div className="max-w-[1600px] mx-auto p-4 sm:p-6 lg:p-8 space-y-6 animate-in fade-in duration-500 bg-slate-50 pb-32 min-h-screen">
       {/* ── Header ── */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
@@ -655,63 +756,168 @@ function ExecutionMonitorPage() {
         </div>
       </div>
 
+      {/* ── Filter Bar ── */}
+      <div className="bg-white border border-border p-4 rounded-xl flex flex-col gap-4 shadow-sm">
+        <div className="flex flex-wrap items-end gap-4">
+          <div className="flex-1 min-w-[200px]">
+            <Label className="text-xs text-muted-foreground mb-1 block">Search</Label>
+            <div className="relative">
+              <Search className="w-4 h-4 absolute left-3 top-2.5 text-muted-foreground" />
+              <Input 
+                placeholder="Search member, lead..." 
+                className="pl-9 bg-slate-50 focus-visible:ring-2 focus-visible:ring-orange-500" 
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="w-40">
+            <Label className="text-xs text-muted-foreground mb-1 block">Team</Label>
+            <select className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-slate-50 px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 disabled:cursor-not-allowed disabled:opacity-50" value={teamFilter} onChange={e => setTeamFilter(e.target.value)}>
+              <option value="all">All Teams</option>
+              {uniqueTeams.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+          <div className="w-40">
+            <Label className="text-xs text-muted-foreground mb-1 block">Activity Status</Label>
+            <select className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-slate-50 px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500" value={activityFilter} onChange={e => setActivityFilter(e.target.value as any)}>
+              <option value="all">All Statuses</option>
+              <option value="active">Active Only</option>
+              <option value="inactive">Inactive Only</option>
+            </select>
+          </div>
+          <div className="w-40">
+            <Label className="text-xs text-muted-foreground mb-1 block">Stage</Label>
+            <select className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-slate-50 px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500" value={stageFilter} onChange={e => setStageFilter(e.target.value)}>
+              <option value="all">All Stages</option>
+              {uniqueStages.map(s => <option key={s} value={s}>{STAGE_LABEL[s] || s}</option>)}
+            </select>
+          </div>
+          <div className="w-40">
+            <Label className="text-xs text-muted-foreground mb-1 block">Stuck Duration</Label>
+            <select className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-slate-50 px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500" value={stuckDurationFilter} onChange={e => setStuckDurationFilter(e.target.value as any)}>
+              <option value="all">Any Duration</option>
+              <option value=">30m">&gt; 30 Mins</option>
+              <option value=">1h">&gt; 1 Hour</option>
+              <option value=">3h">&gt; 3 Hours</option>
+            </select>
+          </div>
+          <div className="flex items-center gap-2 bg-slate-50 border border-border h-10 px-3 rounded-md">
+            <Switch id="needs-action" checked={needsActionOnly} onCheckedChange={setNeedsActionOnly} className="data-[state=checked]:bg-orange-500 focus-visible:ring-orange-500" />
+            <Label htmlFor="needs-action" className="text-sm font-medium cursor-pointer">Needs Action Only</Label>
+          </div>
+        </div>
+
+        {hasActiveFilters && (
+          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border">
+            <span className="text-xs font-bold text-muted-foreground mr-2">Active Filters:</span>
+            {searchQuery && (
+              <Badge variant="outline" className="bg-slate-50 gap-1 rounded-full border-border">
+                Search: {searchQuery} <button onClick={() => setSearchQuery("")} className="hover:text-red-500 focus-visible:ring-2 focus-visible:ring-orange-500 rounded-full"><X className="w-3 h-3"/></button>
+              </Badge>
+            )}
+            {teamFilter !== "all" && (
+              <Badge variant="outline" className="bg-slate-50 gap-1 rounded-full border-border">
+                Team: {teamFilter} <button onClick={() => setTeamFilter("all")} className="hover:text-red-500 focus-visible:ring-2 focus-visible:ring-orange-500 rounded-full"><X className="w-3 h-3"/></button>
+              </Badge>
+            )}
+            {activityFilter !== "all" && (
+              <Badge variant="outline" className="bg-slate-50 gap-1 rounded-full border-border">
+                Status: {activityFilter} <button onClick={() => setActivityFilter("all")} className="hover:text-red-500 focus-visible:ring-2 focus-visible:ring-orange-500 rounded-full"><X className="w-3 h-3"/></button>
+              </Badge>
+            )}
+            {stageFilter !== "all" && (
+              <Badge variant="outline" className="bg-slate-50 gap-1 rounded-full border-border">
+                Stage: {STAGE_LABEL[stageFilter] || stageFilter} <button onClick={() => setStageFilter("all")} className="hover:text-red-500 focus-visible:ring-2 focus-visible:ring-orange-500 rounded-full"><X className="w-3 h-3"/></button>
+              </Badge>
+            )}
+            {stuckDurationFilter !== "all" && (
+              <Badge variant="outline" className="bg-slate-50 gap-1 rounded-full border-border">
+                Stuck: {stuckDurationFilter} <button onClick={() => setStuckDurationFilter("all")} className="hover:text-red-500 focus-visible:ring-2 focus-visible:ring-orange-500 rounded-full"><X className="w-3 h-3"/></button>
+              </Badge>
+            )}
+            {needsActionOnly && (
+              <Badge variant="outline" className="bg-slate-50 gap-1 rounded-full border-border">
+                Needs Action <button onClick={() => setNeedsActionOnly(false)} className="hover:text-red-500 focus-visible:ring-2 focus-visible:ring-orange-500 rounded-full"><X className="w-3 h-3"/></button>
+              </Badge>
+            )}
+            <Button variant="ghost" size="sm" onClick={clearFilters} className="text-xs h-6 px-2 text-muted-foreground hover:text-red-500 focus-visible:ring-orange-500 ml-auto">
+              Clear All Filters
+            </Button>
+          </div>
+        )}
+      </div>
+
       {/* ── Critical Alerts ── */}
       {report.summary.criticalAlerts.length > 0 && (
-        <div className="bg-red-950/30 border border-red-500/30 rounded-xl p-4">
-          <div className="flex items-center gap-2 text-black font-bold mb-3">
+        <div className="bg-white border border-border border-l-4 border-l-red-500 rounded-xl p-4 shadow-sm flex flex-col gap-2">
+          <div className="flex items-center gap-2 text-red-600 font-bold">
             <AlertTriangle className="w-5 h-5" />
             CRITICAL ALERTS
           </div>
-          <div className="space-y-2">
-            {report.summary.criticalAlerts.map((alert, idx) => (
-              <div key={idx} className="text-black text-sm bg-red-900/20 px-3 py-2 rounded-lg border border-red-500/10">
-                {alert}
-              </div>
-            ))}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+            {report.summary.criticalAlerts.map((alert, idx) => {
+              const isInactiveAlert = alert.toLowerCase().includes('inactive');
+              const isStuckAlert = alert.toLowerCase().includes('stuck');
+              return (
+                <button 
+                  key={idx} 
+                  onClick={() => {
+                    if (isInactiveAlert) setActivityFilter('inactive');
+                    if (isStuckAlert) setStuckDurationFilter('>30m');
+                    setNeedsActionOnly(true);
+                  }}
+                  className="text-left bg-slate-50 hover:bg-slate-100 transition-colors px-4 py-3 rounded-lg border border-border flex items-start gap-3 focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none"
+                >
+                  <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+                  <span className="text-sm font-medium text-slate-700">{alert}</span>
+                </button>
+              )
+            })}
           </div>
         </div>
       )}
 
       {/* ── KPI Grid ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-card/50 border border-border p-5 rounded-xl">
-          <div className="text-muted-foreground text-sm font-medium mb-1 flex items-center justify-between">
+        <button onClick={() => clearFilters()} className="text-left bg-white border border-border hover:border-slate-300 transition-colors p-5 rounded-xl shadow-sm focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none">
+          <div className="text-slate-500 text-sm font-medium mb-1 flex items-center justify-between">
             Total Members
-            <Users className="w-4 h-4 text-blue-400" />
+            <Users className="w-4 h-4 text-slate-400" />
           </div>
-          <div className="text-3xl font-black text-foreground">{report.summary.totalMembers}</div>
-          <div className="text-xs text-muted-foreground mt-1">Active on floor today</div>
-        </div>
-        <div className="bg-card/50 border border-border p-5 rounded-xl">
-          <div className="text-muted-foreground text-sm font-medium mb-1 flex items-center justify-between">
+          <div className="text-3xl font-black text-slate-800">{report.summary.totalMembers}</div>
+          <div className="text-xs text-slate-500 mt-1">Active on floor today</div>
+        </button>
+        <button onClick={() => setActivityFilter('inactive')} className="text-left bg-white border border-border hover:border-slate-300 transition-colors border-l-4 border-l-red-500 p-5 rounded-xl shadow-sm focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none">
+          <div className="text-slate-500 text-sm font-medium mb-1 flex items-center justify-between">
             Inactive ({report.windowMinutes}m)
             <UserX className="w-4 h-4 text-red-400" />
           </div>
-          <div className={`text-3xl font-black ${report.summary.inactiveMembers > 0 ? "text-red-400" : "text-emerald-400"}`}>
+          <div className={`text-3xl font-black ${report.summary.inactiveMembers > 0 ? "text-red-500" : "text-emerald-500"}`}>
             {report.summary.inactiveMembers}
           </div>
-          <div className="text-xs text-muted-foreground mt-1">Require immediate manager action</div>
-        </div>
-        <div className="bg-card/50 border border-border p-5 rounded-xl">
-          <div className="text-muted-foreground text-sm font-medium mb-1 flex items-center justify-between">
+          <div className="text-xs text-slate-500 mt-1">Require immediate manager action</div>
+        </button>
+        <button onClick={() => setStuckDurationFilter('>30m')} className="text-left bg-white border border-border hover:border-slate-300 transition-colors border-l-4 border-l-amber-500 p-5 rounded-xl shadow-sm focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none">
+          <div className="text-slate-500 text-sm font-medium mb-1 flex items-center justify-between">
             Stuck Leads
-            <Target className="w-4 h-4 text-orange-400" />
+            <Target className="w-4 h-4 text-amber-500" />
           </div>
-          <div className={`text-3xl font-black ${report.summary.stuckMembers > 0 ? "text-orange-400" : "text-emerald-400"}`}>
+          <div className={`text-3xl font-black ${report.summary.stuckMembers > 0 ? "text-amber-500" : "text-emerald-500"}`}>
             {report.summary.stuckMembers} members
           </div>
-          <div className="text-xs text-muted-foreground mt-1">Have leads stuck &gt; 30m</div>
-        </div>
-        <div className="bg-card/50 border border-border p-5 rounded-xl">
-          <div className="text-muted-foreground text-sm font-medium mb-1 flex items-center justify-between">
+          <div className="text-xs text-slate-500 mt-1">Have leads stuck &gt; 30m</div>
+        </button>
+        <button onClick={() => setNeedsActionOnly(true)} className="text-left bg-white border border-border hover:border-slate-300 transition-colors border-l-4 border-l-amber-500 p-5 rounded-xl shadow-sm focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none">
+          <div className="text-slate-500 text-sm font-medium mb-1 flex items-center justify-between">
             Behind Targets
-            <TrendingUp className="w-4 h-4 text-amber-400" />
+            <TrendingUp className="w-4 h-4 text-amber-500" />
           </div>
-          <div className={`text-3xl font-black ${report.summary.behindOnTargets > 0 ? "text-amber-400" : "text-emerald-400"}`}>
+          <div className={`text-3xl font-black ${report.summary.behindOnTargets > 0 ? "text-amber-500" : "text-emerald-500"}`}>
             {report.summary.behindOnTargets}
           </div>
-          <div className="text-xs text-muted-foreground mt-1">Missed daily execution targets</div>
-        </div>
+          <div className="text-xs text-slate-500 mt-1">Missed daily execution targets</div>
+        </button>
       </div>
 
       {/* ── Tabs for Sheets ── */}
@@ -720,26 +926,26 @@ function ExecutionMonitorPage() {
           <div className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Command Center Views</div>
           <TabsList className="bg-card/50 border border-border flex flex-wrap h-auto gap-2 p-1 self-start">
             <TabsTrigger value="interval" className="data-[state=active]:bg-primary data-[state=active]:text-foreground font-bold">
-              <Clock className="w-4 h-4 mr-2" /> 30-Min Interval
+              <Clock className="w-4 h-4 mr-2" /> 30-Min Interval {filteredData && `(${filteredData.snapshots.length})`}
             </TabsTrigger>
             <TabsTrigger value="team-dashboard" className="data-[state=active]:bg-primary data-[state=active]:text-foreground font-bold">
-              <LayoutGrid className="w-4 h-4 mr-2" /> Team Dashboard
+              <LayoutGrid className="w-4 h-4 mr-2" /> Team Dashboard {filteredData && `(${filteredData.members.length})`}
             </TabsTrigger>
             <TabsTrigger value="pipeline-health" className="data-[state=active]:bg-primary data-[state=active]:text-foreground font-bold">
               <Target className="w-4 h-4 mr-2" /> Pipeline Health
             </TabsTrigger>
             <TabsTrigger value="success" className="data-[state=active]:bg-primary data-[state=active]:text-foreground font-bold">
-              <CheckCircle2 className="w-4 h-4 mr-2" /> Success & Interventions
+              <CheckCircle2 className="w-4 h-4 mr-2" /> Success & Interventions {filteredData && `(${filteredData.interventions.length})`}
             </TabsTrigger>
           </TabsList>
 
           <div className="text-sm font-bold text-muted-foreground uppercase tracking-wider mt-4">Raw Execution Sheets</div>
           <TabsList className="bg-card/50 border border-border flex flex-wrap h-auto gap-2 p-1 self-start">
             <TabsTrigger value="raw" className="data-[state=active]:bg-slate-700 data-[state=active]:text-foreground text-xs font-medium px-4">
-              Sheet 1: Raw
+              Sheet 1: Raw {filteredData && `(${filteredData.raw.length})`}
             </TabsTrigger>
             <TabsTrigger value="dashboard" className="data-[state=active]:bg-slate-700 data-[state=active]:text-foreground text-xs font-medium px-4">
-              Sheet 2: 30m Dash
+              Sheet 2: 30m Dash {filteredData && `(${filteredData.members.length})`}
             </TabsTrigger>
             <TabsTrigger value="matrix" className="data-[state=active]:bg-slate-700 data-[state=active]:text-foreground text-xs font-medium px-4">
               Sheet 3: Matrix
@@ -751,7 +957,7 @@ function ExecutionMonitorPage() {
               Sheet 5: Features
             </TabsTrigger>
             <TabsTrigger value="scoreboard" className="data-[state=active]:bg-slate-700 data-[state=active]:text-foreground text-xs font-medium px-4">
-              Sheet 6: EOD
+              Sheet 6: EOD {filteredData && `(${filteredData.members.length})`}
             </TabsTrigger>
           </TabsList>
         </div>
@@ -780,10 +986,21 @@ function ExecutionMonitorPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {report.intervalSnapshots.map((s, i) => (
+                {filteredData?.snapshots.map((s, i) => (
                   <TableRow key={i} className="border-border">
                     <TableCell className="font-mono text-xs">{s.time}</TableCell>
-                    <TableCell className="font-bold">{s.employee}</TableCell>
+                    <TableCell className="font-bold">
+                      {(() => {
+                        const m = report.members.find(member => member.name === s.employee);
+                        return m ? (
+                          <Link to={`/admin/performance/${m.role === "tcm" ? "tcm" : "flowops"}/${m.userId}`} className="hover:underline text-primary">
+                            {s.employee}
+                          </Link>
+                        ) : (
+                          s.employee
+                        );
+                      })()}
+                    </TableCell>
                     <TableCell className="text-right">{s.leadsAddedLast30}</TableCell>
                     <TableCell className="text-right">{s.totalLeadsAdded}</TableCell>
                     <TableCell className="text-right">{s.totalClicks}</TableCell>
@@ -810,7 +1027,7 @@ function ExecutionMonitorPage() {
             <Table>
               <TableHeader className="bg-card/80">
                 <TableRow>
-                  <TableHead>Team Member</TableHead>
+                  <TableHead className="sticky left-0 bg-white z-20 shadow-[1px_0_0_0_#e2e8f0]">Team Member</TableHead>
                   <TableHead className="text-right">Total Leads Added</TableHead>
                   <TableHead className="text-right">Leads Progressed to Scheduled</TableHead>
                   <TableHead className="text-right">Quotations</TableHead>
@@ -821,13 +1038,17 @@ function ExecutionMonitorPage() {
                   <TableHead className="text-right">Data Quality</TableHead>
                   <TableHead className="text-right">Owner Missing</TableHead>
                   <TableHead className="text-right">Next Action Missing</TableHead>
-                  <TableHead>Final Status</TableHead>
+                  <TableHead className="sticky right-0 bg-white z-20 shadow-[-1px_0_0_0_#e2e8f0]">Final Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {report.members.map(m => (
+                {filteredData?.members.map(m => (
                   <TableRow key={m.userId} className="border-border">
-                    <TableCell className="font-bold">{m.name}</TableCell>
+                    <TableCell className="font-bold sticky left-0 bg-white z-10 shadow-[1px_0_0_0_#e2e8f0]">
+                      <Link to={`/admin/performance/${m.role === "tcm" ? "tcm" : "flowops"}/${m.userId}`} className="hover:underline text-primary">
+                        {m.name}
+                      </Link>
+                    </TableCell>
                     <TableCell className="text-right">{m.totalLeadsAdded}</TableCell>
                     <TableCell className="text-right">{m.scheduledStageCount}</TableCell>
                     <TableCell className="text-right">{m.totalQuotations}</TableCell>
@@ -838,7 +1059,7 @@ function ExecutionMonitorPage() {
                     <TableCell className="text-right">{m.crmCompletionPct}%</TableCell>
                     <TableCell className="text-right text-red-400 font-bold">{m.missingOwners}</TableCell>
                     <TableCell className="text-right text-red-400 font-bold">{m.missingNextActions}</TableCell>
-                    <TableCell>{m.allCriteriaMet ? <Badge className="bg-emerald-500/20 text-emerald-500 border-none">Target Met</Badge> : <Badge variant="outline">Pending</Badge>}</TableCell>
+                    <TableCell className="sticky right-0 bg-white z-10 shadow-[-1px_0_0_0_#e2e8f0]">{m.allCriteriaMet ? <Badge className="bg-emerald-500/20 text-emerald-500 border-none">Target Met</Badge> : <Badge variant="outline">Pending</Badge>}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -856,8 +1077,8 @@ function ExecutionMonitorPage() {
                   <TableHead className="text-right">Count</TableHead>
                   <TableHead className="text-right">New (30 Min)</TableHead>
                   <TableHead className="text-right">Waiting &gt;30 Min</TableHead>
-                  <TableHead className="text-right">Waiting &gt;2 Hours</TableHead>
-                  <TableHead>Action Required</TableHead>
+                  <TableHead className="text-right pr-6">Waiting &gt;2 Hours</TableHead>
+                  <TableHead className="pl-6">Action Required</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -867,8 +1088,8 @@ function ExecutionMonitorPage() {
                     <TableCell className="text-right text-primary font-bold">{p.count}</TableCell>
                     <TableCell className="text-right text-emerald-400 font-medium">{p.newLast30}</TableCell>
                     <TableCell className="text-right text-orange-400 font-medium">{p.waitingOver30}</TableCell>
-                    <TableCell className="text-right text-red-400 font-bold">{p.waitingOver120}</TableCell>
-                    <TableCell>{p.actionRequired}</TableCell>
+                    <TableCell className="text-right pr-6 text-red-400 font-bold">{p.waitingOver120}</TableCell>
+                    <TableCell className="pl-6">{p.actionRequired}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -968,10 +1189,21 @@ function ExecutionMonitorPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {report.interventionLog.map((log, i) => (
+                  {filteredData?.interventions.map((log, i) => (
                     <TableRow key={i} className="border-border">
                       <TableCell className="font-mono text-xs">{log.time}</TableCell>
-                      <TableCell className="font-bold">{log.employee}</TableCell>
+                      <TableCell className="font-bold">
+                        {(() => {
+                          const m = report.members.find(member => member.name === log.employee);
+                          return m ? (
+                            <Link to={`/admin/performance/${m.role === "tcm" ? "tcm" : "flowops"}/${m.userId}`} className="hover:underline text-primary">
+                              {log.employee}
+                            </Link>
+                          ) : (
+                            log.employee
+                          );
+                        })()}
+                      </TableCell>
                       <TableCell className="text-amber-500">{log.issue}</TableCell>
                       <TableCell>{log.rootCause}</TableCell>
                       <TableCell>{log.actionTaken}</TableCell>
@@ -979,7 +1211,7 @@ function ExecutionMonitorPage() {
                       <TableCell>{log.checkedAgain}</TableCell>
                     </TableRow>
                   ))}
-                  {report.interventionLog.length === 0 && (
+                  {filteredData?.interventions.length === 0 && (
                     <TableRow>
                       <TableCell colSpan={7} className="text-center text-muted-foreground py-6">No interventions logged for this period.</TableCell>
                     </TableRow>
@@ -996,8 +1228,12 @@ function ExecutionMonitorPage() {
             <Table>
               <TableHeader className="bg-card/80">
                 <TableRow>
-                  <TableHead>Time</TableHead>
-                  <TableHead>Employee</TableHead>
+                  <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => { setRawSortField("time"); setRawSortDir(d => d==="asc"?"desc":"asc"); }}>
+                    <div className="flex items-center gap-1">Time <ArrowUpDown className="w-3 h-3"/></div>
+                  </TableHead>
+                  <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => { setRawSortField("employee"); setRawSortDir(d => d==="asc"?"desc":"asc"); }}>
+                    <div className="flex items-center gap-1">Employee <ArrowUpDown className="w-3 h-3"/></div>
+                  </TableHead>
                   <TableHead>Team</TableHead>
                   <TableHead>Lead Name</TableHead>
                   <TableHead>Lead ID</TableHead>
@@ -1005,19 +1241,40 @@ function ExecutionMonitorPage() {
                   <TableHead>Previous Stage</TableHead>
                   <TableHead>New Stage</TableHead>
                   <TableHead>Button Clicked</TableHead>
-                  <TableHead className="text-right">Duration (Sec)</TableHead>
+                  <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => { setRawSortField("durationSec"); setRawSortDir(d => d==="asc"?"desc":"asc"); }}>
+                    <div className="flex items-center justify-end gap-1">Duration (Sec) <ArrowUpDown className="w-3 h-3"/></div>
+                  </TableHead>
                   <TableHead>Device</TableHead>
                   <TableHead>Remarks</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {report.rawActivityLog.slice(0, visibleCount).map((log, i) => (
+                {paginatedRaw.map((log, i) => (
                   <TableRow key={i} className="hover:bg-muted/30">
                     <TableCell className="text-muted-foreground font-mono text-xs">{fmtTime(log.time)}</TableCell>
-                    <TableCell className="text-foreground font-medium">{log.employee}</TableCell>
+                    <TableCell className="text-foreground font-medium">
+                      {(() => {
+                        const m = report.members.find(member => member.name === log.employee);
+                        return m ? (
+                          <Link to={`/admin/performance/${m.role === "tcm" ? "tcm" : "flowops"}/${m.userId}`} className="hover:underline text-primary">
+                            {log.employee}
+                          </Link>
+                        ) : (
+                          log.employee
+                        );
+                      })()}
+                    </TableCell>
                     <TableCell>{log.team}</TableCell>
-                    <TableCell className="font-medium">{log.leadName}</TableCell>
-                    <TableCell className="font-mono text-xs">{log.leadId}</TableCell>
+                    <TableCell className="font-medium">
+                      <Link to="/admin/leads" className="hover:underline text-primary">
+                        {log.leadName}
+                      </Link>
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">
+                      <Link to="/admin/leads" className="hover:underline">
+                        {log.leadId}
+                      </Link>
+                    </TableCell>
                     <TableCell>
                       <Badge variant="outline" className="bg-card text-muted-foreground">{log.action}</Badge>
                     </TableCell>
@@ -1026,21 +1283,25 @@ function ExecutionMonitorPage() {
                     <TableCell>{log.buttonClicked}</TableCell>
                     <TableCell className="text-right">{log.durationSec}</TableCell>
                     <TableCell>{log.device}</TableCell>
-                    <TableCell className="text-muted-foreground text-xs truncate max-w-[200px]">{log.detail || "—"}</TableCell>
+                    <TableCell className="text-muted-foreground text-xs min-w-[200px] whitespace-pre-wrap">{log.detail || "—"}</TableCell>
                   </TableRow>
                 ))}
-                {report.rawActivityLog.length === 0 && (
+                {paginatedRaw.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">No recent activity.</TableCell>
+                    <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">No recent activity found matching filters.</TableCell>
                   </TableRow>
                 )}
               </TableBody>
             </Table>
-            {report.rawActivityLog.length > visibleCount && (
-              <div className="p-3 text-center border-t border-border bg-muted/10">
-                <Button variant="outline" size="sm" onClick={() => setVisibleCount(v => v + 10)}>
-                  Load More ({report.rawActivityLog.length - visibleCount} remaining)
-                </Button>
+            {rawPageCount > 1 && (
+              <div className="p-3 flex items-center justify-between border-t border-border bg-muted/10">
+                <span className="text-sm text-muted-foreground">
+                  Showing {(rawPage - 1) * RAW_ITEMS_PER_PAGE + 1} to {Math.min(rawPage * RAW_ITEMS_PER_PAGE, filteredData?.raw.length || 0)} of {filteredData?.raw.length || 0}
+                </span>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setRawPage(p => Math.max(1, p - 1))} disabled={rawPage === 1}>Previous</Button>
+                  <Button variant="outline" size="sm" onClick={() => setRawPage(p => Math.min(rawPageCount, p + 1))} disabled={rawPage === rawPageCount}>Next</Button>
+                </div>
               </div>
             )}
           </div>
@@ -1048,11 +1309,11 @@ function ExecutionMonitorPage() {
 
         {/* ── Sheet 2: 30-Minute Dashboard ── */}
         <TabsContent value="dashboard">
-          <div className="bg-card border border-border rounded-xl overflow-hidden">
+          <div className="bg-card border border-border rounded-xl overflow-hidden overflow-x-auto">
             <Table>
               <TableHeader className="bg-card/80">
                 <TableRow>
-                  <TableHead>Employee</TableHead>
+                  <TableHead className="sticky left-0 bg-card/90 z-20 shadow-[1px_0_0_0_#e2e8f0]">Employee</TableHead>
                   <TableHead>Team</TableHead>
                   <TableHead className="text-right">Leads Added</TableHead>
                   <TableHead className="text-right">Leads Updated</TableHead>
@@ -1071,9 +1332,9 @@ function ExecutionMonitorPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {report.members.map((m) => (
+                {filteredData?.members.map((m) => (
                   <TableRow key={m.userId} className={`border-border ${m.isInactive ? "bg-red-950/10" : ""}`}>
-                    <TableCell className="font-bold text-foreground">{m.name}</TableCell>
+                    <TableCell className="font-bold text-foreground sticky left-0 bg-card z-10 shadow-[1px_0_0_0_#e2e8f0]">{m.name}</TableCell>
                     <TableCell>{m.zones?.[0] || "General"}</TableCell>
                     <TableCell className="text-right text-muted-foreground">{m.leadsAddedLast30}</TableCell>
                     <TableCell className="text-right text-muted-foreground">{m.leadsUpdatedLast30 || 0}</TableCell>
@@ -1104,13 +1365,13 @@ function ExecutionMonitorPage() {
           </div>
         </TabsContent>
 
-                        {/* ── Sheet 3: Lead Stage Matrix ── */}
+        {/* ── Sheet 3: Lead Stage Matrix ── */}
         <TabsContent value="matrix">
           <div className="bg-card border border-border rounded-xl overflow-hidden overflow-x-auto">
             <Table>
               <TableHeader className="bg-card/80">
                 <TableRow>
-                  <TableHead>Employee</TableHead>
+                  <TableHead className="sticky left-0 bg-card/90 z-20 shadow-[1px_0_0_0_#e2e8f0]">Employee</TableHead>
                   <TableHead className="text-center text-xs">New</TableHead>
                   <TableHead className="text-center text-xs">Contacted</TableHead>
                   <TableHead className="text-center text-xs">Qualified</TableHead>
@@ -1126,9 +1387,13 @@ function ExecutionMonitorPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {report.members.map((m) => (
+                {filteredData?.members.map((m) => (
                   <TableRow key={m.userId} className="border-border">
-                    <TableCell className="font-medium text-foreground">{m.name}</TableCell>
+                    <TableCell className="font-medium text-foreground sticky left-0 bg-card z-10 shadow-[1px_0_0_0_#e2e8f0]">
+                      <Link to={`/admin/performance/${m.role === "tcm" ? "tcm" : "flowops"}/${m.userId}`} className="hover:underline text-primary">
+                        {m.name}
+                      </Link>
+                    </TableCell>
                     <TableCell className="text-center">{m.stageDistribution["new"] || 0}</TableCell>
                     <TableCell className="text-center">{m.stageDistribution["contacted"] || 0}</TableCell>
                     <TableCell className="text-center">{m.stageDistribution["qualified"] || 0}</TableCell>
@@ -1148,13 +1413,13 @@ function ExecutionMonitorPage() {
           </div>
         </TabsContent>
 
-                        {/* ── Sheet 4: Low Activity Alert ── */}
+        {/* ── Sheet 4: Low Activity Alert ── */}
         <TabsContent value="low-activity">
-          <div className="bg-card border border-border rounded-xl overflow-hidden">
+          <div className="bg-card border border-border rounded-xl overflow-hidden overflow-x-auto">
             <Table>
               <TableHeader className="bg-card/80">
                 <TableRow>
-                  <TableHead>Employee</TableHead>
+                  <TableHead className="sticky left-0 bg-card/90 z-20 shadow-[1px_0_0_0_#e2e8f0]">Employee</TableHead>
                   <TableHead>Last Activity</TableHead>
                   <TableHead>Idle Time</TableHead>
                   <TableHead>Leads Added</TableHead>
@@ -1162,13 +1427,17 @@ function ExecutionMonitorPage() {
                   <TableHead>Stuck Stage</TableHead>
                   <TableHead>Reason</TableHead>
                   <TableHead>Manager Follow-up</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead className="sticky right-0 bg-card/90 z-20 shadow-[-1px_0_0_0_#e2e8f0]">Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {report.members.filter(m => m.isInactive || m.stuckLeads.length > 0 || m.followUpsRequired.length > 0).map((m) => (
+                {filteredData?.members.filter(m => m.isInactive || m.stuckLeads.length > 0 || m.followUpsRequired.length > 0).map((m) => (
                   <TableRow key={m.userId} className="border-border bg-red-950/5">
-                    <TableCell className="font-bold text-foreground">{m.name}</TableCell>
+                    <TableCell className="font-bold text-foreground sticky left-0 bg-card z-10 shadow-[1px_0_0_0_#e2e8f0]">
+                      <Link to={`/admin/performance/${m.role === "tcm" ? "tcm" : "flowops"}/${m.userId}`} className="hover:underline text-primary">
+                        {m.name}
+                      </Link>
+                    </TableCell>
                     <TableCell className="text-muted-foreground">{fmtTime(m.lastActionAt)}</TableCell>
                     <TableCell>
                       {m.isInactive ? (
@@ -1182,7 +1451,9 @@ function ExecutionMonitorPage() {
                     <TableCell>
                       {m.stuckLeads.map((s, i) => (
                         <div key={i} className="text-xs text-orange-400 mb-1">
-                          {s.leadName} ({s.minutesInStage}m in {STAGE_LABEL[s.stage] || s.stage})
+                          <Link to="/admin/leads" className="hover:underline text-orange-600">
+                            {s.leadName}
+                          </Link> ({s.minutesInStage}m in {STAGE_LABEL[s.stage] || s.stage})
                         </div>
                       ))}
                       {m.stuckLeads.length === 0 && <span className="text-muted-foreground">—</span>}
@@ -1196,10 +1467,10 @@ function ExecutionMonitorPage() {
                       ))}
                       {m.isInactive && <div className="text-xs text-red-400 font-bold">• Check inactivity</div>}
                     </TableCell>
-                    <TableCell>Pending</TableCell>
+                    <TableCell className="sticky right-0 bg-card z-10 shadow-[-1px_0_0_0_#e2e8f0]">Pending</TableCell>
                   </TableRow>
                 ))}
-                {report.members.filter(m => m.isInactive || m.stuckLeads.length > 0 || m.followUpsRequired.length > 0).length === 0 && (
+                {filteredData?.members.filter(m => m.isInactive || m.stuckLeads.length > 0 || m.followUpsRequired.length > 0).length === 0 && (
                   <TableRow>
                     <TableCell colSpan={9} className="text-center py-8 text-emerald-500 font-medium">All members active and no stuck leads! </TableCell>
                   </TableRow>
@@ -1209,27 +1480,38 @@ function ExecutionMonitorPage() {
           </div>
         </TabsContent>
 
-                        {/* ── Sheet 5: Feature Usage Analytics ── */}
+        {/* ── Sheet 5: Feature Usage Analytics ── */}
         <TabsContent value="features">
-          <div className="bg-card border border-border rounded-xl overflow-hidden">
+          <div className="bg-card border border-border rounded-xl overflow-hidden overflow-x-auto">
             <Table>
               <TableHeader className="bg-card/80">
                 <TableRow>
-                  <TableHead>Feature / Action</TableHead>
+                  <TableHead className="sticky left-0 bg-card/90 z-20 shadow-[1px_0_0_0_#e2e8f0]">Feature / Action</TableHead>
                   <TableHead className="text-right">Total Clicks</TableHead>
                   <TableHead className="text-right">Unique Users</TableHead>
                   <TableHead className="text-right">Avg / User</TableHead>
-                  <TableHead>Most Active Employee</TableHead>
+                  <TableHead className="sticky right-0 bg-card/90 z-20 shadow-[-1px_0_0_0_#e2e8f0]">Most Active Employee</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {report.featureUsage.map((f, i) => (
                   <TableRow key={i} className="border-border">
-                    <TableCell className="font-medium text-foreground">{f.feature}</TableCell>
+                    <TableCell className="font-medium text-foreground sticky left-0 bg-card z-10 shadow-[1px_0_0_0_#e2e8f0]">{f.feature}</TableCell>
                     <TableCell className="text-right text-primary font-mono">{f.totalClicks}</TableCell>
                     <TableCell className="text-right text-muted-foreground">{f.uniqueUsers}</TableCell>
                     <TableCell className="text-right text-muted-foreground">{f.avgPerUser}</TableCell>
-                    <TableCell className="font-bold text-center">{f.mostActiveEmployee}</TableCell>
+                    <TableCell className="font-bold text-center sticky right-0 bg-card z-10 shadow-[-1px_0_0_0_#e2e8f0]">
+                      {(() => {
+                        const m = report.members.find(member => member.name === f.mostActiveEmployee);
+                        return m ? (
+                          <Link to={`/admin/performance/${m.role === "tcm" ? "tcm" : "flowops"}/${m.userId}`} className="hover:underline text-primary">
+                            {f.mostActiveEmployee}
+                          </Link>
+                        ) : (
+                          f.mostActiveEmployee
+                        );
+                      })()}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -1237,13 +1519,13 @@ function ExecutionMonitorPage() {
           </div>
         </TabsContent>
 
-                        {/* ── Sheet 6: End-of-Day Scoreboard ── */}
+        {/* ── Sheet 6: End-of-Day Scoreboard ── */}
         <TabsContent value="scoreboard">
-          <div className="bg-card border border-border rounded-xl overflow-hidden">
+          <div className="bg-card border border-border rounded-xl overflow-hidden overflow-x-auto">
             <Table>
               <TableHeader className="bg-card/80">
                 <TableRow>
-                  <TableHead>Employee</TableHead>
+                  <TableHead className="sticky left-0 bg-card/90 z-20 shadow-[1px_0_0_0_#e2e8f0]">Employee</TableHead>
                   <TableHead className="text-right">Leads Added</TableHead>
                   <TableHead className="text-right">Scheduled</TableHead>
                   <TableHead className="text-right">Quotations</TableHead>
@@ -1253,13 +1535,17 @@ function ExecutionMonitorPage() {
                   <TableHead className="text-right">Missing Owners</TableHead>
                   <TableHead className="text-right">Missing Next Actions</TableHead>
                   <TableHead className="text-right">Final Score</TableHead>
-                  <TableHead className="text-center">Status</TableHead>
+                  <TableHead className="sticky right-0 bg-card/90 z-20 shadow-[-1px_0_0_0_#e2e8f0]">Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {report.members.map((m) => (
+                {filteredData?.members.map((m) => (
                   <TableRow key={m.userId} className="border-border">
-                    <TableCell className="font-bold text-foreground">{m.name}</TableCell>
+                    <TableCell className="font-bold text-foreground sticky left-0 bg-card z-10 shadow-[1px_0_0_0_#e2e8f0]">
+                      <Link to={`/admin/performance/${m.role === "tcm" ? "tcm" : "flowops"}/${m.userId}`} className="hover:underline text-primary">
+                        {m.name}
+                      </Link>
+                    </TableCell>
                     <TableCell className="text-right text-muted-foreground">{m.totalLeadsAdded}</TableCell>
                     <TableCell className={`text-right font-medium ${m.scheduledStageCount >= report.successCriteria.scheduledTarget ? "text-emerald-400" : "text-amber-400"}`}>{m.scheduledStageCount}</TableCell>
                     <TableCell className={`text-right font-medium ${m.totalQuotations >= report.successCriteria.quotationTarget ? "text-emerald-400" : "text-amber-400"}`}>{m.totalQuotations}</TableCell>
@@ -1275,7 +1561,7 @@ function ExecutionMonitorPage() {
                     <TableCell className="text-right text-primary font-black">
                        {Math.round((m.scheduledStageCount / (report.successCriteria.scheduledTarget || 1)) * 50 + (m.totalQuotations / (report.successCriteria.quotationTarget || 1)) * 50)}%
                     </TableCell>
-                    <TableCell className="text-center">
+                    <TableCell className="text-center sticky right-0 bg-card z-10 shadow-[-1px_0_0_0_#e2e8f0]">
                       {m.allCriteriaMet ? (
                         <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">Target Met</Badge>
                       ) : (

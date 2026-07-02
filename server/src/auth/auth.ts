@@ -28,6 +28,9 @@ export interface UserDoc {
   adminIds?: string[]; // for manager
   memberIds?: string[]; // for admin
   department?: string; // for hr
+  isManaged?: boolean; // for hr
+  baseSalary?: number; // for hr
+  allowances?: number; // for hr
   tenantId: string;
   invitedAt?: string | null;
   deletedAt?: string | null;
